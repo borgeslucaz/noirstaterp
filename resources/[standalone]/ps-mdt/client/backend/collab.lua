@@ -1,0 +1,86 @@
+local resourceName = tostring(GetCurrentResourceName())
+
+-- Join a report editing session
+RegisterNUICallback('joinReportSession', function(data, cb)
+    if not data or not data.reportId then cb({ success = false }) return end
+    local result = ps.callback(resourceName .. ':server:joinReportSession', data.reportId)
+    cb(result or { success = false })
+end)
+
+-- Leave a report editing session
+RegisterNUICallback('leaveReportSession', function(data, cb)
+    if not data or not data.reportId then cb({ success = true }) return end
+    local result = ps.callback(resourceName .. ':server:leaveReportSession', data.reportId)
+    cb(result or { success = true })
+end)
+
+RegisterNUICallback('syncYjsUpdate', function(data, cb)
+    cb({ success = true })
+    if not data or not data.reportId or not data.update then return end
+    TriggerServerEvent(resourceName .. ':server:collabSyncYjs', data.reportId, data.update)
+end)
+
+-- Sync structured data (suspects, charges, etc) - fire and forget
+RegisterNUICallback('syncReportData', function(data, cb)
+    cb({ success = true })
+    if not data or not data.reportId or not data.dataType then return end
+    TriggerServerEvent(resourceName .. ':server:collabSyncData', data.reportId, data.dataType, data.data)
+end)
+
+local awarenessIncomingBuffer = {}
+
+RegisterNUICallback('syncAwareness', function(data, cb)
+    TriggerServerEvent(resourceName .. ':server:collabSyncAwareness', data.reportId, data.update)
+    cb({ ok = true })
+end)
+
+RegisterNetEvent(resourceName .. ':client:awarenessBatch')
+AddEventHandler(resourceName .. ':client:awarenessBatch', function(payload)
+    if not payload or not payload.updates then return end
+    for _, u in ipairs(payload.updates) do
+        awarenessIncomingBuffer[#awarenessIncomingBuffer + 1] = u
+    end
+end)
+
+RegisterNUICallback('pollAwareness', function(data, cb)
+    if #awarenessIncomingBuffer == 0 then
+        cb({ updates = {} })
+        return
+    end
+    local batch = awarenessIncomingBuffer
+    awarenessIncomingBuffer = {}
+    cb({ updates = batch })
+end)
+
+-- Server push events -> forward to NUI
+RegisterNetEvent(resourceName .. ':client:reportEditorJoined', function(data)
+    SendNUI('reportEditorJoined', data)
+end)
+
+RegisterNetEvent(resourceName .. ':client:reportEditorLeft', function(data)
+    SendNUI('reportEditorLeft', data)
+end)
+
+local yjsIncomingBuffer = {}
+
+RegisterNetEvent(resourceName .. ':client:yjsBatch', function(data)
+    yjsIncomingBuffer[#yjsIncomingBuffer + 1] = data
+end)
+
+RegisterNetEvent(resourceName .. ':client:yjsUpdate', function(data)
+    yjsIncomingBuffer[#yjsIncomingBuffer + 1] = data
+end)
+
+RegisterNUICallback('pollYjsUpdates', function(data, cb)
+    if #yjsIncomingBuffer == 0 then
+        cb({ updates = {} })
+        return
+    end
+    local batch = yjsIncomingBuffer
+    yjsIncomingBuffer = {}
+    cb({ updates = batch })
+end)
+
+RegisterNetEvent(resourceName .. ':client:reportDataUpdate', function(data)
+    SendNUI('reportDataUpdate', data)
+end)

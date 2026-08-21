@@ -1,0 +1,3 @@
+BGRZConfig = {
+    Debug = true
+}

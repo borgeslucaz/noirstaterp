@@ -1,0 +1,1 @@
+-- Server main entry point (intentionally minimal - logic lives in server/backend/*.lua)
