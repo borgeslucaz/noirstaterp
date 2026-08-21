@@ -100,23 +100,23 @@ Config.Aces = {} -- list of ace permissions used for blacklisting
 Config.Blips = {
     ["clothing"] = {
         Show = true,
-        Sprite = 366,
+        Sprite = 420,
         Color = 47,
-        Scale = 0.7,
+        Scale = 1.0,
         Name = "Clothing Store",
     },
     ["barber"] = {
         Show = true,
-        Sprite = 71,
+        Sprite = 384,
         Color = 0,
-        Scale = 0.7,
+        Scale = 1.0,
         Name = "Barber",
     },
     ["tattoo"] = {
         Show = true,
-        Sprite = 75,
+        Sprite = 290,
         Color = 4,
-        Scale = 0.7,
+        Scale = 1.0,
         Name = "Tattoo Shop",
     },
     ["surgeon"] = {

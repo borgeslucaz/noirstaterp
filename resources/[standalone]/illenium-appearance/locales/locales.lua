@@ -6,11 +6,19 @@ function _L(key)
         lang = "en"
     end
     local value = Locales[lang]
+    if not value then
+        print("Locale not loaded: " .. lang)
+        return key
+    end
     for k in key:gmatch("[^.]+") do
-        value = value[k]
-        if not value then
+        if type(value) ~= "table" then
             print("Missing locale for: " .. key)
-            return ""
+            return key
+        end
+        value = value[k]
+        if value == nil then
+            print("Missing locale for: " .. key)
+            return key
         end
     end
     return value

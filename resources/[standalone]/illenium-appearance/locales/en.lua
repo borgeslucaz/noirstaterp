@@ -1,5 +1,38 @@
 Locales["en"] = {
     UI = {
+        header = {
+            title = "Appearance Editor",
+            subtitle = "Customize your character"
+        },
+        sidebar = {
+            ped = "Characters",
+            headBlend = "Face",
+            faceFeatures = "Features",
+            headOverlays = "Skin",
+            hair = "Hair",
+            makeup = "Makeup",
+            tattoos = "Tattoos",
+            components = "Clothing",
+            props = "Accessories",
+            clothes = {
+                hat = "Hat",
+                torso = "Torso",
+                pants = "Pants"
+            }
+        },
+        camera = {
+            head = "Head",
+            torso = "Torso",
+            legs = "Legs"
+        },
+        footer = {
+            cancel = "Cancel",
+            save = "Save"
+        },
+        controls = {
+            rotateLeft = "Rotate Left",
+            rotateRight = "Rotate Right"
+        },
         modal = {
             save = {
                 title = "Save customization",
@@ -276,11 +309,11 @@ Locales["en"] = {
         title = "Buy Clothing - $%d",
         titleNoPrice = "Change Clothing",
         options = {
-            title = "👔 | Clothing Store Options",
+            title = "Clothing Store Options",
             description = "Pick from a wide range of items to wear"
         },
         outfits = {
-            title = "👔 | Outfit Options",
+            title = "Outfit Options",
             civilian = {
                 title = "Civilian Outfit",
                 description = "Put on your clothes"

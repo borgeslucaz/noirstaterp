@@ -131,6 +131,12 @@ RegisterNUICallback("rotate_right", function(_, cb)
     client.pedTurn(cache.ped, -10.0)
 end)
 
+-- Mouse drag rotation - rotate by delta amount
+RegisterNUICallback("appearance_rotate_ped", function(delta, cb)
+    cb(1)
+    client.pedTurn(cache.ped, delta)
+end)
+
 RegisterNUICallback("get_theme_configuration", function(_, cb)
     cb(Config.Theme)
 end)
