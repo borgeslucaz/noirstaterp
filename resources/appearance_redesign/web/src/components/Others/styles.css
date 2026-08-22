@@ -1,0 +1,143 @@
+.wrapper {
+  user-select: none;
+  position: absolute;
+  width: 64.815vh;
+  height: 100.000vh; 
+  background: linear-gradient(270deg, #0a0c1300 0%, #0A0C12 100%);
+}
+
+.wrapper h1 {
+  margin-top: 2.5vh;
+  color: #F92E47;
+  text-shadow: 0 0.648vh 3.704vh rgba(249, 46, 71, 0.40);
+  font-family: Unbounded;
+  font-size: 2.222vh;
+  font-weight: 700;
+  margin-left: 3.5vh;
+}
+
+.wrapper h2 {
+  color: #FFF;
+  text-shadow: 0 0.648vh 3.704vh rgba(255, 255, 255, 0.30);
+  font-family: Unbounded;
+  font-size: 2.222vh;
+  margin-left: 3.704vh;
+  font-weight: 700;
+}
+
+.wrapper h3 {
+  width: 25.370vh;
+  color: rgba(255, 255, 255, 0.50);
+  font-family: "Inter";
+  margin-left: 3.704vh;
+  font-size: 1.2vh;
+  font-weight: 300;
+  margin-top: 0.222vh;
+}
+
+.wrapper .buttons {
+  margin-top: 22.315vh;
+  margin-left: 3.704vh;
+  display: flex;
+  flex-direction: column;
+  z-index: 9999;
+  position: relative;
+  pointer-events: auto;
+}
+
+.wrapper .buttons .button-wrapper {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.556vh;
+  gap: 1.481vh;
+}
+
+.wrapper .buttons .button {
+  z-index: 9999;
+  display: flex;
+  width: 4.630vh;
+  height: 5.370vh;
+  cursor: pointer;
+}
+
+.wrapper .buttons .button-label {
+  color: rgba(255, 255, 255, 0.50);
+  font-family: "Inter";
+  font-size: 1.296vh;
+  font-weight: 400;
+  transition: color 0.3s ease;
+}
+
+.wrapper .buttons .button-wrapper:hover .button-label,
+.wrapper .buttons .button-label.selected {
+  color: white;
+}
+
+.wrapper .buttons .button path {
+  transition: fill 0.3s ease, stroke 0.3s ease, fill-opacity 0.3s ease, stroke-opacity 0.3s ease;
+}
+
+.wrapper .buttons .button:hover path:nth-child(1) {
+  fill: #E5444E !important;
+  fill-opacity: 0.06 !important;
+}
+
+.wrapper .buttons .button:hover path:nth-child(2) {
+  fill: #E5444E !important;
+  fill-opacity: 0.1 !important;
+}
+
+.wrapper .buttons .button:hover path:nth-child(3) {
+  stroke: #E5444E !important;
+  stroke-opacity: 0.1 !important;
+}
+
+.wrapper .buttons .button:hover path:nth-child(4) {
+  fill: white !important;
+  fill-opacity: 1 !important;
+}
+
+.bottom {
+  position: absolute !important;
+  top: 94vh;
+  margin-left: 3.704vh;
+  display: flex;
+}
+
+.bottom .bottom-inside {
+  display: flex;
+}
+
+.bottom .bottom-inside svg {
+  margin-right: 0.926vh;
+  width: 3.333vh;
+  height: 3.889vh;
+}
+
+.bottom .bottom-inside .svg2 {
+  margin-top: 1.15vh;
+  margin-left: -3.3vh;
+  width: 1.526vh;
+  height: 1.526vh;
+}
+
+.bottom .bottom-inside h1 {
+  margin-left: -3.5vh;
+  margin-top: 1.35vh;
+  color: #FFF;
+  text-align: center;
+  font-family: "Inter";
+  font-size: 0.926vh;
+  font-weight: 400;
+}
+
+.bottom .bottom-inside span {
+  margin-top: .6vh;
+  margin-left: 1.389vh;
+  width: 9vh;
+  color: #FFF;
+  font-family: "Inter";
+  font-size: 1.111vh;
+  font-weight: 400;
+}
+

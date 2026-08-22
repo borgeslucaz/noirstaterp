@@ -1,0 +1,25 @@
+.custom-button {
+  padding: 5px 12px;
+  color: rgba(255, 255, 255, 0.9);
+  background-color: rgba(0, 0, 0, 0.7);
+  text-align: center;
+  border-radius: 4px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  font-weight: 200;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.custom-button:hover {
+  background-color: rgba(0, 0, 0, 0.9);
+  color: rgba(255, 255, 255, 1);
+}
+
+.custom-button:active {
+  transform: scale(0.95);
+}
+

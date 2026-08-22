@@ -1,0 +1,32 @@
+.item-container {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid transparent;
+  transition: border-color 0.3s;
+}
+
+.item-container.selected {
+  border-color: #E5444E;
+  background: rgba(229, 68, 78, 0.1);
+}
+
+.item-container span {
+  color: #fff;
+  font-size: 14px;
+}
+
+.item-inputs {
+  width: 100%;
+  display: inline-flex;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.item-inputs > div + div {
+  margin-top: 10px;
+}
+

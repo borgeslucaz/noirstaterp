@@ -1,0 +1,306 @@
+.head-overlays-container {
+  float: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+  margin-left: -3.704vh;
+  width: 64.815vh;
+  overflow: hidden;
+  overflow-y: auto;
+  height: 95%;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  margin-top: 3vh;
+}
+
+.head-overlays-container::-webkit-scrollbar {
+  display: none;
+}
+  
+  .head-overlays-container *::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .head-overlays-container * {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .head-overlays-container + div {
+    margin-top: 0.926vh;
+  }
+  
+  .hair-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.326vh;
+    margin-bottom: 1.111vh;
+  }
+  
+  .hair-title {
+    color: #fff;
+    font-family: Inter;
+    font-size: 1.481vh;
+    font-weight: 500;
+    margin: 0;
+  }
+  
+  .hair-controls-row {
+    display: flex;
+    flex-direction: row;
+    gap: 0.926vh;
+  }
+  
+  .hair-type-container {
+    flex: 1;
+    display: flex;
+  }
+  
+  .input-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 18.056vh;
+    height: 5.741vh;
+    border-radius: 0.463vh;
+    border: 0.046vh solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.06);
+    padding: 1.5vh;
+    margin: 0;
+  }
+  
+  .input-container > span {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    order: 1;
+  }
+  
+  .input-container > span small {
+    color: #fff;
+    font-family: Inter;
+    font-size: 1.296vh;
+    font-weight: 500;
+  }
+  
+  .input-container > span small:last-child {
+    display: none;
+  }
+  
+  .input-container > div {
+    order: 2;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.556vh;
+    margin: 0;
+    height: 20vh;
+    width: auto;
+  }
+  
+  .input-container > div button {
+    width: 2.778vh;
+    height: 2.778vh;
+    min-width: 2.778vh;
+    min-height: 2.778vh;
+    max-width: 2.778vh;
+    max-height: 2.778vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    font-size: 1vh;
+    border-radius: 0.463vh;
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+    transition: all 0.25s ease;
+    padding: 0;
+    flex-shrink: 0;
+    box-sizing: border-box;
+  }
+  
+  .input-container > div button:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+  }
+  
+  .input-container > div input {
+    text-align: center;
+    background: transparent;
+    color: #fff;
+    font-family: Inter;
+    font-size: 1.296vh;
+    font-weight: 500;
+    width: 25vh;
+    min-width: 0;
+    height: 3vh;
+    border: none;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  .hair-opacity-container {
+    flex: 1;
+    display: flex;
+    margin-top: 0.4vh;
+  }
+  
+  .range-input-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    width: 18.056vh;
+    height: 5.741vh;
+    border-radius: 0.463vh;
+    border: 0.046vh solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.06);
+    padding: 1.5vh;
+    margin: 0;
+  }
+  
+  .range-input-container > span {
+    display: flex;
+    color: #fff;
+    font-family: Inter;
+    font-size: 1.296vh;
+    font-weight: 500;
+    margin: 0;
+  }
+  
+  .range-input-container > span small:first-child {
+    display: block;
+  }
+  
+  .range-input-container > span small:last-child {
+    display: none;
+  }
+  
+  .range-input-container > div {
+    margin-top: 0;
+    gap: 0;
+  }
+  
+  .range-input-container > div small {
+    display: none;
+  }
+  
+  .range-input-container input[type='range'] {
+    width: 15.093vh;
+    height: 0.370vh;
+    margin: 0;
+    background: linear-gradient(
+      to right,
+      #e5444e 0%,
+      #e5444e var(--slider-percentage, 50%),
+      rgba(255, 255, 255, 0.06) var(--slider-percentage, 50%),
+      rgba(255, 255, 255, 0.06) 100%
+    );
+    border-radius: 0.926vh;
+  }
+  
+  .range-input-container input[type='range']::-webkit-slider-thumb {
+    width: 1.111vh;
+    height: 1.111vh;
+    background: #fff;
+    border: 0.093vh solid #f92e47;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  
+  .range-input-container input[type='range']::-moz-range-thumb {
+    width: 1.111vh;
+    height: 1.111vh;
+    background: #fff;
+    border: 0.093vh solid #f92e47;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  
+  .range-input-container input[type='range']::-moz-range-track {
+    background: rgba(255, 255, 255, 0.06);
+    height: 0.370vh;
+    border-radius: 0.926vh;
+  }
+  
+  .hair-color-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.741vh;
+  }
+  
+  .hair-color-title {
+    color: #fff;
+    font-family: Inter;
+    font-size: 1.296vh;
+    font-weight: 500;
+    margin: 0;
+  }
+  
+  .color-input-container {
+    padding: 1.111vh;
+    border-radius: 0.463vh;
+    border: 0.046vh solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.06);
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
+  }
+  
+  .color-input-container > span {
+    display: none;
+  }
+  
+  .color-input-container > div {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 0.556vh;
+    margin: 0;
+    max-height: none;
+    overflow: visible;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  .color-input-button {
+    width: 100%;
+    height: 2.778vh;
+    border-radius: 0.463vh;
+    border: 0.185vh solid transparent;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    background: rgba(255, 255, 255, 0.06);
+    box-sizing: border-box;
+    position: relative;
+  }
+  
+  .color-input-button:hover {
+    border: 0.185vh solid #e5444e;
+    background: rgba(249, 46, 71, 0.12);
+  }
+  
+  .color-input-button.selected {
+    background: rgba(249, 46, 71, 0.12);
+    border: 0.185vh solid #e5444e;
+  }
+  
+  .color-input-button-inner {
+    width: 60%;
+    height: 60%;
+    border-radius: 0.278vh;
+    display: block;
+  }
+
+  .eye-color-section .input-container {
+    width: 37vh;
+  }
+  

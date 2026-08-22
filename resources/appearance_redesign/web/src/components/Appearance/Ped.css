@@ -1,0 +1,219 @@
+.ped-container {
+    float: right;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    margin-left: -3vh;
+    width: 64.815vh;
+    overflow: hidden;
+    overflow-y: auto;
+    height: 90%;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    margin-top: 4.95vh;
+}
+
+.ped-container .select-input-container {
+    width: 37vh;
+    display: flex;
+    justify-content: center;
+    margin-top: -85vh;
+    margin-left: 25vh;
+}
+
+.ped-container .select-input-container > span {
+    display: none;
+}
+
+.ped-container [class*="Select"] [class*="__control"] {
+    width: 38vh !important;
+    height: 3.704vh !important;
+    min-height: 3.704vh !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 0.046vh solid rgba(255, 255, 255, 0.16) !important;
+    border-radius: 0.463vh !important;
+    box-shadow: none !important;
+    cursor: text;
+    padding: 0;
+    margin-top: 0 !important;
+    transition: all 0.2s ease;
+}
+
+.ped-container [class*="Select"] [class*="__control--is-focused"] {
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    box-shadow: none !important;
+}
+
+.ped-container [class*="Select"] [class*="__value-container"] {
+    padding: 1.019vh 1.111vh !important;
+    height: 3.704vh !important;
+}
+
+.ped-container [class*="Select"] [class*="__placeholder"] {
+    color: rgba(255, 255, 255, 0.5) !important;
+    font-family: Inter, sans-serif !important;
+    font-size: 1.296vh !important;
+    font-weight: 400 !important;
+}
+
+.ped-container [class*="Select"] [class*="__input"],
+.ped-container [class*="Select"] input {
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-family: Inter, sans-serif !important;
+    font-size: 1.296vh !important;
+    font-weight: 400 !important;
+}
+
+.ped-container [class*="Select"] [class*="__single-value"] {
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-family: Inter, sans-serif !important;
+    font-size: 1.296vh !important;
+    font-weight: 400 !important;
+}
+
+.ped-container [class*="Select"] [class*="__indicators"] {
+    display: none !important;
+}
+
+/* Dropdown Menu Styles */
+.ped-container [class*="Select"] [class*="__menu"],
+body > div[id*="react-select"] [class*="__menu"],
+body > div[class*="Select"] [class*="__menu"],
+div[id*="react-select"] [class*="__menu"],
+div[class*="Select"] [class*="__menu"] {
+    width: 38vh !important;
+    min-width: 38vh !important;
+    max-width: 38vh !important;
+    max-height: 18.519vh !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 0.046vh solid rgba(255, 255, 255, 0.16) !important;
+    border-radius: 0.463vh !important;
+    margin-top: 0.185vh !important;
+    margin-bottom: 0.926vh !important;
+    position: absolute !important;
+    z-index: 9999 !important;
+    box-shadow: none !important;
+}
+
+.ped-container [class*="Select"] [class*="__menu-list"],
+body > div[id*="react-select"] [class*="__menu-list"],
+body > div[class*="Select"] [class*="__menu-list"],
+div[id*="react-select"] [class*="__menu-list"],
+div[class*="Select"] [class*="__menu-list"] {
+    padding: 0.463vh !important;
+    background: transparent !important;
+    max-height: 18.519vh !important;
+    overflow-y: auto !important;
+    border-radius: 0.463vh !important;
+}
+
+.ped-container [class*="Select"] [class*="__menu-list"]::-webkit-scrollbar,
+body > div[id*="react-select"] [class*="__menu-list"]::-webkit-scrollbar,
+body > div[class*="Select"] [class*="__menu-list"]::-webkit-scrollbar,
+div[id*="react-select"] [class*="__menu-list"]::-webkit-scrollbar {
+    width: 0.926vh !important;
+}
+
+.ped-container [class*="Select"] [class*="__menu-list"]::-webkit-scrollbar-track,
+body > div[id*="react-select"] [class*="__menu-list"]::-webkit-scrollbar-track,
+body > div[class*="Select"] [class*="__menu-list"]::-webkit-scrollbar-track,
+div[id*="react-select"] [class*="__menu-list"]::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+.ped-container [class*="Select"] [class*="__menu-list"]::-webkit-scrollbar-thumb,
+body > div[id*="react-select"] [class*="__menu-list"]::-webkit-scrollbar-thumb,
+body > div[class*="Select"] [class*="__menu-list"]::-webkit-scrollbar-thumb,
+div[id*="react-select"] [class*="__menu-list"]::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3) !important;
+    border-radius: 0.463vh !important;
+}
+
+.ped-container [class*="Select"] [class*="__option"],
+body > div[id*="react-select"] [class*="__option"],
+body > div[class*="Select"] [class*="__option"],
+div[id*="react-select"] [class*="__option"] {
+    padding: 0.926vh 1.111vh !important;
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-family: Inter, sans-serif !important;
+    font-size: 1.296vh !important;
+    font-weight: 400 !important;
+    background: transparent !important;
+    cursor: pointer;
+    border-radius: 0.463vh !important;
+    margin: 0 !important;
+    width: auto !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    transition: all 0.2s ease;
+}
+
+.ped-container [class*="Select"] [class*="__option--is-focused"],
+body > div[id*="react-select"] [class*="__option--is-focused"],
+body > div[class*="Select"] [class*="__option--is-focused"],
+div[id*="react-select"] [class*="__option--is-focused"] {
+    background: rgba(249, 46, 71, 0.20) !important;
+    border: none !important;
+}
+
+.ped-container [class*="Select"] [class*="__option--is-selected"],
+body > div[id*="react-select"] [class*="__option--is-selected"],
+body > div[class*="Select"] [class*="__option--is-selected"],
+div[id*="react-select"] [class*="__option--is-selected"] {
+    background: rgba(249, 46, 71, 0.20) !important;
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.ped-container [class*="Select"] [class*="__option"]:hover,
+body > div[id*="react-select"] [class*="__option"]:hover,
+body > div[class*="Select"] [class*="__option"]:hover,
+div[id*="react-select"] [class*="__option"]:hover,
+.ped-container [class*="Select"] [class*="__option--is-selected"]:hover,
+body > div[id*="react-select"] [class*="__option--is-selected"]:hover,
+body > div[class*="Select"] [class*="__option--is-selected"]:hover,
+div[id*="react-select"] [class*="__option--is-selected"]:hover,
+.ped-container [class*="Select"] [class*="__option--is-focused"]:hover,
+body > div[id*="react-select"] [class*="__option--is-focused"]:hover,
+body > div[class*="Select"] [class*="__option--is-focused"]:hover,
+div[id*="react-select"] [class*="__option--is-focused"]:hover {
+    background: rgba(249, 46, 71, 0.20) !important;
+}
+
+.ped-suggestions {
+    position: absolute;
+    top: calc(3.704vh + 0.463vh);
+    width: 30.556vh;
+    max-height: 18.519vh;
+    overflow-y: auto;
+    background: rgba(10, 12, 18, 0.95);
+    border: 0.046vh solid rgba(255, 255, 255, 0.16);
+    border-radius: 0.463vh;
+    z-index: 1000;
+    margin-top: 0.185vh;
+}
+
+.ped-suggestion-item {
+    padding: 0.926vh 1.111vh;
+    color: rgba(255, 255, 255, 0.9);
+    font-family: Inter, sans-serif;
+    font-size: 1.296vh;
+    font-weight: 400;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.ped-suggestion-item:hover {
+    background: rgba(249, 46, 71, 0.2);
+}
+
+.ped-suggestion-item:first-child {
+    border-top-left-radius: 0.463vh;
+    border-top-right-radius: 0.463vh;
+}
+
+.ped-suggestion-item:last-child {
+    border-bottom-left-radius: 0.463vh;
+    border-bottom-right-radius: 0.463vh;
+}

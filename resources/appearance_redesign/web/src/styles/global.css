@@ -1,0 +1,24 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  outline: 0;
+  font-family: 'Inter', sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+body {
+  background: transparent;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  /* background: url('https://cdn.discordapp.com/attachments/694641187901931601/786575235734437938/unknown.png'); */
+}
+
+button {
+  cursor: pointer;
+  outline: 0;
+}
+

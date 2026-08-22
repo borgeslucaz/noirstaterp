@@ -1,0 +1,123 @@
+/* Tattoos Component Specific Styles */
+
+.components-container .components-item .range-input-container {
+  width: 100%;
+  margin-top: 0.926vh;
+  height: 4.75vh;
+}
+
+.components-container .components-item .range-input-container > span {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  font-weight: 400;
+  margin-bottom: 0.556vh;
+  margin-top: -1vh;
+}
+
+.components-container .components-item .range-input-container > span small {
+  color: rgba(255, 255, 255, 0.9);
+  font-family: Inter, sans-serif;
+  font-size: 1.296vh;
+  font-weight: 400;
+}
+
+.components-container .components-item .range-input-container > div {
+  display: flex;
+  align-items: center;
+  position: relative;
+  margin-top: 0.556vh;
+}
+
+.components-container .components-item .range-input-container > div > small {
+  font-weight: 400;
+  font-size: 1.111vh;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: Inter, sans-serif;
+  min-width: 2.778vh;
+}
+
+.components-container .components-item .range-input-container input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 34vh;
+  height: 0.370vh;
+  background: linear-gradient(
+    to right,
+    #e5444e 0%,
+    #e5444e var(--slider-percentage, 50%),
+    rgba(255, 255, 255, 0.06) var(--slider-percentage, 50%),
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  outline: none;
+  opacity: 1;
+  border-radius: 0.278vh;
+  margin: 0 0.926vh;
+}
+
+.components-container .components-item .range-input-container input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.2vh;
+  height: 1.2vh;
+  background: #fff;
+  border: 0.185vh solid #f92e47;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.25s ease;
+}
+
+.components-container .components-item .range-input-container input[type='range']::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  border-color: #e5444e;
+  box-shadow: 0 0 0.463vh rgba(249, 46, 71, 0.5);
+}
+
+.components-container .components-item .range-input-container input[type='range']::-webkit-slider-thumb:active {
+  transform: scale(1.15);
+}
+
+.components-container .components-item .range-input-container input[type='range']::-moz-range-thumb {
+  width: 1.574vh;
+  height: 1.574vh;
+  background: #fff;
+  border: 0.185vh solid #f92e47;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.25s ease;
+}
+
+.components-container .components-item .range-input-container input[type='range']::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  border-color: #e5444e;
+  box-shadow: 0 0 0.463vh rgba(249, 46, 71, 0.5);
+}
+
+.components-container .components-item .range-input-container input[type='range']::-moz-range-thumb:active {
+  transform: scale(1.15);
+}
+
+.components-container .components-item .range-input-container input[type='range']::-moz-range-track {
+  background: linear-gradient(
+    to right,
+    #e5444e 0%,
+    #e5444e var(--slider-percentage, 50%),
+    rgba(255, 255, 255, 0.06) var(--slider-percentage, 50%),
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  height: 1.019vh;
+  border-radius: 0.278vh;
+}
+
+.components-container .components-item .range-input-container input[type='range']:focus {
+  outline: none;
+}
+
+.components-container .components-item .range-input-container input[type='range']:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0.741vh rgba(249, 46, 71, 0.6);
+}
+
+.components-container .components-item .range-input-container input[type='range']:focus::-moz-range-thumb {
+  box-shadow: 0 0 0.741vh rgba(249, 46, 71, 0.6);
+}
+

@@ -1,0 +1,14 @@
+.select-input-container {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.select-input-container > span {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  font-weight: 200;
+}
+

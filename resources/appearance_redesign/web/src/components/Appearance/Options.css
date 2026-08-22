@@ -1,0 +1,126 @@
+.options-container {
+  height: 40vh;
+  margin-top: 1.3vh;
+  margin-right: -22.111vh;
+  display: flex;
+  float: right;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 4.259vh 0;
+  gap: .5vh;
+}
+
+.options-toggle-button {
+  height: 3.704vh;
+  width: 3.704vh;
+  min-height: 3.704vh;
+  min-width: 3.704vh;
+  max-height: 3.704vh;
+  max-width: 3.704vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0.463vh;
+  transition: all 0.2s;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.16);
+  box-sizing: border-box;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.options-toggle-button:hover {
+  color: rgba(255, 255, 255, 1);
+  background: rgba(249, 46, 71, 0.20);
+}
+
+.options-toggle-button:active {
+  transform: scale(0.95);
+}
+
+.options-toggle-button.active {
+  color: rgb(255, 248, 248);
+  background: rgba(249, 46, 71, 0.20);
+}
+
+.options-toggle-button.active:hover {
+  color: rgb(255, 255, 255);
+  background: rgba(249, 46, 71, 0.20);
+}
+
+.options-option {
+  height: 3.704vh;
+  width: 3.704vh;
+  min-height: 3.704vh;
+  min-width: 3.704vh;
+  max-height: 3.704vh;
+  max-width: 3.704vh;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 0.463vh;
+  transition: all 0.1s;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.16);
+  box-sizing: border-box;
+  padding: 0;
+}
+
+.options-option:hover {
+  color: rgba(255, 255, 255, 1);
+  background: rgba(249, 46, 71, 0.20);
+}
+
+.options-option:active {
+  transform: scale(0.8);
+  color: rgb(255, 255, 255);
+  background: rgba(249, 46, 71, 0.20);
+}
+
+.options-extended-container {
+  position: relative;
+  height: 3.704vh;
+  width: 3.704vh;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  overflow: visible;
+}
+
+.options-extended-icon {
+  height: 3.704vh;
+  width: 3.704vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 0.463vh;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.16);
+  z-index: 10;
+  position: relative;
+}
+
+.options-extended-children {
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 1.111vh;
+  position: absolute;
+  right: 3.704vh;
+  height: 3.704vh;
+  white-space: nowrap;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.options-extended-children > * + * {
+  margin-right: 1.111vh;
+}
+

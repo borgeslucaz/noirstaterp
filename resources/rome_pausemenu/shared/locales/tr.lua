@@ -1,0 +1,26 @@
+Locales = Locales or {}
+
+Locales['tr'] = {
+    resume = 'Oyuna Dön',
+    settings = 'Ayarlar',
+    maps = 'Harita',
+    photomode = 'Fotoğraf Modu',
+    exit_server = 'Sunucudan Çık',
+    exit_confirm = 'Sunucudan ayrılmak istediğinize emin misiniz?',
+    yes = 'Evet',
+    no = 'Hayır',
+    cash = 'Nakit',
+    bank = 'Banka',
+    job = 'Meslek',
+    id = 'ID',
+    rotate_left = 'Sola Döndür',
+    rotate_right = 'Sağa Döndür',
+    prev_filter = 'Önceki Filtre',
+    next_filter = 'Sonraki Filtre',
+    exit_photomode = 'Fotoğraf Modundan Çık',
+    filter = 'Filtre',
+    blur = 'Arka Plan Bulanıklığı',
+    players = 'Oyuncular',
+    none = 'Yok',
+    press_esc = 'Ana menüye dönmek için ESC',
+}

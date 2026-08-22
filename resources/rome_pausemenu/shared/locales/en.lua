@@ -1,0 +1,26 @@
+Locales = Locales or {}
+
+Locales['en'] = {
+    resume = 'Resume',
+    settings = 'Settings',
+    maps = 'Maps',
+    photomode = 'Photomode',
+    exit_server = 'Exit Server',
+    exit_confirm = 'Are you sure you want to leave the server?',
+    yes = 'Yes',
+    no = 'No',
+    cash = 'Cash',
+    bank = 'Bank',
+    job = 'Job',
+    id = 'ID',
+    rotate_left = 'Rotate Left',
+    rotate_right = 'Rotate Right',
+    prev_filter = 'Previous Filter',
+    next_filter = 'Next Filter',
+    exit_photomode = 'Exit Photomode',
+    filter = 'Filter',
+    blur = 'Background Blur',
+    players = 'Players',
+    none = 'None',
+    press_esc = 'Press ESC to return to menu',
+}

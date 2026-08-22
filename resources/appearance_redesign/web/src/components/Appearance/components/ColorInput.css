@@ -1,0 +1,36 @@
+.color-input-container {
+  width: 100%;
+}
+
+.color-input-container > span {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  font-weight: 200;
+}
+
+.color-input-container > div {
+  width: 100%;
+}
+
+.color-input-button {
+  cursor: pointer;
+  padding: 0;
+  transition: border-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-sizing: border-box;
+  background: transparent;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+}
+
+.color-input-button.selected {
+  border: 2px solid rgba(255, 255, 255, 1);
+}
+
+.color-input-button-inner {
+  display: block;
+}
+
