@@ -5,6 +5,8 @@ require 'modules.interface.client'
 
 local Utils = require 'modules.utils.client'
 local Weapon = require 'modules.weapon.client'
+local Grid = require 'modules.grid.shared'
+local Clothing = require 'modules.clothing.client'
 local currentWeapon
 
 exports('getCurrentWeapon', function()
@@ -30,6 +32,7 @@ local invBusy = true
 
 ---@type boolean?
 local invOpen = false
+local plyState = LocalPlayer.state
 local IsPedCuffed = IsPedCuffed
 local playerPed = cache.ped
 
@@ -38,18 +41,18 @@ lib.onCache('ped', function(ped)
 	Utils.WeaponWheel()
 end)
 
-client.player:set('invBusy', true)
-client.player:set('invHotkeys', false)
-client.player:set('canUseWeapons', false)
+plyState:set('invBusy', true, true)
+plyState:set('invHotkeys', false, false)
+plyState:set('canUseWeapons', false, false)
 
 local function canOpenInventory()
     if not PlayerData.loaded then
         return shared.info('cannot open inventory', '(player inventory has not loaded)')
     end
 
-    if IsPauseMenuActive() or invOpen == nil then return end
+    if IsPauseMenuActive() then return end
 
-    if invBusy or (currentWeapon?.timer or 0) > 0 then
+    if invBusy or invOpen == nil or (currentWeapon?.timer or 0) > 0 then
         return shared.info('cannot open inventory', '(is busy)')
     end
 
@@ -76,17 +79,6 @@ local function canOpenTarget(ped)
 	or IsEntityPlayingAnim(ped, 'random@mugging3', 'handsup_standing_base', 3)
 end
 
----@class OpenInventory
----@field id string | integer
----@field label string
----@field type string
----@field slots integer
----@field weight integer
----@field maxWeight integer
----@field coords? vector3
----@field distance? integer
----@field instance? string | number
----@field [string] unknown
 local defaultInventory = {
 	type = 'newdrop',
 	slots = shared.dropslots,
@@ -96,9 +88,10 @@ local defaultInventory = {
 }
 
 local currentInventory = defaultInventory
+local currentContainer
 
 local function closeTrunk()
-	if currentInventory.type == 'trunk' then
+	if currentInventory?.type == 'trunk' then
 		local coords = GetEntityCoords(playerPed, true)
 		---@todo animation for vans?
 		Utils.PlayAnimAdvanced(0, 'anim@heists@fleeca_bank@scope_out@return_case', 'trevor_action', coords.x, coords.y, coords.z, 0.0, 0.0, GetEntityHeading(playerPed), 2.0, 2.0, 1000, 49, 0.25)
@@ -123,12 +116,29 @@ local CraftingBenches = require 'modules.crafting.client'
 local Vehicles = lib.load('data.vehicles')
 local Inventory = require 'modules.inventory.client'
 
+---@type table?
+local backpackInventory
+
+---Only the server ever names the worn bag. `nil` is a real value here - it means the bag came off.
+RegisterNetEvent('ox_inventory:setBackpack', function(data)
+    if source == '' then return end
+
+    backpackInventory = data or nil
+
+    -- A bag equipped or removed while the inventory is open has to reach the UI immediately;
+    -- otherwise the cache above is picked up by the next `setupInventory`.
+    if invOpen then
+        SendNUIMessage({
+            action = 'setupInventory',
+            data = { backpackInventory = backpackInventory }
+        })
+    end
+end)
+
 ---@param inv string?
 ---@param data any?
 ---@return boolean?
 function client.openInventory(inv, data)
-	if invOpen == nil then return end
-
 	if invOpen then
 		if not inv and currentInventory.type == 'newdrop' then
 			return client.closeInventory()
@@ -139,12 +149,29 @@ function client.openInventory(inv, data)
 				return client.closeInventory()
 			end
 
+			if inv == 'container' and currentInventory.type ~= 'container' and currentInventory ~= defaultInventory then
+				if currentContainer and currentContainer.id == PlayerData.inventory[data].metadata.container then
+					currentContainer = nil
+					lib.callback.await('ox_inventory:closeContainer', false)
+					SendNUIMessage({ action = 'setContainer', data = nil })
+					return
+				end
+
+				local payload = lib.callback.await('ox_inventory:openContainer', false, data)
+
+				if not payload then return end
+
+				currentContainer = payload
+				SendNUIMessage({ action = 'setContainer', data = payload })
+				return
+			end
+
 			if currentInventory.type == 'drop' and (not data or currentInventory.id == (type(data) == 'table' and data.id or data)) then
 				return client.closeInventory()
 			end
 
 			if inv ~= 'drop' and inv ~= 'container' then
-				if (data?.id or data) == currentInventory.id then
+				if (data?.id or data) == currentInventory?.id then
 					-- Triggering exports.ox_inventory:openInventory('stash', 'mystash') twice in rapid succession is weird behaviour
 					return warn(("script tried to open inventory, but it is already open\n%s"):format(Citizen.InvokeNative(`FORMAT_STACK_TRACE` & 0xFFFFFFFF, nil, 0, Citizen.ResultAsString())))
 				else
@@ -274,14 +301,21 @@ function client.openInventory(inv, data)
         end
     end
 
-	client.player:set('invOpen', true)
+    invOpen = true
+    plyState.invOpen = true
 
     SetInterval(client.interval, 100)
     SetNuiFocus(true, true)
-    SetNuiFocusKeepInput(true)
+    -- Keep keyboard input inside the inventory. Some movement/crouch resources
+    -- read disabled controls and can bypass DisableAllControlActions otherwise.
+    SetNuiFocusKeepInput(false)
     closeTrunk()
 
     if client.screenblur then Utils.blurIn() end
+
+
+
+    Utils.previewPedIn()
 
     currentInventory = right or defaultInventory
     left.items = PlayerData.inventory
@@ -291,11 +325,12 @@ function client.openInventory(inv, data)
         action = 'setupInventory',
         data = {
             leftInventory = left,
-            rightInventory = currentInventory
+            rightInventory = currentInventory,
+            backpackInventory = backpackInventory
         }
     })
 
-    if inv and not currentInventory.coords and inv ~= 'container' and inv ~= 'glovebox' then
+    if not currentInventory.coords and not inv == 'container' then
         currentInventory.coords = GetEntityCoords(playerPed)
     end
 
@@ -314,7 +349,7 @@ function client.openInventory(inv, data)
                 currentInventory.door = vehicleClass == 12 and { 2, 3 } or Vehicles.Storage[vehicleHash] and 4 or 5
             end
 
-            while currentInventory.entity == entity and invOpen and DoesEntityExist(entity) and Inventory.CanAccessTrunk(entity) do
+            while currentInventory?.entity == entity and invOpen and DoesEntityExist(entity) and Inventory.CanAccessTrunk(entity) do
                 Wait(100)
             end
 
@@ -328,17 +363,52 @@ end
 RegisterNetEvent('ox_inventory:openInventory', client.openInventory)
 exports('openInventory', client.openInventory)
 
+local fastSlots = {}
+
+---@param list table?
+local function assignFastSlots(list)
+	table.wipe(fastSlots)
+
+	if type(list) ~= 'table' then return end
+
+	for index, slot in pairs(list) do
+		if type(index) == 'number' and type(slot) == 'number' and slot > 0 then fastSlots[index] = slot end
+	end
+end
+
+---@return number[] dense array, 0 where nothing is bound. A sparse table would reach the UI as a
+local function serialiseFastSlots()
+	local count = Grid.getFastSlotCount()
+	local list = table.create(count, 0)
+
+	for i = 1, count do list[i] = fastSlots[i] or 0 end
+
+	return list
+end
+
+RegisterNetEvent('ox_inventory:setFastSlots', function(list)
+	if source == '' then return end
+
+	assignFastSlots(list)
+	SendNUIMessage({ action = 'setFastSlots', data = serialiseFastSlots() })
+end)
+
 RegisterNetEvent('ox_inventory:forceOpenInventory', function(left, right)
 	if source == '' then return end
 
-	client.player:set('invOpen', true)
+	invOpen = true
+	plyState.invOpen = true
 
 	SetInterval(client.interval, 100)
 	SetNuiFocus(true, true)
-	SetNuiFocusKeepInput(true)
+	SetNuiFocusKeepInput(false)
 	closeTrunk()
 
 	if client.screenblur then Utils.blurIn() end
+
+
+
+	Utils.previewPedIn()
 
 	currentInventory = right or defaultInventory
 	currentInventory.ignoreSecurityChecks = true
@@ -349,7 +419,8 @@ RegisterNetEvent('ox_inventory:forceOpenInventory', function(left, right)
 		action = 'setupInventory',
 		data = {
 			leftInventory = left,
-			rightInventory = currentInventory
+			rightInventory = currentInventory,
+			backpackInventory = backpackInventory
 		}
 	})
 end)
@@ -525,7 +596,7 @@ local function useSlot(slot, noAnim)
 		if data.effect then
 			data:effect({name = item.name, slot = item.slot, metadata = item.metadata})
 		elseif data.weapon then
-			if EnableWeaponWheel or not client.player:get('canUseWeapons') then return end
+			if EnableWeaponWheel or not plyState.canUseWeapons then return end
 
 			if IsCinematicCamRendering() then SetCinematicModeActive(false) end
 
@@ -880,7 +951,13 @@ local function registerCommands()
 			defaultKey = tostring(i),
 			onPressed = function()
 				if invOpen or EnableWeaponWheel or not invHotkeys or IsNuiFocused() then return end
-				useSlot(i)
+
+				if Grid.getFastSlotCount() == 0 then return useSlot(i) end
+				if not Grid.isFastSlot(i) then return end
+
+				local slot = fastSlots[i]
+
+				if slot then useSlot(slot) end
 			end
 		})
 	end
@@ -888,14 +965,19 @@ local function registerCommands()
 	registerCommands = nil
 end
 
-function client.closeInventory()
+function client.closeInventory(server)
+	-- because somehow people are triggering this when the inventory isn't loaded
+	-- and they're incapable of debugging, and I can't repro on a fresh install
 	if not client.interval then return end
 
 	if invOpen then
 		invOpen = nil
+		currentContainer = nil
 		SetNuiFocus(false, false)
 		SetNuiFocusKeepInput(false)
 		Utils.blurOut()
+
+		Utils.previewPedOut()
 		closeTrunk()
 		SendNUIMessage({ action = 'closeInventory' })
 		SetInterval(client.interval, 200)
@@ -903,10 +985,12 @@ function client.closeInventory()
 
 		if invOpen ~= nil then return end
 
-		TriggerServerEvent('ox_inventory:closeInventory')
+		if not server and currentInventory then
+			TriggerServerEvent('ox_inventory:closeInventory')
+		end
 
-		currentInventory = defaultInventory
-		client.player:set('invOpen', false)
+		currentInventory = nil
+		plyState.invOpen = false
 		defaultInventory.coords = nil
 	end
 end
@@ -950,6 +1034,12 @@ local function updateInventory(data, weight)
 			changes[item.slot] = item.count and item or false
 			if not item.count then item.name = nil end
 			PlayerData.inventory[item.slot] = item.name and item or nil
+		elseif v.inventory == 'backpack' and backpackInventory?.items then
+			local item = v.item
+
+			backpackInventory.items[item.slot] = item.count and item or nil
+		elseif currentContainer and v.inventory == currentContainer.id then
+			v.inventory = 'container'
 		end
 	end
 
@@ -1104,7 +1194,10 @@ RegisterNetEvent('ox_inventory:createDrop', function(dropId, data, owner, slot)
 			else
 				SendNUIMessage({
 					action = 'setupInventory',
-					data = { rightInventory = currentInventory }
+					data = {
+						rightInventory = currentInventory,
+						backpackInventory = backpackInventory
+					}
 				})
 			end
 		end
@@ -1175,12 +1268,6 @@ local function setStateBagHandler(stateId)
 	setStateBagHandler = nil
 end
 
-RegisterNetEvent('txcl:heal', function()
-    if source == '' then return end
-
-    PlayerData.dead = false
-end)
-
 lib.onCache('seat', function(seat)
 	if seat then
 		local hasWeapon = GetCurrentPedVehicleWeapon(cache.ped)
@@ -1199,7 +1286,11 @@ lib.onCache('vehicle', function()
 	end
 end)
 
-RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inventory, weight, player)
+---@param playerTheme { name: string, colors: table }? the character's saved theme, resolved and
+---@param playerPrefs table? the character's saved interface preference *overrides*, validated
+---@param playerFastSlots table? the character's saved fast slot bindings, already pruned of any
+---@param playerWorn table? clothing slot name to item name, for slots configured as wearable
+RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inventory, weight, player, playerTheme, playerPrefs, playerFastSlots, playerWorn)
 	if source == '' then return end
 
     ---@class PlayerData
@@ -1219,9 +1310,13 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 		end
 	})
 
+	assignFastSlots(playerFastSlots)
+	Clothing.setWorn(playerWorn)
+
 	if setStateBagHandler then setStateBagHandler(('player:%s'):format(cache.serverId)) end
 
 	local ItemData = table.create(0, #Items)
+	local defaultRarity = shared.ui.rarity.default
 
 	for _, v in pairs(Items --[[@as table<string, OxClientItem>]]) do
 		local buttons = v.buttons and {} or nil
@@ -1232,6 +1327,10 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 			end
 		end
 
+		local grid = v.grid
+
+		if grid and grid[1] == 1 and grid[2] == 1 then grid = nil end
+
 		ItemData[v.name] = {
 			label = v.label,
 			stack = v.stack,
@@ -1240,7 +1339,10 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 			description = v.description,
 			buttons = buttons,
 			ammoName = v.ammoname,
-			image = v.client?.image
+			image = v.client?.image,
+			rarity = v.rarity ~= defaultRarity and v.rarity or nil,
+			grid = grid,
+			clothing = v.clothing,
 		}
 	end
 
@@ -1335,6 +1437,28 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 
 	while not client.uiLoaded do Wait(50) end
 
+	local ui = shared.ui
+	local clothingSlots = {}
+	local defaultTheme = {
+		name = ui.theme,
+		colors = ui.themes[ui.theme],
+	}
+	-- The server resolves the character's saved theme into the same `{ name, colors }` shape the
+	-- default uses, so nothing downstream has to care whether one was stored.
+	local theme = type(playerTheme) == 'table' and type(playerTheme.colors) == 'table' and playerTheme or defaultTheme
+	if ui.clothing.enabled then
+		for i = 1, #ui.clothing.slots do
+			local slot = ui.clothing.slots[i]
+
+			clothingSlots[i] = {
+				index = shared.playerslots + i,
+				name = slot.name,
+				label = slot.label,
+				side = slot.side,
+			}
+		end
+	end
+
 	SendNUIMessage({
 		action = 'init',
 		data = {
@@ -1342,11 +1466,42 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 			items = ItemData,
 			leftInventory = {
 				id = cache.playerId,
-				slots = shared.playerslots,
+				type = 'player',
+				slots = shared.totalplayerslots,
 				items = PlayerData.inventory,
 				maxWeight = shared.playerweight,
 			},
-			imagepath = client.imagepath
+			-- Omitted entirely when no bag is worn; the server pushed this before the event that
+			-- got us here.
+			backpackInventory = backpackInventory,
+			fastSlots = serialiseFastSlots(),
+			imagepath = client.imagepath,
+			uiConfig = {
+				layout = ui.layout,
+				grid = {
+					columns = ui.grid.columns,
+					allowRotate = ui.grid.allowRotate,
+				},
+				clothing = {
+					enabled = ui.clothing.enabled,
+					slots = clothingSlots,
+				},
+				hotbar = {
+					enabled = shared.fastslots > 0,
+					count = shared.fastslots,
+				},
+				rarity = {
+					enabled = ui.rarity.enabled,
+					default = ui.rarity.default,
+					tiers = ui.rarity.tiers,
+				},
+				dim = {
+					enabled = ui.dim.enabled,
+				},
+				theme = theme,
+				defaultTheme = defaultTheme,
+				prefs = type(playerPrefs) == 'table' and next(playerPrefs) and playerPrefs or nil,
+			},
 		}
 	})
 
@@ -1367,8 +1522,8 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 	client.interval = SetInterval(function()
         local canSteal = canOpenTarget(playerPed)
 
-        if canSteal ~= client.player:get('canSteal') then
-            client.player:setr('canSteal', canSteal)
+        if canSteal ~= plyState.canSteal then
+            plyState:set('canSteal', canSteal, true)
         end
 
 		if invOpen == false then
@@ -1384,11 +1539,11 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 			else
 				playerCoords = GetEntityCoords(playerPed)
 
-				if not currentInventory.ignoreSecurityChecks then
+				if currentInventory and not currentInventory.ignoreSecurityChecks then
                     local maxDistance = (currentInventory.distance or currentInventory.type == 'stash' and 4.8 or 1.8) + 0.2
 
 					if currentInventory.type == 'otherplayer' then
-						local id = GetPlayerFromServerId(currentInventory.id --[[@as number]])
+						local id = GetPlayerFromServerId(currentInventory.id)
 						local ped = GetPlayerPed(id)
 						local pedCoords = GetEntityCoords(ped)
 
@@ -1465,7 +1620,7 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 				EnableControlAction(0, EnableKeys[i], true)
 			end
 
-			if currentInventory.type == 'drop' or currentInventory.type == 'newdrop' then
+			if currentInventory.type == 'newdrop' then
 				EnableControlAction(0, 30, true)
 				EnableControlAction(0, 31, true)
 			end
@@ -1561,7 +1716,7 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 							while IsPedPlantingBomb(playerPed) do Wait(0) end
 
 							TriggerServerEvent('ox_inventory:updateWeapon', 'throw', nil, weapon.slot)
-							client.player:setr('invBusy', false)
+							plyState:set('invBusy', false, true)
 
 							currentWeapon = nil
 
@@ -1577,10 +1732,10 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 		end
 	end)
 
-	client.player:setr('invBusy', false)
-	client.player:set('invOpen', false)
-	client.player:set('invHotkeys', true)
-	client.player:set('canUseWeapons', true)
+	plyState:set('invBusy', false, true)
+	plyState:set('invOpen', false, false)
+	plyState:set('invHotkeys', true, false)
+	plyState:set('canUseWeapons', true, false)
 	collectgarbage('collect')
 end)
 
@@ -1593,13 +1748,19 @@ end)
 RegisterNetEvent('ox_inventory:viewInventory', function(left, right)
 	if source == '' then return end
 
-	client.player:set('invOpen', true)
+	invOpen = true
+	plyState.invOpen = true
+
 	SetInterval(client.interval, 100)
 	SetNuiFocus(true, true)
-	SetNuiFocusKeepInput(true)
+	SetNuiFocusKeepInput(false)
 	closeTrunk()
 
 	if client.screenblur then Utils.blurIn() end
+
+
+
+	Utils.previewPedIn()
 
 	currentInventory = right or defaultInventory
 	currentInventory.ignoreSecurityChecks = true
@@ -1611,7 +1772,8 @@ RegisterNetEvent('ox_inventory:viewInventory', function(left, right)
 		action = 'setupInventory',
 		data = {
 			leftInventory = left,
-			rightInventory = currentInventory
+			rightInventory = currentInventory,
+			backpackInventory = backpackInventory
 		}
 	})
 end)
@@ -1623,6 +1785,42 @@ end)
 
 RegisterNUICallback('getItemData', function(itemName, cb)
 	cb(Items[itemName])
+end)
+
+---Persists the character's chosen theme. Cosmetic only, and the server re-validates every
+---colour string before it touches the database - nothing is trusted from here.
+RegisterNUICallback('saveTheme', function(data, cb)
+	if type(data) ~= 'table' or type(data.name) ~= 'string' then return cb(false) end
+
+	local success = lib.callback.await('ox_inventory:saveTheme', false, {
+		name = data.name,
+		colors = type(data.colors) == 'table' and data.colors or nil,
+	})
+
+	cb(success == true)
+end)
+
+RegisterNUICallback('savePrefs', function(data, cb)
+	if type(data) ~= 'table' or type(data.prefs) ~= 'table' then return cb(false) end
+
+	local ok, success = pcall(lib.callback.await, 'ox_inventory:savePrefs', false, { prefs = data.prefs })
+
+	cb(ok and success == true)
+end)
+
+RegisterNUICallback('setFastSlot', function(data, cb)
+	if type(data) ~= 'table' then return cb(false) end
+
+	local index = tonumber(data.index)
+
+	if not index then return cb(false) end
+
+	local ok, success = pcall(lib.callback.await, 'ox_inventory:setFastSlot', false, {
+		index = index,
+		slot = data.slot ~= nil and tonumber(data.slot) or nil,
+	})
+
+	cb(ok and success == true)
 end)
 
 RegisterNUICallback('removeComponent', function(data, cb)
@@ -1700,7 +1898,7 @@ local function isGiveTargetValid(ped, coords)
         return true
     end
 
-    local entity = Utils.Raycast(1|4|8|16, coords + vec3(0, 0, 0.5), 0.2)
+    local entity = Utils.Raycast(1|2|4|8|16, coords + vec3(0, 0, 0.5), 0.2)
 
     return entity == ped and IsEntityVisible(ped)
 end
@@ -1711,9 +1909,7 @@ RegisterNUICallback('giveItem', function(data, cb)
     if usingItem then return end
 
 	if client.giveplayerlist then
-		local coords = cache.vehicle and GetWorldPositionOfEntityBone(playerPed, 0) or GetEntityCoords(playerPed)
-
-		local nearbyPlayers = lib.getNearbyPlayers(coords, 3.0)
+		local nearbyPlayers = lib.getNearbyPlayers(GetEntityCoords(playerPed), 3.0)
         local nearbyCount = #nearbyPlayers
 
 		if nearbyCount == 0 then return end
@@ -1733,9 +1929,8 @@ RegisterNUICallback('giveItem', function(data, cb)
 
             if isGiveTargetValid(option.ped, option.coords) then
 				option.id = GetPlayerServerId(option.id)
-				local playerName = Utils.getPlayerName(option.id)
                 ---@diagnostic disable-next-line: inject-field
-				option.label = playerName
+				option.label = Utils.getPlayerName(option.id)
 				n += 1
 				giveList[n] = option
 			end
@@ -1783,6 +1978,36 @@ end)
 RegisterNUICallback('exit', function(_, cb)
 	client.closeInventory()
 	cb(1)
+end)
+
+RegisterNUICallback('lockControls', function(data, cb)
+	-- Keep game controls blocked after search inputs lose focus.
+	SetNuiFocusKeepInput(false)
+	cb(1)
+end)
+
+local clothingToggles = {
+	hat = { event = 'qb-radialmenu:ToggleProps', value = 'Hat' },
+	glasses = { event = 'qb-radialmenu:ToggleProps', value = 'Glasses' },
+	earpiece = { event = 'qb-radialmenu:ToggleProps', value = 'Ear' },
+	mask = { event = 'qb-radialmenu:ToggleClothing', value = 'Mask' },
+	torso = { event = 'qb-radialmenu:ToggleClothing', value = 'Top' },
+	armour = { event = 'qb-radialmenu:ToggleClothing', value = 'Vest' },
+	backpack = { event = 'qb-radialmenu:ToggleClothing', value = 'Bag' },
+	gloves = { event = 'qb-radialmenu:ToggleClothing', value = 'Gloves' },
+	legs = { event = 'qb-radialmenu:ToggleClothing', value = 'Pants', extra = true },
+	shoes = { event = 'qb-radialmenu:ToggleClothing', value = 'Shoes' },
+}
+
+RegisterNUICallback('toggleClothing', function(data, cb)
+	local toggle = type(data) == 'table' and clothingToggles[data.slot]
+
+	if not toggle or GetResourceState('qbx_radialmenu') ~= 'started' then
+		return cb(false)
+	end
+
+	TriggerEvent(toggle.event, { toggle.value, toggle.extra })
+	cb(true)
 end)
 
 lib.callback.register('ox_inventory:startCrafting', function(id, recipe)
@@ -1920,7 +2145,7 @@ RegisterNUICallback('craftItem', function(data, cb)
 		end
 	end
 
-	if currentInventory.type ~= 'crafting' then
+	if not currentInventory or currentInventory.type ~= 'crafting' then
 		client.openInventory('crafting', { id = id, index = index })
 	end
 end)

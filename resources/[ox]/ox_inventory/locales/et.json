@@ -2,6 +2,7 @@
   "ui_use": "Kasuta",
   "ui_give": "Anna",
   "ui_close": "Sulge",
+  "ui_search_items": "Otsi esemeid...",
   "ui_drop": "Viska maha",
   "ui_removeattachments": "Eemalda relvalisa",
   "ui_copy": "Kopeeri seerianumber",

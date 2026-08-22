@@ -31,27 +31,8 @@ local function typeFilter(filter, type)
 	return filter[type] or false
 end
 
-local function triggerPostEvents(hookIds, success, payload)
-	payload.hookId = nil
-
-	for i = 1, #hookIds do
-		TriggerEvent(hookIds[i], success, payload)
-	end
-end
-
 local function TriggerEventHooks(event, payload)
     local hooks = eventHooks[event]
-	local result = setmetatable({ ok = false }, {
-		__close = function(self, err)
-			if err then
-				self.success = false
-			end
-
-			SetTimeout(50, function()
-				triggerPostEvents(self, self.success, payload)
-			end)
-		end
-	})
 
     if hooks then
 		local fromInventory = payload.fromInventory and tostring(payload.fromInventory) or payload.inventoryId and tostring(payload.inventoryId) or payload.shopType and tostring(payload.shopType)
@@ -59,93 +40,72 @@ local function TriggerEventHooks(event, payload)
 
         for i = 1, #hooks do
 			local hook = hooks[i]
-			payload.hookId = hook.hookId
 
 			if hook.itemFilter and not itemFilter(hook.itemFilter, payload.fromSlot or payload.item or payload.itemName or payload.recipe, payload.toSlot) then
-				goto continue
+				goto skipLoop
 			end
 
 			if hook.inventoryFilter and not inventoryFilter(hook.inventoryFilter, fromInventory, toInventory) then
-				goto continue
+				goto skipLoop
 			end
 
 			if hook.typeFilter and not typeFilter(hook.typeFilter, payload.inventoryType or payload.shopType or payload.fromType) then
-				goto continue
+				goto skipLoop
 			end
 
 			if hook.print then
-				shared.info(('Triggering event hook "%s".'):format(hook.hookId))
+				shared.info(('Triggering event hook "%s:%s:%s".'):format(hook.resource, event, i))
 			end
 
-			result[#result + 1] = hook.hookId
+			local start = microtime()
+            local _, response = pcall(hooks[i], payload)
+			local executionTime = microtime() - start
 
-			if hook.__call then
-				local start = microtime()
-				local _, response = pcall(hook, payload)
-				local executionTime = microtime() - start
-
-				if executionTime >= 10000 then
-					warn(('Execution of event hook "%s" took %.2fms.'):format(hook.hookId, executionTime / 1e3))
-				end
-
-				if event == 'createItem' then
-					if type(response) == 'table' then
-						payload.metadata = response
-					end
-				elseif response == false then
-					if hook.print or server.loghookrejection then
-						shared.info(('Event hook "%s" has rejected the action.'):format(hook.hookId))
-					end
-
-					return result
-				end
+			if executionTime >= 100000 then
+				warn(('Execution of event hook "%s:%s:%s" took %.2fms.'):format(hook.resource, event, i, executionTime / 1e3))
 			end
 
-			::continue::
+			if event == 'createItem' then
+				if type(response) == 'table' then
+					payload.metadata = response
+				end
+			elseif response == false then
+                return false
+            end
+
+			::skipLoop::
         end
     end
 
-
 	if event == 'createItem' then
-		result.result = payload.metadata
+		return payload.metadata
 	end
 
-	result.success = true
-
-    return result
+    return true
 end
 
-exports('registerHook', function(event, ref, options)
+local hookId = 0
+
+exports('registerHook', function(event, cb, options)
     if not eventHooks[event] then
         eventHooks[event] = {}
     end
 
-	local mt = ref and getmetatable(ref)
-	local idx = #eventHooks[event] + 1
-	local resource = GetInvokingResource()
-
-	if mt then
-		mt.__index = mt
-		mt.__newindex = nil
-	end
-
-	if not ref then
-		ref = options or {}
-		options = nil
-	end
-
-   	ref.resource = resource
-	ref.hookId = ('%s:%s:%s'):format(resource, event, idx)
+	local mt = getmetatable(cb)
+	mt.__index = nil
+	mt.__newindex = nil
+   	cb.resource = GetInvokingResource()
+	hookId += 1
+	cb.hookId = hookId
 
 	if options then
 		for k, v in pairs(options) do
-			ref[k] = v
+			cb[k] = v
 		end
 	end
 
-    eventHooks[event][idx] = ref
-
-	return ref.hookId
+    eventHooks[event][#eventHooks[event] + 1] = cb
+	return hookId
 end)
 
 local function removeResourceHooks(resource, id)

@@ -95,7 +95,7 @@
     "debug": {
       "level": "error",
       "enabled": true,
-      "sentryEnabled": true
+      "sentryEnabled": false
     },
     "defaultContacts": [],
     "disabledApps": ["BROWSER"],

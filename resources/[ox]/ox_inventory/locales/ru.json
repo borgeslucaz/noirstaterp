@@ -2,6 +2,7 @@
   "ui_use": "Использовать",
   "ui_give": "Передать",
   "ui_close": "Закрыть",
+  "ui_search_items": "Поиск предметов...",
   "ui_drop": "Выкинуть",
   "ui_removeattachments": "Снять приспособления",
   "ui_copy": "Copy serial number",

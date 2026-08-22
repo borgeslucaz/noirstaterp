@@ -2,6 +2,7 @@
   "ui_use": "Usar",
   "ui_give": "Dar",
   "ui_close": "Cerrar",
+  "ui_search_items": "Buscar objetos...",
   "ui_drop": "Tirar",
   "ui_removeattachments": "Quitar accesorio",
   "ui_copy": "Copiar número de serie",
