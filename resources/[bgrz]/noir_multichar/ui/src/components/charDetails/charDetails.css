@@ -35,8 +35,8 @@
 .noir-primary:hover { border-color: var(--noir-border-hover); background: var(--noir-surface-hover); }
 .noir-primary > :last-child { font-size: 21px; font-weight: 300; }
 .noir-carousel { position: absolute; bottom: clamp(76px,8vh,120px); left: 50%; display: flex; align-items: center; gap: 15px; width: min(68vw,760px); transform: translateX(-50%); }
-.noir-cards { display: flex; gap: 12px; width: 100%; padding: 4px; overflow-x: auto; scroll-behavior: smooth; }
-.noir-card { flex: 0 0 clamp(250px,16vw,300px); height: clamp(86px,9vh,102px); display: flex; align-items: center; gap: 18px; padding: 0 20px; border: 1px solid rgba(255,255,255,.18); border-radius: 2px; background: rgba(5,7,9,.30); color: var(--noir-text); text-align: left; transition: .18s ease; }
+.noir-cards { display: flex; flex: 1; gap: 12px; min-width: 0; padding: 4px; overflow-x: hidden; scroll-behavior: smooth; }
+.noir-card { box-sizing: border-box; flex: 0 0 calc((100% - 12px) / 2); width: calc((100% - 12px) / 2); min-width: 0; height: 96px; display: flex; align-items: center; gap: 18px; padding: 0 20px; border: 1px solid rgba(255,255,255,.18); border-radius: 2px; background: rgba(5,7,9,.30); color: var(--noir-text); text-align: left; transition: .18s ease; }
 .noir-card:hover { border-color: var(--noir-border-hover); background: rgba(5,7,9,.46); }
 .noir-card--selected { border-color: rgba(255,255,255,.56); background: rgba(5,7,9,.52); }
 .noir-card__number { min-width: 25px; color: var(--noir-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -58,4 +58,4 @@
 .noir-character-select button:focus-visible { outline: 1px solid rgba(255,255,255,.7); outline-offset: 3px; }
 @keyframes noir-in { from { opacity: 0; } to { opacity: 1; } }
 @media (max-width: 1200px) { .noir-carousel { left: auto; right: clamp(24px,3vw,48px); width: min(54vw,620px); transform: none; } }
-@media (max-height: 800px) { .noir-panel { top: 47%; }.noir-info { gap: 14px; }.noir-primary { margin-top: 24px; }.noir-carousel { bottom: 58px; }.noir-card { height: 78px; } }
+@media (max-height: 800px) { .noir-panel { top: 47%; }.noir-info { gap: 14px; }.noir-primary { margin-top: 24px; }.noir-carousel { bottom: 58px; } }

@@ -1,23 +1,15 @@
-import React, { useState } from 'react'
+import React from 'react'
 import OptionGender from './OptionGender'
-import { nuicallback } from '../../../utils/nuicallback'
 
-const SelectGender = ({ gValue, handleChange }) => {
-  return (
-    <div>
-      <div className='flex justify-center gap-6'>
-        {['Male', 'Female'].map(opt => (
-          <OptionGender
-            key={opt}
-            gValue={gValue}
-            value={opt}
-            onclick={() => nuicallback('click')}
-            handleChange={handleChange}
-          />
-        ))}
-      </div>
+const SelectGender = ({ gValue, handleChange }) => (
+  <fieldset className='noir-create__field noir-create__gender'>
+    <legend className='noir-create__label'>GENDER</legend>
+    <div className='noir-create__segments'>
+      {['Male', 'Female'].map((option) => (
+        <OptionGender key={option} gValue={gValue} value={option} handleChange={handleChange} />
+      ))}
     </div>
-  )
-}
+  </fieldset>
+)
 
 export default SelectGender

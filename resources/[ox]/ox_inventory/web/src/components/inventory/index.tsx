@@ -5,7 +5,13 @@ import SettingsPanel from './SettingsPanel';
 import InventoryHotbar from './InventoryHotbar';
 import ClothingPanel from './ClothingPanel';
 import { useAppDispatch } from '../../store';
-import { refreshSlots, setAdditionalMetadata, setContainerInventory, setupInventory } from '../../store/inventory';
+import {
+  refreshSlots,
+  setAdditionalMetadata,
+  setContainerInventory,
+  setItemAmount,
+  setupInventory,
+} from '../../store/inventory';
 import { useExitListener } from '../../hooks/useExitListener';
 import type { Inventory as InventoryProps } from '../../typings';
 import BackpackInventory, { useShowBackpack } from './BackpackInventory';
@@ -31,6 +37,7 @@ const Inventory: React.FC = () => {
   useNuiEvent<boolean>('setInventoryVisible', setInventoryVisible);
   useNuiEvent<false>('closeInventory', () => {
     setInventoryVisible(false);
+    dispatch(setItemAmount(0));
     dispatch(closeContextMenu());
     dispatch(closeTooltip());
   });

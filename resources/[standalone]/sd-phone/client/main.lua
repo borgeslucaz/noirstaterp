@@ -526,10 +526,14 @@ function PushInstalledApps()
 end
 
 ---Closes the phone NUI, announces the close, releases NUI focus, and drops the pose unless the
----flashlight keeps it. Idempotent.
+---and always stows the prop. Idempotent.
 function ClosePhone()
     if not phoneState.open then return end
 
+    -- Always stow the phone on close. Keeping the lockscreen torch active here
+    -- leaves the hold pose and prop attached after F1 closes the UI.
+    local wasLit = flashlightOn
+    flashlightOn = false
     phoneState.open = false
     companion.phoneOpen = false
     TriggerServerEvent('sd-phone:server:phone:setOpen', false)
@@ -545,6 +549,7 @@ function ClosePhone()
     SendNUIMessage({ action = 'sd-phone:close' })
 
     updatePose()
+    if wasLit then TriggerEvent('sd-phone:client:flashlight', false) end
 
     debugPrint('phone closed')
 end
@@ -580,7 +585,7 @@ end
 -- invokes the handlers as METHODS, so each is handed the keybind table as a first argument; all of
 -- these take none, so it falls away.
 lib.addKeybind({
-    name        = 'sdphone_toggle',
+    name        = 'sdphone_toggle_k',
     description = 'Toggle Phone',
     defaultKey  = config.Phone.Keybind,
     onPressed   = TogglePhone,

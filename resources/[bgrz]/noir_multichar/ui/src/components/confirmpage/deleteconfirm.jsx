@@ -50,18 +50,17 @@ const DeleteConfirm = ({ id, characterName }) => {
           <div className="flex items-center justify-center gap-1">
             <span className="text-white">{config.Lang.deletedescription}</span>
           </div>
-          <div className="text-sm tracking-[0.18em] text-white/60 uppercase">{characterName}</div>
-          <div className="flex items-center justify-center gap-2">
-            <div className="flex justify-start border-[2px] border-white w-20 h-8 text-white ">
+          <div className="text-sm tracking-[0.28em] text-white/60 uppercase">{characterName}</div>
+          <div className="flex items-center justify-center">
+            <div className="relative flex items-center justify-center border-2 border-white w-[clamp(16rem,40vw,24rem)] h-10 overflow-hidden text-white">
               <div
-                style={{ width: confirmvalue + "%" }}
-                className="bg-white w-[100%] h-[100%] tr2 "
+                style={{ width: `${Math.min(confirmvalue, 100)}%` }}
+                className="absolute inset-y-0 left-0 bg-white tr2"
               ></div>
+              <span className="relative z-10 whitespace-nowrap text-sm font-bold text-white mix-blend-difference">
+                {config.Lang.enter}
+              </span>
             </div>
-            <span className="absolute font-bold text-white mr-10">
-              {config.Lang.enter}
-            </span>
-            <span className="text-white ">{config.Lang.hold}</span>
           </div>
         </div>
 

@@ -80,6 +80,7 @@ files {
     'web/dist/index.html',
     'web/dist/assets/*.js',
     'web/dist/assets/*.css',
+    'web/dist/assets/*.png',
     'web/dist/assets/*.ttf'
 }
 

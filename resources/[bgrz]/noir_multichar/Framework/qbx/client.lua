@@ -131,9 +131,7 @@ if Config.framework == 'qbx' then
 
         TriggerServerEvent('Update:RoutingBucket', Config.Routingbucket)
         
-        if Config.appartmentstart then
-            TriggerEvent(Config.appartmentevent, id)
-        elseif Config.SpawnSelector then
+        if Config.SpawnSelector then
             TriggerEvent('qb-spawn:client:setupSpawns', id)
             TriggerEvent('qb-spawn:client:openUI', true)
         else
@@ -171,25 +169,38 @@ if Config.framework == 'qbx' then
             cid = payload.slot,
         })
 
-        if Config.appartmentstart then
-            TriggerEvent(Config.appartmentevent, newData)
-        elseif Config.SpawnSelector then
-            TriggerEvent('qb-spawn:client:setupSpawns', newData)
-            TriggerEvent('qb-spawn:client:openUI', true)
-        else
+        if not newData then
+            DoScreenFadeIn(500)
+            return
+        end
+
+        local spawn = Config.NewCharacterLocation
+
+        exports.spawnmanager:spawnPlayer({
+            x = spawn.x,
+            y = spawn.y,
+            z = spawn.z,
+            heading = spawn.w,
+            model = Config.CreateMenu.model,
+            skipFade = true,
+        }, function()
             FreezeEntityPosition(PlayerPedId(), false)
             SetEntityVisible(PlayerPedId(), true)
-            local resp = NewCharacterAnimation()
+            SetEntityHeading(PlayerPedId(), spawn.w)
 
-            Wait(1000)
+            local playerDataTimeout = GetGameTimer() + 10000
+            while not QBX.PlayerData.charinfo and GetGameTimer() < playerDataTimeout do
+                Wait(50)
+            end
 
             EnableWeatherSync()
             TriggerServerEvent('QBCore:Server:OnPlayerLoaded')
             TriggerEvent('QBCore:Client:OnPlayerLoaded')
             TriggerServerEvent('qb-houses:server:SetInsideMeta', 0, false)
-            TriggerServerEvent('qb-apartments:server:SetInsideMeta', 0, 0, false)
+            Wait(250)
             TriggerEvent('qb-clothes:client:CreateFirstCharacter')
-            TriggerServerEvent('Update:RoutingBucket', Config.Routingbucket)
-        end
+            Wait(250)
+            DoScreenFadeIn(500)
+        end)
     end
 end

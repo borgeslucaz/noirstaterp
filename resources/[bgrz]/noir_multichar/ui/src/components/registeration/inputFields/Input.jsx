@@ -1,17 +1,19 @@
 import React from 'react'
 import { nuicallback } from '../../../utils/nuicallback'
-const Input = ({ name, placeholder, value, handleChange }) => {
-  return (
+
+const Input = ({ name, label, value, handleChange }) => (
+  <label className='noir-create__field'>
+    <span className='noir-create__label'>{label}</span>
     <input
+      className='noir-create__control'
       onChange={handleChange}
       type='text'
       name={name}
-      placeholder={placeholder}
       value={value}
- onMouseEnter={() => nuicallback('hover')}
-      className='border-[1px] w-[100%] border-white focus:outline-none hover:bg-[rgba(0,0,0,0.8)] bg-[rgba(0,0,0,0.5)] text-white placeholder:text-white p-[6px]'
+      onMouseEnter={() => nuicallback('hover')}
+      spellCheck='false'
     />
-  )
-}
+  </label>
+)
 
 export default Input

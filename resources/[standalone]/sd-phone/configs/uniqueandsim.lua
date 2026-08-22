@@ -37,14 +37,14 @@
 return {
     -- Master switch. Off = sd-phone behaves exactly as before (numbers auto-assigned per
     -- character, phone always has service).
-    Enabled = false,
+    Enabled = true,
 
     -- Where the phone DATA lives: 'device' | 'sim' | 'character' (see the header above).
     -- Flipping an existing 'sim' server to 'device' is safe: on first use each phone ADOPTS the
     -- identity of the SIM currently in it (grandfathering, no data copied or lost), and only
     -- from then on does the number float free of the data. (The pre-DataOwner boolean
     -- `DeviceIdentity` is still honoured when this key is absent.)
-    DataOwner = 'sim',
+    DataOwner = 'device',
 
     -- Unique phones WITHOUT SIM cards ("eSIM"): every phone mints its own permanent number the
     -- first time it is used - no sim_card item, no install/eject, the number lives and dies
@@ -79,7 +79,7 @@ return {
     -- Renamed from `UseContainers`, which is still read when this key is absent. The old name
     -- described the ox item-container this used to be built on; trays are ox stashes now, because
     -- ox opens a container item on USE and that made the phone itself keybind-only.
-    SimTray = false,
+    SimTray = true,
 
     -- Metadata mode only: allow ejecting the installed SIM from Settings -> SIM & Backup. The
     -- player gets the sim_card item back (number intact) and the phone loses service. In tray

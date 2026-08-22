@@ -52,7 +52,7 @@ const ConfigProvider = ({ children }) => {
       back: "VOLTAR",
       EXIT: "SAIR",
       exit: "SAIR",
-      enter: "ENTRAR",
+      enter: "segure ENTER para confirmar",
       dev: "@Desenvolvido por",
       afterlife: "AfterLife Studios",
       exitgame: "SAIR DO JOGO",
@@ -91,7 +91,9 @@ const ConfigProvider = ({ children }) => {
   });
 
   useEffect(() => {
-    nuicallback("getConfig").then((data) => setConfig(data));
+    nuicallback("getConfig").then((data) => {
+      if (data) setConfig(data);
+    });
   }, []);
 
   return (

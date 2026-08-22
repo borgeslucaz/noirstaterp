@@ -1,5 +1,5 @@
 return {
-    minimumPolice = 2,
+    minimumPolice = 0,
     notEnoughCopsNotify = true,
     requiredItems = {'advancedlockpick', 'screwdriverset'},
     -- Each key is it's own 'pool'. You can create as many as you want and add them to Config.Interiors per loot spot you add.

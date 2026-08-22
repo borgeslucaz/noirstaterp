@@ -1,124 +1,61 @@
 import React, { useState } from 'react'
 import { monthNames } from '../../../utils/monthNames'
-import {
-  getNumberOfDaysInMonth,
-  getYears,
-  range
-} from '../../../utils/dateHandler'
+import { getNumberOfDaysInMonth, getYears, range } from '../../../utils/dateHandler'
 import { nuicallback } from '../../../utils/nuicallback'
 import { useConfig } from '../../../providers/configprovider'
-import calendericon from '../../../assets/dob.png'
-const passCurrentYear = new Date().getFullYear()
+import { usePopoverPlacement } from './usePopoverPlacement'
 
-const DatePicker = ({ handleDate, dobVisible, handleChange }) => {
-  const { config } = useConfig();
-  
+const currentCalendarYear = new Date().getFullYear()
+const twoDigits = (value) => String(value).padStart(2, '0')
 
+const DatePicker = ({ handleDate, closeDate, dobVisible, handleChange }) => {
+  const { config } = useConfig()
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth())
-  const [currentYear, setCurrentYear] = useState(passCurrentYear)
+  const [currentYear, setCurrentYear] = useState(currentCalendarYear)
   const [currentDay, setCurrentDay] = useState(new Date().getUTCDate())
-  const [buttonValue, setButtonValue] = useState(config.Lang.dob)
+  const [selectedDate, setSelectedDate] = useState('')
+  const { anchorRef, popoverRef, placement } = usePopoverPlacement(dobVisible, closeDate)
 
-
-  const handleDateChange = () => {
-    const dob = {
-      tag: 'DOB',
-      value: currentYear + '/' + currentDay + '/' + (currentMonth + 1)
-    }
-
-    handleChange(dob)
-    setButtonValue(dob.value)
-    handleDate()
+  const selectDate = () => {
+    // Preserve the date format already consumed by the FiveM backend.
+    const value = `${currentYear}/${currentDay}/${currentMonth + 1}`
+    handleChange({ tag: 'DOB', value })
+    setSelectedDate(`${twoDigits(currentMonth + 1)} / ${twoDigits(currentDay)} / ${currentYear}`)
+    closeDate()
     nuicallback('click')
   }
 
   return (
-    <>
-      <div
-        className={`text-[13px] absolute right-[290px] top-[100px] flex flex-col bg-[rgba(0,0,0,0.5)] w-[230px] ${
-          dobVisible ? 'max-h-full' : 'max-h-0'
-        } overflow-hidden transition-all`}
-      >
-        <div className='flex justify-center items-center h-[400px]'>
-          <div className='flex flex-col items-center'>
-            <span className='text-white text-center mt-4'>{config.Lang.year}</span>
-            <ul className='h-[340px] overflow-y-scroll border border-white m-1 p-1 scrollbar-thumb-white scrollbar-track-black scrollbar-thin'>
-              {getYears(passCurrentYear).map(year => (
-                (year > config.mindob && year < config.maxdob) &&
-                <li key={year}>
-                  <button
-                    type='button'
-                    onClick={() => {setCurrentYear(year); nuicallback('click')}}
-                    className={`scrollbar-thumb-white scrollbar-track-black scrollbar-thin ${
-                      year === currentYear ? 'text-black bg-white px-1' : 'text-white px-1'
-                    }`}
-                  >
-                    {year}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className='flex flex-col items-center mt-4'>
-            <span className='text-white'>{config.Lang.day}</span>
-            <ul className='h-[340px] overflow-y-scroll border border-white m-1 p-1 scrollbar-thumb-white scrollbar-track-black scrollbar-thin'>
-              {range(
-                1,
-                getNumberOfDaysInMonth(currentYear, currentMonth) + 1
-              ).map(day => (
-                <li key={day}>
-                  <button
-                    type='button'
-                    className={`day  ${
-                      day === currentDay ? 'text-black bg-white px-1' : 'text-white px-1'
-                    }`}
-                    onClick={() => {setCurrentDay(day); nuicallback('click')}}
-                  >
-                    {day}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className='flex flex-col items-center mt-4'>
-            <span className='text-white'>{config.Lang.month}</span>
-            <ul className='h-[340px] border border-white m-1 p-1'>
-              {monthNames.map((month, i) => (
-                <li key={i}>
-                  <button
-                    type='button'
-                    onClick={() => {setCurrentMonth(i); nuicallback('click')}}
-                    className={`month ${
-                      i === currentMonth ? 'text-black bg-white px-1' : 'text-white px-1'
-                    }`}
-                  >
-                    {month}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-        <button
-          onClick={handleDateChange}
-          onMouseEnter={() => nuicallback('hover')}
-          type='button'
-          className='bg-slate-50 hover:bg-white text-black self-justify-end'
-        >
-          {config.Lang.done}
-        </button>
-      </div>
-      <button
-        type='button'
-        onClick={handleDate}
-        onMouseEnter={() => nuicallback('hover')}
-        className='w-[100%] text-start  border-[1px] border-white focus:outline-none  text-white p-[6px] hover:bg-[rgba(0,0,0,0.8)]  bg-[rgba(0,0,0,0.5)] '
-      >
-        {buttonValue}
+    <div ref={anchorRef} className={`noir-create__field noir-create__popover-anchor${dobVisible ? ' is-open' : ''}`}>
+      <span className='noir-create__label'>DATE OF BIRTH</span>
+      <button type='button' onClick={handleDate} onMouseEnter={() => nuicallback('hover')} className='noir-create__control noir-create__select' aria-expanded={dobVisible}>
+        <span className={selectedDate ? '' : 'noir-create__placeholder'}>{selectedDate || 'MM / DD / YYYY'}</span>
+        <span className='noir-create__diamond' aria-hidden='true'>◇</span>
       </button>
-      <img className='absolute ml-[210px] mt-[111px] w-[13px]' src={calendericon} alt="" />
-    </>
+
+      <div ref={popoverRef} className={`noir-create__popover noir-create__date noir-create__popover--${placement}${dobVisible ? ' noir-create__popover--open' : ''}`} aria-hidden={!dobVisible}>
+        <div className='noir-create__date-columns'>
+          <DateColumn label='MONTH' values={monthNames.map((month, index) => ({ label: month.slice(0, 3).toUpperCase(), value: index }))} selected={currentMonth} onSelect={setCurrentMonth} />
+          <DateColumn label='DAY' values={range(1, getNumberOfDaysInMonth(currentYear, currentMonth) + 1).map((day) => ({ label: twoDigits(day), value: day }))} selected={currentDay} onSelect={setCurrentDay} />
+          <DateColumn label='YEAR' values={getYears(currentCalendarYear).filter((year) => year > config.mindob && year < config.maxdob).map((year) => ({ label: year, value: year }))} selected={currentYear} onSelect={setCurrentYear} />
+        </div>
+        <button type='button' className='noir-create__popover-done' onClick={selectDate} onMouseEnter={() => nuicallback('hover')}>CONFIRM DATE <span>→</span></button>
+      </div>
+    </div>
   )
 }
+
+const DateColumn = ({ label, values, selected, onSelect }) => (
+  <div className='noir-create__date-column'>
+    <span>{label}</span>
+    <ul className='noir-create__date-list'>
+      {values.map((item) => (
+        <li key={item.value}>
+          <button type='button' className={item.value === selected ? 'is-selected' : ''} onClick={() => { onSelect(item.value); nuicallback('click') }}>{item.label}</button>
+        </li>
+      ))}
+    </ul>
+  </div>
+)
 
 export default DatePicker

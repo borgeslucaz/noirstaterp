@@ -1,5 +1,5 @@
 lib.addKeybind({
-    name = 'handsupKey',
+    name = 'handsupToggle',
     description = locale('hands_up'),
     defaultKey = Config.handsUpKey,
     onPressed = function()

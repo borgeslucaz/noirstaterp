@@ -1,8 +1,7 @@
 export const inputFields = [
-  { id: 1, name: 'firstName', placeholder: 'NOME' },
-  { id: 2, name: 'lastName', placeholder: 'SOBRENOME' },
-  { id: 3, name: 'DOB', placeholder: 'DATA DE NASCIMENTO' },
-  { id: 4, name: 'nationality', placeholder: 'NACIONALIDADE' },
-  { id: 5, name: 'height', placeholder: 'ALTURA' },
-  { id: 6, name: 'gender', placeholder: 'GÊNERO' }
+  { id: 1, name: 'firstName', label: 'FIRST NAME' },
+  { id: 2, name: 'lastName', label: 'LAST NAME' },
+  { id: 3, name: 'DOB', label: 'DATE OF BIRTH' },
+  { id: 4, name: 'nationality', label: 'NATIONALITY' },
+  { id: 5, name: 'gender', label: 'GENDER' }
 ]

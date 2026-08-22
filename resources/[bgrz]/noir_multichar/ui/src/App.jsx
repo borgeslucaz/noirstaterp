@@ -8,10 +8,18 @@ import { useDispatch, useSelector } from "react-redux";
 import AdminPanel from "./components/adminpanel/adminpanel";
 import { updatescreen } from "./store/screen/screen";
 import Loading from "./components/loading/LoadingScreen";
+import { isBrowserDevelopment } from "./utils/browserDevelopment";
 
 function App() {
-  const [visible, setVisible] = useState(false);
+  const browserDevelopment = isBrowserDevelopment();
+  const [visible, setVisible] = useState(browserDevelopment);
   const dispatch = useDispatch();
+
+  useEffect(() => {
+    if (browserDevelopment) {
+      dispatch(updatescreen("characterselection"));
+    }
+  }, [browserDevelopment, dispatch]);
   
       useEffect(() => {
   
@@ -28,7 +36,7 @@ function App() {
         window.addEventListener('message',handlemessage);
         return () => window.removeEventListener('message',handlemessage);
     
-      }, [])
+      }, [dispatch])
 
   return (
     <>

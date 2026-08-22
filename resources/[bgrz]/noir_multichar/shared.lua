@@ -45,8 +45,6 @@ Config.AdminCommand = 'profiles'
 
 Config.ProfilEditorCommand = 'editprofile'
 
-Config.appartmentstart = false
-Config.appartmentevent = 'apartments:client:setupSpawnUI' -- ps-housing:client:setupSpawnUI
 Config.SpawnSelector = true
 
 Config.Prefix = 'char'
@@ -58,6 +56,9 @@ Config.mindob = 1970
 
 Config.Routingbucket = 0
 
+-- Direct spawn used only after creating a new Qbox character.
+-- vector4 is required so the player's heading is preserved.
+Config.NewCharacterLocation = vector4(-1041.13, -2734.80, -0.20, 357.71)
 
 Config.NewCharacterSpawn = { -- Scene location for creation of new characters
     camcoords = vec3(-1051.2159, -2721.8655, 20.1689),

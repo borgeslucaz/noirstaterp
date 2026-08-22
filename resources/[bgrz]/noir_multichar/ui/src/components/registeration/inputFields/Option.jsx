@@ -1,74 +1,41 @@
 import React, { useState } from 'react'
 import { countriesList } from '../../../utils/coutries'
 import { nuicallback } from '../../../utils/nuicallback'
-import { useConfig } from '../../../providers/configprovider'
-import arrow from '../../../assets/arrow.png'
+import { usePopoverPlacement } from './usePopoverPlacement'
 
-const Option = ({ name, handleChange, optionsPopup, handleOptionsPopup }) => {
-  const [selectedCountry, setSelecetedCountry] = useState('')
+const Option = ({ name, handleChange, optionsPopup, handleOptionsPopup, closeOptions }) => {
+  const [selectedCountry, setSelectedCountry] = useState('')
   const [searchCountry, setSearchCountry] = useState('')
-  const handleSelectCountry = e => {
-    setSelecetedCountry(e.target.value)
-    handleChange(e)
-    handleOptionsPopup()
+  const { anchorRef, popoverRef, placement } = usePopoverPlacement(optionsPopup, closeOptions)
+
+  const selectCountry = (event) => {
+    setSelectedCountry(event.target.value)
+    handleChange(event)
+    closeOptions()
     nuicallback('click')
   }
 
-  const { config } = useConfig();
-
-  const handleSearch = e => setSearchCountry(e.target.value)
+  const countries = countriesList.filter((country) => country.toLowerCase().includes(searchCountry.toLowerCase()))
 
   return (
-    <>
-      <ul
-        className={`absolute right-[290px] w-[260px] bg-[rgba(0,0,0,0.5)] border border-1px border-white ${
-          optionsPopup ? 'max-h-[300px]' : 'max-h-[0] invisible'
-        } transition-all overflow-y-scroll
-        scrollbar-thumb-white scrollbar-track-black scrollbar-thin`}
-      >
-        <li>
-          <input
-            type='text'
-            placeholder={config.Lang.searchcountry}
-            onChange={handleSearch}
-            className='bg-black text-white w-full pl-1 focus:outline-none '
-          />
-        </li>
-        {countriesList
-          .filter(c => {
-            if (
-              c.toLocaleLowerCase().includes(searchCountry.toLocaleLowerCase())
-            ) {
-              return c
-            }
-            return ''
-          })
-          .map(c => (
-            <li className='text-white hover:text-black hover:bg-white' key={c}>
-              <button
-                onClick={handleSelectCountry}
-                onMouseEnter={() => nuicallback('hover')}
-                name={name}
-                value={c}
-                type='button'
-                className='text-start p-1 w-full'
-              >
-                {c}
-              </button>
-            </li>
-          ))}
-      </ul>
-      <button
-        type='button'
-        onClick={handleOptionsPopup}
-  onMouseEnter={() => nuicallback('hover')}
-        className='text-start w-[100%]  border-[1px] border-white focus:outline-none  text-white p-[6px] hover:bg-[rgba(0,0,0,0.8)] bg-[rgba(0,0,0,0.5)]'
-      >
-        {selectedCountry || config.Lang.nationality}
+    <div ref={anchorRef} className={`noir-create__field noir-create__popover-anchor${optionsPopup ? ' is-open' : ''}`}>
+      <span className='noir-create__label'>NATIONALITY</span>
+      <button type='button' onClick={handleOptionsPopup} onMouseEnter={() => nuicallback('hover')} className='noir-create__control noir-create__select' aria-expanded={optionsPopup}>
+        <span className={selectedCountry ? '' : 'noir-create__placeholder'}>{selectedCountry || 'Select nationality'}</span>
+        <span className={`noir-create__chevron${optionsPopup ? ' is-open' : ''}`} aria-hidden='true'>›</span>
       </button>
 
-       <img style={{transform: optionsPopup ? 'rotate(90deg)' : 'rotate(0deg)'}} className='absolute ml-[210px] mt-[162px] w-4' src={arrow} alt="" />
-    </>
+      <div ref={popoverRef} className={`noir-create__popover noir-create__countries noir-create__popover--${placement}${optionsPopup ? ' noir-create__popover--open' : ''}`} aria-hidden={!optionsPopup}>
+        <input className='noir-create__search' type='text' placeholder='SEARCH COUNTRY' value={searchCountry} onChange={(event) => setSearchCountry(event.target.value)} />
+        <ul className='noir-create__country-list'>
+          {countries.map((country) => (
+            <li key={country}>
+              <button type='button' className={country === selectedCountry ? 'is-selected' : ''} name={name} value={country} onClick={selectCountry} onMouseEnter={() => nuicallback('hover')}>{country}</button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   )
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import DeleteConfirm from "../confirmpage/deleteconfirm";
 import { formatNumberToCurrency } from "../../utils/formatNumbersToCurrency";
@@ -45,7 +45,8 @@ function CharacterCard({ character, index, selected, onSelect }) {
 
   return <button
     type="button"
-    className={`noir-card${selected ? " noir-card--selected" : ""}`}
+    className={"noir-card" + (selected ? " noir-card--selected" : "")}
+    data-character-index={index}
     aria-label={`Selecionar ${name}`}
     aria-current={selected ? "true" : undefined}
     onMouseEnter={() => !selected && nuicallback("hover").catch(() => {})}
@@ -59,6 +60,7 @@ function CharacterCard({ character, index, selected, onSelect }) {
 export default function CharDetails() {
   const [characters, setCharacters] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const cardsRef = useRef(null);
   const dispatch = useDispatch();
   const scene = useSelector((state) => state.screen);
   const selected = characters[selectedIndex] ?? null;
@@ -106,6 +108,15 @@ export default function CharDetails() {
     }
   }, [characters.length, selectCharacter, selectedIndex]);
 
+  useEffect(() => {
+    const container = cardsRef.current;
+    const card = container?.querySelector('[data-character-index="' + selectedIndex + '"]');
+    if (!container || !card) return;
+
+    const centeredPosition = card.offsetLeft - (container.clientWidth - card.offsetWidth) / 2;
+    container.scrollTo({ left: Math.max(0, centeredPosition), behavior: "smooth" });
+  }, [characters.length, selectedIndex]);
+
   const play = useCallback(() => {
     if (!selected) return;
     dispatch(updatescreen(""));
@@ -150,7 +161,7 @@ export default function CharDetails() {
 
     <nav className="noir-carousel" aria-label="Personagens">
       <button type="button" className="noir-arrow" onClick={previous} disabled={selectedIndex === 0} aria-label="Personagem anterior">‹</button>
-      <div className="noir-cards">{characters.map((character, index) => <CharacterCard key={character.citizenid !== "UNKNOWN" ? character.citizenid : `slot-${character.id}`} character={character} index={index} selected={index === selectedIndex} onSelect={selectCharacter} />)}</div>
+      <div className="noir-cards" ref={cardsRef}>{characters.map((character, index) => <CharacterCard key={character.citizenid !== "UNKNOWN" ? character.citizenid : `slot-${character.id}`} character={character} index={index} selected={index === selectedIndex} onSelect={selectCharacter} />)}</div>
       <button type="button" className="noir-arrow" onClick={next} disabled={selectedIndex >= characters.length - 1} aria-label="Próximo personagem">›</button>
     </nav>
 

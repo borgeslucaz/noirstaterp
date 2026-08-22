@@ -1,6 +1,12 @@
 
 
+import { browserNuiCallback, isBrowserDevelopment } from "./browserDevelopment";
+
 export async function nuicallback(eventName, data) {
+  if (isBrowserDevelopment()) {
+    return browserNuiCallback(eventName, data);
+  }
+
   const options = {
     method: "post",
     headers: {

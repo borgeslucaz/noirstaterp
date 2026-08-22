@@ -7,7 +7,7 @@ return {
     characters = {
         useExternalCharacters = true, -- Afterlife_ivmulticharacter2.0 handles character selection.
         enableDeleteButton = true, -- Whether players should be able to delete characters themselves.
-        startingApartment = true, -- If set to false, skips apartment choice in the beginning (requires qbx_spawn if true)
+        startingApartment = false, -- New characters are spawned directly by noir_multichar.
 
         dateFormat = 'YYYY-MM-DD',
         dateMin = '1900-01-01', -- Has to be in the same format as the dateFormat config
