@@ -1,0 +1,211 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
+body {
+    font-family: inter;
+    margin: 0;
+    overflow: hidden;
+}
+
+.loading-wrapper {
+    position: absolute;
+    background-color: rgb(34, 34, 34);
+    width: 100%;
+    height: 100%;
+}
+
+.background {
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    animation: background forwards;
+    animation-duration: 8s;
+}
+
+@keyframes background {
+    0%{
+        opacity: 0;
+        transform: scale(1.2);
+    }
+    10%{
+        opacity: 1;
+    }
+    100%{
+        transform: scale(1.0);
+    }
+    
+}
+
+.vignette {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.8) 100%);
+    width: 100%;
+    height: 100%;
+}
+
+.loading-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 87%;
+    height: 85%;
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    justify-content: space-between;
+}
+
+.header {
+    position: relative;
+    bottom: 3%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: .5vw;
+    color: white;
+    font-size: 1.5vw;
+    font-weight: 500;
+    img{
+        width: 1.2vw;
+    }
+}
+
+.footer {
+    position: relative;
+    right: 2%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: .7vw;
+    width: 100%;
+
+    img {
+        width: 1vw;
+    }
+
+    div {
+        width: 100%;
+    }
+
+    h {
+        color: white;
+        font-size: 1.4vw;
+        font-weight: bold
+    }
+
+    .quote {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: .8vw;
+        font-weight: 500
+    }
+}
+
+.audiobutton{
+    padding: 0.3vw;
+    opacity: 0.7;
+}
+
+.audiobutton:hover{
+    opacity: 1.0;
+}
+
+.m {
+    padding: 0.3vw;
+    animation-duration: 1s;
+    animation-iteration-count: infinite;
+    position: absolute;
+}
+
+.m1 {
+    animation-delay: 0s;
+    animation-name: music1;
+}
+
+.m2 {
+    animation-delay: .8s;
+    animation-name: music2;
+}
+
+.m3 {
+    animation-delay: .3s;
+    animation-name: music3;
+}
+
+@keyframes music1 {
+    0% {
+        transform: translate(0px, 0px)
+    }
+
+    100% {
+        transform: translate(-5px, -100px);
+        opacity: 0;
+    }
+}
+
+@keyframes music3 {
+    0% {
+        transform: translate(0px, 0px)
+    }
+
+    100% {
+        transform: translate(20px, -100px);
+        opacity: 0;
+    }
+}
+
+@keyframes music2 {
+    0% {
+        transform: translate(0px, 0px)
+    }
+
+    100% {
+        transform: translate(-30px, -100px);
+        opacity: 0;
+    }
+}
+
+
+.loading {
+    width: 90%;
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    height: 12px;
+
+}
+
+.loading-background {
+    width: 100%;
+    height: 3px;
+    opacity: 60%;
+    background: linear-gradient(90deg, rgba(233, 233, 233, 1) 0%, rgba(233, 233, 233, 0.6) 41%, rgba(233, 233, 233, 0) 100%);
+}
+
+.loading-value {
+    position: absolute;
+    height: 12px;
+    background-color: #e9e9e9a1;
+    transition: 1s ease;
+}
+
+
+.transition-fade-enter {
+    opacity: 0;
+  }
+  
+  .transition-fade-enter-active {
+    opacity: 1;
+    transition: opacity 200ms;
+  }
+  
+  .transition-fade-exit {
+    opacity: 1;
+  }
+  
+  .transition-fade-exit-active {
+    opacity: 0;
+    transition: opacity 200ms;
+  }

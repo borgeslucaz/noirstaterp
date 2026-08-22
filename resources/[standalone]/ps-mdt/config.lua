@@ -132,7 +132,7 @@ Config.Fuel = 'LegacyFuel' -- Fuel resource name for vehicle fuel management
 -- phone resource once and both features use it, so they can never drift apart.
 -- Leave Resource = '' to use charinfo.phone for display and disable court SMS/mail.
 Config.Phone = {
-    Resource     = 'lb-phone',                    -- phone script resource name ('' = charinfo.phone only, no SMS/mail)
+    Resource     = 'sd-phone',                    -- phone script resource name ('' = charinfo.phone only, no SMS/mail)
     NumberExport = 'GetEquippedPhoneNumber',      -- export returning a citizen's number for a citizenid
     UseCharinfoFallback = true,                   -- if the export returns nothing, fall back to charinfo.phone
 

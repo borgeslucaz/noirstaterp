@@ -1,50 +1,13 @@
-# loadscreen
+![Frame 3 (2)](https://github.com/user-attachments/assets/be4e88ec-02d1-4fee-9ab4-c8975bef78e6)
+# Afterlife IV Loading
 
-Clean and fully configurable loading screen for FiveM ([preview]).
+> **REACT & SCSS**
+> The resource is written with react and using scss for styling to ensure the best performance of the resource
 
-Need support? Check out the [Discord server](https://discord.gg/rdjpS2K8hC)!
+[![Discord](https://img.shields.io/badge/Discord-%237289DA.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/HWejPwZgvQ)
+[![Website](https://img.shields.io/badge/Tebex-%23e62e56.svg?style=for-the-badge&logo=Tebex&logoColor=white)](https://al-studios.tebex.io/)
 
-- [Key Features](#key-features)
-- [Configuration](#configuration)
 
-## Key Features
+## Copyright
 
-### Multiple Loading Bars
-
-The loading screen features a main loading bar representing the % of total
-loading done, and a secondary loading bar representing the % of the current
-step done. The secondary loading bar is disabled by default.
-
-### Background Media
-
-The loading screen features optional configurable background images, music,
-and video.
-
-### No Bridge
-
-The loading screen shows up until all resources are done loading or until
-another resource shuts it down, depending on the configuration.
-
-### Multiple Styles
-
-The loading screen comes with 3 styles by default:
-
-- Classic: the style provided since v1.0.0;
-- Modern: a modernized layout;
-- Minimal: everything is condensed and centered (default).
-
-The config can switch between these 3. Alternatively, you may create your own
-CSS style and use it in the config instead.
-
-### Fully Configurable
-
-This loading screen offers a huge amount of options to enable you to configure
-it for your server to a T.
-
-## Configuration
-
-Configuration is handled through [convars].
-See [`loadscreen.cfg`](./loadscreen.cfg) for examples & explanations.
-
-[preview]: https://d4isdavid.github.io/loadscreen/
-[convars]: https://docs.fivem.net/docs/scripting-reference/convars/
+Copyright © 2024 AfterLifeStudio <https://github.com/AfterLifeStudio>

@@ -5,7 +5,7 @@ return {
     pauseMapText = 'Powered by Qbox', -- Text shown above the map when ESC is pressed. If left empty 'FiveM' will appear
 
     characters = {
-        useExternalCharacters = false, -- Whether you have an external character management resource. (If true, disables the character management inside the core)
+        useExternalCharacters = true, -- Afterlife_ivmulticharacter2.0 handles character selection.
         enableDeleteButton = true, -- Whether players should be able to delete characters themselves.
         startingApartment = true, -- If set to false, skips apartment choice in the beginning (requires qbx_spawn if true)
 

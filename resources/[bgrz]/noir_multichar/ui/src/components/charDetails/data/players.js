@@ -1,0 +1,31 @@
+export const players = [
+  {
+    id: 1,
+    firstname: "Bob",
+    lastname: "Brown",
+    citizenid: "NOIR001",
+    emptyslot: false,
+    img: "",
+    sex: true,
+    additionalInfo: { cash: 1840, job: "Mecânico", lastSeen: "Rockford Hills" },
+  },
+  {
+    id: 2,
+    firstname: "",
+    lastname: "",
+    citizenid: "UNKNOWN",
+    emptyslot: true,
+    img: "",
+    additionalInfo: { cash: 0, job: "DESEMPREGADO", lastSeen: "DESCONHECIDO" },
+  },
+  {
+    id: 3,
+    firstname: "Maximiliano",
+    lastname: "Montenegro-Salvatore",
+    citizenid: "NOIR003",
+    emptyslot: false,
+    img: "",
+    sex: true,
+    additionalInfo: { cash: 250000, job: "Civil", lastSeen: "DESCONHECIDO" },
+  },
+];
