@@ -5,7 +5,7 @@ import { prefOptionKey, SORT_MODES, SortMode } from '../../store/preferences';
 import { UiConfig } from '../../store/uiConfig';
 import { getSortMode, isSortAvailable, PREF_CHANGE_EVENT } from '../../helpers';
 import Dropdown from '../utils/Dropdown';
-import { FoodIcon, MedicalIcon, ShirtIcon, WeaponIcon } from '../utils/icons';
+import { FoodIcon, GridIcon, MedicalIcon, ShirtIcon, WeaponIcon } from '../utils/icons';
 
 export type FilterId = 'weapon' | 'medical' | 'food' | 'clothing';
 
@@ -61,7 +61,7 @@ const InventoryFilters: React.FC<InventoryFiltersProps> = ({ active, onChange, s
           title={Locale.ui_filter_all || 'All'}
           onClick={() => onChange(null)}
         >
-          <span className="filter-text">{Locale.ui_filter_all || 'All'}</span>
+          <GridIcon />
         </button>
         {FILTERS.map(({ id, localeKey, fallback, icon: Icon }) => (
           <button
