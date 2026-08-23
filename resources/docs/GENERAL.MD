@@ -233,7 +233,7 @@ As ações são demonstrativas: não cobram, não entregam itens e não devem se
 ### Personagem e interface
 
 - `illenium-appearance`: aparência, roupas, cabelo, acessórios e persistência visual.
-- `afterlife_mafiahud`: HUD ativo no lugar do `qbx_hud`.
+- `element_hud`: HUD de jogador/veículo ativo, com bridge Qbox e configurações persistentes.
 - `loadscreen`: tela de carregamento personalizada.
 - `qbx_spawn`: seleção de local de nascimento/spawn.
 - `qbx_radialmenu`: menu radial de ações contextuais.
@@ -330,7 +330,7 @@ ps_lib / ps-mdt
 [assets]
 ```
 
-O `qbx_hud` é parado intencionalmente porque foi substituído pelo `afterlife_mafiahud`.
+O `qbx_hud` é parado intencionalmente porque foi substituído pelo `element_hud`.
 
 ### Comandos de manutenção
 

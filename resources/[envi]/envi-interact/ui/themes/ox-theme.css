@@ -1,7 +1,9 @@
 .choice__container,
 .slider__wrapper,
 .bubble__chat--container {
-  background: #25272C;
+  background: rgba(10, 12, 14, .86);
+  border-color: rgba(255, 255, 255, .2);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, .28);
 }
 
 .choice__title {
@@ -10,7 +12,7 @@
 
 .option__item .option__key,
 .option__item .option__content {
-  background: #3d3f46;
+  background: rgba(38, 40, 44, .9);
   color: #cdcfd3;
 }
 
@@ -18,13 +20,13 @@
 .option__item.active .option__key,
 .option__item:hover .option__content,
 .option__item.active .option__content {
-  background: #5a6069;
+  background: rgba(74, 78, 84, .95);
   color: #cdcfd3;
 }
 
 .option__item.disabled .option__key,
 .option__item.disabled .option__content {
-  background: #3d3f46;
+  background: rgba(38, 40, 44, .9);
   color: #cdcfd3;
   cursor: default;
 }
@@ -80,7 +82,7 @@
 }
 
 .bubble__chat--container::before {
-  border-top: 1.45vh solid #25272C;
+  border-top: 1.45vh solid rgba(10, 12, 14, .86);
 }
 
 [data-tooltip]:before { 
