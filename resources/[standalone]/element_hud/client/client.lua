@@ -502,6 +502,10 @@ local function LoadHudSettings()
         changed = true
     end
 
+    if type(settings.playerHudCustomPosition) ~= 'table' then
+        settings.playerHudCustomPosition = false
+    end
+
     if not VALID_VEHICLE_HUD_STYLES[settings.vehicleHudStyle] then
         settings.vehicleHudStyle = DEFAULT_HUD_SETTINGS.vehicleHudStyle
         changed = true
@@ -580,6 +584,18 @@ local function initializeHud()
     Wait(500)
 
     local hudSettings = LoadHudSettings()
+    local ok, serverPosition = pcall(function()
+        return lib.callback.await('element_hud:getPlayerHudPosition', false)
+    end)
+    hudSettings.playerHudCustomPosition = ok and serverPosition or false
+    local layoutOk, serverLayout = pcall(function()
+        return lib.callback.await('element_hud:getPlayerHudLayout', false)
+    end)
+    if layoutOk and type(serverLayout) == 'table' then
+        hudSettings.playerHudCustomPosition = serverLayout.position or hudSettings.playerHudCustomPosition
+        hudSettings.playerHudScale = serverLayout.scale
+        hudSettings.playerHudIconLayouts = serverLayout.icons
+    end
 
     hudState.hudDisabled = hudSettings.hudDisabled
     hudState.cinematicBarsActive = hudSettings.cinematicBarsHeight > 0
@@ -646,6 +662,58 @@ RegisterNUICallback('setHudDisabled', function(data, cb)
     cb({ status = 'ok' })
 end)
 
+RegisterNUICallback('setPlayerHudCustomPosition', function(data, cb)
+    local position = type(data) == 'table' and data.position or nil
+    local ok, savedPosition = pcall(function()
+        return lib.callback.await('element_hud:savePlayerHudPosition', false, position)
+    end)
+
+    if not ok or not savedPosition then
+        cb({ status = 'error', message = 'Invalid HUD position' })
+        return
+    end
+
+    local settings = LoadHudSettings()
+    settings.playerHudCustomPosition = savedPosition
+    SaveHudSettings(settings)
+    cb({ status = 'ok', position = savedPosition })
+end)
+
+RegisterNUICallback('resetPlayerHudCustomPosition', function(_, cb)
+    local ok, reset = pcall(function()
+        return lib.callback.await('element_hud:resetPlayerHudPosition', false)
+    end)
+
+    if not ok or not reset then
+        cb({ status = 'error' })
+        return
+    end
+
+    local settings = LoadHudSettings()
+    settings.playerHudCustomPosition = false
+    SaveHudSettings(settings)
+    cb({ status = 'ok' })
+end)
+
+RegisterNUICallback('savePlayerHudLayout', function(data, cb)
+    local layout = type(data) == 'table' and data.layout or nil
+    local ok, savedLayout = pcall(function()
+        return lib.callback.await('element_hud:savePlayerHudLayout', false, layout)
+    end)
+
+    if not ok or not savedLayout then
+        cb({ status = 'error', message = 'Invalid HUD layout' })
+        return
+    end
+
+    local settings = LoadHudSettings()
+    settings.playerHudCustomPosition = savedLayout.position
+    settings.playerHudScale = savedLayout.scale
+    settings.playerHudIconLayouts = savedLayout.icons
+    SaveHudSettings(settings)
+    cb({ status = 'ok', layout = savedLayout })
+end)
+
 registerEnumSettingCallback(
     'setPlayerStatusIndicator',
     'playerStatusIndicator',
@@ -694,15 +762,9 @@ lib.onCache('vehicle', function(vehicle)
     handleVehicleLoop()
 end)
 
-lib.addKeybind({
-    name = 'settings',
-    description = 'Open Settings',
-    defaultMapper = 'keyboard',
-    default = 'F2',
-    onPressed = function()
-        toggleSettings(true)
-    end
-})
+RegisterCommand('hud', function()
+    toggleSettings(true)
+end, false)
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', initializeHud)
 

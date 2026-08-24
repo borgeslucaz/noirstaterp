@@ -14,6 +14,7 @@ import {
   alpha,
   useMantineTheme,
   Avatar,
+  Button,
 } from "@mantine/core";
 import { IoSettingsSharp } from "react-icons/io5";
 import { FaClapperboard, FaFireFlameCurved, FaGamepad, FaGasPump, FaOilCan, FaUser, FaX  } from "react-icons/fa6";
@@ -71,6 +72,7 @@ const Settings = () => {
   const [opened, setOpened] = useState(false);
   const [activePage, setActivePage] = useState<SettingsPage>("player");
   const [playerSettingsTab, setPlayerSettingsTab] = useState<string | null>("style");
+  const [showPositionModes, setShowPositionModes] = useState(false);
 
   const {
     hudDisabled,
@@ -82,6 +84,9 @@ const Settings = () => {
     setCinematicBarsHeight,
     setPlayerStatusIndicator,
     setPlayerHudPosition,
+    setPlayerHudCustomPosition,
+    setLayoutEditing,
+    setLayoutEditMode,
     vehicleHudStyle = "bars",
     setVehicleHudStyle,
     compassStyle = "default",
@@ -97,6 +102,7 @@ const Settings = () => {
       if (!opened || event.key !== 'Escape') return;
 
       setOpened(false);
+      setLayoutEditing(false);
       void fetchNui('closeSettings');
     };
 
@@ -105,7 +111,7 @@ const Settings = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [setOpened, opened]);
+  }, [setLayoutEditing, opened]);
 
 
   const darkShadow = `0 0 12px ${alpha(theme.colors.dark[9], 0.55)}`;
@@ -158,7 +164,9 @@ const Settings = () => {
 
   const handlePlayerHudPosition = (value: PlayerHudPosition) => {
     setPlayerHudPosition(value);
+    setPlayerHudCustomPosition(false);
     fetchNui("setPlayerHudPosition", { position: value });
+    fetchNui("resetPlayerHudCustomPosition");
   };
 
   const handleCompassPosition = (value: CompassPosition) => {
@@ -188,12 +196,29 @@ const Settings = () => {
 
   const handleClose = () => {
     setOpened(false);
+    setLayoutEditing(false);
     fetchNui("closeSettings");
   };
 
   useNuiEvent("TOGGLE_SETTINGS", (data: boolean) => {
     setOpened(data);
+    if (!data) setLayoutEditing(false);
   });
+
+  useEffect(() => {
+    const returnToSettings = () => {
+      setOpened(true);
+      setShowPositionModes(false);
+    };
+
+    window.addEventListener("hud-editor-return", returnToSettings);
+    return () => window.removeEventListener("hud-editor-return", returnToSettings);
+  }, []);
+
+  const startLayoutEditor = (mode: "all" | "icons") => {
+    setOpened(false);
+    setLayoutEditMode(mode);
+  };
 
   useNuiEvent(
     "UPDATE_SETTINGS",
@@ -201,6 +226,9 @@ const Settings = () => {
       hudDisabled?: boolean;
       playerStatusIndicator?: PlayerStatusIndicator;
       playerHudPosition?: PlayerHudPosition;
+      playerHudCustomPosition?: { x: number; y: number } | false;
+      playerHudScale?: number;
+      playerHudIconLayouts?: Record<string, { x: number; y: number; scale: number }>;
       vehicleHudStyle?: VehicleHudStyle;
       compassStyle?: CompassHudStyle;
       compassPosition?: CompassPosition;
@@ -837,8 +865,31 @@ const PreviewBarStatus = ({
         <Tabs.Panel value="position" pt="1vh">
           <Stack gap="1vh">
             <SettingRow
+              title="Alterar posição"
+              description="Mova e redimensione a HUD inteira ou cada ícone separadamente"
+            >
+              <Button
+                onClick={() => setShowPositionModes((value) => !value)}
+                w={210}
+              >
+                Alterar posição
+              </Button>
+            </SettingRow>
+
+            {showPositionModes && (
+              <SimpleGrid cols={2}>
+                <Button variant="light" onClick={() => startLayoutEditor("all")}>
+                  HUD inteira
+                </Button>
+                <Button variant="light" onClick={() => startLayoutEditor("icons")}>
+                  Por ícone
+                </Button>
+              </SimpleGrid>
+            )}
+
+            <SettingRow
               title="Player HUD"
-              description="Choose where player status indicators should be displayed"
+              description="Choose a preset, or drag the HUD directly while this menu is open"
             >
               <Select
                 value={playerHudPosition}

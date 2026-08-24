@@ -1,19 +1,21 @@
-import { memo, useMemo } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { Flex, Text, Transition, useMantineTheme, Box, alpha, Avatar, RingProgress } from "@mantine/core";
 import { motion } from "framer-motion";
 import { useNuiEvent } from "../../hooks/useNuiEvent";
 import { useTransitionedValue } from "../../utils/useTransitionedValue";
 import { StatsStore, VehicleStore } from "../../typings/stats";
 import { statsStore, vehicleStore } from "../../stores/stats";
-import { settingsStore, type PlayerHudPosition } from "../../stores/settings";
+import { settingsStore, type HudItemLayout, type PlayerHudPosition } from "../../stores/settings";
 import { FaBrain, FaLungs, FaWalkieTalkie, FaMicrophone, FaMicrophoneSlash, FaFireFlameCurved, FaGasPump, FaOilCan  } from "react-icons/fa6";
 import { PiHamburgerFill, PiSeatbeltFill } from "react-icons/pi";
 import { FaHeartbeat, FaShieldAlt } from "react-icons/fa";
 import { RiDrinks2Fill } from "react-icons/ri";
 import { HelicopterGauge } from "./helicopter";
+import { fetchNui } from "../../utils/fetchNui";
 
 type PlayerStatusIndicator = "square" | "bar" | "circle" | "segmented" | "segmented-bar";
 type VehicleHudStyle = "bars" | "speedometer" | "speedometer-column";
+const DEFAULT_HUD_ITEM_LAYOUT: HudItemLayout = { x: 0, y: 0, scale: 1 };
 
 const playerHudPositionStyles: Record<PlayerHudPosition, React.CSSProperties> = {
   "bottom-left": {
@@ -54,6 +56,74 @@ const getPlayerHudTransition = (position: PlayerHudPosition) => {
   if (position === "top-right") return "slide-left" as const;
   if (position === "bottom-center") return "slide-up" as const;
   return "slide-right" as const;
+};
+
+const EditableHudItem = ({
+  id,
+  editing,
+  layout,
+  onChange,
+  children,
+}: {
+  id: string;
+  editing: boolean;
+  layout: HudItemLayout;
+  onChange: (id: string, layout: HudItemLayout) => void;
+  children: React.ReactNode;
+}) => {
+  const dragStart = useRef<{ clientX: number; clientY: number; x: number; y: number } | null>(null);
+
+  return (
+    <div
+      onPointerDown={(event) => {
+        if (!editing) return;
+        dragStart.current = {
+          clientX: event.clientX,
+          clientY: event.clientY,
+          x: layout.x,
+          y: layout.y,
+        };
+        event.currentTarget.setPointerCapture(event.pointerId);
+        event.stopPropagation();
+      }}
+      onPointerMove={(event) => {
+        if (!dragStart.current) return;
+        onChange(id, {
+          ...layout,
+          x: dragStart.current.x + ((event.clientX - dragStart.current.clientX) / window.innerWidth) * 100,
+          y: dragStart.current.y + ((event.clientY - dragStart.current.clientY) / window.innerHeight) * 100,
+        });
+        event.stopPropagation();
+      }}
+      onPointerUp={(event) => {
+        if (!dragStart.current) return;
+        dragStart.current = null;
+        event.currentTarget.releasePointerCapture(event.pointerId);
+        event.stopPropagation();
+      }}
+      onWheel={(event) => {
+        if (!editing) return;
+        event.preventDefault();
+        event.stopPropagation();
+        onChange(id, {
+          ...layout,
+          scale: Math.max(0.5, Math.min(2, layout.scale + (event.deltaY < 0 ? 0.05 : -0.05))),
+        });
+      }}
+      style={{
+        display: "inline-flex",
+        transform: `translate(${layout.x}vw, ${layout.y}vh) scale(${layout.scale})`,
+        transformOrigin: "center",
+        pointerEvents: editing ? "auto" : "none",
+        cursor: editing ? "move" : "default",
+        outline: editing ? "2px dashed rgba(34, 139, 230, 0.9)" : "none",
+        outlineOffset: editing ? "0.3vh" : undefined,
+        touchAction: "none",
+      }}
+    >
+      {children}
+    </div>
+  );
 };
 
 const statColorMap: Record<string, string> = {
@@ -213,69 +283,66 @@ const CircleStatIndicator = ({
   color,
   Icon,
   size = "md",
+  status,
 }: {
   value: number;
   color: string;
   Icon: React.ElementType;
   size?: "sm" | "md";
+  status?: string;
 }) => {
-  const theme = useMantineTheme();
   const clampedValue = Math.max(0, Math.min(value, 100));
-
-  const progressColor = statColorMap[color] || 'var(--mantine-color-blue-light-hover)';
-  const shadowColor = theme.colors[color]?.[4] || theme.colors.blue[4];
   const avatarSize = size === 'sm' ? '3.1vh' : '3.8vh';
   const iconSize = size === 'sm' ? '2.6vh' : '2.3vh';
+  const noirColor = status === "health" || color === "red"
+    ? "#c85a5a"
+    : status === "hunger" || color === "orange" || color === "yellow"
+      ? "#c9a86a"
+      : status === "voice" && color === "gray"
+        ? "#2b3035"
+        : "#829bab";
 
   return (
     <Box
       style={{
-        borderRadius: '50%',
-        boxShadow: `0 0 10px ${theme.colors.dark[8]}`,
-        border: `0.2vh solid ${alpha(theme.colors.dark[8], 1)}`,
-        backgroundColor: theme.colors.dark[8],
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        position: "relative",
+        width: avatarSize,
+        height: avatarSize,
+        borderRadius: "50%",
+        overflow: "hidden",
+        border: "0.2vh solid rgba(243, 243, 241, 0.35)",
+        backgroundColor: "rgba(7, 9, 11, 0.78)",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
       }}
     >
       <Box
         style={{
-          position: 'relative',
-          width: avatarSize,
-          height: avatarSize,
+          position: "absolute",
+          left: 0,
+          bottom: 0,
+          width: "100%",
+          height: `${clampedValue}%`,
+          backgroundColor: noirColor,
+          transition: "height 220ms ease-out",
+          zIndex: 0,
         }}
       >
-        <Box
-          bg={progressColor}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            borderRadius: '50%',
-            border: `0.2vh solid ${alpha(theme.colors.dark[8], 0.7)}`,
-            clipPath: `inset(${100 - value}% 0 0 0)`,
-            zIndex: 0,
-          }}
-        />
-
-        <Avatar
-          size={avatarSize}
-          radius="xs"
-          variant="light"
-          color={color}
-          style={{
-            borderRadius: '50%',
-            boxShadow: `0 0 10px ${progressColor}`,
-            position: 'relative',
-            zIndex: 1,
-          }}
-        >
-          <Icon size={iconSize} style={{ filter: `drop-shadow(0 0 4px ${alpha(shadowColor, 0.5)})` }} />
-        </Avatar>
+        {clampedValue > 0 && clampedValue < 100 && (
+          <span
+            key={clampedValue}
+            className="noir-liquid-ripple"
+            style={{ backgroundColor: noirColor }}
+          />
+        )}
       </Box>
+
+      <Icon
+        size={iconSize}
+        color="#f3f3f1"
+        style={{ position: "relative", zIndex: 1 }}
+      />
     </Box>
   );
 };
@@ -380,24 +447,43 @@ const StatBox = ({
   color,
   Icon,
   size = 'md',
-  indicator = "square"
+  indicator = "square",
+  status,
 }: {
   value: number;
   color: string;
   Icon: React.ElementType;
   size?: 'sm' | 'md';
   indicator?: PlayerStatusIndicator;
+  status?: string;
 }) => (
   <Flex direction="column" align="center">
     {indicator === "bar" ? (
       <BarStatIndicator value={value} color={color} Icon={Icon} size={size} />
     ) : indicator === "circle" ? (
-      <CircleStatIndicator value={value} color={color} Icon={Icon} size={size} />
+      <CircleStatIndicator value={value} color={color} Icon={Icon} size={size} status={status} />
     ) : (
       <StatIndicator value={value} color={color} Icon={Icon} size={size} />
     )}
   </Flex>
 );
+
+const EditablePlayerStat = ({
+  id,
+  ...props
+}: { id: string } & React.ComponentProps<typeof StatBox>) => {
+  const editing = settingsStore((state) => state.layoutEditMode === "icons");
+  const layout = settingsStore(
+    (state) => state.playerHudIconLayouts[id] ?? DEFAULT_HUD_ITEM_LAYOUT,
+  );
+  const setLayout = settingsStore((state) => state.setPlayerHudIconLayout);
+
+  return (
+    <EditableHudItem id={id} editing={editing} layout={layout} onChange={setLayout}>
+      <StatBox {...props} status={id} />
+    </EditableHudItem>
+  );
+};
 
 const VoiceIcon = ({
   voiceLevel,
@@ -426,22 +512,26 @@ const VoiceIcon = ({
 const GearIcon = ({
   gear,
   size,
+  color,
   style,
 }: {
   gear: string | number;
   size?: string | number;
+  color?: string;
   style?: React.CSSProperties;
 }) => {
   const theme = useMantineTheme();
+  const isNoirCircle = color === "#f3f3f1";
+
   return (
     <Text
       fw={900}
       fz="2vh"
       lh={1}
-      c="blue.2"
+      c={isNoirCircle ? color : "blue.2"}
       style={{
         ...style,
-        textShadow: `0 0 4px ${theme.colors.blue[2]}`,
+        textShadow: isNoirCircle ? "none" : `0 0 4px ${theme.colors.blue[2]}`,
       }}
     >
       {gear}
@@ -752,6 +842,8 @@ const RpmBars = ({ rpm }: { rpm: number }) => {
 
 export default function CombinedHud() {
   const theme = useMantineTheme();
+  const playerHudRef = useRef<HTMLDivElement>(null);
+  const dragOffset = useRef<{ x: number; y: number } | null>(null);
 
   const { open: playerOpen, health, armor, hunger, thirst, stress, stamina, voice, talking } = statsStore();
   const {
@@ -776,6 +868,19 @@ export default function CombinedHud() {
   const playerHudPosition = settingsStore(
     (state) => state.playerHudPosition ?? "bottom-left"
   ) as PlayerHudPosition;
+  const playerHudCustomPosition = settingsStore(
+    (state) => state.playerHudCustomPosition,
+  );
+  const layoutEditing = settingsStore((state) => state.layoutEditing);
+  const layoutEditMode = settingsStore((state) => state.layoutEditMode);
+  const playerHudScale = settingsStore((state) => state.playerHudScale);
+  const playerHudIconLayouts = settingsStore((state) => state.playerHudIconLayouts);
+  const setPlayerHudCustomPosition = settingsStore(
+    (state) => state.setPlayerHudCustomPosition,
+  );
+  const setPlayerHudScale = settingsStore((state) => state.setPlayerHudScale);
+  const setPlayerHudIconLayout = settingsStore((state) => state.setPlayerHudIconLayout);
+  const setLayoutEditMode = settingsStore((state) => state.setLayoutEditMode);
   const vehicleHudStyle = settingsStore(
     (state: any) => state.vehicleHudStyle ?? "bars"
   ) as VehicleHudStyle;
@@ -804,6 +909,79 @@ export default function CombinedHud() {
   const smoothSeatbelt = useTransitionedValue(seatbelt ? 100 : 50, 250);
 
   const smoothRpm = useTransitionedValue(rpm, 150);
+
+  const handleHudPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (layoutEditMode !== "all" || !playerHudRef.current) return;
+
+    const rect = playerHudRef.current.getBoundingClientRect();
+    dragOffset.current = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  };
+
+  const handleHudPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragOffset.current || !playerHudRef.current) return;
+
+    const rect = playerHudRef.current.getBoundingClientRect();
+    const maxLeft = Math.max(0, window.innerWidth - rect.width);
+    const maxTop = Math.max(0, window.innerHeight - rect.height);
+    const left = Math.max(0, Math.min(event.clientX - dragOffset.current.x, maxLeft));
+    const top = Math.max(0, Math.min(event.clientY - dragOffset.current.y, maxTop));
+
+    setPlayerHudCustomPosition({
+      x: (left / window.innerWidth) * 100,
+      y: (top / window.innerHeight) * 100,
+    });
+  };
+
+  const handleHudPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragOffset.current) return;
+
+    dragOffset.current = null;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+
+  };
+
+  useEffect(() => {
+    if (!layoutEditMode) return;
+
+    const saveAndReturn = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+
+      const state = settingsStore.getState();
+      void fetchNui("savePlayerHudLayout", {
+        layout: {
+          position: state.playerHudCustomPosition,
+          scale: state.playerHudScale,
+          icons: state.playerHudIconLayouts,
+        },
+      }).finally(() => {
+        setLayoutEditMode(false);
+        window.dispatchEvent(new Event("hud-editor-return"));
+      });
+    };
+
+    window.addEventListener("keydown", saveAndReturn);
+    return () => window.removeEventListener("keydown", saveAndReturn);
+  }, [layoutEditMode, setLayoutEditMode]);
+
+  const getIconLayout = (id: string): HudItemLayout =>
+    playerHudIconLayouts[id] ?? DEFAULT_HUD_ITEM_LAYOUT;
+
+  const playerHudStyle = playerHudCustomPosition
+    ? {
+        position: "fixed" as const,
+        left: `${playerHudCustomPosition.x}%`,
+        top: `${playerHudCustomPosition.y}%`,
+        right: "auto",
+        bottom: "auto",
+        transform: "none",
+      }
+    : playerHudPositionStyles[playerHudPosition];
 
   const speedDisplay = useMemo(() => {
     const speedStr = String(Math.round(smoothSpeed)).padStart(3, '0');
@@ -903,6 +1081,7 @@ export default function CombinedHud() {
   const isSpeedometerColumn = vehicleHudStyle === "speedometer-column";
   const isSegmentedPlayerHud = playerStatusIndicator === "segmented";
   const isSegmentedBarPlayerHud = playerStatusIndicator === "segmented-bar";
+  const showAllPlayerStatusIcons = layoutEditMode === "icons";
 
   const PlayerIconStatuses = ({
     indicator = "square",
@@ -910,7 +1089,7 @@ export default function CombinedHud() {
     indicator?: PlayerStatusIndicator;
   }) => (
     <Flex align="end" gap="0.7vh">
-      <StatBox
+      <EditablePlayerStat id="voice"
         value={smoothMappedVoice}
         color={getVoiceColor(talking)}
         indicator={indicator}
@@ -923,22 +1102,22 @@ export default function CombinedHud() {
         )}
       />
 
-      <StatBox
+      <EditablePlayerStat id="hunger"
         value={smoothHunger}
         color="orange"
         Icon={PiHamburgerFill}
         indicator={indicator}
       />
 
-      <StatBox
+      <EditablePlayerStat id="thirst"
         value={smoothThirst}
         color="cyan"
         Icon={RiDrinks2Fill}
         indicator={indicator}
       />
 
-      {stamina < 100 && (
-        <StatBox
+      {(showAllPlayerStatusIcons || stamina < 100) && (
+        <EditablePlayerStat id="stamina"
           value={smoothStamina}
           color="blue"
           Icon={FaLungs}
@@ -946,8 +1125,8 @@ export default function CombinedHud() {
         />
       )}
 
-      {smoothStress > 0 && (
-        <StatBox
+      {(showAllPlayerStatusIcons || smoothStress > 0) && (
+        <EditablePlayerStat id="stress"
           value={smoothStress}
           color="violet"
           Icon={FaBrain}
@@ -959,8 +1138,12 @@ export default function CombinedHud() {
 
   const SegmentedBars = () => (
     <Flex direction="column" gap="0.25vh" align="start" justify={'start'}>
-      <SegmentedStatusBar value={smoothArmor} color="blue" />
-      <PlainStatusBar value={smoothHealth} color="red" />
+      <EditableHudItem id="armor" editing={layoutEditMode === "icons"} layout={getIconLayout("armor")} onChange={setPlayerHudIconLayout}>
+        <SegmentedStatusBar value={smoothArmor} color="blue" />
+      </EditableHudItem>
+      <EditableHudItem id="health" editing={layoutEditMode === "icons"} layout={getIconLayout("health")} onChange={setPlayerHudIconLayout}>
+        <PlainStatusBar value={smoothHealth} color="red" />
+      </EditableHudItem>
     </Flex>
   );
 
@@ -1039,12 +1222,27 @@ export default function CombinedHud() {
       </div>
 
       <div
+        ref={playerHudRef}
+        onPointerDown={handleHudPointerDown}
+        onPointerMove={handleHudPointerMove}
+        onPointerUp={handleHudPointerUp}
+        onPointerCancel={handleHudPointerUp}
+        onWheel={(event) => {
+          if (layoutEditMode !== "all") return;
+          event.preventDefault();
+          setPlayerHudScale(Math.max(0.5, Math.min(2, playerHudScale + (event.deltaY < 0 ? 0.05 : -0.05))));
+        }}
         style={{
-          ...playerHudPositionStyles[playerHudPosition],
+          ...playerHudStyle,
           zIndex: 100,
-          pointerEvents: "none",
+          pointerEvents: layoutEditing ? "auto" : "none",
+          cursor: layoutEditing ? "grab" : "default",
+          touchAction: "none",
+          outline: layoutEditMode === "all" ? "2px dashed rgba(34, 139, 230, 0.9)" : "none",
+          outlineOffset: layoutEditMode === "all" ? "0.6vh" : undefined,
         }}
       >
+        <div style={{ transform: `scale(${playerHudScale})`, transformOrigin: "bottom left" }}>
         <Transition
           mounted={playerOpen}
           transition={getPlayerHudTransition(playerHudPosition)}
@@ -1079,7 +1277,7 @@ export default function CombinedHud() {
                 </Flex>
               ) : (
                 <Flex align="end" gap="0.7vh">
-                  <StatBox
+                  <EditablePlayerStat id="voice"
                     value={smoothMappedVoice}
                     color={getVoiceColor(talking)}
                     indicator={playerStatusIndicator}
@@ -1092,15 +1290,15 @@ export default function CombinedHud() {
                     )}
                   />
 
-                  <StatBox
+                  <EditablePlayerStat id="health"
                     value={smoothHealth}
                     color="red"
                     Icon={FaHeartbeat}
                     indicator={playerStatusIndicator}
                   />
 
-                  {smoothArmor > 0 && (
-                    <StatBox
+                  {(showAllPlayerStatusIcons || smoothArmor > 0) && (
+                    <EditablePlayerStat id="armor"
                       value={smoothArmor}
                       color="blue"
                       Icon={FaShieldAlt}
@@ -1108,22 +1306,22 @@ export default function CombinedHud() {
                     />
                   )}
 
-                  <StatBox
+                  <EditablePlayerStat id="hunger"
                     value={smoothHunger}
                     color="orange"
                     Icon={PiHamburgerFill}
                     indicator={playerStatusIndicator}
                   />
 
-                  <StatBox
+                  <EditablePlayerStat id="thirst"
                     value={smoothThirst}
                     color="cyan"
                     Icon={RiDrinks2Fill}
                     indicator={playerStatusIndicator}
                   />
 
-                  {stamina < 100 && (
-                    <StatBox
+                  {(showAllPlayerStatusIcons || stamina < 100) && (
+                    <EditablePlayerStat id="stamina"
                       value={smoothStamina}
                       color="blue"
                       Icon={FaLungs}
@@ -1131,8 +1329,8 @@ export default function CombinedHud() {
                     />
                   )}
 
-                  {smoothStress > 0 && (
-                    <StatBox
+                  {(showAllPlayerStatusIcons || smoothStress > 0) && (
+                    <EditablePlayerStat id="stress"
                       value={smoothStress}
                       color="violet"
                       Icon={FaBrain}
@@ -1144,7 +1342,28 @@ export default function CombinedHud() {
             </Flex>
           )}
         </Transition>
+        </div>
       </div>
+      {layoutEditMode && (
+        <Box
+          pos="fixed"
+          top="2vh"
+          left="50%"
+          style={{
+            transform: "translateX(-50%)",
+            zIndex: 1000,
+            background: "rgba(15, 18, 25, 0.94)",
+            border: "1px solid rgba(34, 139, 230, 0.8)",
+            borderRadius: "0.5vh",
+            padding: "1vh 1.5vh",
+            pointerEvents: "none",
+          }}
+        >
+          <Text c="gray.0" fw={700} fz="1.4vh">
+            Arraste para mover · Role o mouse para redimensionar · ESC para salvar e voltar
+          </Text>
+        </Box>
+      )}
     </>
   );
 }

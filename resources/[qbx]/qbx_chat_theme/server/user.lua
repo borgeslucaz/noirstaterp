@@ -1,4 +1,4 @@
-exports.chat:registerMessageHook(function(source, _outMessage, hookRef)
+exports.noir_chat:registerMessageHook(function(source, _outMessage, hookRef)
     hookRef.updateMessage({
         templateId = 'user',
     })

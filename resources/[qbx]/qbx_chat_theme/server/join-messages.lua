@@ -17,7 +17,7 @@ AddEventHandler('playerJoining', function()
         return
     end
 
-    exports.chat:addMessage(-1, {
+    exports.noir_chat:addMessage(-1, {
         templateId = 'join',
         args = { joinMessage:format(GetPlayerName(source)) },
     })
@@ -29,7 +29,7 @@ AddEventHandler('playerDropped', function(reason)
         return
     end
 
-    exports.chat:addMessage(-1, {
+    exports.noir_chat:addMessage(-1, {
         templateId = 'quit',
         args = { quitMessage:format(GetPlayerName(source), reason) },
     })
