@@ -1,0 +1,1252 @@
+// ─────────────────────────────────────────────────────────────
+// Cipher NUI controller. Talks to client/device.lua via fetch callbacks.
+// All gang logic lives server-side; this only renders + relays actions.
+// ─────────────────────────────────────────────────────────────
+const RES = 'cipher';
+const $ = (s) => document.querySelector(s);
+const el = (s) => document.querySelectorAll(s);
+
+let state = { snapshot: null, apps: [], activeApp: null };
+
+// POST to a registered NUI callback.
+async function nui(cb, body = {}) {
+    try {
+        const r = await fetch(`https://${RES}/${cb}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+            body: JSON.stringify(body),
+        });
+        return await r.json().catch(() => ({}));
+    } catch (e) {
+        return {};
+    }
+}
+
+// Relay a server callback through the generic 'call' bridge.
+const call = (name, ...args) => nui('call', { name, args });
+
+// ── window protocol ──
+window.addEventListener('message', (ev) => {
+    const { action, data } = ev.data || {};
+    if (action === 'open') openUI(data);
+    else if (action === 'close') closeUI();
+    else if (action === 'openAdmin' && window.openAdminUI) window.openAdminUI();
+    else if (action === 'chatWorldMessage') onWorldMessage(data);
+    else if (action === 'chatDM') onDMReceived(data);
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!document.getElementById('adminRoot').classList.contains('hidden')) nui('admin:close');
+    else nui('escape');
+});
+
+const BOOT_LINES = [
+    'INITIALIZING SECURE LINK...',
+    'DECRYPTING HANDSHAKE...',
+    'LOADING MODULES <span class="ok">[OK]</span>',
+    'ACCESS GRANTED',
+];
+
+function playBootSequence(onDone) {
+    const screen = $('#bootScreen');
+    const linesEl = $('#bootLines');
+    if (!screen || !linesEl) { onDone && onDone(); return; }
+    linesEl.innerHTML = '';
+    screen.classList.remove('is-hidden');
+
+    let i = 0;
+    function next() {
+        if (i >= BOOT_LINES.length) {
+            setTimeout(() => { screen.classList.add('is-hidden'); onDone && onDone(); }, 280);
+            return;
+        }
+        const div = document.createElement('div');
+        div.className = 'boot-line';
+        div.innerHTML = BOOT_LINES[i] + (i === BOOT_LINES.length - 1 ? '<span class="boot-cursor"></span>' : '');
+        linesEl.appendChild(div);
+        requestAnimationFrame(() => div.classList.add('is-shown'));
+        i++;
+        setTimeout(next, 220);
+    }
+    next();
+}
+
+function openUI(snapshot) {
+    state.snapshot = snapshot;
+    $('#root').classList.remove('hidden');
+    renderApps(snapshot.apps || []);
+    tickClock();
+    switchApp(state.activeApp || (state.apps[0] && state.apps[0].id));
+    playBootSequence();
+}
+
+function closeUI() {
+    $('#root').classList.add('hidden');
+    $('#adminRoot').classList.add('hidden');
+}
+
+$('#powerBtn').onclick = () => nui('close');
+
+// ── clock ──
+function tickClock() {
+    const c = $('#clock');
+    const update = () => {
+        const d = new Date();
+        c.textContent = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    };
+    update();
+    clearInterval(window.__clock);
+    window.__clock = setInterval(update, 15000);
+}
+
+// ── app rail ──
+function renderApps(apps) {
+    state.apps = apps;
+    const rail = $('#appRail');
+    rail.innerHTML = '';
+    apps.forEach((app) => {
+        const b = document.createElement('button');
+        b.className = 'app-btn' + (app.id === state.activeApp ? ' is-active' : '');
+        b.innerHTML = `<i class="fas fa-${app.icon || 'square'}"></i><span>${escapeHtml(app.label)}</span>`;
+        b.title = app.label;
+        b.onclick = () => switchApp(app.id);
+        rail.appendChild(b);
+    });
+}
+
+// ── app routing ──
+function switchApp(appId) {
+    state.activeApp = appId;
+    el('.app-btn').forEach((b, i) => b.classList.toggle('is-active', state.apps[i] && state.apps[i].id === appId));
+    el('.view').forEach((v) => v.classList.add('hidden'));
+
+    if (appId === 'blackmarket') {
+        showView('viewBlackmarket');
+        renderBlackmarket();
+    } else if (appId === 'boosting') {
+        showView('viewBoosting');
+        renderBoosting();
+    } else {
+        render(); // gangops decides viewFound vs viewGang itself
+    }
+}
+
+// ── main render (Gang Ops) ──
+function render() {
+    const g = state.snapshot.gang;
+    if (!g) {
+        showView('viewFound');
+        $('#gangName').textContent = 'No affiliation';
+        $('#gangTier').textContent = '—';
+        return;
+    }
+    showView('viewGang');
+    $('#gangName').textContent = g.label;
+    $('#gangTier').textContent = g.tier;
+
+    renderOverview(g);
+    renderRoster(g);
+    renderTerritory();
+    renderBank(g);
+    renderLogs(g.logs || []);
+    renderTasks();
+    renderTaskBadges();
+    renderTaskLeaderboard();
+    renderUnlocks();
+    renderDealer();
+    renderGangPerks();
+}
+
+// Animates a stat from its current displayed value to a new one — a
+// cheap "premium dashboard" touch for the Main overview cards.
+function countUp(el, target, prefix = '') {
+    const start = Number((el.textContent || '').replace(/[^0-9.-]/g, '')) || 0;
+    if (start === target) { el.textContent = prefix + target.toLocaleString(); return; }
+    const duration = 500;
+    const startTime = performance.now();
+    function step(now) {
+        const t = Math.min(1, (now - startTime) / duration);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const value = Math.round(start + (target - start) * eased);
+        el.textContent = prefix + value.toLocaleString();
+        if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+}
+
+// ── main overview ──
+function renderOverview(g) {
+    $('#overviewName').textContent = g.label;
+    $('#overviewTier').textContent = g.tier;
+    countUp($('#overviewBank'), Number(g.bank), '$');
+    countUp($('#overviewRep'), Number(g.notoriety));
+    countUp($('#overviewMembers'), g.members.length);
+    countUp($('#overviewOnline'), g.members.filter((m) => m.online).length);
+    countUp($('#overviewTerritories'), (state.snapshot.territories || []).filter((t) => t.holderId === g.id).length);
+    const myRank = g.ranks[g.myGrade] ? g.ranks[g.myGrade].name : '?';
+    $('#overviewMyRank').textContent = myRank;
+    renderLogList($('#overviewLogs'), (g.logs || []).slice(0, 8));
+
+    $('#overviewLevelBadge').textContent = 'LV ' + (g.gangLevel || 1);
+    $('#overviewLevelTitle').textContent = g.gangLevelTitle || 'Crew';
+
+    if (g.nextTierMin == null) {
+        $('#overviewProgressFill').style.width = '100%';
+        $('#overviewProgressLabel').textContent = `${Number(g.notoriety).toLocaleString()} rep — max tier`;
+    } else {
+        const span = g.nextTierMin - g.tierMin;
+        const into = Math.max(0, g.notoriety - g.tierMin);
+        const pct = span > 0 ? Math.min(100, (into / span) * 100) : 0;
+        $('#overviewProgressFill').style.width = pct + '%';
+        $('#overviewProgressLabel').textContent =
+            `${Number(g.notoriety).toLocaleString()} / ${Number(g.nextTierMin).toLocaleString()} rep to next tier`;
+    }
+}
+
+function showView(id) {
+    el('.view').forEach((v) => v.classList.add('hidden'));
+    const target = $('#' + id);
+    target.classList.remove('hidden');
+    playGlitch(target);
+}
+
+// Re-triggers the glitch-in animation reliably even if the class is
+// already present (force a reflow between remove/add).
+function playGlitch(el) {
+    el.classList.remove('glitch-in');
+    void el.offsetWidth;
+    el.classList.add('glitch-in');
+}
+
+// ── roster ──
+function canManage(g) { return g.myGrade >= 2; } // simple UI gate; server is authoritative
+
+function lastSeenLabel(ms) {
+    if (!ms) return 'Never';
+    const mins = Math.floor((Date.now() - ms) / 60000);
+    if (mins < 2) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function renderRoster(g) {
+    $('#memberCount').textContent = g.members.length;
+    $('#myRep').textContent = g.myRep || 0;
+    const inactivityMs = (g.inactivityDays || 7) * 86400000;
+
+    const list = $('#memberList');
+    list.innerHTML = '';
+    g.members.forEach((m) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'member-wrap';
+
+        const inactive = !m.online && m.lastSeen && (Date.now() - m.lastSeen) > inactivityMs;
+        const row = document.createElement('div');
+        row.className = 'member member-row' + (inactive ? ' is-inactive' : '');
+        row.innerHTML = `
+            <span class="online-dot ${m.online ? 'online' : ''}" title="${m.online ? 'Online' : 'Offline'}"></span>
+            <span class="member-grade">${m.grade}</span>
+            <span class="member-name">${escapeHtml(m.name)}</span>
+            <span class="member-rank ${m.isOwner ? 'member-boss' : ''}">${escapeHtml(m.rank)}</span>
+            <span class="muted member-lastseen">${m.online ? 'Online' : lastSeenLabel(m.lastSeen)}</span>
+            <span class="chevron">▾</span>`;
+
+        const detail = document.createElement('div');
+        detail.className = 'member-detail hidden';
+        const actions = (!m.isOwner && canManage(g)) ? `
+            <button class="icon-btn" data-act="promote" data-cid="${m.citizenid}" data-grade="${m.grade + 1}" title="Promote">▲</button>
+            <button class="icon-btn" data-act="demote" data-cid="${m.citizenid}" data-grade="${m.grade - 1}" title="Demote">▼</button>
+            <button class="icon-btn danger" data-act="kick" data-cid="${m.citizenid}" title="Remove">✕</button>` : '';
+        detail.innerHTML = `
+            <span class="muted">Personal rep: <strong>${m.rep || 0}</strong></span>
+            <span class="muted">Last seen: <strong>${lastSeenLabel(m.lastSeen)}</strong></span>
+            <div class="member-actions">${actions}</div>`;
+
+        row.onclick = () => detail.classList.toggle('hidden');
+
+        wrap.appendChild(row);
+        wrap.appendChild(detail);
+        list.appendChild(wrap);
+    });
+
+    list.querySelectorAll('[data-act]').forEach((btn) => {
+        btn.onclick = async (e) => {
+            e.stopPropagation();
+            const { act, cid, grade } = btn.dataset;
+            if (act === 'kick') await call('cipher:kick', cid);
+            else await call('cipher:setGrade', cid, Number(grade));
+            await refresh();
+        };
+    });
+
+    renderTopContributors(g);
+}
+
+function renderTopContributors(g) {
+    const list = $('#topContributors');
+    if (!list) return;
+    list.innerHTML = '';
+    const top = [...g.members].sort((a, b) => (b.rep || 0) - (a.rep || 0)).slice(0, 5);
+    if (!top.length) { list.innerHTML = '<div class="log-empty">No contributions yet.</div>'; return; }
+    top.forEach((m, i) => {
+        const row = document.createElement('div');
+        row.className = 'member contributor-row';
+        row.innerHTML = `
+            <span class="contributor-rank">#${i + 1}</span>
+            <span class="member-name">${escapeHtml(m.name)}</span>
+            <span class="member-rank">${m.rep || 0} rep</span>`;
+        list.appendChild(row);
+    });
+}
+
+$('#inviteBtn').onclick = async () => {
+    const id = $('#inviteId').value;
+    if (!id) return;
+    const res = await call('cipher:invite', Number(id));
+    $('#inviteId').value = '';
+    if (res.ok) flash('Invite sent', 'success');
+    else flash(res.error || 'Failed', 'error');
+};
+
+// ── territory (signature) ──
+// GTA V's playable world is roughly -4500..4500 on X and -4500..8200 on Y
+// (Blaine County stretches further north than south) — this is a
+// stylized/abstract map, not a real one, so approximate normalization
+// ranges are fine; they just need to spread zones out sensibly.
+const MAP_BOUNDS_X = { min: -4500, max: 4500 };
+const MAP_BOUNDS_Y = { min: -4500, max: 8200 };
+function mapCoordX(v) {
+    const pct = (v - MAP_BOUNDS_X.min) / (MAP_BOUNDS_X.max - MAP_BOUNDS_X.min);
+    return Math.max(20, Math.min(580, pct * 600));
+}
+function mapCoordY(v) {
+    const pct = (v - MAP_BOUNDS_Y.min) / (MAP_BOUNDS_Y.max - MAP_BOUNDS_Y.min);
+    return Math.max(20, Math.min(580, pct * 600));
+}
+
+// Rough district labels at approximate world coords — decorative chrome,
+// not precise cartography, just enough to sell "this is a map."
+const MAP_DISTRICTS = [
+    { label: 'LOS SANTOS', x: -700, y: -1900 },
+    { label: 'VINEWOOD HILLS', x: 300, y: 550 },
+    { label: 'SANDY SHORES', x: 1900, y: 3700 },
+    { label: 'GRAPESEED', x: 1700, y: 4700 },
+    { label: 'PALETO BAY', x: -300, y: 6200 },
+    { label: 'BLAINE COUNTY', x: 1200, y: 2000 },
+];
+
+function drawMapChrome(svg) {
+    const ns = 'http://www.w3.org/2000/svg';
+
+    // A rough landmass silhouette (not a real coastline) so the map reads
+    // as "an island/coast", with everything outside it tinted as ocean.
+    const land = document.createElementNS(ns, 'path');
+    land.setAttribute('class', 'map-land');
+    land.setAttribute('d',
+        'M 40 420 Q 30 300 110 230 Q 90 140 180 90 Q 280 30 420 50 ' +
+        'Q 540 70 570 160 Q 600 230 540 300 Q 580 380 520 460 ' +
+        'Q 480 560 360 580 Q 220 600 130 540 Q 60 500 40 420 Z');
+    svg.appendChild(land);
+
+    // Soft terrain tints — city/hills/desert, just radial glows roughly
+    // centered on each district, not hard borders.
+    const terrains = [
+        { x: -700, y: -1900, color: 'rgba(245,165,36,.10)', r: 140 },  // Los Santos: warm urban
+        { x: 300, y: 550, color: 'rgba(45,212,191,.08)', r: 110 },     // Vinewood: green
+        { x: 1700, y: 4000, color: 'rgba(180,140,60,.10)', r: 170 },   // Blaine County: sandy
+    ];
+    terrains.forEach((t, i) => {
+        const grad = document.createElementNS(ns, 'radialGradient');
+        grad.setAttribute('id', 'terrain' + i);
+        grad.innerHTML = `<stop offset="0%" stop-color="${t.color}"></stop><stop offset="100%" stop-color="${t.color}" stop-opacity="0"></stop>`;
+        const defs = svg.querySelector('defs') || svg.appendChild(document.createElementNS(ns, 'defs'));
+        defs.appendChild(grad);
+        const circle = document.createElementNS(ns, 'circle');
+        circle.setAttribute('cx', mapCoordX(t.x));
+        circle.setAttribute('cy', 600 - mapCoordY(t.y));
+        circle.setAttribute('r', t.r);
+        circle.setAttribute('fill', `url(#terrain${i})`);
+        svg.appendChild(circle);
+    });
+
+    // A couple of faint "highway" lines for flavor.
+    const roads = document.createElementNS(ns, 'g');
+    roads.setAttribute('class', 'map-roads');
+    roads.innerHTML = `
+        <path d="M 80 460 Q 250 380 320 280 Q 400 160 520 110" />
+        <path d="M 150 520 Q 300 460 380 360 Q 460 260 560 220" />`;
+    svg.appendChild(roads);
+
+    MAP_DISTRICTS.forEach((d) => {
+        const t = document.createElementNS(ns, 'text');
+        t.setAttribute('x', mapCoordX(d.x));
+        t.setAttribute('y', 600 - mapCoordY(d.y));
+        t.setAttribute('class', 'map-district-label');
+        t.textContent = d.label;
+        svg.appendChild(t);
+    });
+
+    // Radar sweep: a rotating wedge centered on the map, purely decorative.
+    const sweep = document.createElementNS(ns, 'g');
+    sweep.setAttribute('class', 'map-radar-sweep');
+    sweep.innerHTML = `
+        <defs>
+            <linearGradient id="sweepGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="var(--accent)" stop-opacity="0"></stop>
+                <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.25"></stop>
+            </linearGradient>
+        </defs>
+        <path d="M 300 300 L 300 20 A 280 280 0 0 1 480 90 Z" fill="url(#sweepGrad)"></path>`;
+    svg.appendChild(sweep);
+}
+
+function renderTerritory() {
+    const grid = $('#turfGrid');
+    const svg = $('#territoryMap');
+    const terr = state.snapshot.territories || [];
+    const myId = state.snapshot.gang ? state.snapshot.gang.id : null;
+    grid.innerHTML = '';
+    if (svg) { svg.innerHTML = ''; drawMapChrome(svg); }
+    $('#territoryDetail').classList.add('hidden');
+
+    terr.forEach((t) => {
+        const mine = t.holderId && t.holderId === myId;
+        const held = !!t.holderId;
+        const cls = mine ? 'mine' : (held ? 'held' : '');
+        const status = mine ? 'Controlled' : (held ? 'Rival turf' : 'Unassigned');
+        const holderCls = mine ? 'mine' : (held ? 'held' : 'unclaimed');
+        const holderTxt = t.holder || 'Unassigned';
+        const card = document.createElement('div');
+        card.className = 'turf ' + cls;
+        card.innerHTML = `
+            <span class="turf-status">${status}</span>
+            <div>
+                <div class="turf-label">${escapeHtml(t.label)}</div>
+                <div class="turf-zone">${escapeHtml(t.zone)}</div>
+            </div>
+            <div class="turf-holder ${holderCls}">${escapeHtml(holderTxt)}</div>`;
+        grid.appendChild(card);
+
+        if (svg && t.coords) {
+            const x = mapCoordX(t.coords.x);
+            const y = 600 - mapCoordY(t.coords.y); // flip so north is up
+            const dotColor = mine ? 'var(--signal)' : (held ? 'var(--danger)' : 'var(--muted)');
+            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            g.setAttribute('class', 'map-zone' + (mine ? ' is-mine' : ''));
+            g.innerHTML = `
+                <circle cx="${x}" cy="${y}" r="${mine ? 14 : 10}" fill="${dotColor}" fill-opacity="0.18" stroke="${dotColor}" stroke-width="1.5"></circle>
+                <circle cx="${x}" cy="${y}" r="3.5" fill="${dotColor}"></circle>`;
+            g.style.cursor = 'pointer';
+            g.onclick = () => {
+                const detail = $('#territoryDetail');
+                detail.classList.remove('hidden');
+                detail.innerHTML = `
+                    <span class="member-name">${escapeHtml(t.label)}</span>
+                    <span class="member-rank ${holderCls}">${escapeHtml(holderTxt)}</span>`;
+            };
+            svg.appendChild(g);
+        }
+    });
+    if (!terr.length) grid.innerHTML = '<div class="log-empty">No territories configured.</div>';
+}
+
+// ── treasury (bank-statement feel) ──
+function renderBank(g) {
+    $('#bankBalance').textContent = '$' + Number(g.bank).toLocaleString();
+    $('#treasuryTier').textContent = g.tier;
+    $('#treasuryRep').textContent = `${Number(g.notoriety).toLocaleString()} rep`;
+    renderLedger();
+}
+
+$('#depositBtn').onclick = () => bankAction('cipher:bankDeposit');
+$('#withdrawBtn').onclick = () => bankAction('cipher:bankWithdraw');
+async function bankAction(name) {
+    const amt = Number($('#bankAmount').value);
+    if (!amt || amt <= 0) return;
+    const res = await call(name, amt);
+    $('#bankAmount').value = '';
+    if (res.ok) {
+        state.snapshot.gang.bank = res.balance;
+        renderBank(state.snapshot.gang);
+        flash('Done', 'success');
+    } else flash(res.error || 'Failed', 'error');
+}
+
+async function renderLedger() {
+    const rows = await call('cipher:bankGetLedger');
+    const list = $('#bankLedger');
+    if (!list) return;
+    list.innerHTML = '';
+    if (!rows || !rows.length) { list.innerHTML = '<div class="log-empty">No transactions yet.</div>'; return; }
+    rows.forEach((r) => {
+        const row = document.createElement('div');
+        row.className = 'ledger-row ' + (r.kind === 'deposit' ? 'is-deposit' : 'is-withdraw');
+        const sign = r.kind === 'deposit' ? '+' : '-';
+        row.innerHTML = `
+            <span class="ledger-icon">${r.kind === 'deposit' ? '↓' : '↑'}</span>
+            <div class="ledger-info">
+                <span class="ledger-name">${escapeHtml(r.name)}</span>
+                <span class="ledger-time muted">${formatTime(r.created_at)}</span>
+            </div>
+            <span class="ledger-amount">${sign}$${Number(r.amount).toLocaleString()}</span>`;
+        list.appendChild(row);
+    });
+}
+
+// ── activity ──
+function renderLogList(list, logs) {
+    list.innerHTML = '';
+    if (!logs.length) { list.innerHTML = '<div class="log-empty">No recent activity.</div>'; return; }
+    logs.forEach((l) => {
+        const item = document.createElement('div');
+        item.className = 'log-item';
+        item.innerHTML = `<span class="log-time">${formatTime(l.created_at)}</span><span>${escapeHtml(l.message)}</span>`;
+        list.appendChild(item);
+    });
+}
+function renderLogs(logs) { renderLogList($('#logList'), logs); }
+
+// ── unlocks (benches/peds/vault placement) ──
+async function renderUnlocks() {
+    const items = await call('cipher:placeables:getAvailable');
+    const list = $('#unlockList');
+    list.innerHTML = '';
+    if (!Array.isArray(items) || !items.length) {
+        list.innerHTML = '<div class="log-empty">Nothing unlocked yet — raise notoriety.</div>';
+        return;
+    }
+    items.forEach((it) => {
+        const row = document.createElement('div');
+        row.className = 'member' + (it.locked ? ' is-locked' : '');
+        const status = it.locked
+            ? `<span class="member-rank locked">Requires ${escapeHtml(it.tierName)} (${Number(it.tierRep).toLocaleString()} rep)</span>`
+            : `<span class="member-rank">${it.placed ? 'Placed' : 'Not placed'}</span>`;
+        const actions = it.locked ? '' : `
+            <button class="btn btn-ghost" data-place-kind="${it.kind}" data-place-id="${it.id}">${it.placed ? 'Move' : 'Place'}</button>
+            ${it.placed ? `<button class="icon-btn danger" data-remove-kind="${it.kind}" data-remove-id="${it.id}" title="Remove">✕</button>` : ''}`;
+        row.innerHTML = `
+            <span class="member-name">${escapeHtml(it.label)}</span>
+            ${status}
+            <div class="member-actions">${actions}</div>`;
+        list.appendChild(row);
+    });
+
+    list.querySelectorAll('[data-place-kind]').forEach((btn) => {
+        btn.onclick = () => nui('placeObject', { kind: btn.dataset.placeKind, id: btn.dataset.placeId });
+    });
+    list.querySelectorAll('[data-remove-kind]').forEach((btn) => {
+        btn.onclick = async () => {
+            const res = await call('cipher:placeables:remove', btn.dataset.removeKind, btn.dataset.removeId);
+            if (res.ok) flash('Removed', 'success'); else flash(res.error || 'Failed', 'error');
+            await renderUnlocks();
+        };
+    });
+}
+
+// ── tasks (shared rendering for both the Gang Ops Tasks tab and the
+// standalone Boosting app — they just show different subsets) ──
+function taskRewardLabel(t) {
+    const parts = [];
+    if (t.cashReward) parts.push(`+$${t.cashReward}`);
+    if (t.reward) parts.push(`+${t.reward} rep`);
+    return parts.join(', ') || '—';
+}
+
+async function renderTaskList(listEl, cancelBtnEl, typeFilter) {
+    const res = await call('cipher:tasks:getAvailable');
+    const allTasks = (res && res.tasks) || [];
+    const tasks = allTasks.filter((t) => typeFilter(t.type));
+    const activeJob = res && res.active;
+    listEl.innerHTML = '';
+
+    const activeMatchesThisList = activeJob && allTasks.some((t) => t.id === activeJob.id && typeFilter(t.type));
+    cancelBtnEl.classList.toggle('hidden', !activeMatchesThisList);
+
+    if (activeJob) {
+        if (!activeMatchesThisList) {
+            listEl.innerHTML = '<div class="log-empty">You\'re busy with a job elsewhere on the tablet.</div>';
+            return;
+        }
+        const row = document.createElement('div');
+        row.className = 'member';
+        row.innerHTML = `<span class="member-name">On the job — ${escapeHtml(activeJob.stage)}</span>`;
+        listEl.appendChild(row);
+        return;
+    }
+
+    if (!tasks.length) { listEl.innerHTML = '<div class="log-empty">No jobs configured.</div>'; return; }
+
+    tasks.forEach((t) => {
+        const onCooldown = t.cooldownMs > 0;
+        const row = document.createElement('div');
+        row.className = 'member' + (t.locked ? ' is-inactive' : '');
+        const mins = Math.ceil(t.cooldownMs / 60000);
+        const btnLabel = t.locked ? `Rank ${t.minLevel} required` : (onCooldown ? `Cooldown ${mins}m` : 'Accept');
+        row.innerHTML = `
+            <span class="member-name">${escapeHtml(t.label)}</span>
+            <span class="member-rank">${taskRewardLabel(t)}</span>
+            <div class="member-actions">
+                <button class="btn btn-ghost" data-task="${t.id}" ${(onCooldown || t.locked) ? 'disabled' : ''}>
+                    ${btnLabel}
+                </button>
+            </div>`;
+        listEl.appendChild(row);
+    });
+
+    listEl.querySelectorAll('[data-task]').forEach((btn) => {
+        btn.onclick = async () => {
+            const res = await call('cipher:tasks:accept', btn.dataset.task);
+            if (res.ok) { flash('Job accepted — check your map.', 'success'); nui('close'); }
+            else flash(res.error || 'Failed', 'error');
+            await renderTaskList(listEl, cancelBtnEl, typeFilter);
+        };
+    });
+}
+
+async function renderTasks() {
+    const status = await call('cipher:tasks:getStatus');
+    if (status) {
+        $('#taskRankNum').textContent = status.level;
+        $('#taskRankTitle').textContent = status.title;
+        $('#taskTotalCompleted').textContent = status.totalCompleted;
+        const xp = status.xp || 0;
+        if (status.xpNeeded == null) {
+            $('#taskXpFill').style.width = '100%';
+            $('#taskXpLabel').textContent = `${xp.toLocaleString()} XP — max rank`;
+        } else {
+            const pct = Math.min(100, (xp / status.xpNeeded) * 100);
+            $('#taskXpFill').style.width = pct + '%';
+            $('#taskXpLabel').textContent = `${xp.toLocaleString()} / ${status.xpNeeded.toLocaleString()} XP to next rank`;
+        }
+    }
+    await renderTaskList($('#taskList'), $('#cancelTaskBtn'), () => true);
+    await renderTaskCrew(status);
+}
+$('#cancelTaskBtn').onclick = async () => {
+    await call('cipher:tasks:cancel');
+    await renderTasks();
+};
+
+// ── task co-op crew ──
+async function renderTaskCrew(status) {
+    const crew = await call('cipher:tasks:getCrewStatus');
+    const list = $('#taskCrewList');
+    const cancelBtn = $('#taskCancelCrewBtn');
+    const inviteBtn = $('#taskInviteBtn');
+    const picker = $('#taskCoopPicker');
+    list.innerHTML = '';
+    picker.innerHTML = '';
+    picker.classList.add('hidden');
+
+    const busy = !!(status && status.active);
+
+    if (!crew) {
+        list.innerHTML = '<div class="log-empty">No crew yet — invite someone to start a co-op job.</div>';
+        cancelBtn.classList.add('hidden');
+        inviteBtn.disabled = busy;
+        return;
+    }
+
+    Object.values(crew.members || {}).forEach((name) => {
+        const row = document.createElement('div');
+        row.className = 'member';
+        row.innerHTML = `<span class="member-name">${escapeHtml(name)}</span>`;
+        list.appendChild(row);
+    });
+
+    if (crew.isLeader) {
+        cancelBtn.classList.remove('hidden');
+        inviteBtn.disabled = crew.size >= crew.maxSize || busy;
+        if (crew.size >= 2 && !busy) {
+            const coopTasks = (await call('cipher:tasks:getCoopTasks')) || [];
+            picker.classList.remove('hidden');
+            picker.innerHTML = '<div class="log-empty" style="text-align:left;padding:4px 0;">Pick a job to run together:</div>';
+            coopTasks.forEach((t) => {
+                const row = document.createElement('div');
+                row.className = 'member';
+                row.innerHTML = `
+                    <span class="member-name">${escapeHtml(t.label)}${t.coopOnly ? ' <span class="wanted-flag">CO-OP ONLY</span>' : ''}</span>
+                    <span class="member-rank">${taskRewardLabel(t)}</span>
+                    <div class="member-actions"><button class="btn btn-accent" data-coop-task="${t.id}">Start</button></div>`;
+                picker.appendChild(row);
+            });
+            picker.querySelectorAll('[data-coop-task]').forEach((btn) => {
+                btn.onclick = async () => {
+                    const res = await call('cipher:tasks:acceptCoop', btn.dataset.coopTask);
+                    if (res.ok) { flash('Crew job started — check your map.', 'success'); nui('close'); }
+                    else flash(res.error || 'Failed', 'error');
+                    await renderTasks();
+                };
+            });
+        }
+    } else {
+        cancelBtn.classList.add('hidden');
+        inviteBtn.disabled = true;
+    }
+}
+
+$('#taskInviteBtn').onclick = async () => {
+    const id = $('#taskInviteId').value;
+    if (!id) return;
+    const res = await call('cipher:tasks:inviteCoop', Number(id));
+    $('#taskInviteId').value = '';
+    if (res.ok) flash('Invite sent', 'success');
+    else flash(res.error || 'Failed', 'error');
+    await renderTasks();
+};
+$('#taskCancelCrewBtn').onclick = async () => {
+    await call('cipher:tasks:cancelCrew');
+    await renderTasks();
+};
+
+// ── task badges + leaderboard ──
+async function renderTaskBadges() {
+    const list = $('#taskBadgeList');
+    const achievements = (await call('cipher:tasks:getAchievements')) || [];
+    list.innerHTML = '';
+    if (!achievements.length) { list.innerHTML = '<div class="log-empty">No badges configured.</div>'; return; }
+    achievements.forEach((a) => {
+        const row = document.createElement('div');
+        row.className = 'member' + (a.earned ? '' : ' is-locked');
+        row.innerHTML = `
+            <span class="member-name">${a.earned ? '🏅' : '🔒'} ${escapeHtml(a.label)}</span>
+            <span class="member-rank">${escapeHtml(a.description)}</span>`;
+        list.appendChild(row);
+    });
+}
+
+async function renderTaskLeaderboard() {
+    const list = $('#taskLeaderboard');
+    const rows = (await call('cipher:tasks:getLeaderboard')) || [];
+    list.innerHTML = '';
+    if (!rows.length) { list.innerHTML = '<div class="log-empty">No completed jobs yet.</div>'; return; }
+    rows.forEach((r, i) => {
+        const row = document.createElement('div');
+        row.className = 'member contributor-row';
+        row.innerHTML = `
+            <span class="contributor-rank">#${i + 1}</span>
+            <span class="member-name">${escapeHtml(r.name)}</span>
+            <span class="member-rank">Lv.${r.level} — ${r.total_completed} jobs, ${r.badges} badges</span>`;
+        list.appendChild(row);
+    });
+}
+
+// ── Car boosting (fully standalone — no gang tie-in) ──
+async function renderBoosting() {
+    const status = await call('cipher:boosting:getStatus');
+    if (!status) return;
+
+    $('#boostLevelNum').textContent = status.level;
+    $('#boostLevelLabel').textContent = status.label;
+    $('#boostTotalCount').textContent = status.totalBoosted;
+    $('#boostTotalCash').textContent = '$' + Number(status.totalCash).toLocaleString();
+
+    if (status.xpNeeded == null) {
+        $('#boostXpFill').style.width = '100%';
+        $('#boostXpLabel').textContent = `${status.xp.toLocaleString()} XP — max level`;
+    } else {
+        const pct = Math.min(100, (status.xp / status.xpNeeded) * 100);
+        $('#boostXpFill').style.width = pct + '%';
+        $('#boostXpLabel').textContent = `${status.xp.toLocaleString()} / ${status.xpNeeded.toLocaleString()} XP to next level`;
+    }
+
+    const btn = $('#boostActionBtn');
+    const cancelBtn = $('#cancelBoostBtn');
+    const activeEl = $('#boostActiveStatus');
+
+    if (status.active) {
+        const job = status.active;
+        const coopTag = job.coop ? ' [CO-OP]' : '';
+        if (job.stage === 'theft' && job.vehicleDef) {
+            activeEl.innerHTML = `BOLO${coopTag} — <strong>${escapeHtml(job.vehicleDef.label || job.vehicleDef.model)}</strong>, plate <strong>${escapeHtml(job.plate || '?')}</strong>. Search the marked zone.`;
+        } else {
+            activeEl.textContent = `On the job${coopTag} — ${job.stage}`;
+        }
+        activeEl.classList.remove('hidden');
+        btn.classList.add('hidden');
+        cancelBtn.classList.remove('hidden');
+    } else {
+        activeEl.classList.add('hidden');
+        cancelBtn.classList.add('hidden');
+        btn.classList.remove('hidden');
+        if (status.cooldownMs > 0) {
+            const mins = Math.ceil(status.cooldownMs / 60000);
+            btn.textContent = `Cooldown ${mins}m`;
+            btn.disabled = true;
+        } else {
+            btn.textContent = 'Start Job';
+            btn.disabled = false;
+        }
+    }
+
+    await renderBoostLeaderboard();
+    await renderBoostVehiclePreview();
+    await renderBoostActivity();
+    await renderBoostWanted(status);
+    await renderBoostBadges();
+    await renderBoostPerks();
+    await renderBoostCrew(status);
+}
+
+async function renderBoostCrew(status) {
+    const crew = await call('cipher:boosting:getCrewStatus');
+    const list = $('#boostCrewList');
+    const startBtn = $('#boostStartCoopBtn');
+    const cancelBtn = $('#boostCancelCrewBtn');
+    const inviteBtn = $('#boostInviteBtn');
+    list.innerHTML = '';
+
+    if (!crew) {
+        list.innerHTML = '<div class="log-empty">No crew yet — invite someone to start a co-op job.</div>';
+        startBtn.classList.add('hidden');
+        cancelBtn.classList.add('hidden');
+        inviteBtn.disabled = !!status.active;
+        return;
+    }
+
+    Object.values(crew.members || {}).forEach((name) => {
+        const row = document.createElement('div');
+        row.className = 'member';
+        row.innerHTML = `<span class="member-name">${escapeHtml(name)}</span>`;
+        list.appendChild(row);
+    });
+
+    if (crew.isLeader) {
+        startBtn.classList.toggle('hidden', crew.size < 2 || !!status.active);
+        cancelBtn.classList.remove('hidden');
+        inviteBtn.disabled = crew.size >= crew.maxSize || !!status.active;
+    } else {
+        startBtn.classList.add('hidden');
+        cancelBtn.classList.add('hidden');
+        inviteBtn.disabled = true;
+    }
+}
+
+$('#boostInviteBtn').onclick = async () => {
+    const id = $('#boostInviteId').value;
+    if (!id) return;
+    const res = await call('cipher:boosting:inviteCoop', Number(id));
+    $('#boostInviteId').value = '';
+    if (res.ok) flash('Invite sent', 'success');
+    else flash(res.error || 'Failed', 'error');
+    await renderBoosting();
+};
+$('#boostCancelCrewBtn').onclick = async () => {
+    await call('cipher:boosting:cancelCrew');
+    await renderBoosting();
+};
+$('#boostStartCoopBtn').onclick = async () => {
+    const res = await call('cipher:boosting:acceptCoop');
+    if (res.ok) { flash('Co-op job started — check your map.', 'success'); nui('close'); }
+    else flash(res.error || 'Failed', 'error');
+    await renderBoosting();
+};
+
+async function renderBoostPerks() {
+    const res = await call('cipher:boosting:getPerks');
+    const perks = (res && res.perks) || [];
+    $('#boostPerkPoints').textContent = (res && res.perkPoints) || 0;
+    const list = $('#boostPerkList');
+    list.innerHTML = '';
+    if (!perks.length) { list.innerHTML = '<div class="log-empty">No perks configured.</div>'; return; }
+
+    perks.forEach((p) => {
+        const row = document.createElement('div');
+        row.className = 'member' + (p.owned ? '' : !p.affordable ? ' is-locked' : '');
+        const action = p.owned
+            ? '<span class="member-rank">Owned</span>'
+            : `<button class="btn btn-ghost" data-perk="${p.id}" ${p.affordable ? '' : 'disabled'}>Buy (${p.cost})</button>`;
+        row.innerHTML = `
+            <span class="member-name">${escapeHtml(p.label)}</span>
+            <span class="member-rank">${escapeHtml(p.description)}</span>
+            <div class="member-actions">${action}</div>`;
+        list.appendChild(row);
+    });
+
+    list.querySelectorAll('[data-perk]').forEach((btn) => {
+        btn.onclick = async () => {
+            const res2 = await call('cipher:boosting:buyPerk', btn.dataset.perk);
+            if (res2.ok) flash('Perk bought', 'success');
+            else flash(res2.error || 'Failed', 'error');
+            await renderBoostPerks();
+        };
+    });
+}
+
+async function renderBoostWanted(status) {
+    const wanted = await call('cipher:boosting:getWanted');
+    const section = $('#boostWantedSection');
+    const list = $('#boostWantedList');
+    list.innerHTML = '';
+
+    if (!wanted || !wanted.length) { section.classList.add('hidden'); return; }
+    section.classList.remove('hidden');
+
+    const blocked = !!status.active || status.cooldownMs > 0;
+    wanted.forEach((w) => {
+        const row = document.createElement('div');
+        row.className = 'member is-wanted';
+        row.innerHTML = `
+            <span class="member-name">${escapeHtml(w.label)}</span>
+            <span class="member-rank">+$${Number(w.cash).toLocaleString()}, +${w.xp} XP</span>
+            <div class="member-actions">
+                <button class="btn btn-accent" data-wanted="${w.id}" ${blocked ? 'disabled' : ''}>Steal</button>
+            </div>`;
+        list.appendChild(row);
+    });
+
+    list.querySelectorAll('[data-wanted]').forEach((btn) => {
+        btn.onclick = async () => {
+            const res = await call('cipher:boosting:accept', btn.dataset.wanted);
+            if (res.ok) { flash('Job started — check your map.', 'success'); nui('close'); }
+            else flash(res.error || 'Failed', 'error');
+            await renderBoosting();
+        };
+    });
+}
+
+async function renderBoostBadges() {
+    const badges = await call('cipher:boosting:getAchievements');
+    const list = $('#boostBadgeList');
+    list.innerHTML = '';
+    if (!badges || !badges.length) { list.innerHTML = '<div class="log-empty">No badges configured.</div>'; return; }
+    badges.forEach((b) => {
+        const row = document.createElement('div');
+        row.className = 'member' + (b.earned ? '' : ' is-locked');
+        row.innerHTML = `
+            <span class="member-name">${b.earned ? '🏆' : '🔒'} ${escapeHtml(b.label)}</span>
+            <span class="member-rank">${escapeHtml(b.description)}</span>`;
+        list.appendChild(row);
+    });
+}
+
+async function renderBoostVehiclePreview() {
+    const vehicles = await call('cipher:boosting:getAvailableVehicles');
+    const list = $('#boostVehiclePreview');
+    list.innerHTML = '';
+    if (!vehicles || !vehicles.length) { list.innerHTML = '<div class="log-empty">Nothing unlocked yet.</div>'; return; }
+    vehicles.forEach((v) => {
+        const row = document.createElement('div');
+        row.className = 'member';
+        row.innerHTML = `
+            <span class="member-name">${escapeHtml(v.label)}</span>
+            <span class="member-rank">+$${Number(v.cash).toLocaleString()}, +${v.xp} XP</span>`;
+        list.appendChild(row);
+    });
+}
+
+async function renderBoostActivity() {
+    const rows = await call('cipher:boosting:getRecentActivity');
+    const list = $('#boostActivityFeed');
+    list.innerHTML = '';
+    if (!rows || !rows.length) { list.innerHTML = '<div class="log-empty">No sells yet.</div>'; return; }
+    rows.forEach((r) => {
+        const item = document.createElement('div');
+        item.className = 'log-item';
+        item.innerHTML = `<span class="log-time">${formatTime(r.created_at)}</span><span>${escapeHtml(r.name)} sold a ${escapeHtml(r.vehicle_label)} for $${Number(r.cash).toLocaleString()}</span>`;
+        list.appendChild(item);
+    });
+}
+
+$('#boostActionBtn').onclick = async () => {
+    const res = await call('cipher:boosting:accept');
+    if (res.ok) { flash('Job started — check your map.', 'success'); nui('close'); }
+    else flash(res.error || 'Failed', 'error');
+    await renderBoosting();
+};
+$('#cancelBoostBtn').onclick = async () => {
+    await call('cipher:boosting:cancel');
+    await renderBoosting();
+};
+
+async function renderBoostLeaderboard() {
+    const rows = await call('cipher:boosting:getLeaderboard');
+    const list = $('#boostLeaderboard');
+    list.innerHTML = '';
+    if (!rows || !rows.length) { list.innerHTML = '<div class="log-empty">No one\'s boosted anything yet.</div>'; return; }
+    rows.forEach((r, i) => {
+        const row = document.createElement('div');
+        row.className = 'member';
+        row.innerHTML = `
+            <span class="member-grade">#${i + 1}</span>
+            <span class="member-name">${escapeHtml(r.name)}</span>
+            <span class="member-rank">Lvl ${r.level}</span>
+            <span class="member-rank">${r.total_boosted} boosted</span>
+            <span class="member-rank" title="Badges earned">🏆 ${r.badges || 0}</span>`;
+        list.appendChild(row);
+    });
+}
+
+// ── dealer ──
+async function renderDealer() {
+    const status = await call('cipher:dealer:getStatus');
+    const btn = $('#callDealerBtn');
+    if (status && status.cooldownMs > 0) {
+        const hrs = (status.cooldownMs / 3600000).toFixed(1);
+        $('#dealerStatus').textContent = `On cooldown — ${hrs}h`;
+        btn.disabled = true;
+    } else {
+        $('#dealerStatus').textContent = 'Available';
+        btn.disabled = false;
+    }
+}
+$('#callDealerBtn').onclick = async () => {
+    const res = await call('cipher:dealer:contact');
+    if (res.ok) { flash('Dealer is en route — check your map.', 'success'); nui('close'); }
+    else flash(res.error || 'Failed', 'error');
+    await renderDealer();
+};
+
+// ── gang perks: a real branching tree, not a flat list ──
+async function renderGangPerks() {
+    const res = await call('cipher:gangperks:getTree');
+    const branches = (res && res.branches) || [];
+    const points = (res && res.perkPoints) || 0;
+    $('#gangPerkPoints').textContent = points;
+
+    const wrap = $('#perkTree');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    if (!branches.length) { wrap.innerHTML = '<div class="log-empty">No perks configured.</div>'; return; }
+
+    branches.forEach((b) => {
+        const col = document.createElement('div');
+        col.className = 'perk-branch';
+        col.innerHTML = `<div class="perk-branch-title">${escapeHtml(b.label)}</div>`;
+
+        const chain = document.createElement('div');
+        chain.className = 'perk-chain';
+
+        b.tiers.forEach((t, i) => {
+            if (i > 0) {
+                const line = document.createElement('div');
+                line.className = 'perk-line' + (t.owned || (b.tiers[i - 1].owned) ? ' is-active' : '');
+                chain.appendChild(line);
+            }
+
+            const node = document.createElement('div');
+            const stateCls = t.owned ? 'is-owned' : (t.locked ? 'is-locked' : (t.affordable ? 'is-affordable' : 'is-unaffordable'));
+            node.className = 'perk-node ' + stateCls;
+            node.innerHTML = `
+                <div class="perk-node-icon">${t.owned ? '✓' : (t.locked ? '🔒' : t.tier)}</div>
+                <div class="perk-node-body">
+                    <div class="perk-node-label">${escapeHtml(t.label)}</div>
+                    <div class="perk-node-desc">${escapeHtml(t.description)}</div>
+                    ${t.owned ? '' : `<button class="perk-buy-btn" data-buy-perk="${t.id}" ${(t.locked || !t.affordable) ? 'disabled' : ''}>${t.cost} pt${t.cost > 1 ? 's' : ''}</button>`}
+                </div>`;
+            chain.appendChild(node);
+        });
+
+        col.appendChild(chain);
+        wrap.appendChild(col);
+    });
+
+    wrap.querySelectorAll('[data-buy-perk]').forEach((btn) => {
+        btn.onclick = async () => {
+            const res = await call('cipher:gangperks:buyPerk', btn.dataset.buyPerk);
+            if (res.ok) flash('Perk purchased', 'success'); else flash(res.error || 'Failed', 'error');
+            await renderGangPerks();
+        };
+    });
+}
+
+// ── tabs ── (scoped to the enclosing .view so two apps' tabs never collide)
+el('.tab').forEach((tab) => {
+    tab.onclick = () => {
+        const scope = tab.closest('.view, .admin-surface') || document;
+        scope.querySelectorAll('.tab').forEach((t) => t.classList.remove('is-active'));
+        scope.querySelectorAll('.tabview').forEach((v) => v.classList.remove('is-active'));
+        scope.querySelectorAll('.tab-more').forEach((m) => { m.classList.remove('has-active', 'is-open'); m.querySelector('.tab-more-menu').classList.add('hidden'); });
+        tab.classList.add('is-active');
+        const targetView = scope.querySelector(`[data-tabview="${tab.dataset.tab}"]`);
+        targetView.classList.add('is-active');
+        playGlitch(targetView);
+        const moreParent = tab.closest('.tab-more');
+        if (moreParent) moreParent.classList.add('has-active');
+    };
+});
+
+// ── "More" tab dropdowns ──
+el('.tab-more-btn').forEach((btn) => {
+    btn.onclick = (e) => {
+        e.stopPropagation();
+        const wrap = btn.closest('.tab-more');
+        const isOpen = wrap.classList.contains('is-open');
+        document.querySelectorAll('.tab-more').forEach((m) => { m.classList.remove('is-open'); m.querySelector('.tab-more-menu').classList.add('hidden'); });
+        if (!isOpen) {
+            wrap.classList.add('is-open');
+            wrap.querySelector('.tab-more-menu').classList.remove('hidden');
+        }
+    };
+});
+document.addEventListener('click', () => {
+    document.querySelectorAll('.tab-more.is-open').forEach((m) => { m.classList.remove('is-open'); m.querySelector('.tab-more-menu').classList.add('hidden'); });
+});
+
+// ── helpers ──
+async function refresh() {
+    const snap = await call('cipher:getSnapshot');
+    // getSnapshot returns the snapshot object directly (not wrapped)
+    state.snapshot = snap.gang !== undefined ? snap : state.snapshot;
+    render();
+}
+function flash(msg, type = 'info') {
+    const stack = $('#toastStack');
+    if (!stack) return;
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = msg;
+    stack.appendChild(toast);
+    setTimeout(() => toast.classList.add('toast-out'), 2600);
+    setTimeout(() => toast.remove(), 3000);
+}
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function formatTime(ts) {
+    if (!ts) return '';
+    const d = new Date(ts.replace ? ts.replace(' ', 'T') : ts);
+    if (isNaN(d)) return '';
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+// ── Blackmarket ──
+let blackmarketLoaded = false;
+let dmActiveHandle = null;
+
+async function renderBlackmarket() {
+    if (!blackmarketLoaded) {
+        blackmarketLoaded = true;
+        const handle = await call('cipher:chat:getMyHandle');
+        $('#myHandle').textContent = handle || '—';
+    }
+    await renderWorldFeed();
+    await renderDMThreads();
+}
+
+$('#editHandleBtn').onclick = () => {
+    $('#handleInput').value = $('#myHandle').textContent;
+    $('#handleEditRow').classList.remove('hidden');
+};
+$('#cancelHandleBtn').onclick = () => $('#handleEditRow').classList.add('hidden');
+$('#saveHandleBtn').onclick = async () => {
+    const desired = $('#handleInput').value.trim();
+    if (!desired) return;
+    const res = await call('cipher:chat:setHandle', desired);
+    if (res.ok) {
+        $('#myHandle').textContent = res.handle;
+        $('#handleEditRow').classList.add('hidden');
+        flash('Handle updated', 'success');
+    } else {
+        flash(res.error || 'Failed to update handle', 'error');
+    }
+};
+$('#handleInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#saveHandleBtn').click(); });
+
+function appendChatBubble(container, handle, message, mine) {
+    const row = document.createElement('div');
+    row.className = 'chat-bubble' + (mine ? ' mine' : '');
+    row.innerHTML = `<span class="chat-handle">${escapeHtml(handle)}</span><span class="chat-text">${escapeHtml(message)}</span>`;
+    container.appendChild(row);
+    container.scrollTop = container.scrollHeight;
+}
+
+async function renderWorldFeed() {
+    const history = await call('cipher:chat:getWorldHistory');
+    const feed = $('#worldFeed');
+    feed.innerHTML = '';
+    const myHandle = $('#myHandle').textContent;
+    (history || []).forEach((m) => appendChatBubble(feed, m.handle, m.message, m.handle === myHandle));
+    if (!history || !history.length) feed.innerHTML = '<div class="log-empty">No chatter yet.</div>';
+}
+
+function onWorldMessage(m) {
+    if (state.activeApp !== 'blackmarket') return;
+    const myHandle = $('#myHandle').textContent;
+    appendChatBubble($('#worldFeed'), m.handle, m.message, m.handle === myHandle);
+}
+
+$('#worldSendBtn').onclick = async () => {
+    const input = $('#worldInput');
+    const msg = input.value.trim();
+    if (!msg) return;
+    input.value = '';
+    const res = await call('cipher:chat:postWorld', msg);
+    if (!res.ok) flash(res.error || 'Failed to post', 'error');
+};
+$('#worldInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#worldSendBtn').click(); });
+
+async function renderDMThreads() {
+    const threads = await call('cipher:chat:getThreads');
+    const list = $('#dmThreadList');
+    list.innerHTML = '';
+    if (!threads || !threads.length) {
+        list.innerHTML = '<div class="log-empty">No conversations yet.</div>';
+    } else {
+        threads.forEach((t) => {
+            const row = document.createElement('div');
+            row.className = 'member';
+            row.innerHTML = `
+                <span class="member-name">${escapeHtml(t.handle)}${t.unread ? ' <span class="unread-dot"></span>' : ''}</span>
+                <span class="member-rank">${escapeHtml((t.lastMessage || '').slice(0, 40))}</span>`;
+            row.onclick = () => openDMThread(t.handle);
+            list.appendChild(row);
+        });
+    }
+    $('#dmConversation').classList.add('hidden');
+    list.classList.remove('hidden');
+}
+
+async function openDMThread(handle) {
+    dmActiveHandle = handle;
+    $('#dmThreadList').classList.add('hidden');
+    $('#dmConversation').classList.remove('hidden');
+    const feed = $('#dmFeed');
+    feed.innerHTML = '';
+    const myHandle = $('#myHandle').textContent;
+    const messages = await call('cipher:chat:getThread', handle);
+    (messages || []).forEach((m) => appendChatBubble(feed, m.from_handle, m.message, m.from_handle === myHandle));
+    if (!messages || !messages.length) feed.innerHTML = '<div class="log-empty">No messages yet — say hi.</div>';
+}
+
+$('#dmBackBtn').onclick = () => { dmActiveHandle = null; renderDMThreads(); };
+
+$('#dmSendBtn').onclick = async () => {
+    if (!dmActiveHandle) return;
+    const input = $('#dmInput');
+    const msg = input.value.trim();
+    if (!msg) return;
+    input.value = '';
+    const res = await call('cipher:chat:sendDM', dmActiveHandle, msg);
+    if (res.ok) {
+        const myHandle = $('#myHandle').textContent;
+        appendChatBubble($('#dmFeed'), myHandle, msg, true);
+    } else {
+        flash(res.error || 'Failed to send', 'error');
+    }
+};
+$('#dmInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#dmSendBtn').click(); });
+
+$('#dmNewBtn').onclick = () => {
+    const handle = $('#dmNewHandle').value.trim();
+    if (!handle) return;
+    $('#dmNewHandle').value = '';
+    openDMThread(handle);
+};
+
+function onDMReceived(m) {
+    if (state.activeApp === 'blackmarket' && dmActiveHandle === m.handle) {
+        appendChatBubble($('#dmFeed'), m.handle, m.message, false);
+    } else {
+        flash(`New message from ${m.handle}`, 'info');
+    }
+    if (state.activeApp === 'blackmarket' && !dmActiveHandle) renderDMThreads();
+}
+
+// dev preview outside FiveM
+if (!window.invokeNative) {
+    // no-op: in browser you can call openUI(mockSnapshot) to preview
+}

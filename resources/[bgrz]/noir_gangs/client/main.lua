@@ -3,8 +3,8 @@ local function notify(text, kind) lib.notify({ description = text, type = kind o
 local function gang() return QBX.PlayerData.gang end
 
 local function closestPlayer()
-    local id, _, distance = lib.getClosestPlayer(GetEntityCoords(cache.ped), Config.Invitation.maxDistance, false)
-    if not id or distance > Config.Invitation.maxDistance then return end
+    local id = lib.getClosestPlayer(GetEntityCoords(cache.ped), Config.Invitation.maxDistance, false)
+    if not id then return end
     return GetPlayerServerId(id)
 end
 
@@ -105,10 +105,20 @@ local function refreshRadial()
 end
 
 RegisterNetEvent('noir_gangs:client:invitation', function(invite)
-    local answer = lib.alertDialog({ header = invite.gang:upper(),
-        content = ('**%s** quer que você entre para a gang.'):format(invite.actor), centered = true,
-        cancel = true, labels = { confirm = 'Aceitar', cancel = 'Recusar' } })
-    TriggerServerEvent('noir_gangs:server:answerInvite', invite.id, answer == 'confirm')
+    if type(invite) ~= 'table' or not invite.id then return end
+    local gangLabel, actorName = tostring(invite.gang or 'Gang'), tostring(invite.actor or 'Alguém')
+    lib.registerContext({
+        id = 'noir_gangs_invitation',
+        title = ('Convite — %s'):format(gangLabel:upper()),
+        canClose = false,
+        options = {
+            { title = 'Aceitar convite', description = ('Entrar para a gang de %s.'):format(actorName), icon = 'check', iconColor = '#69c586',
+                onSelect = function() TriggerServerEvent('noir_gangs:server:answerInvite', invite.id, true) end },
+            { title = 'Recusar convite', description = ('Recusar o convite de %s.'):format(actorName), icon = 'xmark', iconColor = '#c44747',
+                onSelect = function() TriggerServerEvent('noir_gangs:server:answerInvite', invite.id, false) end },
+        }
+    })
+    lib.showContext('noir_gangs_invitation')
 end)
 
 RegisterNetEvent('noir_gangs:client:setLocations', function(locations)
