@@ -1,4 +1,33 @@
 return {
+    ['cipher_tablet'] = {
+        label = 'Cipher Tablet',
+        weight = 750,
+        stack = false,
+        close = true,
+        consume = 0,
+        description = 'Tablet criptografado para operacoes de gangue.',
+        client = { export = 'cipher.useDevice' },
+    },
+
+    ['spraycan'] = {
+        label = 'Lata de spray',
+        weight = 500,
+        stack = false,
+        close = true,
+        consume = 0,
+        description = 'Usada para criar graffiti de texto em paredes.',
+        client = { export = 'noir_graffiti.useSpraycan' },
+    },
+
+    ['sprayremover'] = {
+        label = 'Removedor de graffiti',
+        weight = 300,
+        stack = true,
+        close = true,
+        consume = 0,
+        description = 'Produto usado para remover graffiti.',
+    },
+
     ['paper_map'] = {
         label = 'Map',
         rarity = 'uncommon',
@@ -875,6 +904,13 @@ return {
         label = 'Lockpick',
         rarity = 'common',
         weight = 160,
+        stack = true,
+        close = true,
+        consume = 0,
+        client = {
+            event = 'lockpicks:UseLockpick',
+            args = false,
+        },
     },
 
     ['phone'] = {
@@ -1880,6 +1916,13 @@ return {
         label = 'Advanced Lockpick',
         rarity = 'uncommon',
         weight = 500,
+        stack = true,
+        close = true,
+        consume = 0,
+        client = {
+            event = 'lockpicks:UseLockpick',
+            args = true,
+        },
     },
 
     ['screwdriverset'] = {
