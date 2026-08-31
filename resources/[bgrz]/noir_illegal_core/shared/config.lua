@@ -27,7 +27,7 @@ NoirIllegal.Config = {
     AuditRejectedActivities = true,
     Commands = {
         enabled = true,
-        developmentActivityCommand = false,
+        developmentActivityCommand = true,
     },
     Debug = false,
 }

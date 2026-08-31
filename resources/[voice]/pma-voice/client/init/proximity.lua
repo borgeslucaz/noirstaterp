@@ -2,7 +2,7 @@
 local disableUpdates = false
 local isListenerEnabled = false
 local plyCoords = GetEntityCoords(PlayerPedId())
-proximity = MumbleGetTalkerProximity()
+proximity = Cfg.voiceModes[#Cfg.voiceModes][1]
 currentTargets = {}
 
 -- a list of all the players the current client us listening to
@@ -12,7 +12,7 @@ local listeners = {}
 
 function orig_addProximityCheck(ply)
 	local tgtPed = GetPlayerPed(ply)
-	local voiceRange = GetConvar('voice_useNativeAudio', 'false') == 'true' and proximity * 3 or proximity
+	local voiceRange = proximity
 	local distance = #(plyCoords - GetEntityCoords(tgtPed))
 	return distance < voiceRange, distance
 end
@@ -31,61 +31,16 @@ function addNearbyPlayers()
 	if disableUpdates then return end
 	-- update here so we don't have to update every call of addProximityCheck
 	plyCoords = GetEntityCoords(PlayerPedId())
-	proximity = MumbleGetTalkerProximity()
 	currentTargets = {}
-	MumbleClearVoiceTargetChannels(voiceTarget)
-	if LocalPlayer.state.disableProximity then return end
-	MumbleAddVoiceChannelListen(LocalPlayer.state.assignedChannel)
-	MumbleAddVoiceTargetChannel(voiceTarget, LocalPlayer.state.assignedChannel)
-
-	for source, _ in pairs(callData) do
-		if source ~= playerServerId then
-			local channel = MumbleGetVoiceChannelFromServerId(source)
-			if channel ~= -1 then
-				MumbleAddVoiceTargetChannel(voiceTarget, channel)
-			end
-		end
-	end
-
-	local players = GetActivePlayers()
-	for i = 1, #players do
-		local ply = players[i]
-		local serverId = GetPlayerServerId(ply)
-		local shouldAdd, distance = addProximityCheck(ply)
-		if shouldAdd then
-			-- if distance then
-			-- 	currentTargets[serverId] = distance
-			-- else
-			-- 	-- backwards compat, maybe remove in v7
-			-- 	currentTargets[serverId] = 15.0
-			-- end
-			-- logger.verbose('Added %s as a voice target', serverId)
-			local channel = MumbleGetVoiceChannelFromServerId(serverId)
-			if channel ~= -1 then
-				MumbleAddVoiceTargetChannel(voiceTarget, channel)
-			end
-		end
-	end
 end
 
 function addChannelListener(serverId)
-	-- not in the documentation, but this will return -1 whenever the client isn't in a channel
-	local channel = MumbleGetVoiceChannelFromServerId(serverId)
-	if channel ~= -1 then
-		MumbleAddVoiceChannelListen(channel)
-		logger.verbose("Adding %s to listen table", serverId)
-	end
-	listeners[serverId] = channel ~= -1
+	-- Server voice channels intentionally do not allow a client to listen to an
+	-- arbitrary player's channel. Keep this compatibility hook state-only.
+	listeners[serverId] = false
 end
 
 function removeChannelListener(serverId)
-	if listeners[serverId] then
-		local channel = MumbleGetVoiceChannelFromServerId(serverId)
-		if channel ~= -1 then
-			MumbleRemoveVoiceChannelListen(channel)
-		end
-		logger.verbose("Removing %s from listen table", serverId)
-	end
 	-- remove the listener if they exist
 	listeners[serverId] = nil
 end
@@ -153,13 +108,12 @@ CreateThread(function()
 		{ name = "duration",  help = "(opt) the duration the mute in seconds (default: 900)" }
 	})
 	while true do
-		-- wait for mumble to reconnect
-		while not MumbleIsConnected() or not isInitialized do
+		while not isInitialized do
 			Wait(100)
 		end
 		-- Leave the check here as we don't want to do any of this logic
 		if GetConvarInt('voice_enableUi', 1) == 1 then
-			local curTalkingStatus = MumbleIsPlayerTalking(PlayerId()) == 1
+			local curTalkingStatus = NetworkIsPlayerTalking(PlayerId())
 			if lastRadioStatus ~= radioPressed or lastTalkingStatus ~= curTalkingStatus then
 				lastRadioStatus = radioPressed
 				lastTalkingStatus = curTalkingStatus
@@ -194,13 +148,7 @@ exports("setVoiceState", function(_voiceState, channel)
 	voiceState = _voiceState
 	if voiceState == "channel" then
 		type_check({ channel, "number" })
-		-- 65535 is the highest a client id can go, so we add that to the base channel so we don't manage to get onto a players channel
-		channel = channel + 65535
-		MumbleSetVoiceChannel(channel)
-		while MumbleGetVoiceChannelFromServerId(playerServerId) ~= channel do
-			Wait(250)
-		end
-		MumbleAddVoiceTargetChannel(voiceTarget, channel)
+		logger.warn('setVoiceState("channel") is not available with server-controlled voice channels')
 	elseif voiceState == "proximity" then
 		handleInitialState()
 	end

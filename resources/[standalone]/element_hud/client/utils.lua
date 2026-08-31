@@ -73,7 +73,7 @@ end
 
 function GetPlayerVoiceMethod(player)
     if PlayerVoiceMethod ~= "radio" then
-        PlayerVoiceMethod = MumbleIsPlayerTalking(player) and "voice" or false
+        PlayerVoiceMethod = NetworkIsPlayerTalking(player) and "voice" or false
     end
     return PlayerVoiceMethod
 end

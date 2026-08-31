@@ -4,7 +4,7 @@
 -- recording).
 --
 -- Provider/Resources pick which voice script carries CALLS and the RADIO. The two supported
--- dialects are not interchangeable: pma-voice takes numeric call channels and Mumble natives,
+-- dialects are not interchangeable: pma-voice takes numeric server-controlled call channels,
 -- SaltyChat takes string call identifiers and has no mic-mute API at all, so the phone hides its
 -- in-call Mute button there rather than offering one that does nothing.
 return {
@@ -34,18 +34,21 @@ return {
     MaxNearbyVoices    = 6,
 
     -- Only capture a nearby player while they're actually transmitting in-game
-    -- (pma-voice / Mumble push-to-talk or open mic), so silent/muted players
+    -- (pma-voice / Enhanced voice push-to-talk or open mic), so silent/muted players
     -- aren't recorded and you capture what you'd actually hear. Set false to
-    -- stream their mic the whole time (or for non-Mumble voice like SaltyChat,
+    -- stream their mic the whole time (or for non-native voice like SaltyChat,
     -- where the talking state can't be read).
     TransmitGated      = true,
 
     -- 'cloudflare' provisions TURN relays (needed for players on different networks) from
     -- Cloudflare Realtime; 'none' uses STUN only (works on LAN / permissive NATs only).
+    -- This one setting serves EVERY WebRTC feature: video calls, nearby-voice capture,
+    -- Photogram Live and bodycams. Without it, video calls between players on different
+    -- home connections show a black picture.
     -- TURN secrets are read from server convars (NOT committed to the repo):
     --     set sd_cf_turn_token_id   "your-cloudflare-turn-token-id"
     --     set sd_cf_turn_api_token  "your-cloudflare-turn-api-token"
-    -- Create them at Cloudflare dash → Realtime → TURN. See the Cloudflare TURN docs.
+    -- Create them at Cloudflare dash -> Realtime -> TURN. Free tier covers a normal server.
     Turn = {
         Provider   = 'cloudflare',   -- 'cloudflare' | 'none'
         TtlSeconds = 86400,          -- lifetime of provisioned TURN credentials

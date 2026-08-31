@@ -20,5 +20,5 @@
 -- (set in server.cfg) so existing setups keep working; new servers can just paste it below.
 return {
     Giphy           = '',
-    FivemanageMedia = 'bSDOqdlkEFsBidBnjduKrVONuq4gXBWU',
+    FivemanageMedia = '',
 }

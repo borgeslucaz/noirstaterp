@@ -15,6 +15,9 @@ local inv       = require 'bridge.server.inventory'
 -- captures a callback against it (they all resolve identity at call time, but keep it first for
 -- clarity - the wrapper must also be live before the boot-time registrations below).
 require 'server.sim.init'
+-- ESX only, and only without a dedicated inventory resource: puts the phone items in the `items`
+-- table so ESX will honour them. Reads config.Sim, so it sits after the SIM module.
+require 'server.esxitems'
 require 'server.settings.init'
 require 'server.service'
 require 'server.wifi'
@@ -36,14 +39,14 @@ require 'server.garages.valet'
 require 'server.darkchat.init'
 require 'server.marketplace.init'
 require 'server.pages.init'
-require 'server.review.init'
 require 'server.weazelnews.init'
 require 'server.banking.init'
 require 'server.services.init'
 require 'server.voicememos.init'
+require 'server.callrec.init'
 require 'server.music.init'
 require 'server.share.init'
-require 'server.devseed'
+require 'server.devseed.init'
 -- Optional local-only helpers; absent on every install but a developer's, so a missing file is
 -- expected rather than an error.
 pcall(require, 'server.devswap')
@@ -54,12 +57,18 @@ require 'server.homes.init'
 require 'server.maps.init'
 require 'server.friends.init'
 require 'server.cherry.init'
+-- Ahead of the three features that stream live video, so the relay's gate is resolved and its
+-- feature registry is there to be registered against before any of them takes a viewer.
+require 'server.media.init'
 require 'server.photogram.init'
+require 'server.webhooks.init'
 require 'server.vibez.init'
 require 'server.voice.init'
 require 'server.streaks.init'
 require 'server.mdt.init'
 require 'server.racing.init'
+require 'server.health.init'
+require 'server.gates'
 require 'server.appgate'
 require 'server.ryde.init'
 require 'server.radio.init'
@@ -70,14 +79,30 @@ require 'server.chess.init'
 require 'server.connectfour.init'
 require 'server.games.chips'
 require 'server.games.blackjack'
+require 'server.games.casino.roulette'
+require 'server.games.casino.slots'
+require 'server.games.casino.baccarat'
+require 'server.games.casino.crash.init'
+require 'server.games.casino.holdem.init'
 require 'server.battleship.init'
 require 'server.wordle.init'
 require 'server.admin.wipe'
 require 'server.admin.init'
 -- lb-phone -> sd-phone one-time data import (no-op unless lb-phone's tables are present).
 require 'server.migrate.init'
+-- Loaded for side effects: publishes the phone's live per-player state onto player state bags.
+require 'server.statebags'
+
 -- lb-phone export compatibility shim (inert while the real lb-phone runs; sd_phone_lbcompat kill switch).
 require 'server.compat.lbphone.init'
+-- yseries export compatibility shim (inert while the real yseries runs; sd_phone_yseriescompat kill switch).
+require 'server.compat.yseries.init'
+-- qs-smartphone export compatibility shim (sd_phone_qscompat kill switch).
+require 'server.compat.qssmartphone.init'
+-- gksphone export compatibility shim (sd_phone_gkscompat kill switch).
+require 'server.compat.gksphone.init'
+-- roadphone export compatibility shim (sd_phone_roadcompat kill switch).
+require 'server.compat.roadphone.init'
 
 ---@type table SIM feature flags (server.sim.state): active + mode.
 local simState = require 'server.sim.state'

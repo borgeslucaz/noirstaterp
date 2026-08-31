@@ -11,6 +11,15 @@ local store     = require 'server.mdt.store'
 local actions   = require 'server.mdt.actions'
 ---@type table Persons and vehicles (server.mdt.records).
 local records   = require 'server.mdt.records'
+---@type table Firearms registry (server.mdt.weapons): serials, owners and their registry state.
+local weapons   = require 'server.mdt.weapons'
+---@type table Bodycams and dashcams (server.mdt.cameras): the demand-gated live relay behind the
+---Cameras section.
+local cameras   = require 'server.mdt.cameras'
+---@type table Fixed CCTV cameras (server.mdt.cctv): the police-only gate on looking through one.
+local cctv      = require 'server.mdt.cctv'
+---@type table Bodycam recordings (server.mdt.recordings): what a terminal watched and kept.
+local recordings = require 'server.mdt.recordings'
 ---@type table Reports and cases (server.mdt.paperwork).
 local paperwork = require 'server.mdt.paperwork'
 ---@type table Warrants (server.mdt.warrants).
@@ -23,6 +32,10 @@ local jail      = require 'server.mdt.jail'
 local roster    = require 'server.mdt.roster'
 ---@type table CAD (server.mdt.dispatch): in-memory units and calls.
 local dispatch  = require 'server.mdt.dispatch'
+---@type table Dispatch ingest (bridge.server.dispatch): the quarantined path onto the call board,
+---behind the mdtMirrorCall export below. Already loaded by bridge/server/init.lua, so this resolves
+---the cached module rather than registering a second set of handlers.
+local ingest    = require 'bridge.server.dispatch'
 ---@type table Department channel (server.mdt.chat).
 local chat      = require 'server.mdt.chat'
 ---@type table Bulletin board (server.mdt.bulletins).
@@ -90,6 +103,19 @@ local ROUTES = {
     { 'vehicles:search',     records,   'vehiclesSearch' },
     { 'vehicles:get',        records,   'vehiclesGet' },
     { 'vehicles:update',     records,   'vehiclesUpdate' },
+
+    { 'weapons:search',      weapons,   'search' },
+    { 'weapons:get',         weapons,   'get' },
+    { 'weapons:create',      weapons,   'create' },
+    { 'weapons:update',      weapons,   'update' },
+
+    { 'cameras:list',        cameras,   'list' },
+    { 'cameras:watch',       cameras,   'watch' },
+    { 'cameras:unwatch',     cameras,   'unwatch' },
+    { 'recordings:list',     recordings, 'list' },
+    { 'recordings:delete',   recordings, 'delete' },
+    { 'recordings:share',    recordings, 'share' },
+    { 'cctv:watch',          cctv,      'watch' },
 
     { 'reports:list',        paperwork, 'reportsList' },
     { 'reports:get',         paperwork, 'reportsGet' },
@@ -256,18 +282,35 @@ if ENABLED then
     end)
 end
 
--- Both exports stay registered with the terminal off, answering inertly. A caller that reaches for
+-- Every export stays registered with the terminal off, answering inertly. A caller that reaches for
 -- a missing export errors where it stands, and a dispatch script has no business dying because
 -- this server does not run an MDT.
 
 ---Pushes a call onto the CAD from another resource (exports['sd-phone']:mdtCreateCall). Bypasses
 ---the officer gate because the caller is a resource rather than a player, while keeping every
----clamp. Returns the new call id, or nil when the payload was unusable.
+---clamp. This is the TRUSTED path: the call it files ranks and evicts exactly like one an officer
+---raised, so it belongs to alerts a resource decides on by itself. Anything a client handed the
+---caller goes through mdtMirrorCall instead. Returns the new call id, or nil when the payload was
+---unusable.
 ---@param call table { code, type, priority, location, coords, suspect?, weapon?, ttl? }
 ---@return string|nil callId
 exports('mdtCreateCall', function(call)
     if not ENABLED then return nil end
     return dispatch.createCall(call)
+end)
+
+---Mirrors a third-party dispatch alert onto the CAD (exports['sd-phone']:mdtMirrorCall), for the
+---systems that publish alerts through an export instead of an event and so cannot be picked up
+---automatically. Same payload shape as mdtCreateCall, and everything else is different: the call is
+---marked as mirrored, so it holds the mirrored share of the board rather than the whole board, is
+---the first thing evicted from it and can never be filed at priority 1, and it takes the ingest's
+---rate limit and dedupe on the way in. That is what makes it safe for a snippet whose payload
+---reached the server across a client, which is what every one of those systems hands an operator.
+---@param call table { code, type, priority, location, coords, domain?, jobs?, suspect?, weapon? }
+---@return boolean mirrored true when the alert reached at least one board
+exports('mdtMirrorCall', function(call)
+    if not ENABLED then return false end
+    return ingest.mirrorCall(call)
 end)
 
 ---Whether a citizen has an active warrant (exports['sd-phone']:mdtIsWanted). The cheap predicate
@@ -277,4 +320,45 @@ end)
 exports('mdtIsWanted', function(citizenid)
     if not ENABLED then return false end
     return warrants.isWanted(citizenid) == true
+end)
+
+---Files a firearm on the registry from outside the terminal
+---(exports['sd-phone']:mdtRegisterWeapon). This is the hook a gun shop, crafting bench or admin
+---script calls the moment it hands a weapon over, so the serial on the frame is on the registry
+---before an officer ever runs it. Omit `serial` and one is minted and handed back.
+---@param data table { serial?, name, class?, owner?, notes?, registeredBy? }
+---@return string|false serial the serial it was filed under, false on refusal
+---@return string? message refusal reason
+exports('mdtRegisterWeapon', function(data)
+    if not ENABLED then return false, 'The MDT is disabled' end
+    local serial, message = weapons.register(data)
+    return serial or false, message
+end)
+
+---One registry record by serial (exports['sd-phone']:mdtGetWeapon).
+---@param serial string
+---@return table|nil weapon
+exports('mdtGetWeapon', function(serial)
+    if not ENABLED then return nil end
+    return weapons.find(serial)
+end)
+
+---Every firearm registered to a citizen (exports['sd-phone']:mdtGetWeaponsByOwner).
+---@param citizenid string
+---@return table[] weapons
+exports('mdtGetWeaponsByOwner', function(citizenid)
+    if not ENABLED then return {} end
+    return weapons.byOwner(citizenid)
+end)
+
+---Moves a firearm to another registry state (exports['sd-phone']:mdtSetWeaponStatus): the hook for
+---the script that seized it into evidence, destroyed it, or logged it stolen.
+---@param serial string
+---@param status string 'registered' | 'stolen' | 'seized' | 'destroyed'
+---@param byCitizenid? string who to record as having changed it
+---@return boolean ok
+---@return string? message refusal reason
+exports('mdtSetWeaponStatus', function(serial, status, byCitizenid)
+    if not ENABLED then return false, 'The MDT is disabled' end
+    return weapons.setStatus(serial, status, byCitizenid)
 end)

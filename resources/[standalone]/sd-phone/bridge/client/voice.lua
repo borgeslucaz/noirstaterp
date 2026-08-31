@@ -15,7 +15,7 @@ local SALTY_VOLUME_MAX <const> = 1.6
 local voice = {}
 
 ---@type boolean Local transmit state, tracked from SaltyChat's own event because it has no
----native to poll. Mumble backends read the native instead and never touch this.
+---native to poll. The Enhanced voice backend uses NetworkIsPlayerTalking instead.
 local saltyTalking = false
 
 if PROVIDER == 'saltychat' then
@@ -35,35 +35,27 @@ function voice.provider() return PROVIDER end
 ---What this backend can actually do, for callers that must not offer a control the running voice
 ---script cannot honour.
 ---
----`mute` is the one that matters: SaltyChat is TeamSpeak-based, so every Mumble native the phone
----would mute with is a silent no-op there, and SaltyChat exposes its mic state as READ-ONLY with
----no setter at any scope. A Mute button on that backend would look like it worked and do nothing,
----so the call UI drops it instead.
+---Enhanced pma-voice channels support server-owned mute. Per-receiver call volume and Mumble
+---submix controls are not part of the new voice API, while SaltyChat has no mic-mute setter.
+---The capability response keeps the call UI from exposing controls the selected backend cannot
+---honour.
 ---@return { mute: boolean, callVolume: boolean, transmitState: boolean, radio: boolean }
 function voice.capabilities()
     return {
         mute          = PROVIDER == 'pma-voice',
-        callVolume    = PROVIDER == 'pma-voice',
+        callVolume    = false,
         transmitState = PROVIDER ~= nil,
         radio         = PROVIDER ~= nil,
     }
 end
 
 ---Mutes or unmutes the local mic for call AND proximity.
----
----Switching the voice target to 0 (the default, which carries no call channels) keeps audio off
----the call channel; zeroing the input distance silences proximity too.
+---The server owns Enhanced voice-channel mute state.
 ---@param on boolean true to mute
 ---@return boolean handled false when the backend has no way to mute
 function voice.setMuted(on)
     if PROVIDER ~= 'pma-voice' then return false end
-    if on then
-        MumbleSetVoiceTarget(0)
-        MumbleSetAudioInputDistance(0.0)
-    else
-        MumbleSetVoiceTarget(1)
-        MumbleSetAudioInputDistance(9999.0)
-    end
+    TriggerServerEvent('pma-voice:setSelfMuted', on == true)
     return true
 end
 
@@ -71,8 +63,7 @@ end
 ---@param volume number 0-100
 ---@return boolean handled
 function voice.setCallVolume(volume)
-    if PROVIDER ~= 'pma-voice' or not RESOURCE then return false end
-    return pcall(function() exports[RESOURCE]:setCallVolume(volume) end)
+    return false
 end
 
 ---Joins or leaves a radio channel. Channel 0 means leave.
@@ -136,7 +127,7 @@ end
 function voice.isTransmitting()
     if PROVIDER == 'saltychat' then return saltyTalking end
 
-    local ok, talking = pcall(MumbleIsPlayerTalking, cache.playerId)
+    local ok, talking = pcall(NetworkIsPlayerTalking, cache.playerId)
     if not ok then return true end
     return talking == true or talking == 1
 end

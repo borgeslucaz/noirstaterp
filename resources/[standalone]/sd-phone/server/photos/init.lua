@@ -13,6 +13,8 @@ local player   = require 'bridge.server.player'
 local mediaLimit = require 'server.photos.mediaLimit'
 ---@type table Shared server helpers (server.util): finite-number guard for the export boundary.
 local util     = require 'server.util'
+---@type table AirShare core (server.share.core): per-kind delivery handler registry.
+local share    = require 'server.share.core'
 
 ---Bootstraps the schema in a thread, pcall-guarded.
 CreateThread(function()
@@ -145,6 +147,38 @@ end)
 
 lib.callback.register('sd-phone:server:albums:photos', function(src, payload)
     return actions.listAlbumPhotos(src, payload and payload.albumId or '')
+end)
+
+-- Delivers an accepted photo AirShare into the recipient's gallery.
+share.registerHandler('photo', actions.deliverShare)
+
+---Offers a photo to a nearby phone; the recipient decides whether to accept it.
+lib.callback.register('sd-phone:server:photos:share', function(src, payload)
+    payload = type(payload) == 'table' and payload or {}
+    return actions.requestShare(src, payload.target, payload.id)
+end)
+
+---Public export: exports['sd-phone']:getPhotos(source, opts). Reads a player's gallery, newest
+---first, for other resources: a vehicle-listing photo picker, an evidence board, a print shop.
+---Read-only, and only ever the caller's own photos. Always an array, empty when nothing resolves.
+---@param source number acting player's server id (the gallery owner resolves from it)
+---@param opts { limit: number|nil, filter: 'favorites'|'videos'|nil }|nil
+---@return { id: string, url: string, isVideo: boolean, favorite: boolean, timestamp: integer }[]
+exports('getPhotos', function(source, opts)
+    if type(source) ~= 'number' then return {} end
+    local cid = player.getIdentifier(source)
+    if not cid then return {} end
+    return actions.listForCid(cid, opts)
+end)
+
+---Public export: exports['sd-phone']:getPhotosByIdentifier(citizenid, opts). The same read keyed
+---by owner id rather than a live source, for offline owners and for callers holding a phone
+---number: resolve it through getIdentifierByNumber first. Read-only.
+---@param citizenid string owner's framework per-character id
+---@param opts { limit: number|nil, filter: 'favorites'|'videos'|nil }|nil
+---@return { id: string, url: string, isVideo: boolean, favorite: boolean, timestamp: integer }[]
+exports('getPhotosByIdentifier', function(citizenid, opts)
+    return actions.listForCid(citizenid, opts)
 end)
 
 ---Public export: exports['sd-phone']:addPhoto(source, url). Saves an already-hosted http(s) URL

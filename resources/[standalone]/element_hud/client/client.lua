@@ -60,6 +60,7 @@ local hudState = {
     isInvOpen = false,
     cinematicBarsActive = false,
     settingsOpen = false,
+    layoutEditorOpen = false,
     hudDisabled = false
 }
 
@@ -154,6 +155,30 @@ local function toggleSettings(show)
     hudState.settingsOpen = show
 end
 
+-- A lightweight placement mode, matching rember-hud's direct manipulation:
+-- show every player-status item, let the player drag it, then save on Esc.
+local function toggleLayoutEditor(show, skipSave)
+    show = show == true
+
+    if show and hudState.hudDisabled then return false end
+
+    -- Let the NUI persist its current drag positions before closing via the
+    -- command, just like rember-hud does when /hudedit is toggled off.
+    if not show and hudState.layoutEditorOpen and not skipSave then
+        sendNUIMessage('REQUEST_LAYOUT_EDITOR_CLOSE', true)
+        return true
+    end
+
+    if show and hudState.settingsOpen then
+        toggleSettings(false)
+    end
+
+    hudState.layoutEditorOpen = show
+    SetNuiFocus(show, show)
+    sendNUIMessage('TOGGLE_LAYOUT_EDITOR', show)
+    return true
+end
+
 local function toggleHud(show)
     hudState.isOpen = show and not hudState.hudDisabled
     updatePlayerHud({ open = hudState.isOpen })
@@ -196,13 +221,17 @@ local function getPlayerStats()
         return nil
     end
 
+    local proximity = playerState.proximity
+
     return {
         health = math.max(0, math.ceil(GetEntityHealth(cache.ped) - 100)),
         armor = math.ceil(GetPedArmour(cache.ped)),
         thirst = playerData.metadata.thirst or 100,
         hunger = playerData.metadata.hunger or 100,
         stress = LocalPlayer.state.stress or 0,
-        voice = playerState.proximity.distance or 0,
+        -- pma-voice sets this state bag asynchronously. Do not let the HUD's
+        -- update loop fail while a player is loading and proximity is absent.
+        voice = type(proximity) == 'table' and proximity.distance or 0,
         talking = GetPlayerVoiceMethod(cache.playerId),
         stamina = playerMode == 'land' and stamina or oxygen,
     }
@@ -631,7 +660,7 @@ AddStateBagChangeHandler('seatbelt', ('player:%s'):format(cache.serverId), funct
 end)
 
 AddStateBagChangeHandler('proximity', ('player:%s'):format(cache.serverId), function(_, _, value)
-    voiceProximity = value.distance
+    voiceProximity = type(value) == 'table' and value.distance or 0
 end)
 
 RegisterNUICallback('toggleCinematicBars', function(data, cb)
@@ -652,6 +681,19 @@ RegisterNUICallback('toggleCinematicBars', function(data, cb)
 end)
 
 RegisterNUICallback('closeSettings', onCloseSettings)
+
+RegisterNUICallback('startHudLayoutEditor', function(_, cb)
+    if not toggleLayoutEditor(true) then
+        cb({ status = 'error', message = 'HUD is disabled' })
+        return
+    end
+    cb({ status = 'ok' })
+end)
+
+RegisterNUICallback('finishHudLayoutEditor', function(_, cb)
+    toggleLayoutEditor(false, true)
+    cb({ status = 'ok' })
+end)
 
 RegisterNUICallback('setHudDisabled', function(data, cb)
     if not disableHud(data) then
@@ -693,6 +735,28 @@ RegisterNUICallback('resetPlayerHudCustomPosition', function(_, cb)
     settings.playerHudCustomPosition = false
     SaveHudSettings(settings)
     cb({ status = 'ok' })
+end)
+
+local function resetHudLayout()
+    local ok, reset = pcall(function()
+        return lib.callback.await('element_hud:resetPlayerHudLayout', false)
+    end)
+
+    if not ok or not reset then return false end
+
+    local settings = LoadHudSettings()
+    settings.playerHudPosition = DEFAULT_HUD_SETTINGS.playerHudPosition
+    settings.playerHudCustomPosition = false
+    settings.playerHudScale = DEFAULT_HUD_SETTINGS.playerHudScale
+    settings.playerHudIconLayouts = {}
+    SaveHudSettings(settings)
+    sendNUIMessage('UPDATE_SETTINGS', settings)
+    toggleLayoutEditor(false, true)
+    return true
+end
+
+RegisterNUICallback('resetPlayerHudLayout', function(_, cb)
+    cb({ status = resetHudLayout() and 'ok' or 'error' })
 end)
 
 RegisterNUICallback('savePlayerHudLayout', function(data, cb)
@@ -764,6 +828,14 @@ end)
 
 RegisterCommand('hud', function()
     toggleSettings(true)
+end, false)
+
+RegisterCommand('hudedit', function()
+    toggleLayoutEditor(not hudState.layoutEditorOpen)
+end, false)
+
+RegisterCommand('hudreset', function()
+    resetHudLayout()
 end, false)
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', initializeHud)

@@ -246,7 +246,6 @@ end, false)
 RegisterCommand('-radiotalk', function()
 	if radioChannel > 0 and radioPressed then
 		radioPressed = false
-		MumbleClearVoiceTargetPlayers(voiceTarget)
 		addVoiceTargets(callData)
 		TriggerEvent("pma-voice:radioActive", false)
 		LocalPlayer.state:set("radioActive", false, true);
@@ -310,4 +309,3 @@ local function removeRadioDisableBit(bit)
 	LocalPlayer.state:set("disableRadio", curVal, true)
 end
 exports("removeRadioDisableBit", removeRadioDisableBit)
-

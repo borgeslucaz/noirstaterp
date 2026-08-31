@@ -90,6 +90,18 @@ function store.insertPhoto(id, citizenid, url)
     return affected ~= nil
 end
 
+---The hosted URL of a photo the caller owns. Read-only; a foreign or missing id yields nil.
+---@param photoId string photo row id
+---@param citizenid string owner's framework per-character id
+---@return string|nil url
+function store.urlFor(photoId, citizenid)
+    local url = MySQL.scalar.await(
+        'SELECT url FROM phone_photos WHERE id = ? AND citizenid = ?',
+        { photoId, citizenid }
+    )
+    return (type(url) == 'string' and url ~= '') and url or nil
+end
+
 ---Whether the player already has a photo with this exact URL (idempotent saves). Read-only.
 ---@param citizenid string owner's framework per-character id
 ---@param url string hosted media URL
@@ -101,6 +113,21 @@ end
 
 ---@type string Video-URL test, mirroring isVideoUrl() in web/src/core/photosApi.ts.
 local VIDEO_RE <const> = '\\.(mp4|webm|mov|m4v|ogg)([?#]|$)'
+
+---@type table<string, boolean> The same extensions as VIDEO_RE, for the Lua-side twin below.
+local VIDEO_EXT <const> = { mp4 = true, webm = true, mov = true, m4v = true, ogg = true }
+
+---Whether a stored URL points at a video. The table has no is_video column, so kind is read back
+---off the extension; this is the Lua twin of VIDEO_RE, which only MySQL can run, and the two are
+---kept adjacent so a new format lands in both.
+---@param url string|nil stored media URL
+---@return boolean isVideo
+function store.isVideoUrl(url)
+    if type(url) ~= 'string' then return false end
+    local path = url:match('^[^?#]*') or url
+    local ext = path:match('%.([%a%d]+)$')
+    return ext ~= nil and VIDEO_EXT[ext:lower()] == true
+end
 
 ---Splits an opaque "ts:id" cursor. nil/'' means the first page.
 ---@param cursor string|nil

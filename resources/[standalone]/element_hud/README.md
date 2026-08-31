@@ -86,6 +86,12 @@ Player settings are saved and loaded through FiveM KVP.
 
 This allows players to keep their HUD preferences after reconnecting or restarting the game.
 
+### Direct layout editor
+
+Use `/hudedit` to enter the direct-drag editor. Every player-status indicator
+becomes draggable; press `Esc` (or run `/hudedit` again) to save the layout.
+Use `/hudreset` to restore the configured default layout.
+
 ---
 
 ## Supported Frameworks

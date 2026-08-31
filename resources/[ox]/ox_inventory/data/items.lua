@@ -940,6 +940,21 @@ return {
         }
     },
 
+    ['burner_phone'] = {
+        label = 'Burner Phone',
+        rarity = 'rare',
+        grid = { 1, 2 },
+        weight = 190,
+        stack = false,
+        close = true,
+        consume = 0,
+        description = 'Telefone descartável para atividades ilegais.',
+        client = {
+            image = 'phone_black.png',
+            export = 'noir_burnerphone.useDevice',
+        },
+    },
+
     ['phone_blue'] = {
         label = 'Blue Phone',
         rarity = 'uncommon',

@@ -5,22 +5,20 @@ RegisterCommand('muteply', (source, args) => {
 	const mutePly = parseInt(args[0])
 	const duration = parseInt(args[1]) || 900
 	if (mutePly && exports[GetCurrentResourceName()].isValidPlayer(mutePly)) {
-		const isMuted = !MumbleIsPlayerMuted(mutePly);
+		const isMuted = !Player(mutePly).state.muted;
 		Player(mutePly).state.muted = isMuted;
-		MumbleSetPlayerMuted(mutePly, isMuted);
+		exports[GetCurrentResourceName()].setPlayerMutedInVoiceChannels(mutePly, isMuted);
 		emit('pma-voice:playerMuted', mutePly, source, isMuted, duration);
 		// since this is a toggle, if theres a mutedPlayers entry it can be assumed
 		// that they're currently muted, so we'll clear the timeout and unmute
 		if (mutedPlayers[mutePly]) {
 			clearTimeout(mutedPlayers[mutePly]);
 			delete mutedPlayers[mutePly];
-			MumbleSetPlayerMuted(mutePly, isMuted)
-			Player(mutePly).state.muted = isMuted;
 			return;
 		}
 		mutedPlayers[mutePly] = setTimeout(() => {
-			MumbleSetPlayerMuted(mutePly, !isMuted)
-			Player(mutePly).state.muted = !isMuted;
+			Player(mutePly).state.muted = false;
+			exports[GetCurrentResourceName()].setPlayerMutedInVoiceChannels(mutePly, false);
 			delete mutedPlayers[mutePly]
 		}, duration * 1000)
 	}

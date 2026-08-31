@@ -17,6 +17,9 @@ local service  = require 'server.service'
 ---@type table Voice backend (bridge.server.voice): call-channel membership and speakerphone over
 ---whichever voice script is running.
 local voice    = require 'bridge.server.voice'
+---@type table Shared ICE provisioning (server.voice.ice): the STUN + Cloudflare TURN set every
+---WebRTC feature uses, so one credential pair serves calls, the voice mesh, Live and bodycams.
+local ice      = require 'server.voice.ice'
 
 ---@type table Actions module; the table returned at end of file.
 local actions = {}
@@ -61,6 +64,10 @@ local groupRings = {}
 -- into a normal 1:1 'sessions' entry.
 ---@type table<number, table> { channel, location, boothNumber, caller }
 local boothRings = {}
+
+---@type table<number, table> Dev-only fake calls from /fakecall, keyed by source. A test call has
+---no session or ring behind it, so this is the only record that it exists.
+local devFake = {}
 
 local util = require 'server.util'
 local ok, fail, digits = util.ok, util.fail, util.digits
@@ -1099,6 +1106,7 @@ end
 ---@return table
 function actions.hangup(source, payload)
     if type(payload) ~= 'table' then payload = {} end
+    devFake[source] = nil
     local channel = tonumber(payload.channel)
 
     local ring = channel and groupRings[channel]
@@ -1131,7 +1139,14 @@ function actions.hangup(source, payload)
     end
 
     local s = channel and sessions[channel]
-    if not s then return ok() end
+    if not s then
+        -- The channel is gone but the phone still thinks it is in the call, so end it there
+        -- rather than answering a bare ok() it cannot act on.
+        if channel then
+            TriggerClientEvent('sd-phone:client:call:ended', source, { channel = channel, reason = 'hangup' })
+        end
+        return ok()
+    end
 
     -- A third party hanging up is the same thing as declining the invite.
     if s.pending and s.pending.src == source then
@@ -1142,7 +1157,11 @@ function actions.hangup(source, payload)
     -- hanging up ends it for everyone, which is the rule the recents logging already assumes.
     if leaveConference(s, source, 'hangup') then return ok() end
 
-    if s.caller.src ~= source and s.callee.src ~= source then return fail('Not your call') end
+    if s.caller.src ~= source and s.callee.src ~= source then
+        -- The channel is real but not theirs, so whatever their phone is showing is wrong.
+        TriggerClientEvent('sd-phone:client:call:ended', source, { channel = channel, reason = 'hangup' })
+        return fail('Not your call')
+    end
 
     endCall(channel, 'hangup', source)
     return ok()
@@ -1164,6 +1183,16 @@ function actions.current(source)
             return ok({ channel = rchannel, phase = 'incoming',
                         number = ring.caller.number,
                         name   = contactNameFor(player.getIdentifier(source), ring.caller.number), elapsed = 0 })
+        end
+        -- /fakecall has no session or ring behind it, so without this a reconcile would answer
+        -- "no call" and wipe the panel the moment the phone is closed and reopened.
+        local fake = devFake[source]
+        if fake then
+            return ok({
+                channel = fake.channel, phase = 'active',
+                number  = fake.number,  name  = fake.name,
+                elapsed = math.max(0, os.time() - fake.startedAt),
+            })
         end
         return ok(nil)
     end
@@ -1245,10 +1274,23 @@ local SIGNAL_WINDOW = 10000
 ---while it negotiates and nothing afterwards, so this is many times the real burst.
 local SIGNAL_PER_WINDOW = 200
 
----Relays a WebRTC signaling blob to the call peer. Dropped silently when the sender isn't in a
----live call, when the blob isn't the shape the video peer sends, or when it is over budget.
+---Registers or clears a dev fake call, so /fakecall survives the phone being closed and
+---reopened. Called only by the dev command; nothing in the normal call flow touches it.
 ---@param src number
----@param payload table { kind: string, sdp?: string, candidate?: table }
+---@param info table|nil { channel, number, name, startedAt }, nil to clear
+function actions.devFake(src, info)
+    devFake[src] = info
+end
+
+---Relays a WebRTC signaling blob to the call peer. Dropped silently when the sender isn't in a
+---live call, when the blob isn't the shape a peer sends, or when it is over budget.
+---
+---The blob is relayed verbatim, which is what lets one relay carry two peers: the client stamps
+---`slot` ('video' or 'record') and routes the arriving blob to the matching connection. A call
+---can have a video peer and a recording peer open at once, and their candidates must not be fed
+---to each other.
+---@param src number
+---@param payload table { kind: string, slot?: string, sdp?: string, candidate?: table }
 function actions.videoSignal(src, payload)
     if type(payload) ~= 'table' or not SIGNAL_KINDS[payload.kind] then return end
     if not util.smallTable(payload, 16, SIGNAL_BYTES) then return end
@@ -1256,6 +1298,23 @@ function actions.videoSignal(src, payload)
     if not peer then return end
     if not util.rateLimit(player.getIdentifier(src), 'call:videoSignal', SIGNAL_WINDOW, SIGNAL_PER_WINDOW) then return end
     TriggerClientEvent('sd-phone:client:call:video:signal', peer, payload)
+end
+
+---Tell the peer this side started recording, so their client adds its microphone to the peer and
+---raises the indicator. There is no accept step: the far side is told, never asked, and the
+---indicator is what makes that honest.
+---@param src number
+function actions.recordStart(src)
+    local peer = peerSrc(src)
+    if peer then TriggerClientEvent('sd-phone:client:call:record:start', peer) end
+end
+
+---Tell the peer this side stopped recording, so their client drops the mic track and clears the
+---indicator. Also fired when the recorder's call ends.
+---@param src number
+function actions.recordStop(src)
+    local peer = peerSrc(src)
+    if peer then TriggerClientEvent('sd-phone:client:call:record:stop', peer) end
 end
 
 ---Tell the peer this side wants to start video. Dropped silently outside a live call.
@@ -1280,11 +1339,13 @@ function actions.videoStop(src)
     if peer then TriggerClientEvent('sd-phone:client:call:video:stop', peer) end
 end
 
----Returns ICE servers for the browser RTCPeerConnection: Google STUN by default, plus a TURN
----relay when the sd_phone_turn_* convars are set.
+---Returns ICE servers for the browser RTCPeerConnection: the shared STUN + Cloudflare TURN set
+---every WebRTC feature uses, plus a static relay when the sd_phone_turn_* convars are set.
 ---@return { iceServers: table }
 function actions.iceConfig()
-    local servers = { { urls = 'stun:stun.l.google.com:19302' } }
+    local servers = {}
+    for _, entry in ipairs(ice.servers()) do servers[#servers + 1] = entry end
+
     local turn = GetConvar('sd_phone_turn_url', '')
     if turn ~= '' then
         servers[#servers + 1] = {
@@ -1300,6 +1361,7 @@ end
 ---dropping ring caller cancels the whole ring, and a dropping ringer is removed.
 ---@param src number
 function actions.onDrop(src)
+    devFake[src] = nil
     local channel, s = sessionForSource(src)
     if channel and s then
         -- A merged third party or a pending invite dropping takes only their own leg with them;

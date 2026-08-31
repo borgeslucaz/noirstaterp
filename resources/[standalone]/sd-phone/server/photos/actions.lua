@@ -4,6 +4,8 @@ local config   = require 'configs.config'
 local player   = require 'bridge.server.player'
 ---@type table Photos persistence layer (server.photos.store): photo/album row CRUD.
 local store    = require 'server.photos.store'
+---@type table AirShare handshake (server.share.core): offers a payload to a nearby phone.
+local share    = require 'server.share.core'
 
 ---@type table Photos config (config.Photos): retention cap, album cap, name length bounds.
 local photosCfg = config.Photos
@@ -70,6 +72,51 @@ function actions.list(source, payload)
     -- single page cannot report, and they do not change while paging.
     if not cursor then data.counts = store.countsFor(cid) end
     return ok(data)
+end
+
+---Shapes a DB photo row for a third-party reader. `isVideo` is added because kind lives in the
+---URL rather than a column, and time is reported only as `timestamp`, a unix integer: the raw
+---created_at column arrives in whatever shape the SQL driver decided on (oxmysql hands back a
+---millisecond epoch, not the datetime text it was written as), which is not a shape to promise
+---an outside caller.
+---@param row { id: string, url: string, favorite: any, ts: any }
+---@return table
+local function shapeExportPhoto(row)
+    return {
+        id        = row.id,
+        url       = row.url,
+        isVideo   = store.isVideoUrl(row.url),
+        favorite  = isTruthy(row.favorite),
+        timestamp = math.floor(tonumber(row.ts) or 0),
+    }
+end
+
+---A player's photos by owner id, newest first, for other resources. Unpaged on purpose: a picker
+---wants one bounded list, so this is the first page and nothing else, clamped to PAGE_SIZE. Reads
+---nothing the owner cannot already see. Always an array, empty when nothing resolves.
+---@param citizenid string owner's framework per-character id
+---@param opts { limit: number|nil, filter: 'favorites'|'videos'|nil }|nil
+---@return table[] photos
+function actions.listForCid(citizenid, opts)
+    if type(citizenid) ~= 'string' or citizenid == '' then return {} end
+
+    opts = type(opts) == 'table' and opts or {}
+    local filter = (opts.filter == 'favorites' or opts.filter == 'videos') and opts.filter or nil
+
+    local limit = tonumber(opts.limit)
+    limit = (limit and util.finite(limit)) and math.floor(limit) or PAGE_SIZE
+    if limit < 1 then limit = 1 elseif limit > PAGE_SIZE then limit = PAGE_SIZE end
+
+    -- listForCitizen deliberately over-reads by one row to prove a further page exists; that probe
+    -- row is not part of the page and would silently hand the caller limit + 1 photos.
+    local rows = store.listForCitizen(citizenid, nil, limit, filter)
+    rows[limit + 1] = nil
+
+    local out = {}
+    for i = 1, #rows do
+        out[i] = shapeExportPhoto(rows[i])
+    end
+    return out
 end
 
 ---@type integer Longest accepted photo URL in bytes, matching the phone_photos.url VARCHAR(512) column.
@@ -195,6 +242,51 @@ function actions.delete(source, photoId)
     ---Fires the first-party photos:deleted hook once per owner-initiated delete; server-local and synchronous.
     TriggerEvent('sd-phone:server:photos:deleted', { source = source, citizenid = cid, id = photoId, url = url })
     return ok({ id = photoId })
+end
+
+---Offers one of the caller's photos to a nearby phone. Sends only the hosted URL.
+---@param source number sender server id
+---@param target any recipient server id, client-chosen and validated by share.request
+---@param photoId any client-supplied photo row id
+---@return table result { success, message? }
+function actions.requestShare(source, target, photoId)
+    local cid = player.getIdentifier(source)
+    if not cid then return fail('Player not found') end
+    if type(photoId) ~= 'string' or photoId == '' then return fail('Photo id required') end
+
+    local url = store.urlFor(photoId, cid)
+    if not url then return fail('Photo not found') end
+
+    local sent, message = share.request(source, target, 'photo', { url = url })
+    if not sent then return fail(message or 'Could not send request') end
+    return ok({})
+end
+
+---Saves an accepted photo share into the recipient's gallery and pushes it live. Refused when
+---they already hold that exact URL.
+---@param targetSrc number recipient server id
+---@param payload { url: string } stored share payload
+---@return boolean delivered
+---@return string? reason shown to the recipient when refused
+function actions.deliverShare(targetSrc, payload)
+    local cid = player.getIdentifier(targetSrc)
+    if not cid then return false end
+
+    local url = type(payload) == 'table' and payload.url or nil
+    if type(url) ~= 'string' or url == '' then return false end
+    if store.hasUrl(cid, url) then return false, 'Already in your gallery' end
+
+    local id = store.newId()
+    if not store.insertPhoto(id, cid, url) then return false end
+    store.pruneOldest(cid, photosCfg.MaxPhotosPerPlayer)
+
+    TriggerClientEvent('sd-phone:client:photos:added', targetSrc, {
+        id        = id,
+        url       = url,
+        favorite  = false,
+        createdAt = os.date('!%Y-%m-%d %H:%M:%S'),
+    })
+    return true
 end
 
 ---Lists the caller's custom albums, each annotated with a photo count and a cover URL (newest

@@ -3,12 +3,10 @@ disableProximityCycle = false
 RegisterCommand('setvoiceintent', function(source, args)
 	if GetConvarInt('voice_allowSetIntent', 1) == 1 then
 		local intent = args[1]
-		if intent == 'speech' then
-			MumbleSetAudioInputIntent(`speech`)
-		elseif intent == 'music' then
-			MumbleSetAudioInputIntent(`music`)
+		if intent == 'speech' or intent == 'music' then
+			-- Input intent is selected by the Enhanced voice service.
+			LocalPlayer.state:set('voiceIntent', intent, true)
 		end
-		LocalPlayer.state:set('voiceIntent', intent, true)
 	end
 end)
 TriggerEvent('chat:addSuggestion', '/setvoiceintent', 'Sets the players voice intent', {
@@ -34,7 +32,7 @@ end)
 
 function setProximityState(proximityRange, isCustom)
 	local voiceModeData = Cfg.voiceModes[mode]
-	MumbleSetTalkerProximity(proximityRange + 0.0)
+	proximity = proximityRange
 	LocalPlayer.state:set('proximity', {
 		index = mode,
 		distance = proximityRange,

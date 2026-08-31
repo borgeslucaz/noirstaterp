@@ -24,6 +24,7 @@ function defaultTable(source)
 end
 
 function handleStateBagInitilization(source)
+	addPlayerToProximityVoice(source)
 	local plyState = Player(source).state
 	if not plyState.pmaVoiceInit then
 		plyState:set('radio', GetConvarInt('voice_defaultRadioVolume', 30), true)

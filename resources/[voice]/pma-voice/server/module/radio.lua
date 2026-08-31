@@ -92,6 +92,7 @@ function addPlayerToRadio(source, radioChannel)
 	triggerEventForRadioChannel('pma-voice:addPlayerToRadio', radioData[radioChannel], source, plyName)
 	voiceData[source] = voiceData[source] or defaultTable(source)
 	voiceData[source].radio = radioChannel
+	addPlayerToRadioVoice(source, radioChannel)
 	radioData[radioChannel][source] = false
 	TriggerClientEvent('pma-voice:syncRadioData', source, radioData[radioChannel],
 		GetConvarInt("voice_syncPlayerNames", 0) == 1 and plyName)
@@ -104,6 +105,7 @@ end
 function removePlayerFromRadio(source, radioChannel)
 	logger.verbose('[radio] Removed %s from radio %s', source, radioChannel)
 	radioData[radioChannel] = radioData[radioChannel] or {}
+	removePlayerFromRadioVoice(source, radioChannel)
 	triggerEventForRadioChannel('pma-voice:removePlayerFromRadio', radioData[radioChannel], source)
 	radioData[radioChannel][source] = nil
 	voiceData[source] = voiceData[source] or defaultTable(source)
@@ -161,6 +163,7 @@ function setTalkingOnRadio(talking)
 	local radioTbl = radioData[plyVoice.radio]
 	if radioTbl then
 		radioTbl[source] = talking
+		setPlayerTalkingOnRadioVoice(source, plyVoice.radio, talking)
 		logger.verbose('[radio] Set %s to talking: %s on radio %s', source, talking, plyVoice.radio)
 		triggerEventForRadioChannel('pma-voice:setTalkingOnRadio', radioTbl, source, talking)
 	end

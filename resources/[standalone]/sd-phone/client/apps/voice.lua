@@ -43,8 +43,8 @@ local talkLoopActive = false
 ---@type integer Generation stamp for the transmit-watch loop; bumped on every start.
 local talkLoopGen = 0
 
----Returns whether the local player is transmitting voice in-game. The bridge reads the Mumble
----native or SaltyChat's own talk-state event, and fails open when neither can answer.
+---Returns whether the local player is transmitting voice in-game. The bridge reads the Enhanced
+---voice talk-state native or SaltyChat's own event, and fails open when neither can answer.
 ---@return boolean transmitting
 local function isTransmitting()
     return voiceBridge.isTransmitting()

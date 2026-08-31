@@ -129,13 +129,8 @@ exports("setEffectSubmix", function(type, effectId)
 end)
 
 function restoreDefaultSubmix(plyServerId)
-	local submix = Player(plyServerId).state.submix
-	local submixEffect = submixIndicies[submix]
-	if not submix or not submixEffect then
-		MumbleSetSubmixForServerId(plyServerId, -1)
-		return
-	end
-	MumbleSetSubmixForServerId(plyServerId, submixEffect)
+	-- Per-speaker submix assignment was a Mumble-only feature. Channel routing
+	-- is now handled by the server voice service.
 end
 
 -- used to prevent a race condition if they talk again afterwards, which would lead to their voice going to default.
@@ -148,40 +143,12 @@ local disableSubmixReset = {}
 function toggleVoice(plySource, enabled, moduleType)
 	if mutedPlayers[plySource] then return end
 	logger.verbose('[main] Updating %s to talking: %s with submix %s', plySource, enabled, moduleType)
-	local distance = currentTargets[plySource]
-	if enabled and (not distance or distance > 4.0) then
-		print(volumes[moduleType])
-		MumbleSetVolumeOverrideByServerId(plySource, enabled and volumes[moduleType])
-		if GetConvarInt('voice_enableSubmix', 1) == 1 then
-			if moduleType then
-				disableSubmixReset[plySource] = true
-				if submixIndicies[moduleType] then
-					MumbleSetSubmixForServerId(plySource, submixIndicies[moduleType])
-				end
-			else
-				restoreDefaultSubmix(plySource)
-			end
-		end
-	elseif not enabled then
-		if GetConvarInt('voice_enableSubmix', 1) == 1 then
-			-- garbage collect it
-			disableSubmixReset[plySource] = nil
-			SetTimeout(250, function()
-				if not disableSubmixReset[plySource] then
-					restoreDefaultSubmix(plySource)
-				end
-			end)
-		end
-		MumbleSetVolumeOverrideByServerId(plySource, -1.0)
-	end
+	-- The server owns channel membership and transmit state. The previous
+	-- Mumble volume/submix overrides cannot be safely applied client-side.
 end
 
 local function updateVolumes(voiceTable, override)
-	for serverId, talking in pairs(voiceTable) do
-		if serverId == playerServerId then goto skip_iter end
-		MumbleSetVolumeOverrideByServerId(serverId, talking and override or -1.0)
-		::skip_iter::
-	end
+	-- Kept for API compatibility. Enhanced voice controls routing server-side.
 end
 
 --- resyncs the call/radio/etc volume to the new volume
@@ -203,26 +170,8 @@ end
 ---@diagnostic disable-next-line: undefined-doc-param
 ---@param targets table expects multiple tables to be sent over
 function addVoiceTargets(...)
-	local targets = { ... }
-	local addedPlayers = {
-		[playerServerId] = true
-	}
-
-	for i = 1, #targets do
-		for id, _ in pairs(targets[i]) do
-			-- we don't want to log ourself, or listen to ourself
-			if addedPlayers[id] and id ~= playerServerId then
-				logger.verbose('[main] %s is already target don\'t re-add', id)
-				goto skip_loop
-			end
-			if not addedPlayers[id] then
-				logger.verbose('[main] Adding %s as a voice target', id)
-				addedPlayers[id] = true
-				MumbleAddVoiceTargetPlayerByServerId(voiceTarget, id)
-			end
-			::skip_loop::
-		end
-	end
+	-- Kept for resources that call this helper. Radios and calls are server
+	-- channels now, so no client voice targets need to be assembled.
 end
 
 --- function playMicClicks
@@ -252,10 +201,8 @@ end)
 function toggleMutePlayer(source)
 	if mutedPlayers[source] then
 		mutedPlayers[source] = nil
-		MumbleSetVolumeOverrideByServerId(source, -1.0)
 	else
 		mutedPlayers[source] = true
-		MumbleSetVolumeOverrideByServerId(source, 0.0)
 	end
 end
 
@@ -282,22 +229,6 @@ exports('setVoiceProperty', setVoiceProperty)
 -- compatibility
 exports('SetMumbleProperty', setVoiceProperty)
 exports('SetTokoProperty', setVoiceProperty)
-
-
--- cache their external servers so if it changes in runtime we can reconnect the client.
-local externalAddress = ''
-local externalPort = 0
-CreateThread(function()
-	while true do
-		Wait(500)
-		-- only change if what we have doesn't match the cache
-		if GetConvar('voice_externalAddress', '') ~= externalAddress or GetConvarInt('voice_externalPort', 0) ~= externalPort then
-			externalAddress = GetConvar('voice_externalAddress', '')
-			externalPort = GetConvarInt('voice_externalPort', 0)
-			MumbleSetServerAddress(GetConvar('voice_externalAddress', ''), GetConvarInt('voice_externalPort', 0))
-		end
-	end
-end)
 
 
 if gameVersion == 'redm' then

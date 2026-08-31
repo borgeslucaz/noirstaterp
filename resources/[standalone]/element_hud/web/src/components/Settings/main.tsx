@@ -72,7 +72,6 @@ const Settings = () => {
   const [opened, setOpened] = useState(false);
   const [activePage, setActivePage] = useState<SettingsPage>("player");
   const [playerSettingsTab, setPlayerSettingsTab] = useState<string | null>("style");
-  const [showPositionModes, setShowPositionModes] = useState(false);
 
   const {
     hudDisabled,
@@ -85,7 +84,6 @@ const Settings = () => {
     setPlayerStatusIndicator,
     setPlayerHudPosition,
     setPlayerHudCustomPosition,
-    setLayoutEditing,
     setLayoutEditMode,
     vehicleHudStyle = "bars",
     setVehicleHudStyle,
@@ -102,7 +100,6 @@ const Settings = () => {
       if (!opened || event.key !== 'Escape') return;
 
       setOpened(false);
-      setLayoutEditing(false);
       void fetchNui('closeSettings');
     };
 
@@ -111,7 +108,7 @@ const Settings = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [setLayoutEditing, opened]);
+  }, [opened]);
 
 
   const darkShadow = `0 0 12px ${alpha(theme.colors.dark[9], 0.55)}`;
@@ -151,10 +148,10 @@ const Settings = () => {
   };
 
   const handleHudToggle = (value: string | null) => {
-    const enabled = value === "enabled";
+    const disabled = value === "disabled";
 
-    setHudDisabled(enabled);
-    fetchNui("setHudDisabled", { enabled });
+    setHudDisabled(disabled);
+    fetchNui("setHudDisabled", { disabled });
   };
 
   const handlePlayerStatusIndicator = (value: PlayerStatusIndicator) => {
@@ -196,28 +193,20 @@ const Settings = () => {
 
   const handleClose = () => {
     setOpened(false);
-    setLayoutEditing(false);
     fetchNui("closeSettings");
   };
 
   useNuiEvent("TOGGLE_SETTINGS", (data: boolean) => {
     setOpened(data);
-    if (!data) setLayoutEditing(false);
   });
 
-  useEffect(() => {
-    const returnToSettings = () => {
-      setOpened(true);
-      setShowPositionModes(false);
-    };
-
-    window.addEventListener("hud-editor-return", returnToSettings);
-    return () => window.removeEventListener("hud-editor-return", returnToSettings);
-  }, []);
-
-  const startLayoutEditor = (mode: "all" | "icons") => {
+  useNuiEvent("TOGGLE_LAYOUT_EDITOR", (open: boolean) => {
     setOpened(false);
-    setLayoutEditMode(mode);
+    setLayoutEditMode(open ? "icons" : false);
+  });
+
+  const startLayoutEditor = () => {
+    void fetchNui("startHudLayoutEditor");
   };
 
   useNuiEvent(
@@ -793,7 +782,7 @@ const PreviewBarStatus = ({
     <Stack gap="1vh">
       <SettingRow title="Show HUD" description="Choose whether to show or hide the HUD">
         <Select
-          value={hudDisabled ? "enabled" : "disabled"}
+          value={hudDisabled ? "disabled" : "enabled"}
           onChange={handleHudToggle}
           data={[
             { value: "enabled", label: "Enabled" },
@@ -865,31 +854,20 @@ const PreviewBarStatus = ({
         <Tabs.Panel value="position" pt="1vh">
           <Stack gap="1vh">
             <SettingRow
-              title="Alterar posição"
-              description="Mova e redimensione a HUD inteira ou cada ícone separadamente"
+              title="Reposicionar HUD"
+              description="Arraste cada indicador, use o scroll para escala e pressione Esc para salvar."
             >
               <Button
-                onClick={() => setShowPositionModes((value) => !value)}
+                onClick={startLayoutEditor}
                 w={210}
               >
-                Alterar posição
+                Abrir editor
               </Button>
             </SettingRow>
 
-            {showPositionModes && (
-              <SimpleGrid cols={2}>
-                <Button variant="light" onClick={() => startLayoutEditor("all")}>
-                  HUD inteira
-                </Button>
-                <Button variant="light" onClick={() => startLayoutEditor("icons")}>
-                  Por ícone
-                </Button>
-              </SimpleGrid>
-            )}
-
             <SettingRow
               title="Player HUD"
-              description="Choose a preset, or drag the HUD directly while this menu is open"
+              description="Choose a preset before fine-tuning individual indicators"
             >
               <Select
                 value={playerHudPosition}

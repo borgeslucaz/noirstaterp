@@ -49,7 +49,7 @@ end
 ---Creates the phone_settings table plus the phone_custom_ringtones and phone_notif_prefs
 ---satellite tables, backfilling columns on older installs.
 function store.ensureSchema()
-    MySQL.query.await([[
+    util.ensureTable('phone_settings', 'citizenid', [[
         CREATE TABLE IF NOT EXISTS phone_settings (
             citizenid          VARCHAR(64) NOT NULL,
             device             VARCHAR(16) NOT NULL DEFAULT 'phone',
@@ -65,6 +65,7 @@ function store.ensureSchema()
             installed_apps     TEXT         NULL,
             home_layout        TEXT         NULL,
             lock_clock         TEXT         NULL,
+            card_style         TEXT         NULL,
             wallpaper          VARCHAR(512) NULL,
             wallpaper_home     VARCHAR(512) NULL,
             blur_lock          TINYINT(1)   NULL,
@@ -102,6 +103,7 @@ function store.ensureSchema()
             icon_custom        LONGTEXT     NULL,
             show_app_names     TINYINT(1)   NOT NULL DEFAULT 1,
             home_density       VARCHAR(12)  NULL,
+            home_icon_scale    SMALLINT     NULL,
             ringtone_volume    TINYINT UNSIGNED NULL,
             call_volume        TINYINT UNSIGNED NULL,
             locale             VARCHAR(8)   NULL,
@@ -168,7 +170,20 @@ function store.ensureSchema()
         MySQL.query.await('ALTER TABLE phone_settings MODIFY reduce_motion TINYINT NULL')
     end
 
-    MySQL.query.await([[
+    util.ensureColumns('phone_settings', {
+        card_style = 'card_style TEXT NULL',
+    })
+
+    local hasBankBrand = MySQL.scalar.await([[
+        SELECT COUNT(*) FROM information_schema.columns
+        WHERE table_schema = DATABASE() AND table_name = 'phone_settings'
+          AND COLUMN_NAME = 'bank_brand'
+    ]])
+    if tonumber(hasBankBrand) == 1 then
+        MySQL.query.await('ALTER TABLE phone_settings DROP COLUMN bank_brand')
+    end
+
+    util.ensureTable('phone_custom_ringtones', 'citizenid', [[
         CREATE TABLE IF NOT EXISTS phone_custom_ringtones (
             citizenid  VARCHAR(64)  NOT NULL,
             id         VARCHAR(32)  NOT NULL,
@@ -664,6 +679,42 @@ function store.setLockClock(citizenid, cfg, device)
     ]], { citizenid, device, json.encode(clean) })
 end
 
+---Reads a player's saved bank-card style; nil when they have never customised it or the stored
+---JSON is unparseable.
+---@param citizenid string framework per-character id
+---@param device string|nil device scope, defaults to 'phone'
+---@return { bank: string|nil, color: string|nil, pattern: string|nil }|nil
+function store.getCardStyle(citizenid, device)
+    device = device or 'phone'
+    if not citizenid or citizenid == '' then return nil end
+    local row = MySQL.single.await('SELECT card_style FROM phone_settings WHERE citizenid = ? AND device = ?', { citizenid, device })
+    if not row or not row.card_style or row.card_style == '' then return nil end
+    local ok, decoded = pcall(json.decode, row.card_style)
+    if not ok or type(decoded) ~= 'table' then return nil end
+    return decoded
+end
+
+---Persists a player's bank-card style, storing only the three sanitised slugs.
+---@param citizenid string framework per-character id
+---@param style table { bank?: string, color?: string, pattern?: string }
+---@param device string|nil device scope, defaults to 'phone'
+---@return boolean stored false when no field survived sanitising
+function store.setCardStyle(citizenid, style, device)
+    device = device or 'phone'
+    if not citizenid or citizenid == '' or type(style) ~= 'table' then return false end
+    local clean = {
+        bank    = sanitizeSlug(style.bank),
+        color   = sanitizeSlug(style.color),
+        pattern = sanitizeSlug(style.pattern),
+    }
+    if not clean.bank and not clean.color and not clean.pattern then return false end
+    MySQL.update.await([[
+        INSERT INTO phone_settings (citizenid, device, card_style) VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE card_style = VALUES(card_style)
+    ]], { citizenid, device, json.encode(clean) })
+    return true
+end
+
 ---Validates a wallpaper image URL: http(s) scheme, no whitespace or control chars, within the
 ---512-char column cap; nil for anything else (never truncated, a cut URL is a broken URL).
 ---@param v any client-supplied URL
@@ -973,6 +1024,29 @@ function store.setHomeDensity(citizenid, density, device)
         INSERT INTO phone_settings (citizenid, device, home_density) VALUES (?, ?, ?)
         ON DUPLICATE KEY UPDATE home_density = VALUES(home_density)
     ]], { citizenid, device, density })
+end
+
+---Persist the home screen icon scale, leaving other settings intact.
+---
+---Stored as a WHOLE PERCENT rather than the fraction the UI works in, because the column is an
+---integer and a float would come back off by a rounding error every time. The bounds match the
+---slider's, so a client cannot park a size the grid would refuse to render.
+---@param citizenid string framework per-character id
+---@param scale any client-supplied fraction, 0.85 to 1.15
+---@param device string|nil 'phone' | 'tablet'
+function store.setHomeIconScale(citizenid, scale, device)
+    device = device or 'phone'
+    if not citizenid or citizenid == '' then return end
+
+    local n = tonumber(scale)
+    if not n or n ~= n then return end
+    local pct = lib.math.round(n * 100)
+    if pct < 85 or pct > 115 then return end
+
+    MySQL.update.await([[
+        INSERT INTO phone_settings (citizenid, device, home_icon_scale) VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE home_icon_scale = VALUES(home_icon_scale)
+    ]], { citizenid, device, pct })
 end
 
 ---Clamps a 0-100 slider value to an integer; nil for non-numbers and NaN, out-of-range values
@@ -2386,6 +2460,10 @@ function store.snapshot(citizenid, device)
     local homeDensity = row and row.home_density
     if type(homeDensity) ~= 'string' or not HOME_DENSITIES[homeDensity] then homeDensity = 'default' end
 
+    -- Stored as a whole percent, handed back as the fraction the UI works in.
+    local iconPct = row and tonumber(row.home_icon_scale)
+    local homeIconScale = (iconPct and iconPct >= 85 and iconPct <= 115) and (iconPct / 100) or 1
+
     -- Belt and braces against the TINYINT(1) boolean mapping: if a driver still hands this back
     -- as a boolean, `true` means the player asked for less motion, so read it as 'reduced'
     -- rather than letting tonumber() return nil and silently restoring full animation.
@@ -2419,6 +2497,7 @@ function store.snapshot(citizenid, device)
         customPalettes   = shared and decodeCustomPalettes(shared.palette_custom) or {},
         showAppNames     = showAppNames,
         homeDensity      = homeDensity,
+        homeIconScale    = homeIconScale,
         lockClock        = row and decodeColumn(row.lock_clock, nil) or nil,
         wallpaper        = (row and row.wallpaper ~= '') and row.wallpaper or nil,
         wallpaperHome    = (row and row.wallpaper_home ~= '') and row.wallpaper_home or nil,

@@ -16,6 +16,13 @@ import { fetchNui } from "../../utils/fetchNui";
 type PlayerStatusIndicator = "square" | "bar" | "circle" | "segmented" | "segmented-bar";
 type VehicleHudStyle = "bars" | "speedometer" | "speedometer-column";
 const DEFAULT_HUD_ITEM_LAYOUT: HudItemLayout = { x: 0, y: 0, scale: 1 };
+const GRID_SIZE = 5; // viewport percent: 20 columns × 20 rows
+const GRID_SNAP_DISTANCE = 0.75; // snap only when the icon is near a grid line
+
+const snapToGrid = (value: number) => {
+  const nearest = Math.round(value / GRID_SIZE) * GRID_SIZE;
+  return Math.abs(value - nearest) <= GRID_SNAP_DISTANCE ? nearest : value;
+};
 
 const playerHudPositionStyles: Record<PlayerHudPosition, React.CSSProperties> = {
   "bottom-left": {
@@ -71,27 +78,43 @@ const EditableHudItem = ({
   onChange: (id: string, layout: HudItemLayout) => void;
   children: React.ReactNode;
 }) => {
-  const dragStart = useRef<{ clientX: number; clientY: number; x: number; y: number } | null>(null);
+  const dragStart = useRef<{
+    clientX: number;
+    clientY: number;
+    x: number;
+    y: number;
+    centerX: number;
+    centerY: number;
+  } | null>(null);
 
   return (
     <div
       onPointerDown={(event) => {
         if (!editing) return;
+        const rect = event.currentTarget.getBoundingClientRect();
         dragStart.current = {
           clientX: event.clientX,
           clientY: event.clientY,
           x: layout.x,
           y: layout.y,
+          centerX: ((rect.left + rect.width / 2) / window.innerWidth) * 100,
+          centerY: ((rect.top + rect.height / 2) / window.innerHeight) * 100,
         };
         event.currentTarget.setPointerCapture(event.pointerId);
         event.stopPropagation();
       }}
       onPointerMove={(event) => {
         if (!dragStart.current) return;
+        const rawCenterX = dragStart.current.centerX
+          + ((event.clientX - dragStart.current.clientX) / window.innerWidth) * 100;
+        const rawCenterY = dragStart.current.centerY
+          + ((event.clientY - dragStart.current.clientY) / window.innerHeight) * 100;
+        const snappedCenterX = snapToGrid(rawCenterX);
+        const snappedCenterY = snapToGrid(rawCenterY);
         onChange(id, {
           ...layout,
-          x: dragStart.current.x + ((event.clientX - dragStart.current.clientX) / window.innerWidth) * 100,
-          y: dragStart.current.y + ((event.clientY - dragStart.current.clientY) / window.innerHeight) * 100,
+          x: Math.max(-50, Math.min(50, dragStart.current.x + snappedCenterX - dragStart.current.centerX)),
+          y: Math.max(-50, Math.min(50, dragStart.current.y + snappedCenterY - dragStart.current.centerY)),
         });
         event.stopPropagation();
       }}
@@ -910,6 +933,24 @@ export default function CombinedHud() {
 
   const smoothRpm = useTransitionedValue(rpm, 150);
 
+  const saveLayoutAndClose = () => {
+    const state = settingsStore.getState();
+    void fetchNui("savePlayerHudLayout", {
+      layout: {
+        position: state.playerHudCustomPosition,
+        scale: state.playerHudScale,
+        icons: state.playerHudIconLayouts,
+      },
+    }).finally(() => {
+      setLayoutEditMode(false);
+      void fetchNui("finishHudLayoutEditor");
+    });
+  };
+
+  useNuiEvent("REQUEST_LAYOUT_EDITOR_CLOSE", () => {
+    if (settingsStore.getState().layoutEditMode) saveLayoutAndClose();
+  });
+
   const handleHudPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (layoutEditMode !== "all" || !playerHudRef.current) return;
 
@@ -952,17 +993,7 @@ export default function CombinedHud() {
       if (event.key !== "Escape") return;
       event.preventDefault();
 
-      const state = settingsStore.getState();
-      void fetchNui("savePlayerHudLayout", {
-        layout: {
-          position: state.playerHudCustomPosition,
-          scale: state.playerHudScale,
-          icons: state.playerHudIconLayouts,
-        },
-      }).finally(() => {
-        setLayoutEditMode(false);
-        window.dispatchEvent(new Event("hud-editor-return"));
-      });
+      saveLayoutAndClose();
     };
 
     window.addEventListener("keydown", saveAndReturn);
@@ -1347,6 +1378,18 @@ export default function CombinedHud() {
       {layoutEditMode && (
         <Box
           pos="fixed"
+          inset={0}
+          style={{
+            zIndex: 90,
+            pointerEvents: "none",
+            backgroundImage: "linear-gradient(rgba(77, 171, 247, 0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(77, 171, 247, 0.18) 1px, transparent 1px)",
+            backgroundSize: `${GRID_SIZE}vw ${GRID_SIZE}vh`,
+          }}
+        />
+      )}
+      {layoutEditMode && (
+        <Box
+          pos="fixed"
           top="2vh"
           left="50%"
           style={{
@@ -1360,7 +1403,7 @@ export default function CombinedHud() {
           }}
         >
           <Text c="gray.0" fw={700} fz="1.4vh">
-            Arraste para mover · Role o mouse para redimensionar · ESC para salvar e voltar
+            Arraste para reposicionar · Use o scroll para redimensionar · Encaixe automático na grade · ESC para salvar
           </Text>
         </Box>
       )}

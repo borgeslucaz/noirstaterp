@@ -4,6 +4,10 @@ local framework   = require 'bridge.shared.framework'
 local inventoryId = require 'bridge.shared.inventory_id'
 ---@type table Player bridge (bridge.server.player): framework-native player object resolution.
 local player_mod  = require 'bridge.server.player'
+---@type table|nil ox_core helpers (bridge.shared.oxcore); nil on every other framework.
+local ox          = framework.name == 'ox' and require 'bridge.shared.oxcore' or nil
+---@type table|nil ND_Core helpers (bridge.shared.ndcore); nil on every other framework.
+local nd          = framework.name == 'nd' and require 'bridge.shared.ndcore' or nil
 
 ---@type table Money module; the table returned at end of file. Personal money + black-money
 ---operations. Black money is the black_money item on ox_inventory, the markedbills item with
@@ -11,13 +15,28 @@ local player_mod  = require 'bridge.server.player'
 local money = {}
 
 ---Normalise caller-passed money type names across frameworks. ESX wants `money` for cash, QBCore
----wants `cash`; both accept `bank` as-is.
+---and ND want `cash`; all three accept `bank` as-is. ox_core is not in here: it has no account
+---named for a money type at all, so its paths below branch on the type rather than renaming it.
 ---@param t string
 ---@return string
 local function convertType(t)
-    if t == 'money' and framework.qb  then return 'cash'  end
+    if t == 'money' and (framework.qb or framework.name == 'nd') then return 'cash'  end
     if t == 'cash'  and framework.name == 'esx' then return 'money' end
     return t
+end
+
+---Whether a caller-passed money type means physical cash. ox_core keeps cash as the `money`
+---ox_inventory item and everything else in an account, so this is the only split that matters.
+---@param t string
+---@return boolean
+local function oxIsCash(t) return t == 'cash' or t == 'money' end
+
+---The character's ox_core account, or nil when the source has no loaded character.
+---@param source number
+---@return table|nil
+local function oxAccount(source)
+    local cid = ox.charId(source)
+    return cid and ox.account(cid) or nil
 end
 
 ---Credit one of the player's framework accounts (cash, bank, ...). Returns nothing by contract;
@@ -34,6 +53,15 @@ function money.add(source, moneyType, amount, reason)
         p.Functions.AddMoney(convertType(moneyType), amount, reason)
     elseif framework.name == 'esx' then
         p.addAccountMoney(convertType(moneyType), amount)
+    elseif framework.name == 'ox' then
+        if oxIsCash(moneyType) then
+            require('bridge.server.inventory').add(source, 'money', amount)
+            return
+        end
+        local acc = oxAccount(source)
+        if acc then ox.accountCall(acc.accountId, 'addBalance', { amount = amount, message = reason }) end
+    elseif framework.name == 'nd' then
+        if type(p.addMoney) == 'function' then p.addMoney(convertType(moneyType), amount, reason) end
     end
 end
 
@@ -53,6 +81,21 @@ function money.remove(source, moneyType, amount, reason)
     elseif framework.name == 'esx' then
         p.removeAccountMoney(convertType(moneyType), amount)
         return true
+    elseif framework.name == 'ox' then
+        if oxIsCash(moneyType) then
+            return require('bridge.server.inventory').remove(source, 'money', amount)
+        end
+        local acc = oxAccount(source)
+        if not acc then return false end
+        -- overdraw stays false: the account must refuse rather than go negative, and callers
+        -- already pre-check the balance.
+        return ox.accountCall(acc.accountId, 'removeBalance',
+            { amount = amount, overdraw = false, message = reason }) ~= false
+    elseif framework.name == 'nd' then
+        -- deductMoney returns nil rather than false on a rejected amount, and lets the balance go
+        -- negative, so the caller's own pre-check against money.get is what keeps it in range.
+        if type(p.deductMoney) ~= 'function' then return false end
+        return p.deductMoney(convertType(moneyType), amount, reason) == true
     end
     return false
 end
@@ -71,6 +114,12 @@ function money.get(source, moneyType)
     elseif framework.name == 'esx' then
         local account = p.getAccount(convertType(moneyType))
         return account and account.money or 0
+    elseif framework.name == 'ox' then
+        if oxIsCash(moneyType) then return require('bridge.server.inventory').count(source, 'money') end
+        local acc = oxAccount(source)
+        return (acc and acc.balance) or 0
+    elseif framework.name == 'nd' then
+        return tonumber(p[convertType(moneyType)]) or 0
     end
     return 0
 end

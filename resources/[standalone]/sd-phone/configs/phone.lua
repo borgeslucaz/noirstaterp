@@ -17,6 +17,26 @@ return {
         { item = 'phone_yellow', color = 'yellow' },
     },
 
+    -- ESX only. ESX keeps its item catalogue in the `items` database table and
+    -- nowhere else: an item missing from it can never be given or used, which
+    -- is why a stock ESX install had the phone registered, givable in theory
+    -- and impossible to open in practice. On boot, sd-phone adds any of the
+    -- items above that the table doesn't already have, then refreshes ESX's
+    -- in-memory catalogue so they work without a restart.
+    --
+    -- Runs only on ESX AND only when no dedicated inventory resource
+    -- (ox_inventory, qs, tgiann, codem...) is started - those own their own
+    -- item lists, where you add the items yourself. Nothing is ever
+    -- overwritten: existing rows are left exactly as they are. Set false to
+    -- manage the rows yourself (sql/esx_items.sql has them ready to import).
+    SeedEsxItems = true,
+
+    -- Each Items entry may also carry `label` and `weight`, used only by the
+    -- seeder above when it creates a row. Both default sensibly (the label
+    -- from the colour, the weight to ESX's own default of 1), so set them only
+    -- to override:
+    --   { item = 'phone_black', color = 'black', label = 'iFruit', weight = 2 },
+
     -- Frame colour the phone opens with before any item has been used this
     -- session (the keybind fallback). Must be one of the frame colours.
     DefaultColor = 'black',
@@ -51,7 +71,7 @@ return {
 
     -- Default keybind to open / close the phone. Players can rebind
     -- via FiveM's keybinding menu (Settings → Key Bindings → FiveM).
-    Keybind  = 'K',
+    Keybind  = 'F1',
 
     -- Hide the phone while the player is dead, swimming, in water,
     -- or carrying a two-handed weapon. The phone is still openable
@@ -59,6 +79,13 @@ return {
     -- exploits.
     BlockWhileDead     = true,
     BlockWhileSwimming = true,
+
+    -- Whether an incoming call throws the whole phone onto the screen. Off, a
+    -- ringing phone shows the same closed-shell banner an alarm does, naming
+    -- the caller, and the player opens their phone when they want to answer.
+    -- On, the call screen takes over the moment the phone rings, which is how
+    -- this behaved before the banner existed.
+    OpenOnIncomingCall = false,
 
     -- The boot animation: your logo over a lit backdrop, played once when the
     -- resource starts and the player first opens their phone, never on ordinary
@@ -86,6 +113,25 @@ return {
     -- buttons, so hold LookKeybind to steer while you walk. Set false to freeze
     -- the player for the length of the video call. Needs AllowMovement.
     AllowMovementInVideoCall = true,
+
+    -- Video calls send the picture peer-to-peer over WebRTC; the call audio stays on your voice
+    -- resource. Public STUN is always used, which is enough when both players share a network.
+    -- A TURN relay is what carries the picture between players on different home connections.
+    -- Without one they get a connected call with a black picture, while their own self-view
+    -- still looks fine, because the self-view never leaves their machine.
+    --
+    -- One TURN setup serves everything (video calls, nearby-voice capture, Live, bodycams).
+    -- Configure it once in configs/voice.lua; the free Cloudflare path is two convars:
+    --     set sd_cf_turn_token_id  "your-cloudflare-turn-token-id"
+    --     set sd_cf_turn_api_token "your-cloudflare-turn-api-token"
+    --
+    -- A fixed relay of your own (coturn, Metered) can be added for calls on top of that:
+    --     set sd_phone_turn_url        "turn:turn.example.com:3478"
+    --     set sd_phone_turn_username   "your-username"
+    --     set sd_phone_turn_credential "your-password"
+    --
+    -- Set this false to silence the boot warning if you deliberately run STUN-only.
+    WarnAboutTurn = true,
 
     -- Hold this key/button (while the phone is open) to free the mouse for
     -- camera rotation without closing the phone. Releasing it returns to the
@@ -140,6 +186,12 @@ return {
     HoldAnimation = true,
     AnimDict      = 'cellphone@',
     AnimName      = 'cellphone_text_read_base',
+
+    -- Held for the whole of a call, in place of the reading anim above, so the ped puts the phone
+    -- to their ear. Kept up after the phone is stowed: the call is still running, so the arm stays
+    -- there rather than dropping the moment the UI closes.
+    CallAnimDict  = 'cellphone@',
+    CallAnimName  = 'cellphone_call_listen_base',
     PropPrefix    = 'sd_phone_',
     PropBone      = 28422,   -- SKEL_R_Hand
 

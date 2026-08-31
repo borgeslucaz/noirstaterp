@@ -5,6 +5,7 @@ function removePlayerFromCall(source, callChannel)
 	logger.verbose('[call] Removed %s from call %s', source, callChannel)
 
 	callData[callChannel] = callData[callChannel] or {}
+	removePlayerFromCallVoice(source, callChannel)
 	for player, _ in pairs(callData[callChannel]) do
 		TriggerClientEvent('pma-voice:removePlayerFromCall', player, source)
 	end
@@ -30,6 +31,7 @@ function addPlayerToCall(source, callChannel)
 	callData[callChannel][source] = true
 	voiceData[source] = voiceData[source] or defaultTable(source)
 	voiceData[source].call = callChannel
+	addPlayerToCallVoice(source, callChannel)
 	TriggerClientEvent('pma-voice:syncCallData', source, callData[callChannel])
 end
 

@@ -96,6 +96,14 @@ lib.callback.register('element_hud:resetPlayerHudPosition', function(source)
     return true
 end)
 
+-- Clears the whole direct-drag layout (the grouped position and every status
+-- item), so /hudreset returns the player to the configured defaults.
+lib.callback.register('element_hud:resetPlayerHudLayout', function(source)
+    exports.qbx_core:SetMetadata(source, LAYOUT_METADATA_KEY, false)
+    exports.qbx_core:SetMetadata(source, POSITION_METADATA_KEY, false)
+    return true
+end)
+
 lib.callback.register('element_hud:getPlayerHudLayout', function(source)
     return sanitizeLayout(exports.qbx_core:GetMetadata(source, LAYOUT_METADATA_KEY))
 end)

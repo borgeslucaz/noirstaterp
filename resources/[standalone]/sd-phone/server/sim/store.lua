@@ -10,7 +10,10 @@ local genNumber = util.randomNumber
 
 ---Creates the SIM registry and cloud-backup tables.
 function store.ensureSchema()
-    MySQL.query.await([[
+    -- `identity` rather than the primary key: other unique-phone scripts name a table
+    -- phone_sim_cards and key it on the number too, so `number` proves nothing about who built it.
+    -- The per-SIM identity is sd-phone's own concept, and it has been here since the table was.
+    util.ensureTable('phone_sim_cards', 'identity', [[
         CREATE TABLE IF NOT EXISTS phone_sim_cards (
             number     VARCHAR(20) NOT NULL,
             identity   VARCHAR(64) NOT NULL,
@@ -79,12 +82,16 @@ function store.ensureSchema()
     MySQL.query.await([[
         CREATE TABLE IF NOT EXISTS phone_cloud_accounts (
             citizenid  VARCHAR(64) NOT NULL,
-            password   VARCHAR(64) NULL,
+            password   VARCHAR(255) NULL,
             updated_at TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
                 ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (citizenid)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ]])
+    -- The column was sized for the 24-char legacy digest. A scrypt hash is 86 characters, so a
+    -- server created before scrypt rejects the write outright ("Data too long for column
+    -- 'password'") the first time a character turns Cloud Backup on.
+    util.ensureColumnWidth('phone_cloud_accounts', 'password', 'password VARCHAR(255) NULL', 255)
     -- One-shot migration of single-slot rows (a legacy pointer row's device IS its identity).
     -- Only when the profiles table has never been populated, so deleted profiles stay deleted.
     local migrated = MySQL.scalar.await('SELECT 1 FROM phone_cloud_profiles LIMIT 1')

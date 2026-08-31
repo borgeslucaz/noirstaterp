@@ -34,7 +34,7 @@ CreateThread(function()
                 local targetPed = nearbyPlayers[i].ped
                 local targetPlayer = nearbyPlayers[i].id
 
-                if NetworkIsPlayerActive(targetPlayer) and MumbleIsPlayerTalking(targetPlayer) and not IsPedShooting(playerPed) then
+                if NetworkIsPlayerActive(targetPlayer) and NetworkIsPlayerTalking(targetPlayer) and not IsPedShooting(playerPed) then
                     local dist = playerDist(playerPed, targetPed)
 
                     if (dist < lastDist) and (targetPlayer ~= lastTargetPlayer) then

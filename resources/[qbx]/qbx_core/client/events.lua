@@ -18,7 +18,12 @@ RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
 
     local motd = GetConvar('qbx:motd', '')
     if motd ~= '' then
-        exports.chat:addMessage({ template = motd })
+        -- noir_chat is a drop-in replacement for CFX chat and handles the
+        -- standard event. Calling the `chat` export here is unreliable when a
+        -- replacement is supplied through `provide 'chat'`.
+        -- noir_chat's renderer always reads `args.length`, even when a custom
+        -- template has no placeholders. Supply an empty array for the MOTD.
+        TriggerEvent('chat:addMessage', { template = motd, args = {} })
     end
 end)
 

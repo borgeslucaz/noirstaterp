@@ -5,12 +5,13 @@
 
 local config = {
     -- Locale file under `locales/<Locale>.json`. Falls back to `en` if missing.
-    Locale = 'pt',
+    Locale = 'en',
 
     -- Debug / dev logging toggle.
     Debug  = false,
 
     -- Per-group settings (one file each).
+    Framework   = require 'configs.framework',    -- ox_core group type mapping (other frameworks need none)
     Phone       = require 'configs.phone',        -- open/close, keybind, safety blocks
     Lockscreen  = require 'configs.lockscreen',    -- wallpaper, clock format
     Apps        = require 'configs.apps',          -- dock, wallpaper, app catalog + enable flags
@@ -28,10 +29,10 @@ local config = {
     Giphy       = require 'configs.giphy',         -- Messages GIF picker display tunables (key is in configs/server/apikeys.lua)
     Garages     = require 'configs.garages',       -- vehicle list (multi-system)
     Weather     = require 'configs.weather',       -- live weather + world time (multi-sync)
+    Health      = require 'configs.health',        -- daily step/distance totals + the steps leaderboard
     DarkChat    = require 'configs.darkchat',      -- anonymous chat rooms
     Marketplace = require 'configs.marketplace',   -- classifieds
     Pages       = require 'configs.pages',          -- yellow-pages board
-    Review        = require 'configs.review',            -- business reviews directory
     Banking     = require 'configs.banking',        -- wallet + transfers
     Services    = require 'configs.services',        -- job/company directory + boss management
     VoiceMemos  = require 'configs.voicememos',     -- voice notes + Fivemanage
@@ -40,6 +41,7 @@ local config = {
     Documents   = require 'configs.documents',     -- Files: per-character documents + folders
     Housing     = require 'configs.housing',       -- property list (multi-system)
     Cookie      = require 'configs.cookie',        -- clicker mini-game + leaderboard
+    Casino      = require 'configs.casino',        -- Casino app: blackjack/roulette/slots table limits + spin cadence
     Stocks      = require 'configs.stocks',         -- stock + crypto market, brokerage wallet
     Radio       = require 'configs.radio',          -- frequencies + job-restricted bands
     Music       = require 'configs.music',          -- which URL sources the Music library accepts
@@ -60,7 +62,8 @@ local config = {
 -- client). Merged in server-side only, reachable as config.ApiKeys; on the client this stays nil
 -- and no client code reads it.
 if IsDuplicityVersion() then
-    config.ApiKeys = require 'configs.server.apikeys'
+    config.ApiKeys  = require 'configs.server.apikeys'
+    config.Webhooks = require 'configs.server.webhooks'
 end
 
 return config

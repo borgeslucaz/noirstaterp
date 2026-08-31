@@ -1,0 +1,2 @@
+-- Server entry point intentionally kept empty while the burner-phone flow is defined.
+-- Future responsibilities: device identity, activity authorization and audit/heat events.

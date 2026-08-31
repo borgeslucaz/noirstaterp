@@ -9,6 +9,10 @@ local notify = require 'bridge.client.notify'
 
 -- Apps disabled in configs/apps.lua never reach the NUI, so neither the home screen nor the
 -- App Store can show them. Built once - the catalog is static per boot.
+---@type integer Apps seeded onto page one of a brand-new phone; 0 fills the page. The home screen
+---clamps it to the grid, so an oversized value cannot invent slots.
+local FIRST_PAGE_APPS = math.max(0, math.floor(tonumber(config.Apps.FirstPageApps) or 12))
+
 ---@type table[] Enabled app entries, config order preserved.
 local ENABLED_APPS = {}
 ---@type string[] Dock ids with disabled apps dropped.
@@ -135,12 +139,13 @@ require 'client.apps.garages'
 require 'client.apps.darkchat'
 require 'client.apps.marketplace'
 require 'client.apps.pages'
-require 'client.apps.review'
 require 'client.apps.weazelnews'
 require 'client.apps.banking'
 require 'client.apps.services'
 require 'client.apps.voicememos'
+require 'client.apps.callrec'
 require 'client.apps.music'
+require 'client.lockscreenwidgets'
 require 'client.apps.share'
 require 'client.apps.notifications'
 require 'client.apps.notes'
@@ -155,10 +160,14 @@ require 'client.apps.vibez'
 require 'client.apps.voice'
 require 'client.apps.streaks'
 require 'client.apps.mdt'
+require 'client.apps.cctv'
+require 'client.cctvplace'
+require 'client.apps.bodycam'
 require 'client.apps.racing'
 require 'client.apps.ryde'
 require 'client.apps.radio'
 require 'client.apps.clock'
+require 'client.apps.casino'
 require 'client.apps.cookie'
 require 'client.apps.stocks'
 require 'client.apps.games'
@@ -167,6 +176,7 @@ require 'client.apps.sim'
 require 'client.admin'
 require 'client.payphone'
 require 'client.celltowerblips'
+require 'client.media'
 
 ---@type table Phone visibility state: open/locked flags + cosmetic battery percentage.
 local phoneState = {
@@ -186,11 +196,8 @@ local currentSimState = nil
 
 ---@type string Current frame colour; always one of FRAME_COLORS.
 local currentFrameColor = config.Phone.DefaultColor or 'black'
----@type table<string, boolean> Whitelist of valid frame colours.
-local FRAME_COLORS = {
-    black = true, blue = true, green = true, orange = true,
-    pink = true, purple = true, red = true, yellow = true,
-}
+---@type table<string, boolean> Whitelist of valid frame colours (client.framecolors).
+local FRAME_COLORS = require 'client.framecolors'
 
 ---@type integer Wall-clock ms of the session start (re-stamped on character load); the Health app's
 ---"time awake" anchor. Seeded at script load as a fallback for opens before the character resolves.
@@ -218,9 +225,9 @@ local pushWeather
 ---@type fun()|nil Phone close (assigned further down).
 local ClosePhone
 
----@type table<integer, {obj: integer, color: string}> Server id -> local phone-prop copy welded
----onto that remote holder's ped.
-local remoteProps = {}
+---@type table Remote phone-prop copies (client.remoteprops): welds the local copy of every other
+---player's phone onto their ped, driven by the replicated `sdPhone` statebag.
+local remoteprops = require 'client.remoteprops'
 ---@type boolean Lockscreen torch state; persists after the UI closes.
 local flashlightOn = false
 ---@type boolean True while the Camera app's native cell-cam owns the pose and controls.
@@ -229,6 +236,11 @@ local cameraActive = false
 local cameraSurface = 'camera'
 ---@type boolean True while the Camera app has handed the mouse to the game to aim the lens.
 local cameraCursorFree = false
+---@type boolean True while a call is live; holds the pose up after the phone is put away.
+local callActive = false
+---@type boolean True while the call screen has been minimised away for another app, which is the
+---one live-call case that drops out of the ear pose.
+local callMinimised = false
 ---@type boolean True while a UI text field is focused.
 local typingInPhone = false
 ---@type boolean True while the focused field is digit-only (PIN pads, dialers): keep-input
@@ -263,6 +275,8 @@ local function updatePose()
         torch  = flashlightOn,
         camera = cameraActive,
         color  = currentFrameColor,
+        call   = callActive,
+        callUi = not callMinimised,
     })
     broadcastHoldState()
 end
@@ -408,6 +422,17 @@ AddEventHandler('sd-phone:client:cameraMode', function(on, surface)
     syncKeepInput()
 end)
 
+---Tracks whether a call is live and whether its screen has been minimised away, then re-syncs the
+---pose so the phone stays in hand once the UI is put away. Routed through updatePose rather than
+---straight into the pose module so the prop statebag other players read is broadcast with it.
+---@param on any truthy from the first ring-out until the call ends
+---@param minimised any truthy while the call screen has been left for another app
+AddEventHandler('sd-phone:client:callPose', function(on, minimised)
+    callActive    = on and true or false
+    callMinimised = minimised and true or false
+    updatePose()
+end)
+
 ---Tracks whether the Camera app is holding the NUI cursor or has handed the mouse to the game to
 ---aim the lens, and re-asserts keep-input since SetNuiFocus is what moved.
 ---@param on any truthy while the NUI cursor is showing
@@ -428,6 +453,9 @@ local function OpenPhone()
     end
 
     local visibleAppList, visibleDock = visibleApps()
+    -- Same question for the other catalog: the built-in apps were just filtered server-side, so the
+    -- third-party ones re-ask about their own gates on the same open.
+    customApps.refreshGates()
 
     local ped = cache.ped
 
@@ -477,6 +505,7 @@ local function OpenPhone()
             showDate  = config.Lockscreen.ShowDate,
             dock      = visibleDock,
             apps      = visibleAppList,
+            firstPageApps = FIRST_PAGE_APPS,
             mailDomain = config.Mail.Domain,
             number    = NUMBER_FORMAT,
             music     = MUSIC_SOURCES,
@@ -526,14 +555,10 @@ function PushInstalledApps()
 end
 
 ---Closes the phone NUI, announces the close, releases NUI focus, and drops the pose unless the
----and always stows the prop. Idempotent.
+---flashlight keeps it. Idempotent.
 function ClosePhone()
     if not phoneState.open then return end
 
-    -- Always stow the phone on close. Keeping the lockscreen torch active here
-    -- leaves the hold pose and prop attached after F1 closes the UI.
-    local wasLit = flashlightOn
-    flashlightOn = false
     phoneState.open = false
     companion.phoneOpen = false
     TriggerServerEvent('sd-phone:server:phone:setOpen', false)
@@ -549,7 +574,6 @@ function ClosePhone()
     SendNUIMessage({ action = 'sd-phone:close' })
 
     updatePose()
-    if wasLit then TriggerEvent('sd-phone:client:flashlight', false) end
 
     debugPrint('phone closed')
 end
@@ -585,7 +609,7 @@ end
 -- invokes the handlers as METHODS, so each is handed the keybind table as a first argument; all of
 -- these take none, so it falls away.
 lib.addKeybind({
-    name        = 'sdphone_toggle_k',
+    name        = 'sdphone_toggle',
     description = 'Toggle Phone',
     defaultKey  = config.Phone.Keybind,
     onPressed   = TogglePhone,
@@ -831,6 +855,8 @@ CreateThread(function()
         if phoneState.open and phoneState.battery > 0 then
             phoneState.battery = phoneState.battery - 1
             SendNUIMessage({ action = 'sd-phone:battery', data = phoneState.battery })
+            ---First-party client event: the cosmetic battery percentage moved.
+            TriggerEvent('sd-phone:client:battery', phoneState.battery)
         end
     end
 end)
@@ -857,60 +883,6 @@ CreateThread(function()
         end
     end
 end)
-
----Deletes a remote holder's welded prop copy, if any. Idempotent.
----@param source integer server id of the remote holder
-local function removeRemoteProp(source)
-    local entry = remoteProps[source]
-    if entry and entry.obj and DoesEntityExist(entry.obj) then DeleteObject(entry.obj) end
-    remoteProps[source] = nil
-end
-
--- Cross-player prop visibility: the holder broadcasts the replicated `sdPhone` player statebag
--- and every client welds its own local prop copy onto the holder's ped.
-if config.Phone.PropVisibleToOthers then
-    ---Resolves a `player:<serverId>` bag to (serverId, ped); ped is 0 when that player isn't in
-    ---scope on this client.
-    ---@param bagName string
-    ---@return integer? source, integer ped
-    local function bagOwner(bagName)
-        local source = tonumber(bagName:match('player:(%d+)'))
-        if not source then return nil, 0 end
-        local plyr = GetPlayerFromServerId(source)
-        if plyr == -1 then return source, 0 end
-        return source, GetPlayerPed(plyr)
-    end
-
-    AddStateBagChangeHandler('sdPhone', nil, function(bagName, _key, value)
-        local source, ped = bagOwner(bagName)
-        if not source or source == cache.serverId then return end
-        if not value or ped == 0 then
-            removeRemoteProp(source)
-            return
-        end
-        if not FRAME_COLORS[value] then return end
-        local entry = remoteProps[source]
-        if entry and entry.color == value and DoesEntityExist(entry.obj) then return end
-        removeRemoteProp(source)
-        local obj = pose.createProp(ped, value)
-        if obj then remoteProps[source] = { obj = obj, color = value } end
-        debugPrint(('remote prop for %s -> %s'):format(source, value))
-    end)
-
-    -- 1s sweep: removes copies whose owner left scope or whose prop no longer exists.
-    CreateThread(function()
-        while true do
-            Wait(1000)
-            for source, entry in pairs(remoteProps) do
-                local plyr = GetPlayerFromServerId(source)
-                local ped = plyr ~= -1 and GetPlayerPed(plyr) or 0
-                if ped == 0 or not DoesEntityExist(ped) or not DoesEntityExist(entry.obj) then
-                    removeRemoteProp(source)
-                end
-            end
-        end
-    end)
-end
 
 ---Launches an app from another resource (exports['sd-phone']:openApp), opening the phone first
 ---if needed. Returns false on a refused open or malformed arguments.
@@ -993,9 +965,14 @@ exports('getConnectedDevices', function() return bluetoothClient.devices() end)
 ---
 ---`devices` limits which devices list the app ('phone', 'tablet'); absent means all of them.
 ---`job` limits who sees it, as a name, an array of names, or a name->minimum-grade map.
+---`requires` hides it until the player clears a gate - an item, framework metadata, a job, or your
+---own server export - in the same shape configs/apps.lua documents for built-in apps. The server
+---answers it, so an app the player cannot see never reaches their phone at all. `consume = true`
+---makes it a permanent unlock instead of a live check; award one with
+---exports['sd-phone']:unlockApp(source, appId) from your server side.
 ---
----Both only decide whether an icon is DRAWN. Neither authorises anything: a player can still fire
----your resource's events and callbacks directly, so keep checking the job server-side.
+---All three only decide whether an icon is DRAWN. None of them authorises anything: a player can
+---still fire your resource's events and callbacks directly, so keep checking server-side.
 ---@param data table lb-phone-shaped app definition
 ---@return boolean ok, string? err
 exports('addCustomApp', function(data)
@@ -1035,6 +1012,11 @@ end)
 ---@return boolean disabled
 exports('isDisabled', function() return phoneDisabled end)
 
+---The cosmetic battery percentage shown in the status bar - exports['sd-phone']:getBattery().
+---Drains one percent every 30s while the phone is open; not a persisted charge.
+---@return number percent 0-100
+exports('getBattery', function() return phoneState.battery end)
+
 ---Character-loaded signal for the NUI: settings can only resolve once the citizenid exists, so
 ---the UI re-pulls its per-player state (wallpaper, tones, locale...) the moment the framework
 ---reports the player in - covering slow multichar picks and live character switches alike.
@@ -1072,7 +1054,13 @@ AddEventHandler('onResourceStop', function(resource)
     if phoneState.open then SetNuiFocus(false, false) end
     pose.stop()
     if config.Phone.PropVisibleToOthers then LocalPlayer.state:set('sdPhone', false, true) end
-    for source in pairs(remoteProps) do removeRemoteProp(source) end
+    remoteprops.clear()
 end)
 
+-- Loaded for side effects: feeds the player state bags every compat shim reads.
+require 'client.statebags'
 require 'client.compat.lbphone'
+require 'client.compat.yseries'
+require 'client.compat.qssmartphone'
+require 'client.compat.gksphone'
+require 'client.compat.roadphone'

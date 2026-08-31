@@ -24,6 +24,7 @@ client_scripts {
 }
 
 server_scripts {
+	'server/voice_channels.lua',
 	'server/**/*.lua',
 	'server/**/*.js'
 }

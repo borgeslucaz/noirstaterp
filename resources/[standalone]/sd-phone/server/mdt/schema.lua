@@ -14,6 +14,7 @@ schema.tables = {
     'phone_mdt_profile_sessions',
     'phone_mdt_person_records',
     'phone_mdt_vehicles',
+    'phone_mdt_weapons',
     'phone_mdt_offences',
     'phone_mdt_reports',
     'phone_mdt_report_charges',
@@ -151,6 +152,29 @@ function schema.ensureSchema()
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ]])
     migrations.apply('phone_mdt_vehicles')
+
+    MySQL.query.await([[
+        CREATE TABLE IF NOT EXISTS phone_mdt_weapons (
+            `serial`        VARCHAR(32) NOT NULL,
+            `name`          VARCHAR(96) NOT NULL,
+            `class`         VARCHAR(16) NOT NULL DEFAULT 'other',
+            `owner`         VARCHAR(64) NULL,
+            `owner_name`    VARCHAR(96) NULL,
+            `status`        VARCHAR(16) NOT NULL DEFAULT 'registered',
+            `bolo`          TINYINT(1)  NOT NULL DEFAULT 0,
+            `ballistics`    TINYINT(1)  NOT NULL DEFAULT 0,
+            `notes`         TEXT        NULL,
+            `registered_by` VARCHAR(64) NULL,
+            `registered_at` INT         NOT NULL,
+            `updated_by`    VARCHAR(64) NULL,
+            `updated_at`    INT         NOT NULL,
+            PRIMARY KEY (`serial`),
+            KEY idx_owner (`owner`, `registered_at`),
+            KEY idx_status (`status`, `registered_at`),
+            KEY idx_filed (`registered_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ]])
+    migrations.apply('phone_mdt_weapons')
 
     MySQL.query.await([[
         CREATE TABLE IF NOT EXISTS phone_mdt_reports (
@@ -570,6 +594,38 @@ function schema.ensureSchema()
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ]])
     migrations.apply('phone_mdt_expungements')
+
+    MySQL.query.await([[
+        CREATE TABLE IF NOT EXISTS phone_mdt_bodycam_recs (
+            `id`           INT          NOT NULL AUTO_INCREMENT,
+            `camera_id`    VARCHAR(96)  NOT NULL,
+            `kind`         VARCHAR(16)  NOT NULL DEFAULT 'bodycam',
+            `officer_cid`  VARCHAR(64)  NOT NULL,
+            `officer_name` VARCHAR(96)  NOT NULL DEFAULT '',
+            `callsign`     VARCHAR(16)  NULL,
+            `plate`        VARCHAR(16)  NULL,
+            `model`        VARCHAR(64)  NULL,
+            `watcher_cid`  VARCHAR(64)  NOT NULL,
+            `watcher_name` VARCHAR(96)  NOT NULL DEFAULT '',
+            `url`          VARCHAR(512) NOT NULL,
+            `mime`         VARCHAR(64)  NOT NULL DEFAULT 'video/webm',
+            `duration`     INT          NOT NULL DEFAULT 0,
+            `bytes`        INT UNSIGNED NOT NULL DEFAULT 0,
+            `shared_by`    VARCHAR(96)  NULL,
+            `created_at`   INT          NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY idx_watcher (`watcher_cid`, `created_at`),
+            KEY idx_officer (`officer_cid`, `created_at`),
+            KEY idx_created (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ]])
+    migrations.apply('phone_mdt_bodycam_recs')
+
+    -- Added after the table shipped, so an install that already has it gains the column rather
+    -- than needing manual SQL.
+    util.ensureColumns('phone_mdt_bodycam_recs', {
+        shared_by = '`shared_by` VARCHAR(96) NULL',
+    })
 
     -- Referential integrity, added on boot so a later install migrates with no manual SQL. Each
     -- call is a no-op once present, orphans are cleared first, and a type or collation mismatch is
