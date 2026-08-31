@@ -3,8 +3,8 @@ game 'gta5'
 
 author 'lorenc'
 
-file 'stream/v_int_40.ytyp'
-data_file 'DLC_ITYP_REQUEST' 'stream/v_int_40.ytyp'
+file 'stream_enhanced/v_int_40.ytyp'
+data_file 'DLC_ITYP_REQUEST' 'stream_enhanced/v_int_40.ytyp'
 
 
 client_script 'ipl.lua'
