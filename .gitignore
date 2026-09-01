@@ -16,6 +16,9 @@ voice.cfg
 ox.cfg
 misc.cfg
 
+# Dependencies
+node_modules/
+
 # OS and editor files
 .DS_Store
 Thumbs.db
