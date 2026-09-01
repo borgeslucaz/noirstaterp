@@ -1,0 +1,63 @@
+name: ✨ Feature Request
+description: Suggest an idea or improvement
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea? Great. Tell me what you want and why — the *why* matters more than the *what*.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: What are you trying to do that's currently painful or impossible?
+      placeholder: When building a target zone, I have to manually write the coords into a snippet. Wish I could just click a button.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would you want it to work?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other ways you've thought about solving this. Skip if none.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      description: How big do you think this is?
+      options:
+        - Small tweak / quality-of-life
+        - New feature in an existing module
+        - New module
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Mockups, examples from other tools, etc.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues and didn't find a duplicate
+          required: true

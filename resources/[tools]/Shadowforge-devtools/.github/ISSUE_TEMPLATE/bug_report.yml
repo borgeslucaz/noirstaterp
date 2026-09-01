@@ -1,0 +1,97 @@
+name: 🐛 Bug Report
+description: Something isn't working as expected
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. The more detail you give, the faster it gets fixed.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: When I open the dev panel and click "Copy Coords", nothing happens and I get an error in F8.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: How can someone else trigger this?
+      placeholder: |
+        1. Start the resource on a clean server
+        2. Run /sfdev in-game
+        3. Click on "..."
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: The coords should copy to clipboard.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: framework
+    attributes:
+      label: Framework
+      description: Which framework is your server running?
+      options:
+        - Standalone (none)
+        - Qbox
+        - QBCore
+        - ESX
+        - Other (describe below)
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: ShadowForge DevTools version
+      description: Found in `fxmanifest.lua` or the Releases page.
+      placeholder: v1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: artifact
+    attributes:
+      label: FiveM server artifact version
+      placeholder: "12345"
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console output / F8 errors
+      description: Paste any relevant logs from server console or F8 client console.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots, related resources, recent changes, etc.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues and didn't find a duplicate
+          required: true
+        - label: I'm running the latest released version
+          required: true

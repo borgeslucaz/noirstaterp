@@ -1,0 +1,20 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint Lua
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run luacheck
+        uses: iLLeniumStudios/fivem-lua-lint-action@v2
+        with:
+          args: "--no-color -q"

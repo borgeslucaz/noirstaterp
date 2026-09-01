@@ -1,0 +1,26 @@
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Lua
+*.luac
+luac.out
+
+# Local-only configs (if users override config.lua)
+config.local.lua
+
+# Build artifacts (just in case)
+*.zip
+dist/
+build/
+
+# Logs
+*.log

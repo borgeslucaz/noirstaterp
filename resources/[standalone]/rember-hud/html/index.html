@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Rember HUD</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Components are injected here from the config the Lua side sends. -->
+  <div id="hud" class="hud"></div>
+
+  <div id="edit-hint" class="edit-hint hidden">
+    Layout edit — drag the gauges anywhere. Press <b>Esc</b> or run <b>/hudedit</b> again to save.
+  </div>
+
+  <div id="devbar" class="devbar hidden">
+    <span>DEV</span>
+    <button data-act="edit">Edit layout</button>
+    <button data-act="resetlayout">Reset layout</button>
+    <button data-act="vehicle">Toggle vehicle</button>
+    <button data-act="damage">Take damage</button>
+    <button data-act="reset">Reset</button>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
