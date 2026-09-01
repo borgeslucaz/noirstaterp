@@ -3246,4 +3246,31 @@ return {
     -- ---------------------------------------------------------------------------------------
     ['seat_kit']        = { label = 'Seat Kit',         weight = 12000, stack = true, close = false, description = 'A retrimmed seat with new foam.' },
     ['trim_set']        = { label = 'Trim Set',         weight = 4000,  stack = true, close = false, description = 'Door cards, sills and pillar trims, with most of the clips.' },
+
+    -- House robberies
+    ['gold'] = { label = 'Gold', weight = 500, stack = true, close = false, description = 'Barras de ouro de origem duvidosa.' },
+
+    -- md-houserobberies
+    ['houselaptop'] = { label = 'House Laptop', weight = 1200, stack = false, close = false, description = 'Notebook preparado para invadir residencias.', client = { image = 'houselaptop.png' } },
+    ['mansionlaptop'] = { label = 'Mansion Laptop', weight = 1200, stack = false, close = false, description = 'Notebook preparado para invadir mansoes.', client = { image = 'mansionlaptop.png' } },
+    ['art1'] = { label = 'Kitty Sleeping Art', weight = 2500, stack = false, close = false, client = { image = 'art1.png' } },
+    ['art2'] = { label = 'Wide Eye Kitty Art', weight = 2500, stack = false, close = false, client = { image = 'art2.png' } },
+    ['art3'] = { label = 'Fancy Kitty Art', weight = 2500, stack = false, close = false, client = { image = 'art3.png' } },
+    ['art4'] = { label = 'Presidential Kitty Art', weight = 2500, stack = false, close = false, client = { image = 'art4.png' } },
+    ['art5'] = { label = 'Obi Jesus Painting', weight = 2500, stack = false, close = false, client = { image = 'art5.png' } },
+    ['art6'] = { label = 'Merp Kitty Art', weight = 2500, stack = false, close = false, client = { image = 'art6.png' } },
+    ['art7'] = { label = 'Family Portrait', weight = 2500, stack = false, close = false, client = { image = 'art7.png' } },
+    ['boombox'] = { label = 'Boom Box', weight = 2500, stack = false, close = false, client = { image = 'boombox.png' } },
+    ['checkbook'] = { label = 'Check Book', weight = 2500, stack = false, close = false, client = { image = 'checkbook.png' } },
+    ['mdlaptop'] = { label = 'Slow Laptop', weight = 2500, stack = false, close = false, client = { image = 'laptop.png' } },
+    ['mddesktop'] = { label = 'Desktop', weight = 2500, stack = false, close = false, client = { image = 'mddesktop.png' } },
+    ['mdmonitor'] = { label = 'Monitor', weight = 2500, stack = false, close = false, client = { image = 'mdmonitor.png' } },
+    ['mdtablet'] = { label = 'Tablet', weight = 2500, stack = false, close = false, client = { image = 'mdtablet.png' } },
+    ['mdspeakers'] = { label = 'Speakers', weight = 2500, stack = false, close = false, client = { image = 'speaker.png' } },
+    ['tosti'] = { label = 'Tosti', weight = 200, stack = true, close = true },
+    ['twerks_candy'] = { label = 'Twerks Candy', weight = 100, stack = true, close = true },
+    ['kurkakola'] = { label = 'Kurkakola', weight = 350, stack = true, close = true },
+    ['radioscanner'] = { label = 'Radio Scanner', weight = 1000, stack = true, close = true },
+    ['pinger'] = { label = 'Pinger', weight = 1000, stack = true, close = true },
+    ['laptop'] = { label = 'Laptop', weight = 2500, stack = false, close = false, client = { image = 'laptop.png' } },
 }

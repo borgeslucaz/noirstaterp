@@ -1,0 +1,26 @@
+:root { color-scheme: dark; font-family: Inter, Arial, sans-serif; }
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent !important; }
+#noise {
+    position: fixed;
+    right: 3.2vw;
+    bottom: 8vh;
+    width: 220px;
+    padding: 9px 11px 11px;
+    border-left: 2px solid #dad6cb;
+    background: linear-gradient(90deg, rgba(7, 8, 9, .88), rgba(7, 8, 9, .58));
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity .18s ease, transform .18s ease;
+    pointer-events: none;
+}
+#noise.visible { opacity: 1; transform: translateY(0); }
+header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 7px; }
+header span { color: #e5e1d8; font-size: 11px; font-weight: 800; letter-spacing: .24em; }
+header strong { color: #fff; font: 700 13px/1 monospace; }
+.track { height: 5px; overflow: hidden; background: rgba(255,255,255,.13); }
+.track i { display: block; width: 0; height: 100%; background: #d8d2c1; transition: width .18s linear, background-color .2s ease; }
+#noise[data-level="noticeable"] .track i { background: #d0b56a; }
+#noise[data-level="risk"] .track i { background: #d5924f; }
+#noise[data-level="danger"] .track i { background: #c6533f; }
+#noise[data-level="critical"] .track i { background: #f02828; box-shadow: 0 0 8px rgba(240,40,40,.55); }

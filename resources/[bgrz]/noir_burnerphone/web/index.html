@@ -4,9 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Burner Phone</title>
+    <style>html,body{background:transparent!important}body{display:none;visibility:hidden}</style>
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body style="display:none;visibility:hidden;background:transparent">
     <main class="phone" aria-label="Burner phone">
         <div class="phone-top" aria-hidden="true">
             <i class="speaker"></i>
@@ -47,12 +48,18 @@
 
                 <section id="contacts-page" class="page hidden">
                     <button class="back-link" data-page="home" type="button">‹ contatos</button>
-                    <p class="placeholder">Nenhum contato disponível.</p>
+                    <button class="contact-row" data-page="housechat" type="button">
+                        <strong id="house-contact-name">Ninguém</strong>
+                        <small id="house-contact-number">404-0199</small>
+                    </button>
                 </section>
 
                 <section id="messages-page" class="page hidden">
                     <button class="back-link" data-page="home" type="button">‹ mensagens</button>
-                    <p class="placeholder">Nenhuma mensagem disponível.</p>
+                    <button class="contact-row" data-page="housechat" type="button">
+                        <strong>Ninguém</strong>
+                        <small>Canal de trabalho</small>
+                    </button>
                 </section>
 
                 <section id="illegal-page" class="page hidden">
@@ -61,6 +68,19 @@
                         <span class="tile-icon"><svg viewBox="0 0 24 24"><path d="m12 2 8 4.5v11L12 22l-8-4.5v-11L12 2Zm-1 6v5.6l4.8 2.7.9-1.6-3.7-2.1V8H11Z"/></svg></span>
                         <span>Venda na rua</span>
                     </button>
+                    <button class="metro-tile illegal-tile" data-page="housechat" type="button">
+                        <span class="tile-icon"><svg viewBox="0 0 24 24"><path d="M3 11 12 3l9 8v10h-6v-6H9v6H3V11Z"/></svg></span>
+                        <span>Invasões</span>
+                    </button>
+                </section>
+
+                <section id="housechat-page" class="page hidden">
+                    <button class="back-link" data-page="messages" type="button">‹ Ninguém</button>
+                    <div id="house-messages" class="message-list"></div>
+                    <form id="house-message-form" class="message-form">
+                        <input id="house-message-input" maxlength="120" autocomplete="off" aria-label="Mensagem">
+                        <button type="submit">ENVIAR</button>
+                    </form>
                 </section>
 
                 <section id="street-page" class="page hidden">

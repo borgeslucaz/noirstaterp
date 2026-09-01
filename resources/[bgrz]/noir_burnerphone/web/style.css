@@ -11,10 +11,12 @@ body {
 
 body {
     display: none;
+    visibility: hidden;
+    pointer-events: none;
     font-family: "Segoe UI", Inter, Arial, sans-serif;
 }
 
-body.open { display: block; }
+body.open { display: block; visibility: visible; pointer-events: auto; }
 body.open .phone { animation: burner-phone-in .26s cubic-bezier(.22, .8, .28, 1) both; }
 body.open.closing .phone { animation: burner-phone-out .22s cubic-bezier(.55, 0, .8, .2) both; }
 
@@ -58,6 +60,17 @@ body.open.closing .phone { animation: burner-phone-out .22s cubic-bezier(.55, 0,
 .call-action { width: 100%; margin-top: 23px; padding: 14px 12px; border: 0; color: #f2f2f2; background: #1f4f82; cursor: pointer; font: 300 17px/1.1 "Segoe UI", Inter, Arial, sans-serif; letter-spacing: .1px; text-align: left; transition: background .12s ease, transform .1s ease; }
 .call-action:hover, .call-action:focus { background: #286196; outline: 0; }
 .call-action:active { transform: scale(.985); background: #326d9f; }
+.contact-row { display: flex; flex-direction: column; width: 100%; padding: 13px; border: 0; color: #eee; background: #181818; text-align: left; cursor: pointer; }
+.contact-row strong { font-size: 18px; font-weight: 500; }
+.contact-row small { margin-top: 4px; color: #9ca1a5; font-size: 13px; }
+.message-list { display: flex; flex-direction: column; gap: 7px; height: 278px; overflow-y: auto; padding-right: 3px; }
+.message { max-width: 82%; padding: 8px 9px; color: #eee; background: #26292b; font-size: 13px; line-height: 1.3; overflow-wrap: anywhere; }
+.message.outgoing { align-self: flex-end; background: #1f4f82; }
+.message.incoming { align-self: flex-start; }
+.message button { display: block; width: 100%; margin-top: 7px; padding: 6px; border: 0; color: white; background: #3976a8; cursor: pointer; font-size: 11px; }
+.message-form { display: grid; grid-template-columns: 1fr auto; gap: 5px; margin-top: 9px; }
+.message-form input { min-width: 0; padding: 9px 7px; border: 1px solid #333; color: #eee; background: #111; outline: 0; }
+.message-form button { padding: 0 9px; border: 0; color: white; background: #1f4f82; cursor: pointer; font-size: 10px; }
 
 @keyframes burner-phone-in {
     from { transform: translateY(calc(100vh + 80px)); opacity: 0; }

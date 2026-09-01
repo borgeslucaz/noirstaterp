@@ -4,8 +4,8 @@ local shared = require 'config.shared'
 local contract
 local inside = false
 local interiorTargets = {}
-local pickupProps = {}
 local residentPed
+local residentNetId
 local residentAwake = false
 local targetBlip
 local currentNoise = 0.0
@@ -16,10 +16,11 @@ local lastWakeCheck = 0
 local wasJumping = false
 local carryProp
 local carriedPickupId
-local carriedModel
+local carriedNetId
 local carryTextUiShown = false
 local exteriorTargets = {}
 local refreshExteriorTarget
+local resolveNetworkEntity
 
 local function finishTransition()
     DoScreenFadeIn(500)
@@ -43,36 +44,6 @@ local function loadAnim(dict)
     local timeout = GetGameTimer() + 5000
     while not HasAnimDictLoaded(dict) and GetGameTimer() < timeout do Wait(0) end
     return HasAnimDictLoaded(dict)
-end
-
-local function deleteEntity(entity)
-    if entity and DoesEntityExist(entity) then
-        if NetworkGetEntityIsNetworked(entity) and not NetworkHasControlOfEntity(entity) then
-            NetworkRequestControlOfEntity(entity)
-            local timeout = GetGameTimer() + 1000
-            while DoesEntityExist(entity) and not NetworkHasControlOfEntity(entity) and GetGameTimer() < timeout do
-                NetworkRequestControlOfEntity(entity)
-                Wait(0)
-            end
-        end
-        DetachEntity(entity, true, true)
-        SetEntityAsMissionEntity(entity, true, true)
-        DeleteEntity(entity)
-    end
-end
-
-local function allowNetworkMigration(entity)
-    local netId = NetworkGetNetworkIdFromEntity(entity)
-    if netId ~= 0 then SetNetworkIdCanMigrate(netId, true) end
-end
-
-local function createCarryObject(hash)
-    local pedCoords = GetEntityCoords(cache.ped)
-    local object = CreateObject(hash, pedCoords.x, pedCoords.y, pedCoords.z, true, true, false)
-    allowNetworkMigration(object)
-    SetEntityCollision(object, false, false)
-    AttachEntityToEntity(object, cache.ped, GetPedBoneIndex(cache.ped, 28422), 0.0, -0.03, -0.18, 5.0, 0.0, 0.0, false, false, false, false, 2, true)
-    return object
 end
 
 local function removeBlip()
@@ -106,30 +77,23 @@ local function stopNoise()
 end
 
 local function cleanupResident()
-    deleteEntity(residentPed)
-    residentPed = nil
+    residentPed, residentNetId = nil, nil
 end
 
-local function cleanupInterior(keepCarry)
+local function cleanupInterior()
     for _, zoneId in ipairs(interiorTargets) do exports.ox_target:removeZone(zoneId, true) end
     interiorTargets = {}
-    for id, prop in pairs(pickupProps) do
-        if not keepCarry or id ~= carriedPickupId then deleteEntity(prop) end
-    end
-    pickupProps = {}
     cleanupResident()
     stopNoise()
 end
 
 local function clearCarry()
-    local wasCarrying = carryProp ~= nil or carriedPickupId ~= nil
-    local prop = carryProp
-    carryProp, carriedPickupId, carriedModel = nil, nil, nil
+    local wasCarrying = carriedPickupId ~= nil
+    carryProp, carriedPickupId, carriedNetId = nil, nil, nil
     StopAnimTask(cache.ped, config.carryAnimation.dict, config.carryAnimation.clip, 2.0)
     ClearPedSecondaryTask(cache.ped)
     SetPedCanSwitchWeapon(cache.ped, true)
     if wasCarrying then SetPedMaxMoveBlendRatio(cache.ped, 3.0) end
-    deleteEntity(prop)
     if carryTextUiShown then
         lib.hideTextUI()
         carryTextUiShown = false
@@ -138,7 +102,7 @@ end
 
 local function cleanEverything()
     inside = false
-    cleanupInterior(false)
+    cleanupInterior()
     clearCarry()
     removeBlip()
     contract = nil
@@ -180,24 +144,27 @@ local function wakeResident()
 end
 
 local function spawnResident()
-    cleanupResident()
-    residentAwake = false
-    if not contract?.resident then return end
+    if not contract?.resident?.netId then return end
     local data = contract.resident
-    local hash = loadModel(data.model)
-    if not hash then return end
-    residentPed = CreatePed(4, hash, data.coords.x, data.coords.y, data.coords.z, data.coords.w, false, false)
-    SetEntityAsMissionEntity(residentPed, true, true)
-    SetBlockingOfNonTemporaryEvents(residentPed, true)
-    SetPedHearingRange(residentPed, 3.0)
-    SetPedSeeingRange(residentPed, 0.0)
-    SetPedAlertness(residentPed, 0)
-    SetEntityInvincible(residentPed, false)
-    if loadAnim('amb@lo_res_idles@') then
-        TaskPlayAnimAdvanced(residentPed, 'amb@lo_res_idles@', 'lying_face_up_lo_res_base', data.coords.x, data.coords.y, data.coords.z, 0.0, 0.0, data.coords.w, 8.0, 1.0, -1, 1, 1.0, true, true)
-        SetFacialIdleAnimOverride(residentPed, 'mood_sleeping_1', 0)
-    end
-    SetModelAsNoLongerNeeded(hash)
+    local robberyId, netId = contract.id, data.netId
+    if residentNetId == netId and residentPed and DoesEntityExist(residentPed) then return end
+    cleanupResident()
+    residentAwake = data.state ~= 'sleeping'
+    residentNetId = netId
+    CreateThread(function()
+        local ped = resolveNetworkEntity(netId)
+        if not ped or contract?.id ~= robberyId or contract.resident?.netId ~= netId then return end
+        residentPed = ped
+        SetBlockingOfNonTemporaryEvents(ped, true)
+        SetPedHearingRange(ped, 3.0)
+        SetPedSeeingRange(ped, 0.0)
+        SetPedAlertness(ped, 0)
+        SetEntityInvincible(ped, false)
+        if data.state == 'sleeping' and loadAnim('amb@lo_res_idles@') then
+            TaskPlayAnimAdvanced(ped, 'amb@lo_res_idles@', 'lying_face_up_lo_res_base', data.coords.x, data.coords.y, data.coords.z, 0.0, 0.0, data.coords.w, 8.0, 1.0, -1, 1, 1.0, true, true)
+            SetFacialIdleAnimOverride(ped, 'mood_sleeping_1', 0)
+        end
+    end)
 end
 
 local function dropFingerprint()
@@ -207,16 +174,94 @@ local function dropFingerprint()
     end
 end
 
+resolveNetworkEntity = function(netId, timeoutMs)
+    local timeout = GetGameTimer() + (timeoutMs or 5000)
+    repeat
+        local entity = NetworkGetEntityFromNetworkId(netId)
+        if entity ~= 0 and DoesEntityExist(entity) then return entity end
+        Wait(0)
+    until GetGameTimer() >= timeout
+end
+
+-- Physics-affecting natives (freeze/collision/placement) only take real effect
+-- on the machine that currently has network control of the entity. Without
+-- this, unfreeze/collision changes can lag behind until ownership migrates
+-- naturally, leaving the prop floating or drifting away from its logged coords.
+local function requestNetworkControl(entity, timeoutMs)
+    if entity == 0 or not DoesEntityExist(entity) then return false end
+    if not NetworkGetEntityIsNetworked(entity) or NetworkHasControlOfEntity(entity) then return true end
+    local timeout = GetGameTimer() + (timeoutMs or 500)
+    repeat
+        NetworkRequestControlOfEntity(entity)
+        Wait(0)
+    until NetworkHasControlOfEntity(entity) or GetGameTimer() >= timeout
+    return NetworkHasControlOfEntity(entity)
+end
+
+local function attachLootEntity(entity, carrierSource)
+    local player = GetPlayerFromServerId(tonumber(carrierSource) or -1)
+    if player == -1 then return false end
+    local ped = GetPlayerPed(player)
+    if ped == 0 or not DoesEntityExist(ped) then return false end
+    requestNetworkControl(entity)
+    SetEntityCollision(entity, false, false)
+    FreezeEntityPosition(entity, false)
+    AttachEntityToEntity(entity, ped, GetPedBoneIndex(ped, 28422), 0.0, -0.03, -0.18, 5.0, 0.0, 0.0, false, false, false, false, 2, true)
+    return true
+end
+
+local function detachLootEntity(entity, state)
+    requestNetworkControl(entity)
+    DetachEntity(entity, true, true)
+    SetEntityCollision(entity, true, true)
+    SetEntityHeading(entity, state['loot:rotation'] or 0.0)
+    if state['loot:dropped'] then
+        PlaceObjectOnGroundProperly(entity)
+        FreezeEntityPosition(entity, false)
+    else
+        FreezeEntityPosition(entity, true)
+    end
+end
+
+local function applyLootRepresentation(bagName)
+    CreateThread(function()
+        local timeout = GetGameTimer() + 5000
+        repeat
+            local entity = GetEntityFromStateBagName(bagName)
+            if entity ~= 0 and DoesEntityExist(entity) then
+                local state = Entity(entity).state
+                if state['loot:state'] == 'carried' then
+                    if attachLootEntity(entity, state['loot:carrier']) then return end
+                else
+                    detachLootEntity(entity, state)
+                    return
+                end
+            end
+            Wait(50)
+        until GetGameTimer() >= timeout
+    end)
+end
+
+AddStateBagChangeHandler('loot:state', nil, function(bagName) applyLootRepresentation(bagName) end)
+AddStateBagChangeHandler('loot:carrier', nil, function(bagName) applyLootRepresentation(bagName) end)
+
+local function updateLocalCarryEntity(data)
+    if not contract or contract.id ~= data.robberyId or carriedPickupId ~= data.lootId then return end
+    if not data.netId then return end
+    carriedNetId = data.netId
+    CreateThread(function()
+        local entity = resolveNetworkEntity(data.netId)
+        if entity and carriedPickupId == data.lootId and carriedNetId == data.netId then
+            carryProp = entity
+            attachLootEntity(entity, GetPlayerServerId(PlayerId()))
+        end
+    end)
+end
+
 local function startCarry(data)
     clearCarry()
-    local hash = loadModel(data.model)
-    if not hash then
-        TriggerServerEvent('noir_houserobbery:server:dropCarry')
-        return
-    end
-    carryProp = createCarryObject(hash)
-    carriedPickupId = data.pickupId
-    carriedModel = data.model
+    if not contract or contract.id ~= data.robberyId then return end
+    carriedPickupId = data.lootId
     SetCurrentPedWeapon(cache.ped, joaat('WEAPON_UNARMED'), true)
     SetPedCanSwitchWeapon(cache.ped, false)
     if loadAnim(config.carryAnimation.dict) then
@@ -227,45 +272,71 @@ local function startCarry(data)
         icon = 'hand',
     })
     carryTextUiShown = true
-    SetModelAsNoLongerNeeded(hash)
+    updateLocalCarryEntity(data)
     addNoise(shared.noise.actions.pickupLarge)
 end
 
 RegisterNetEvent('noir_houserobbery:client:carryApproved', startCarry)
+RegisterNetEvent('noir_houserobbery:client:carryEntity', updateLocalCarryEntity)
 RegisterNetEvent('noir_houserobbery:client:carryCancelled', clearCarry)
 RegisterNetEvent('noir_houserobbery:client:carryStored', clearCarry)
+
+local function reconcileLocalCarry()
+    if not contract then return end
+    local serverId = GetPlayerServerId(PlayerId())
+    for lootId, pickup in pairs(contract.pickups or {}) do
+        if pickup.state == 'carried' and pickup.carrier == serverId then
+            local data = { robberyId = contract.id, lootId = lootId, netId = pickup.netId }
+            if carriedPickupId ~= lootId then startCarry(data) else updateLocalCarryEntity(data) end
+            return
+        end
+    end
+    if carriedPickupId then clearCarry() end
+end
+
+local function reconcileSharedCarryEntities()
+    if not contract then return end
+    local localBucket = inside and contract.routingBucket or 0
+    for lootId, pickup in pairs(contract.pickups or {}) do
+        if pickup.state == 'carried' and pickup.netId and pickup.carrier
+            and pickup.currentBucket == localBucket then
+            local robberyId, currentLootId, netId, carrier = contract.id, lootId, pickup.netId, pickup.carrier
+            CreateThread(function()
+                local entity = resolveNetworkEntity(netId)
+                local current = contract?.id == robberyId and contract.pickups?[currentLootId]
+                if entity and current and current.state == 'carried' and current.netId == netId then
+                    attachLootEntity(entity, carrier)
+                end
+            end)
+        end
+    end
+end
+
+-- State bag handlers cover normal scope changes; this lightweight reconciliation
+-- recovers attachments after ownership migration or an entity recreation.
+CreateThread(function()
+    while true do
+        Wait(3000)
+        if contract then
+            reconcileSharedCarryEntities()
+            reconcileLocalCarry()
+        end
+    end
+end)
 
 local function pickupIsHere(pickup)
     return (inside and pickup.location ~= 'outside') or (not inside and pickup.location == 'outside')
 end
 
-local function spawnPickupProps()
-    for _, prop in pairs(pickupProps) do deleteEntity(prop) end
-    pickupProps = {}
-    for id, pickup in ipairs(contract.pickups or {}) do
-        if pickupIsHere(pickup) and (pickup.status == 'available' or pickup.status == 'busy') then
-            local hash = loadModel(pickup.model)
-            if hash then
-                local object = CreateObject(hash, pickup.coords.x, pickup.coords.y, pickup.coords.z, true, true, false)
-                allowNetworkMigration(object)
-                SetEntityHeading(object, pickup.rotation or 0.0)
-                if pickup.dropped then PlaceObjectOnGroundProperly(object) end
-                FreezeEntityPosition(object, true)
-                pickupProps[id] = object
-                SetModelAsNoLongerNeeded(hash)
-            end
-        end
-    end
-end
-
 local function searchLoot(lootId)
     local current = contract?.loot?[lootId]
-    if not inside or not current or current.status ~= 'available' or carryProp then return end
+    if not inside or not current or current.status ~= 'available' or carriedPickupId then return end
     dropFingerprint()
-    if not lib.callback.await('noir_houserobbery:server:checkLoot', false, lootId) then return end
+    local claim = lib.callback.await('noir_houserobbery:server:checkLoot', false, lootId)
+    if not claim then return end
     addNoise(shared.noise.actions[current.noise] or shared.noise.actions.searchDrawer)
     local finished = lib.progressCircle({
-        duration = math.random(4000, 7000), position = 'bottom', canCancel = true,
+        duration = claim.duration, position = 'bottom', canCancel = true,
         disable = { move = true, combat = true },
         anim = { dict = 'missexile3', clip = 'ex03_dingy_search_case_base_michael', flag = 1 },
     })
@@ -275,15 +346,18 @@ end
 
 local function takePickup(pickupId)
     local current = contract?.pickups?[pickupId]
-    if carryProp or not current or not pickupIsHere(current) or current.status ~= 'available' then return end
+    if carriedPickupId or not current or not pickupIsHere(current)
+        or (current.state ~= 'available' and current.state ~= 'dropped') then return end
     dropFingerprint()
-    if not lib.callback.await('noir_houserobbery:server:beginCarry', false, pickupId) then return end
+    local robberyId = contract.id
+    local claim = lib.callback.await('noir_houserobbery:server:beginCarry', false, robberyId, pickupId)
+    if not claim then return end
     local finished = lib.progressCircle({
-        duration = math.random(3000, 5000), position = 'bottom', canCancel = true,
+        duration = claim.duration, position = 'bottom', canCancel = true,
         disable = { move = true, combat = true },
         anim = { dict = 'missexile3', clip = 'ex03_dingy_search_case_base_michael', flag = 1 },
     })
-    TriggerServerEvent(finished and 'noir_houserobbery:server:finishCarry' or 'noir_houserobbery:server:cancelPickup', pickupId)
+    TriggerServerEvent(finished and 'noir_houserobbery:server:finishCarry' or 'noir_houserobbery:server:cancelPickup', robberyId, pickupId)
 end
 
 local function setupInteriorTargets()
@@ -303,28 +377,30 @@ local function setupInteriorTargets()
                 distance = 1.5,
                 canInteract = function()
                     local current = contract?.loot?[lootId]
-                    return inside and not carryProp and current and current.status == 'available'
+                    return inside and not carriedPickupId and current and current.status == 'available'
                 end,
                 onSelect = function() searchLoot(lootId) end,
             }},
         })
     end
 
-    for id, pickup in ipairs(contract.pickups or {}) do
+    for id, pickup in pairs(contract.pickups or {}) do
         local pickupId = id
-        if pickup.location ~= 'outside' then
+        if pickup.location == 'inside' and pickup.state ~= 'stored'
+            and pickup.state ~= 'sold' and pickup.state ~= 'removed' then
             interiorTargets[#interiorTargets + 1] = exports.ox_target:addSphereZone({
                 coords = pickup.coords,
                 radius = 0.9,
                 debug = shared.debug,
                 options = {{
-                    name = ('noir_houserobbery_pickup_%s_%d'):format(contract.id, pickupId),
+                    name = ('noir_houserobbery_pickup_%s_%s'):format(contract.id, pickupId),
                     icon = 'fa-solid fa-box',
                     label = 'Carregar objeto',
                     distance = 1.7,
                     canInteract = function()
                         local current = contract?.pickups?[pickupId]
-                        return inside and not carryProp and current and current.status == 'available'
+                        return inside and not carriedPickupId and current
+                            and (current.state == 'available' or current.state == 'dropped')
                     end,
                     onSelect = function() takePickup(pickupId) end,
                 }},
@@ -355,8 +431,9 @@ local function enterClient(data)
     removeBlip()
     currentNoise, lastMovementAt, lastWakeCheck = 0.0, GetGameTimer(), GetGameTimer()
     setupInteriorTargets()
-    spawnPickupProps()
     spawnResident()
+    reconcileSharedCarryEntities()
+    reconcileLocalCarry()
     noiseUiValue = 0
     finishTransition()
 end
@@ -366,18 +443,11 @@ RegisterNetEvent('noir_houserobbery:client:enteredHouse', enterClient)
 RegisterNetEvent('noir_houserobbery:client:leftHouse', function(data)
     contract = data
     inside = false
-    cleanupInterior(true)
+    cleanupInterior()
     if refreshExteriorTarget then refreshExteriorTarget() end
-    spawnPickupProps()
-    if carryProp and carriedModel then
-        local hash = loadModel(carriedModel)
-        if hash then
-            deleteEntity(carryProp)
-            carryProp = createCarryObject(hash)
-            SetModelAsNoLongerNeeded(hash)
-        end
-    end
-    if carryProp and loadAnim(config.carryAnimation.dict) then
+    reconcileSharedCarryEntities()
+    reconcileLocalCarry()
+    if carriedPickupId and loadAnim(config.carryAnimation.dict) then
         TaskPlayAnim(cache.ped, config.carryAnimation.dict, config.carryAnimation.clip, 2.0, 2.0, -1, 49, 0.0, false, false, false)
     end
     finishTransition()
@@ -386,11 +456,14 @@ end)
 RegisterNetEvent('noir_houserobbery:client:syncContract', function(data)
     if not contract or contract.id ~= data.id then return end
     contract = data
+    inside = data.inside == true
     if refreshExteriorTarget then refreshExteriorTarget() end
     if inside then
         setupInteriorTargets()
+        spawnResident()
     end
-    spawnPickupProps()
+    reconcileSharedCarryEntities()
+    reconcileLocalCarry()
 end)
 
 RegisterNetEvent('noir_houserobbery:client:contractAssigned', function(data)
@@ -402,8 +475,17 @@ RegisterNetEvent('noir_houserobbery:client:contractAssigned', function(data)
     notify('O contato enviou um endereço ao GPS.', 'success')
 end)
 
-RegisterNetEvent('noir_houserobbery:client:contractEnded', function(reason, completed)
-    cleanEverything()
+RegisterNetEvent('noir_houserobbery:client:contractEnded', function(reason, completed, preserveCarry, closedContract)
+    if preserveCarry and carriedPickupId and closedContract then
+        inside = false
+        cleanupInterior()
+        removeBlip()
+        contract = closedContract
+        if refreshExteriorTarget then refreshExteriorTarget() end
+        reconcileLocalCarry()
+    else
+        cleanEverything()
+    end
     notify(reason or 'Contrato encerrado.', completed and 'success' or 'error')
 end)
 
@@ -467,7 +549,7 @@ refreshExteriorTarget = function()
                 label = 'Arrombar porta',
                 distance = 2.5,
                 canInteract = function()
-                    return contract and not inside and contract.houseId == houseId and contract.state == 'assigned'
+                    return contract and not inside and contract.houseId == houseId and contract.status == 'assigned'
                 end,
                 onSelect = function()
                     TriggerServerEvent('noir_houserobbery:server:attemptEntry')
@@ -479,7 +561,7 @@ refreshExteriorTarget = function()
                 label = 'Entrar na casa',
                 distance = 2.5,
                 canInteract = function()
-                    return contract and not inside and contract.houseId == houseId and contract.state == 'escaped'
+                    return contract and not inside and contract.houseId == houseId and contract.status == 'active'
                 end,
                 onSelect = function()
                     TriggerServerEvent('noir_houserobbery:server:enterHouse', houseId)
@@ -491,7 +573,7 @@ refreshExteriorTarget = function()
                 label = 'Encerrar serviço',
                 distance = 2.5,
                 canInteract = function()
-                    return contract and not inside and not carryProp and contract.houseId == houseId and contract.state == 'escaped'
+                    return contract and not inside and not carriedPickupId and contract.houseId == houseId and contract.status == 'active'
                 end,
                 onSelect = function()
                     TriggerServerEvent('noir_houserobbery:server:completeContract')
@@ -500,22 +582,22 @@ refreshExteriorTarget = function()
         },
     })
 
-    for id, pickup in ipairs(contract.pickups or {}) do
-        if pickup.location == 'outside' then
+    for id, pickup in pairs(contract.pickups or {}) do
+        if pickup.location == 'outside' and pickup.state == 'dropped' then
             local pickupId = id
             exteriorTargets[#exteriorTargets + 1] = exports.ox_target:addSphereZone({
                 coords = pickup.coords,
                 radius = 0.9,
                 debug = shared.debug,
                 options = {{
-                    name = ('noir_houserobbery_dropped_%s_%d'):format(contract.id, pickupId),
+                    name = ('noir_houserobbery_dropped_%s_%s'):format(contract.id, pickupId),
                     icon = 'fa-solid fa-box',
                     label = 'Carregar objeto',
                     distance = 1.7,
                     canInteract = function()
                         local current = contract?.pickups?[pickupId]
-                        return not inside and not carryProp and current
-                            and current.location == 'outside' and current.status == 'available'
+                        return not inside and not carriedPickupId and current
+                            and current.location == 'outside' and current.state == 'dropped'
                     end,
                     onSelect = function() takePickup(pickupId) end,
                 }},
@@ -538,44 +620,36 @@ local function setupCarryTargets()
         label = 'Guardar objeto roubado',
         distance = config.vehicleSearchRadius,
         canInteract = function(vehicle)
-            if inside or not carryProp or not DoesEntityExist(vehicle) or IsEntityDead(vehicle) then return false end
+            if inside or not carriedPickupId or not DoesEntityExist(vehicle) or IsEntityDead(vehicle) then return false end
             local vehicleClass = GetVehicleClass(vehicle)
             if vehicleClass == 13 or (vehicleClass >= 14 and vehicleClass <= 16) then return false end
-            if not NetworkGetEntityIsNetworked(vehicle) then return false end
             local _, rearDistance = getVehicleRear(vehicle)
-            return rearDistance <= config.trunkDistance
+            local vehicleDistance = #(GetEntityCoords(cache.ped) - GetEntityCoords(vehicle))
+            return rearDistance <= math.max(config.trunkDistance, 3.0)
+                or vehicleDistance <= config.vehicleSearchRadius
         end,
         onSelect = function(data)
-            TriggerServerEvent(
-                'noir_houserobbery:server:storeCarryInVehicle',
-                NetworkGetNetworkIdFromEntity(data.entity),
-                NetworkGetNetworkIdFromEntity(carryProp)
-            )
-        end,
-    })
-
-    exports.ox_target:addGlobalOption({
-        name = 'noir_houserobbery_drop_carry',
-        icon = 'fa-solid fa-box-open',
-        label = 'Soltar objeto roubado',
-        canInteract = function() return carryProp ~= nil end,
-        onSelect = function()
-            if inside then addNoise(shared.noise.actions.dropLarge) end
-            TriggerServerEvent('noir_houserobbery:server:dropCarry', NetworkGetNetworkIdFromEntity(carryProp))
+            local vehicleNetId = NetworkGetNetworkIdFromEntity(data.entity)
+            if vehicleNetId == 0 then
+                notify('Aguarde o veículo sincronizar e tente novamente.', 'error')
+                return
+            end
+            TriggerServerEvent('noir_houserobbery:server:storeCarryInVehicle',
+                contract.id, carriedPickupId, vehicleNetId)
         end,
     })
 end
 
 CreateThread(function()
     while true do
-        if carryProp then
+        if carriedPickupId then
             Wait(0)
             -- The carry can be cleared by a server event while this thread is yielding.
             -- Recheck it before restoring the looping animation.
-            if carryProp then
+            if carriedPickupId then
                 if IsControlJustPressed(0, 47) then -- G
                     if inside then addNoise(shared.noise.actions.dropLarge) end
-                    TriggerServerEvent('noir_houserobbery:server:dropCarry', NetworkGetNetworkIdFromEntity(carryProp))
+                    TriggerServerEvent('noir_houserobbery:server:dropCarry', contract.id, carriedPickupId)
                 end
                 DisableControlAction(0, 21, true) -- Sprint
                 DisableControlAction(0, 22, true) -- Jump
@@ -645,16 +719,6 @@ CreateThread(function()
     end
 end)
 
-CreateThread(function()
-    while true do
-        Wait(500)
-        if contract and LocalPlayer.state.isDead then
-            TriggerServerEvent('noir_houserobbery:server:abortContract', 'Contrato encerrado: você ficou incapacitado.')
-            Wait(5000)
-        end
-    end
-end)
-
 local function drawNoiseMeter(value)
     local x, y = 0.925, 0.885
     local width, height = 0.115, 0.007
@@ -701,12 +765,14 @@ AddEventHandler('onResourceStart', function(resource)
         local active = lib.callback.await('noir_houserobbery:server:getContract', false)
         if active then
             contract = active
-            if active.state == 'inside' then
+            inside = active.inside == true
+            if active.inside then
                 enterClient(active)
             else
                 setContractBlip(active.coords)
                 refreshExteriorTarget()
-                spawnPickupProps()
+                reconcileSharedCarryEntities()
+                reconcileLocalCarry()
             end
         end
     end)
@@ -716,12 +782,14 @@ RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     local active = lib.callback.await('noir_houserobbery:server:getContract', false)
     if active and not contract then
         contract = active
-        if active.state == 'inside' then
+        inside = active.inside == true
+        if active.inside then
             enterClient(active)
         else
             setContractBlip(active.coords)
             refreshExteriorTarget()
-            spawnPickupProps()
+            reconcileSharedCarryEntities()
+            reconcileLocalCarry()
         end
     end
 end)
@@ -731,6 +799,5 @@ RegisterNetEvent('QBCore:Client:OnPlayerUnload', cleanEverything)
 AddEventHandler('onResourceStop', function(resource)
     if resource ~= GetCurrentResourceName() then return end
     exports.ox_target:removeGlobalVehicle('noir_houserobbery_store_carry')
-    exports.ox_target:removeGlobalOption('noir_houserobbery_drop_carry')
     cleanEverything()
 end)

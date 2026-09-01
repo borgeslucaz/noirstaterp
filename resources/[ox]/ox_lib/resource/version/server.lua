@@ -19,9 +19,18 @@ function lib.versionCheck(repository)
 
     SetTimeout(1000, function()
         PerformHttpRequest(('https://api.github.com/repos/%s/releases/latest'):format(repository), function(status, response)
-            if status ~= 200 then return end
+            print(('[versionCheck] resource=%s repository=%s status=%s response=%s')
+                :format(resource, repository, status, response and #response or 'nil'))
+
+            if status ~= 200 or not response or response == '' then return end
 
             response = json.decode(response)
+            if type(response) ~= 'table' then
+                print(('[versionCheck] resposta JSON inválida: resource=%s repository=%s')
+                    :format(resource, repository))
+                return
+            end
+
             if response.prerelease then return end
 
             local latestVersion = response.tag_name:match('%d+%.%d+%.%d+')

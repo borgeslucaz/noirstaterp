@@ -1,0 +1,19 @@
+return {
+    maxPlayers = 1,
+    minimumPolice = 0,
+    requiredItems = { basic = 'lockpick', advanced = 'advancedlockpick' },
+    maxExteriorDistance = 3.0,
+    maxInteriorDistance = 3.0,
+    maxVehicleDistance = 7.0,
+    searchDuration = { min = 4000, max = 7000 },
+    carryClaimDuration = { min = 3000, max = 5000 },
+    carryTokenLifetime = 30 * 60,
+    contractTimeout = 45 * 60,
+    cooldowns = { player = 15 * 60, house = 30 * 60 },
+    cleanupHouseToCooldown = true,
+    rewards = {
+        [1] = { items = {'metalscrap', 'plastic', 'copper', 'iron', 'aluminium', 'steel', 'glass'}, rolls = {min = 1, max = 3}, amount = {min = 1, max = 3} },
+        [2] = { items = {'diamond_ring', 'goldchain', 'rolex'}, rolls = {min = 1, max = 2}, amount = {min = 1, max = 1} },
+        [3] = { items = {'phone', 'bandage', 'cleaningkit'}, rolls = {min = 1, max = 2}, amount = {min = 1, max = 2} },
+    },
+}
