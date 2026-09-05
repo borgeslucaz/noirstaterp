@@ -1,0 +1,3708 @@
+@import url('https://fonts.cdnfonts.com/css/Poppins');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Space+Grotesk:wght@300..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Space+Grotesk:wght@300..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bai+Jamjuree:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;1,200;1,300;1,400;1,500;1,600;1,700&family=Chakra+Petch:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Jersey+15&family=Space+Grotesk:wght@300&display=swap');
+
+@font-face {
+    font-family: 'digital-7';
+    src: url('fonts/digital-7.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  	-webkit-appearance: none;
+ 	margin: 0;
+}
+
+input {
+	border: 0;
+	outline: 0;
+}
+input:focus {
+	outline: none !important;
+}
+
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+	user-select: none;
+}
+
+body {
+	display: none;
+	align-items: center;
+	justify-content: center;
+	width: 100vw;
+	height: 100vh;
+	/* background: #100f13ea; */
+	/* background-image: url(./img/bg.png);   */
+	/* background: blue; */
+	background-size: cover;
+	overflow: hidden;
+	align-items: center;
+	justify-content: center;
+}
+
+.MainContainer {
+	position: relative;
+	overflow: hidden;
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.MainMenu {
+	width: 34.8vw;
+	height: 100%;
+	margin-right: 65.2vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+	position: relative;
+
+	background-image: url(./img/leftbg.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: 100% 100%;
+}
+
+.NotifyWrong {
+	width: 14.063vw;
+	height: 3.646vw;
+	position: absolute;
+	/* margin-right: 82.7vw; */
+	margin-bottom: 49vw;
+	background: linear-gradient(288deg, rgba(9, 10, 14, 0.00) 12.67%, rgba(9, 10, 14, 0.70) 87.66%);
+	display: none;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.KeybindButtonsCont {
+	gap: 1.563vw;
+	width: 14.063vw;
+	height: 9.063vw;
+	position: absolute;
+	left: 0;
+	top: 23.4vw;
+	display: none;
+	align-items: flex-start;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.AirContitioning {
+	display: none;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+	position: absolute;
+	width: 26.042vw;
+	height: 11.198vw;
+	bottom: 1.75vw;
+}
+
+.AirContitioningTopGlow {
+	width: 2.208vw;
+	height: 2.271vw;
+	/* background: #C87E08; */
+	position: absolute;
+	left: 0;
+	top: 0;
+	/* filter: blur(1.563vw); */
+}
+
+.AirContitioningTop {
+	width: 26.042vw;
+	height: 9.9vw;
+	background: rgba(9, 10, 14, 0.75);
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+	position: relative;
+}
+
+.AirContitioningTopCont {
+	width: 22.9vw;
+	height: 1.5vw;
+	margin-top: 1.1vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.AirContitioningTopLeftLogo {
+	width: 1.406vw;
+	height: 1.406vw;
+	
+	background: #C87E08;
+	box-shadow: 0vw 0vw 1.302vw 0vw rgba(200, 126, 8, 0.50);
+	background-image: url(./img/icons/fan.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: 0.99vw 0.99vw;
+}
+
+.AirContitioningTopLeftHeadCont {
+	height: 1.406vw;
+	width: 17.5vw;
+	margin-left: 0.4vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.AirContitioningTopLeftHeadContTop {
+	width: 17.5vw;
+	height: 1.042vw;
+	color: #FFF;
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.781vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.039vw;
+	text-transform: uppercase;
+
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+}
+
+.AirContitioningTopLeftHeadContBottom {
+	padding-bottom: 0.6vw;
+	width: 17.5vw;
+	height: 0.677vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+
+	color: rgba(255, 255, 255, 0.50);
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+}
+
+.AirContitioningTopClosebtn {
+	z-index: 99;
+	transition: transform 0.25s ease;
+	width: 3.646vw;
+	height: 1.042vw;
+	background: rgba(255, 0, 30, 0.25);
+	margin-bottom: 0.3vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	color: #FF001E;
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+}
+
+.AirContitioningTopClosebtn:hover {
+	cursor: pointer;
+	transform: scale(1.1);
+	color: #ff0000;
+	background: rgba(255, 0, 30, 0.555);
+}
+
+.AirContitioningUnderTop {
+	margin-top: 0.5vw;
+	width: 22.9vw;
+	height: 1.042vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+	gap: 0.208vw;
+}
+
+.AirControlBtn {
+	width: 2.917vw;
+	height: 1.042vw;
+}
+
+.AirClosed {
+	z-index: 99;
+	transition: transform 0.25s ease;
+	background: rgba(255, 255, 255, 0.10);
+	color: rgba(255, 255, 255, 0.50);
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.AirClosed:hover {
+	cursor: pointer;
+	transform: scale(1.03);
+	background: #C87E08;
+	color: #FFF;
+}
+
+.AirOpen:hover {
+	cursor: pointer;
+	transform: scale(1.03);
+}
+
+.AirOpen {
+	z-index: 99;
+	transition: transform 0.25s ease;
+	background: #C87E08;
+	color: #FFF;
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.AirContitioningMidContainer {
+	width: 22.9vw;
+	height: 1.042vw;
+	margin-top: 1.1vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.AirContitioningMidFanIcon {
+	width: 0.542vw;
+	height: 0.542vw;
+
+	background-image: url(./img/icons/fan.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+	margin-left: 0.2vw;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.AirContitioningMidFanIconGlow {
+	width: 0.842vw;
+	height: 0.842vw;
+	background: white;
+	filter: blur(0.781vw);
+}
+
+.AirContitioningMidFanTexts {
+	width: 4.7vw;
+	height: 1vw;
+	margin-left: 0.3vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.AirContitioningMidFanTextsTop {
+	height: 0.677vw;
+	width: 4.7vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	color: #FFF;
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+	text-transform: uppercase;
+}
+
+.AirContitioningMidFanTextsBottom {
+	width: 4.7vw;
+	height: 0.521vw;
+	color: rgba(255, 255, 255, 0.50);
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.417vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.021vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+
+	padding-bottom: 0.5vw;
+}
+
+.AirContinerMidLevelChangerBox {
+	/* opacity: 0.25; */
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.00) 0%, rgba(255, 255, 255, 0.25) 100%);
+	width: 17.188vw;
+	height: 1.302vw;
+	display: flex;
+	align-items: center;
+	justify-content: space-around;
+	position: relative;
+	/* gap: 2.482vw; */
+}
+
+.AirContinerMidLevelChangerBoxLevel {
+	left: 0;
+	position: absolute;
+	width: 54%;
+	height: 100%;
+	/* background: rgba(255, 255, 255, 0.25); */
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+}
+
+.AirContinerMidLevelChangerBoxLevelInBox {
+	width: 1.4vw;
+	height: 100%;
+	background: linear-gradient(0deg, rgba(255, 255, 255, 0.00) 0%, rgba(255, 255, 255, 0.897) 100%);;
+}
+
+.AirContitioningTempContainer {
+	width: 22.9vw;
+	height: 1.042vw;
+	margin-top: 1vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.AirContitioningBottom {
+	width: 26.042vw;
+	height: 1.302vw;
+	background: rgba(255, 0, 30, 0.25);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-direction: row ;
+	position: relative;
+
+	color: #FF001E;
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.469vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.023vw;
+}
+
+.AirContitioningBottomx {
+	width: 0.26vw;
+	height: 0.26vw;
+
+	background-image: url(./img/icons/xvector.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+	position: absolute;
+}
+
+.SliderAlt {
+	width: 13.021vw;
+	height: 0.325vw;
+	margin-left: 0.4vw;
+	background: linear-gradient(90deg, rgba(255, 0, 30, 0.65) 0%, rgba(64, 147, 255, 0.2) 100%);
+	position: relative;
+}
+
+.SliderAltCircle {
+	position: absolute;
+	height: 0.625vw;
+	width: 0.625vw;
+	bottom: 60%;
+	left: 10%;
+	position: relative;
+}
+
+.SliderAltText {
+	color: #778ABC;
+	font-family: "Space Grotesk";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	text-transform: uppercase;
+}
+
+.AirContinionColdBox {
+	width: 1.563vw;
+	height: 0.781vw;
+	background: rgba(64, 147, 255, 0.25);
+	margin-left: 0.6vw;
+	color: #4093FF;
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.417vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.021vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.AirContinionWarmBox {
+	width: 1.563vw;
+	height: 0.781vw;
+	background: rgba(255, 0, 30, 0.25);
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	
+	color: #FF001E;
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.417vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.021vw;
+}
+
+.AirSliderBox {
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 0.217vw;
+	position: absolute;
+	background: #FFF;
+}
+
+.AirSlider {
+  -webkit-appearance: none;
+  width: 85%;
+  height: 0.217vw;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+  position: absolute;
+  top: 0;
+  z-index: 3;
+}
+
+/* Thumb (daire) */
+.AirSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 0.7vw;
+  height: 0.7vw;
+  border-radius: 50%;
+  background: #fff;
+  border: 0.104vw solid #ffffff;
+  cursor: pointer;
+  margin-top: -0.2vw;
+  z-index: 4;
+}
+
+.AirSlider::-moz-range-thumb {
+  width: 1vw;
+  height: 1vw;
+  border-radius: 50%;
+  /* background: #fff; */
+  border: 0.104vw solid #ccc;
+  cursor: pointer;
+}
+
+/* Track varsayılanı kaldır */
+.AirSlider::-webkit-slider-runnable-track {
+  height: 0.417vw;
+  background: transparent;
+}
+
+.AirSlider::-moz-range-track {
+  height: 0.417vw;
+  background: transparent;
+}
+
+.AirContinerNumber {
+	margin-top: 0.5vw;
+	height: 0.677vw;
+	color: #FFF;
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+}
+
+.JobDoneMenu {
+	position: absolute;
+	width: 100vw;
+	height: 56.4vw;
+	background-image: url(./img/icons/jobdonebg.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: 100% 100%;
+
+	display: none;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.JobDoneMenuJobDoneText {
+	margin-right: 4vw;
+	position: relative;
+	width: 29.766vw;
+	height: 10.596vw;
+	margin-top: 15vw;
+	transform: rotate(-7deg);
+	display: block;
+	align-items: center;
+	justify-content: center;
+
+	color: #FFF;
+	text-align: center;
+	font-family: "Bai Jamjuree";
+	font-size: 6.25vw;
+	font-style: italic;
+	font-weight: 700;
+	line-height: 4.688vw; /* 75% */
+	letter-spacing: -0.313vw;
+	text-transform: uppercase;
+}
+
+.JobDoneMenuJobDoneTextIn {
+	opacity: 0.3;
+	bottom: 0.2vw;
+	right: -0.7vw;
+	position: absolute;
+	width: 29.766vw;
+	height: 10.596vw;
+	text-align: center;
+	color: transparent;
+	-webkit-text-stroke-width: 0.03vw;
+	-webkit-text-stroke-color: #FFF;
+	font-family: "Bai Jamjuree";
+	font-size: 6.7vw;
+	font-style: italic;
+	font-weight: 700;
+	line-height: 4.688vw; /* 75% */
+	letter-spacing: -0.313vw;
+	text-transform: uppercase;
+	display: block;
+	align-items: center;
+	justify-content: center;
+	z-index: -1;
+}
+
+.JobDoneBoxes {
+	width: 17.667vw;
+	height: 1.302vw;
+	transform: rotate(-5deg);
+	margin-top: 2.3vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.JobDoneBoxesIcon {
+	width: 1.302vw;
+	height: 1.302vw;
+	background: rgba(255, 255, 255, 0.10);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.JobDoneBoxesTextLeft {
+	height: 1.042vw;
+	width: 12.1vw;
+	display: flex;
+	align-items: flex-end;
+	justify-content: flex-start;
+	margin-top: 0.2vw;
+	margin-left: 0.4vw;
+	color: #6D7278;
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.781vw;
+	font-style: italic;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.039vw;
+	text-transform: capitalize;
+}
+
+.JobDoneBoxesTextRight {
+	white-space: nowrap;
+	height: 1.042vw;
+	width: 3vw;
+	margin-top: 0.2vw;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	color: #FFF;
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.781vw;
+	font-style: italic;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.039vw;
+	text-transform: capitalize;
+}
+
+.InIcon {
+	width: 0.87vw;
+	height: 0.87vw;
+	transform: rotate(10deg);
+	margin-left: 0.3vw;
+	background-image: url(./img/icons/person_icon.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: 0.87vw 0.87vw;
+}
+
+.JobDoneMenuJobDoneText span {
+	color: #C87E08;
+	font-family: "Bai Jamjuree";
+	font-size: 6.25vw;
+	font-style: italic;
+	font-weight: 700;
+	line-height: 4.688vw;
+	letter-spacing: -0.313vw;
+	text-transform: uppercase;
+}
+
+.BillMenu {
+	position: absolute;
+	width: 14.063vw;
+	height: 20.833vw;
+	background-image: url(./img/icons/billbg.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+
+	display: none;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.BillMenuTop {
+	width: 4.634vw;
+	height: 1.51vw;
+	margin-top: 1.1vw;
+
+	background-image: url(./img/icons/downtowncab.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+}
+
+.BillMenuTopText {
+	width: 14.063vw;
+	height: 0.625vw;
+	margin-top: 0.25vw;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #1A1A1A;
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.469vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+}
+
+.tokenmbr {
+	height: 0.625vw;
+	width: 4vw;
+	position: absolute;
+	margin-bottom: 2.3vw;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	color: #1A1A1A;
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.469vw;
+	font-style: normal;
+	font-weight: 500;
+	line-height: normal;
+	letter-spacing: 0.059vw;
+}
+
+.BillMenuTokenNumber {
+	position: relative;
+	width: 11.953vw;
+	height: 2.344vw;
+	margin-top: 1.07vw;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	background-image: url(./img/icons/tokenbg.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+
+	color: #1A1A1A;
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.656vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: 0.563vw; /* 85.714% */
+	letter-spacing: 0.052vw;
+}
+
+.CustomerName {
+	width: 12vw;
+	height: 0.625vw;
+	margin-top: 0.65vw;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+}
+
+.DriverName {
+	width: 12vw;
+	height: 0.625vw;
+	margin-top: 0.6vw;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+}
+
+.BillTextLeft {
+	position: absolute;
+	left: 0;
+
+	color: #6D7278;
+	font-family: "Chakra Petch";
+	font-size: 0.469vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: 0.023vw;
+}
+
+.BillLine {
+	width: 12vw;
+	height: 0.047vw;
+	background-image: url(./img/icons/billline.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+	margin-top: 0.55vw;
+}
+
+.ConfirmPaymentBox {
+	transition: transform 0.25s ease;
+	margin-top: 0.7vw;
+	margin-left: 6.7vw;
+	width: 5.208vw;
+	height: 1.302vw;
+	border: 0.052vw solid rgba(26, 26, 26, 0.10);
+	background: rgba(26, 26, 26, 0.10);
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	color: rgba(26, 26, 26, 0.50);
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+}
+
+.ConfirmPaymentBox:hover {
+	cursor: pointer;
+	transform: scale(1.03);
+	border: 0vw solid rgba(26, 26, 26, 0.10);
+	background: #C87E08;
+	box-shadow: 0vw 0.208vw 1.302vw 0vw rgba(200, 126, 8, 0.35);
+	color: #FFF;
+}
+
+.BillTextRight {
+	color: #1A1A1A;
+	text-align: right;
+	font-family: "Chakra Petch";
+	font-size: 0.469vw;
+	font-style: normal;
+	font-weight: 500;
+	line-height: normal;
+	letter-spacing: 0.023vw;
+	right: 0;
+	position: absolute;
+}
+
+.TaxiMeter {
+	background: rgba(0, 0, 0, 0.75);
+	width: 21.979vw;
+	height: 11.667vw;
+	position: absolute;
+	bottom: calc(1.2vw + 20vh);
+	right: 2vw;
+
+	display: none;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.TaxiMeterDragHandle {
+	cursor: grab;
+	position: absolute;
+	left: 0.3vw;
+	width: 0.9vw;
+	height: 0.729vw;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: rgba(0, 0, 0, 0.7);
+	font-size: 0.9vw;
+	letter-spacing: 0.05vw;
+	user-select: none;
+	transition: color 0.2s ease;
+}
+.TaxiMeterDragHandle:hover {
+	color: rgba(0, 0, 0, 0.9);
+}
+.TaxiMeterDragHandle:active {
+	cursor: grabbing;
+}
+
+.TaxiMeterTopLine {
+	width: 21.979vw;
+	height: 1.563vw;
+	background: #C87E08;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+	position: relative;
+}
+
+.TaximetereCloseX {
+	transition: transform 0.25s ease;
+	box-shadow: 0vw -0.052vw 0.604vw 0.281vw rgba(252, 11, 11, 0.5);
+	position: absolute;
+	right: 0.3vw;
+	width: 0.729vw;
+	height: 0.729vw;
+	background-image: url(./img/icons/closex.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+}
+
+.TaximetereCloseX:hover {
+	cursor: pointer;
+	transform: scale(1.3);
+}
+
+.TaxiMeterTopLineIcon {
+	width: 0.625vw;
+	height: 0.625vw;
+	background-image: url(./img/icons/city_icon.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+	margin-left: 1.1vw;
+}
+
+.TaxiMeterBottomBox {
+	width: 19.896vw;
+	height: 5.938vw;
+	margin-top: 1vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.TaxiMeterBottomBoxTop {
+	width: 19.896vw;
+	height: 1.406vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.TaxiMeterBottomBoxTopInRight {
+	width: 9.948vw;
+	height: 1.406vw;
+	background: rgba(255, 255, 255, 0.05);
+	backdrop-filter: blur(1.302vw);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: rgba(255, 255, 255, 0.50);
+	font-family: "Jersey 15";
+	font-size: 1.042vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: 0.281vw;
+	text-transform: uppercase;
+}
+
+.TaxiMeterBottomBoxTopInLeft {
+	width: 9.948vw;
+	height: 1.406vw;
+	background: rgba(255, 255, 255, 0.10);
+	backdrop-filter: blur(1.302vw);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: rgba(255, 255, 255, 0.50);
+	font-family: "Jersey 15";
+	font-size: 1.042vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: 0.281vw;
+	text-transform: uppercase;
+}
+
+.TaxiMeterTopLineText {
+	height: 0.885vw;
+	margin-left: 0.25vw;
+
+	color: #FFF;
+	text-shadow: 0vw 0.208vw 0.208vw rgba(255, 255, 255, 0.25);
+	font-family: "Jersey 15";
+	font-size: 0.885vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.044vw;
+	text-transform: uppercase;
+}
+
+.TaxiMeterBottomBoxBottom {
+	width: 19.896vw;
+	height: 4.531vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.TaxiMeterBottomBoxBottomLeft {
+	width: 9.948vw;
+	height: 4.531vw;
+	background: rgba(255, 255, 255, 0.05);
+	backdrop-filter: blur(1.302vw);
+	 
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+
+	color: #C87E08;
+	text-align: right;
+	font-family: "Digital-7";
+	font-size: 3.906vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+}
+
+.TaxiMeterBottomBoxBottomLeftInText {
+	position: absolute;
+	width: 9.948vw;
+	height: 4.531vw;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	color: rgba(200, 126, 8, 0.10);
+	text-align: right;
+	font-family: "Digital-7";
+	font-size: 3.906vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+}
+
+.TaxiMeterBottomBoxBottomRight {
+	width: 9.948vw;
+	height: 4.531vw;
+	background: rgba(255, 255, 255, 0.10);
+	backdrop-filter: blur(1.302vw);
+	 
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+
+	color: #FFF;
+	text-align: right;
+	font-family: "Digital-7";
+	font-size: 3.906vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+}
+
+.TaxiMeterBottomBoxBottomRightInText {
+	position: absolute;
+	width: 9.948vw;
+	height: 4.531vw;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	color: rgba(255, 255, 255, 0.10);
+	text-align: right;
+	font-family: "Digital-7";
+	font-size: 3.906vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+}
+
+.TaxiMeterUnderBottomCont {
+	width: 19.896vw;
+	height: 1.823vw;
+	margin-top: 0.4vw;
+	background: rgba(255, 255, 255, 0.10);
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+	/* backdrop-filter: blur(1.302vw); */
+}
+
+.VacantBox {
+	width: 2.604vw;
+	height: 1.042vw;
+	margin-left: 1vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.HiredBox {
+	width: 2.344vw;
+	height: 1.042vw;
+	margin-left: 0.2vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.TimeOff {
+	width: 3.125vw;
+	height: 1.042vw;
+	margin-left: 0.3vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.EndTripBill {
+	width: 4.948vw;
+	height: 1.042vw;
+	margin-left: 4.5vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.TaxiMeterselected {
+	transition: transform 0.25s ease;
+	background: #C87E08;
+	color: #FFF;
+	text-align: right;
+	font-family: "Jersey 15";
+	font-size: 0.729vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.036vw;
+	text-transform: uppercase;
+}
+
+.TaxiMeterselected:hover {
+	cursor: pointer;
+	transform: scale(1.03);
+}
+
+.TaxiMeterUnselected {
+	transition: transform 0.25s ease;
+	border: 0.052vw solid rgba(255, 255, 255, 0.10);
+	background: rgba(255, 255, 255, 0.10);
+	color: #FFF;
+	text-align: right;
+	font-family: "Jersey 15";
+	font-size: 0.729vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.036vw;
+	text-transform: uppercase;
+}
+
+.TaxiMeterUnselected:hover {
+	cursor: pointer;
+	transform: scale(1.03);
+	background: #C87E08;
+	color: #FFF;
+}
+
+.TaxiMeterTopLineCabIcon {
+	width: 2.604vw;
+	height: 0.781vw;
+	border: 0.052vw solid rgba(255, 255, 255, 0.25);
+	background: rgba(255, 255, 255, 0.25);
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	color: rgba(255, 255, 255, 0.75);
+	font-family: "Jersey 15";
+	font-size: 0.677vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.034vw;
+	margin-left: 0.3vw;
+}
+
+.TaxiMeterTopLineRightText {
+	color: rgba(255, 255, 255, 0.50);
+	font-family: "Jersey 15";
+	font-size: 0.781vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.039vw;
+	margin-left: 0.9vw;
+}
+
+.TaxiMeterTopLineRightText span {
+	margin-right: 0.2vw;
+	margin-left: 0.2vw;
+	color: #FFF;
+	font-family: "Jersey 15";
+	font-size: 0.781vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.039vw;
+}
+
+.ClientSatisfaction {
+	width: 8.5vw;
+	height: 3vw;
+	position: absolute;
+	bottom: 0;
+	display: none;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.ClientSatisfactionTopCont {
+	width: 8.3vw;
+	height: 1.6vw;
+	margin-left: 0.1vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.ClientSatisfactionTopContBox {
+	width: 1.563vw;
+	height: 1.563vw;
+	border: 0.052vw solid rgba(255, 255, 255, 0.10);
+	background: rgba(255, 255, 255, 0.05);
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	color: #FFF;
+	text-align: center;
+	font-family: "Space Grotesk";
+	font-size: 0.781vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.039vw;
+}
+
+.ClientSatisfactionTopContRightTextCont {
+	margin-top: 0.2vw;
+	height: 1.6vw;
+	width: 7vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.ClientSatisfactionTopContRightTextContTop {
+	white-space: nowrap;
+	height: 0.885vw;
+	color: #FFF;
+	-webkit-text-stroke-width: 0.052vw;
+	-webkit-text-stroke-color: rgba(0, 0, 0, 0.10);
+	font-family: "Chakra Petch";
+	font-size: 0.677vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	text-transform: uppercase;
+}
+
+.ClientSatisfactionTopContRightTextContBottom {
+	white-space: nowrap;
+	margin-left: 0.3vw;
+	height: 0.521vw;
+	color: rgba(255, 255, 255, 0.50);
+	-webkit-text-stroke-width: 0.052vw;
+	-webkit-text-stroke-color: rgba(0, 0, 0, 0.10);
+	font-family: "Chakra Petch";
+	font-size: 0.417vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+}
+
+.ClientSatisfactionBottomLine {
+	width: 8.073vw;
+	height: 0.208vw;
+	margin-top: 1.2vw;
+	background: rgb(64, 255, 128);
+	box-shadow: 0vw -0.052vw 2.604vw 0.781vw rgba(64, 255, 128, 0.5);
+}
+
+.KeybindItem {
+	height: 1.979vw;
+	width: 14.063vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+	direction: ltr;
+}
+
+.KeybindItemLeftBorder {
+	width: 0.104vw;
+	height: 1.979vw;
+	background: rgba(200, 126, 8, 1);
+	box-shadow: 0vw 0.208vw 1.702vw 1.2vw rgba(200, 126, 8, 0.35);
+	flex-shrink: 0;
+}
+
+.KeybindItemKeyBox {
+	width: 1.979vw;
+	height: 1.979vw;
+	border: 0.104vw solid rgba(255, 255, 255, 0.10);
+	background: rgba(255, 255, 255, 0.10);
+	margin-right: 0.7vw;
+	margin-left: 0.7vw;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	color: #FFF;
+	-webkit-text-stroke-width: 0.052vw;
+	-webkit-text-stroke-color: rgba(0, 0, 0, 0.10);
+	font-family: "Chakra Petch";
+	font-size: 0.677vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	text-transform: uppercase;
+	letter-spacing: -0.034vw;
+}
+
+.KeybindTextRightCont {
+	height: 2.083vw;
+	width: 8vw;
+	margin-right: 0;
+	margin-left: 0;
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+	flex-direction: column;
+	flex: 1;
+	min-width: 0;
+	text-align: left;
+}
+
+.KeybindTextRightContTop {
+	white-space: nowrap;
+	height: 0.677vw;
+	margin-top: 0.2vw;
+	color: rgba(255, 255, 255, 0.50);
+	-webkit-text-stroke-width: 0.052vw;
+	-webkit-text-stroke-color: rgba(0, 0, 0, 0.10);
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+	text-transform: uppercase;
+}
+
+.KeybindTextRightContBottom {
+	white-space: nowrap;
+	height: 0.885vw;
+	color: #FFF;
+	-webkit-text-stroke-width: 0.052vw;
+	-webkit-text-stroke-color: rgba(0, 0, 0, 0.10);
+	font-family: "Chakra Petch";
+	font-size: 0.677vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.034vw;
+	text-transform: uppercase;
+}
+
+.NotifySuccess {
+	width: 14.063vw;
+	height: 3.646vw;
+	position: absolute;
+	/* margin-right: 82.7vw; */
+	margin-bottom: 49vw;
+	background: linear-gradient(288deg, rgba(9, 10, 14, 0.00) 12.67%, rgba(9, 10, 14, 0.70) 87.66%);
+	display: none;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.NotifyFailed {
+	width: 14.063vw;
+	height: 3.646vw;
+	position: absolute;
+	/* margin-right: 82.7vw; */
+	margin-bottom: 49vw;
+	background: linear-gradient(288deg, rgba(9, 10, 14, 0.00) 12.67%, rgba(9, 10, 14, 0.70) 87.66%);
+	display: none;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.NotifyLeftBg {
+	width: 1.823vw;
+	height: 1.823vw;
+	margin-left: 0.75vw;
+	background-image: url(./img/icons/error.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.NotifyLeftBgGlow {
+	width: 1.823vw;
+	height: 1.823vw;
+	background-image: url(./img/icons/error.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+
+	filter: blur(0.781vw);
+}
+
+
+.NotifyRightCon {
+	width: 9.9vw;
+	height: 3vw;
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.NotifyRightConTop{
+	margin-left: 0.4vw;
+	margin-top: 0.5vw;
+	width: 8vw;
+	height: 1.042vw;
+	color: #FF5353;
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.781vw; 
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+}
+
+.NotifyRightConBottom {
+	height: 1.146vw;
+	width: 9.2vw;
+	margin-left: 0.4vw;
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+
+	color: rgba(255, 255, 255, 0.8);
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: 0.573vw; /* 110% */
+	letter-spacing: -0.026vw;
+}
+
+.TopContainer {
+	width: 34.74vw;
+	height: 9.9vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.TopContainerLeft {
+	width: 21.2vw;
+	height: 9.9vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.LeftTopHeaderCont {
+
+	margin-top: 3vw;
+	width: 13.7vw;
+	height: 2.031vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.LeftTopLogo {
+	margin-bottom: 0.3vw;
+	width: 1.823vw;
+	height: 1.823vw;
+	background-image: url(./img/icons/logo.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: 100% 100%;
+
+	display: flex;
+}
+
+.LeftTopLogoBlur {
+	margin-bottom: 0.3vw;
+	width: 1.823vw;
+	height: 1.823vw;
+	background-image: url(./img/icons/logo.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: 100% 100%;
+
+	filter: blur(0.781vw);
+}
+
+.LeftTopInsideHeader {
+	white-space: nowrap;
+	height: 2.031vw;
+	color: #FFF;
+
+	font-family: "Chakra Petch";
+	font-size: 1.563vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.078vw;
+	align-items: center;
+	justify-content: center;
+	justify-content: flex-start;
+}
+
+.LefTopHeader {
+	white-space: nowrap;
+	position: relative;
+	margin-bottom: 0.3vw;
+	height: 2.031vw;
+	margin-left: 0.8vw;
+
+	color: #FFF;
+
+	font-family: "Chakra Petch";
+	font-size: 1.563vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.078vw;
+	align-items: center;
+	justify-content: center;
+	justify-content: flex-start;
+}
+
+.TextBottomLeftLogo {
+	left: -0.4vw;
+	bottom: -0.5vw;
+	position: absolute;
+	width: 1.963vw;
+	height: 1.963vw;
+
+	background-image: url(./img/icons/smalltaxi.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: 100% 100%;
+}
+
+.TextTopRightLogo {
+	position: absolute;
+	right: -0.8vw;
+	top: 0.1vw;
+	width: 1.302vw;
+	height: 1.302vw;
+	background-image: url(./img/icons/smallcase.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: 100% 100%;
+}
+
+.LeftTopDesc {
+	width: 12vw;
+	margin-right: 1.7vw;
+	height: 2.031vw;
+	color: rgba(255, 255, 255, 0.50);
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+}
+
+.TopButtons {
+	width: 14.167vw;
+	height: 1.927vw;
+	border: 0.052vw solid rgba(255, 255, 255, 0.10);
+	margin-top: 0.8vw;
+	margin-left: 0.4vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: space-evenly;
+}
+
+.DCCMain-button {
+	width: 3.906vw;
+	height: 1.302vw;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.LeaderBoard-button {
+	width: 5.208vw;
+	height: 1.302vw;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.Profile-button {
+	width: 3.906vw;
+	height: 1.302vw;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.SelectedButton {
+	transition: transform 0.25s ease;
+	background: #C87E08;
+	box-shadow: 0vw 0.208vw 1.302vw 0vw rgba(200, 126, 8, 0.35);
+	color: #FFF;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+}
+
+.SelectedButton:hover {
+	transform: scale(1.03);
+	cursor: pointer;
+}
+
+.UnselectedButton:hover {
+	transform: scale(1.03);
+	cursor: pointer;
+	background: #C87E08;
+	color: #FFF;
+}
+
+.UnselectedButton {
+	transition: transform 0.25s ease;
+	border: 0.052vw solid rgba(255, 255, 255, 0.05);
+	background: rgba(255, 255, 255, 0.05);
+	color: rgba(255, 255, 255, 0.50);
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+}
+
+.TopContainerRight {
+	width: 10vw;
+	height: 2.5vw;
+	margin-bottom: 2vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.TopContainerRightLevel {
+	position: relative;
+	width: 1.563vw;
+	height: 1.042vw;
+	margin-bottom: 0.3vw;
+	margin-left: 0.1vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.0) 0%, rgba(255, 255, 255, 0.521) 100%);
+	color: #FFF;
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+}
+
+.LevelRightBorder {
+	position: absolute;
+	right: 0;
+	height: 100%;
+	width: 4%;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, #ffffff 100%);
+}
+
+.LevelLeftBorder2 {
+	position: absolute;
+	left: 0;
+	height: 100%;
+	width: 4%;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, #ffffffc2 100%);
+}
+
+.LevelLeftBorder {
+	position: absolute;
+	left: 0;
+	height: 100%;
+	width: 3%;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, #ffffffc2 100%);
+}
+
+.LevelBottomBorder {
+	position: absolute;
+	bottom: 0;
+	height: 3%;
+	width: 100%;
+	background: #FFF;
+}
+
+.LevelTopBorder {
+	position: absolute;
+	top: 0;
+	height: 3%;
+	width: 100%;
+	background: rgba(255, 255, 255, 0.1);
+}
+
+.TopRightMiddleCont {
+	height: 2.2vw;
+	width: 6.1vw;
+	display: flex;
+	align-items: flex-end;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.TopRightNickLabel {
+	white-space: nowrap;
+	margin-right: 0.7vw;
+	height: 0.477vw;
+
+	color: rgba(255, 255, 255, 0.50);
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+	text-transform: capitalize;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+}
+
+.TopRightName {
+	margin-right: 0.7vw;
+	white-space: nowrap;
+	height: 0.885vw;
+	color: #FFF;
+	font-family: "Chakra Petch";
+	font-size: 0.677vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.034vw;
+	text-transform: capitalize;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+}
+
+.TopRightLevelBox {
+	width: 2.604vw;
+	height: 0.781vw;
+
+	background: #C87E08;
+	box-shadow: 0vw 0.208vw 0.521vw 0vw rgba(200, 126, 8, 0.35);
+
+	color: #FFF;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+	text-transform: uppercase;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-right: 0.7vw;
+}
+
+.TopRightProfilePic {
+	width: 1.823vw;
+	height: 1.823vw;
+
+	margin-left: 0.4vw;
+	background-image: url(./img/pp.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: 100% 100%;
+	position: relative;
+	z-index: 2;
+}
+
+.TopRightProfilePicBig {
+	position: absolute;
+	width: 2.823vw;
+	height: 2.823vw;
+	
+	top: -0.5vw;
+	left: -0.4vw;
+
+	background-image: url(./img/pp.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: 100% 100%;
+	z-index: 1;
+	opacity: 0.1;
+	filter: blur(0.104vw);
+}
+
+.TopRightProfileLevelNumber {
+	width: 0.781vw;
+	height: 0.781vw;
+
+	background: #FF7F2A;
+	box-shadow: 0vw 0vw 0.781vw 0vw rgba(255, 127, 42, 0.50);
+
+	color: rgba(255, 255, 255, 0.80);
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+
+	position: absolute;
+	bottom: -0.35vw;
+	left: -0.35vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.DCCMain {
+	width: 28vw;
+	height: 41.3vw;
+	margin-top: 1.6vw;
+
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.leveltext {
+	position: absolute;
+
+	color: #C87E08;
+	font-family: "Chakra Petch";
+	font-size: 0.677vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+}
+
+.LeaderBoard {
+	width: 28vw;
+	height: 41.3vw;
+	margin-top: 1.6vw;
+	
+	display: none;
+	align-items: flex-start;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.Profile {
+	width: 28vw;
+	height: 41.3vw;
+	margin-top: 1.6vw;
+	
+	display: none;
+	align-items: flex-start;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.OtherSelectLoc {
+	margin-right: 2.3vw;
+	width: 25vw;
+	height: 1.042vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.MainSelectLoc {
+	margin-left: 0.4vw;
+	width: 25vw;
+	height: 1.042vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.LocLogo {
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.0) 0%, rgba(255, 255, 255, 0.521) 100%);
+	width: 1.042vw;
+	height: 1.042vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	position: relative;
+}
+
+.LogoWhiteBlur {
+	position: absolute;
+	width: 0.781vw;
+	height: 0.781vw;
+	background: #FFF;
+	filter: blur(0.781vw);
+}
+
+.LocIcon {
+	width: 0.547vw;
+	height: 0.547vw;
+	background-image: url(./img/icons/loc_icon.png);
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: cover;
+}
+
+.SelectCont {
+	width: 23vw;
+	height: 1.342vw;
+	margin-left: 0.3vw;
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.SelectHeader {
+	height: 0.677vw;
+	
+	color: #FFF;
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+	text-transform: uppercase;
+}
+
+.SelectDesc {
+	height: 0.677vw;
+
+	color: rgba(255, 255, 255, 0.50);
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+}
+
+.MainSelectJobCont {
+	
+	margin-left: 0.4vw;
+	margin-top: 0.6vw;
+	width: 27.5vw;
+	height: 11.979vw;
+	
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.MainSelectJobContLeftCont {
+	width: 15.365vw;
+	height: 11.979vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+	overflow-x: hidden;
+	overflow-y: hidden;
+	gap: 0.26vw;
+}
+
+.MainSelectJob {
+	border: 0.052vw solid rgba(255, 255, 255, 0.05);
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.MainSelectJobLabel {
+	margin-left: 1vw;
+	width: 10.5vw;
+	height: 0.885vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+
+	color: #FFF;
+	text-shadow: 0vw 0.208vw 0.208vw rgba(255, 255, 255, 0.25);
+	font-family: "Chakra Petch";
+	font-size: 0.677vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.034vw;
+	text-transform: uppercase;
+}
+
+.SelectedJob {
+	width: 15.365vw;
+	height: 7.813vw;
+	position: relative;
+	background-image: url(./img/icons/downtownbg.png);
+	background-position: top;
+	background-repeat: no-repeat;
+	background-size: 100% 80%;
+}
+
+.UnSelectedJob {
+	width: 15.365vw;
+	height: 1.823vw;
+	cursor: pointer;
+}
+
+.MainSelectJobButton {
+	width: 2.604vw;
+	height: 1.042vw;
+}
+
+.SelectedJobButton {
+	background: #C87E08;
+	box-shadow: 0vw 0.208vw 1.302vw 0vw rgba(200, 126, 8, 0.35);
+	color: #FFF;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+	text-transform: capitalize;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.MainSelectedJobButton:hover {
+	cursor: pointer;
+	transform: scale(1.03);
+}
+
+.UnSelectedJobButton {
+	cursor: pointer;
+	transition: transform 0.25s ease;
+	color: rgba(255, 255, 255, 0.50);
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+	text-transform: capitalize;
+	border: 0.052vw solid rgba(255, 255, 255, 0.10);
+	background: rgba(255, 255, 255, 0.10);
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.UnSelectedJobButton:hover {
+	cursor: pointer;
+	background: #C87E08;
+	color: #FFF;
+	transform: scale(1.05);
+}
+
+.MainSelectedJobLeft {
+	width: 9.7vw;
+	height: 2.604vw;
+	margin-top: 3.4vw;
+	margin-left: 1.1vw;
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.MainSelectectedJobLabel {
+	white-space: nowrap;
+	height: 0.885vw;
+	color: #FFF;
+	text-shadow: 0vw 0.208vw 0.208vw rgba(255, 255, 255, 0.25);
+	font-family: "Chakra Petch";
+	font-size: 0.677vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.034vw;
+	text-transform: uppercase;
+}
+
+.MainSelectectedJobDesc {
+	width: 9.4vw;
+	height: 1.563vw;
+	color: rgba(255, 255, 255, 0.50);
+	font-family: "Chakra Petch";
+	font-size: 0.417vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.021vw;
+}
+
+.MainSelectedJobButton {
+	transition: transform 0.25s ease;
+	width: 3.646vw;
+	height: 1.302vw;
+	background: #C87E08;
+	box-shadow: 0vw 0.208vw 1.302vw 0vw rgba(200, 126, 8, 0.35);
+
+	color: #FFF;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+	text-transform: capitalize;
+	margin-top: 4.4vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.MainSelectRightCont {
+	width: 11.719vw;
+	height: 11.979vw;
+	border: 0.052vw solid rgba(255, 255, 255, 0.05);
+	background: rgba(255, 255, 255, 0.05);
+	margin-left: 0.29vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.MainSelectRightTopCont {
+	margin-top: 0.8vw;
+	width: 9vw;
+	height: 0.885vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.MainSelectRightTopLogo {
+	width: 0.781vw;
+	height: 0.781vw;
+	background-image: url(./img/icons/downtown.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+}
+
+.MainSelectRightTopText {
+	white-space: nowrap;
+	height: 0.885vw;
+	margin-left: 0.3vw;
+	/* width: 4vw; */
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+
+	color: #FFF;
+	text-shadow: 0vw 0.208vw 0.208vw rgba(255, 255, 255, 0.25);
+	font-family: "Chakra Petch";
+	font-size: 0.677vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.034vw;
+	text-transform: uppercase;
+}
+
+.MainSelectRightTopArea {
+	margin-left: 0.2vw;
+	position: relative;
+	width: 2.083vw;
+	height: 0.781vw;
+	/* background: linear-gradient(180deg, rgba(255, 255, 255, 0.00) 0%, rgba(255, 255, 255, 0.25) 100%); */
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	color: #FFF;
+	font-family: "Chakra Petch";
+	font-size: 0.417vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.021vw;
+}
+
+.MainSelectRightMidDesc {
+	margin-top: 0.1vw;
+	width: 9vw;
+	height: 1.563vw;
+	color: rgba(255, 255, 255, 0.50);
+	font-family: "Chakra Petch";
+	font-size: 0.417vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.021vw;
+
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+}
+
+.MainSelectRightBoxes {
+	width: 8.854vw;
+	height: 7.2vw;
+	margin-top: 0.5vw;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-direction: column;
+}
+
+.MainSelectRightBox {
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+
+	width: 8.854vw;
+	height: 1.563vw;
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: 100% 100%;
+}
+
+.MainSelectRightBoxText {
+	color: #FFF;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 0.677vw;
+	margin-left: 1.5vw;
+}
+
+.MainSelectVehicleCont {
+	margin-left: 0.4vw;
+	margin-top: 1.65vw;
+	width: 28vw;
+	height: 8vw;
+
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.MainSelectVehiclesBox {
+	margin-top: 1vw;
+	width: 27.5vw;
+	height: 5.729vw;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.VehicleItem {
+	position: relative;
+	width: 8.854vw;
+	height: 5.729vw;
+	
+	border: 0.052vw solid rgba(255, 255, 255, 0.05);
+	background: rgba(255, 255, 255, 0.05);
+
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.VehicleItemTopContText {
+	width: 5.2vw;
+	height: 1vw;
+	margin-bottom: 3.2vw;
+	margin-left: 0.7vw;
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.VehicleItemTopHeader {
+	white-space: nowrap;
+	height: 0.477vw;
+	color: #FFF;
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+	text-transform: capitalize;
+
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+}
+
+.VehicleItemTopDesc {
+	height: 0.521vw;
+	white-space: nowrap;
+	color: rgba(255, 255, 255, 0.50);
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.417vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.021vw;
+	text-transform: capitalize;
+}
+
+.VehicleItemTopContButton {
+	z-index: 999;
+}
+
+.VehicleSelected {
+	margin-bottom: 3.1vw;
+	background: #C87E08;
+	box-shadow: 0vw 0.208vw 1.302vw 0vw rgba(200, 126, 8, 0.35);
+	width: 2.344vw;
+	height: 0.781vw;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #FFF;
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.417vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.021vw;
+	text-transform: capitalize;
+}
+
+.VehicleUnSelected {
+	transition: transform 0.25s ease;
+	width: 1.823vw;
+	height: 0.781vw;
+	margin-left: 0.4vw;
+	margin-bottom: 3vw;
+	background: rgba(255, 255, 255, 0.10);
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	color: rgba(255, 255, 255, 0.50);
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.417vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.021vw;
+	text-transform: capitalize;
+}
+
+.VehicleUnSelected:hover {
+	cursor: pointer;
+	transform: scale(1.03);
+	color: #FFF;
+	background: #C87E08;
+}
+
+.VehicleItemTaxiImage {
+	position: absolute;
+	margin-top: 1vw;
+	width: 9.167vw;
+	height: 3.542vw;
+
+	background-image: url(./img/icons/taxi.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: 70% 70%;
+}
+
+.MainDailyMissionsCont {
+	margin-left: 0.4vw;
+	margin-top: 2.4vw;
+	width: 27.5vw;
+	height: 15.6vw;
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.MainDailyTasksCont::-webkit-scrollbar {
+    width: 0vw;
+}
+
+.MainDailyTasksCont {
+	margin-top: 0.8vw;
+	width: 27.5vw;
+	height: 13.802vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+	overflow-x: hidden;
+	overflow-y: auto;
+	gap: 0.26vw;
+}
+
+.MainDailyTasksContNoTask {
+	width: 27.5vw;
+	height: 13.802vw;
+
+	background-image: url(./img/icons/notasks.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: 100% 100%;
+
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.MainDailyTasksContNoTaskTopText {
+	width: 27.5vw;
+	height: 0.677vw;
+	margin-top: 6vw;
+	color: rgba(255, 255, 255, 0.50);
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 13px;
+	font-style: normal;
+	font-weight: 700;
+	line-height: 13px; /* 100% */
+	text-transform: uppercase;
+	
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.MainDailyTasksContNoTaskBottomText {
+	width: 2.344vw;
+	height: 1.042vw;
+	margin-top: 0.365vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	border: 0.052vw solid rgba(255, 255, 255, 0.10);
+	background: rgba(255, 255, 255, 0.05);
+	color: rgba(255, 255, 255, 0.50);
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+}
+
+.TaskItem {
+	width: 27.5vw;
+	height: 5.208vw;
+
+	min-width: 27.5vw;
+	min-height: 5.208vw;
+
+	border: 0.078vw solid rgba(255, 255, 255, 0.05);
+	background: rgba(255, 255, 255, 0.05);
+
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.TaskItemTop {
+	margin-top: 0.6vw;
+	width: 24.6vw;
+	height: 1.042vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.TaskItemLeftHead {
+	height: 1.042vw;
+	color: #FFF;
+	text-shadow: 0vw 0.208vw 0.208vw rgba(255, 255, 255, 0.25);
+	font-family: "Chakra Petch";
+	font-size: 0.781vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.039vw;
+	text-transform: uppercase;
+}
+
+.TaskItemXpBox {
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.0) 0%, rgba(255, 255, 255, 0.521) 100%);
+	width: 1.563vw;
+	height: 0.781vw;
+	position: relative;
+	margin-left: 0.4vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	color: #FFF;
+	font-family: "Chakra Petch";
+	font-size: 0.417vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.021vw;
+}
+
+.TaskItemMid {
+	width: 24.6vw;
+	height: 2.031vw;
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+
+	color: rgba(255, 255, 255, 0.50);
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+}
+
+.TaskItemCompleteBox {
+	width: 24.6vw;
+	height: 0.521vw;
+	margin-top: 0.4vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.TaskItemComplete {
+	width: 0.365vw;
+	height: 0.365vw;
+	background: #C87E08;
+	box-shadow: 0vw 0.208vw 0.521vw 0vw rgba(200, 126, 8, 0.35);
+}
+
+.TaskItemNonComplete {
+	width: 0.365vw;
+	height: 0.365vw;
+	border: 0.052vw solid rgba(255, 255, 255, 0.05);
+	background: rgba(255, 255, 255, 0.10);
+}
+
+.TaskItemProgress {
+	width: 17.917vw;
+	height: 0.365vw;
+	border: 0.052vw solid rgba(255, 255, 255, 0.05);
+	background: rgba(255, 255, 255, 0.10);
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.TaskItemProgressIn {
+	width: 30%;
+	height: 100%;
+	border: 0.052vw solid rgba(255, 255, 255, 0.05);
+	background: rgba(255, 174, 0, 0.79);
+}
+
+.TaskItemProgressText {
+	height: 0.677vw;
+	color: rgba(255, 255, 255, 0.80);
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+	margin-left: 0.6vw;
+}
+
+.TaskItemCompleteText {
+	width: 3.5vw;
+	margin-left: 0.2vw;
+	height: 0.521vw;
+	color: rgba(255, 255, 255, 0.35);
+	font-family: "Chakra Petch";
+	font-size: 0.417vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.021vw;
+}
+
+.LeaderBoardMidTop3 {
+	margin-top: 1.1vw;
+	margin-left: 0.4vw;
+	width: 27.5vw;
+	height: 12.24vw;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-direction: row;
+}
+
+.LeaderBoard3 {
+	width: 8.385vw;
+	height: 12.135vw;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.00) 100%);
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.LeaderBoardKrown {
+	position: absolute;
+	width: 6.823vw;
+	height: 6.823vw;
+	top: -1.4vw;
+	left: 0.9vw;
+	background-image: url(./img/icons/krown.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: 100% 100%;
+}
+
+.LeaderBoard1 {
+	position: relative;
+	width: 9.115vw;
+	height: 12.24vw;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.00) 100%);
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.LeaderBoard2 {
+	width: 8.385vw;
+	height: 12.135vw;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.00) 100%);
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.LeaderBoardTopLine span {
+	font-weight: 700;
+}
+
+.LeaderBottomLine1 {
+	width: 7.292vw;
+	height: 0.156vw;
+	background: #FFD700;
+}
+
+.LeaderBottomLine {
+	width: 6.51vw;
+	height: 0.156vw;
+	background: #C0C0C0;
+}
+
+.LeaderBoardBottom1 {
+	position: relative;
+	width: 7.292vw;
+	height: 3.125vw;
+	background: linear-gradient(179deg, rgba(192, 192, 192, 0.25) 1.08%, rgba(192, 192, 192, 0.00) 81.81%);
+
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.LeaderBoardBottom3 {
+	position: relative;
+	width: 6.51vw;
+	height: 3.125vw;
+	background: linear-gradient(179deg, rgba(192, 192, 192, 0.25) 1.08%, rgba(192, 192, 192, 0.00) 81.81%);
+
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.LeaderNick {
+	margin-top: 0.2vw;
+	margin-left: 1.4vw;
+	height: 0.677vw;
+	color: rgba(255, 255, 255, 0.50);
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+	text-transform: capitalize;
+}
+
+.LeaderName {
+	margin-left: 1.4vw;
+	height: 0.885vw;
+	color: #FFF;
+	font-family: "Chakra Petch";
+	font-size: 0.677vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.034vw;
+	text-transform: capitalize;
+}
+
+.Leader3Right {
+	position: absolute;
+	right: 0;
+	width: 0.052vw;
+	height: 2.5vw;
+	background: linear-gradient(179deg, rgba(192, 192, 192, 0.25) 1.08%, rgba(192, 192, 192, 0.00) 81.81%)
+}
+
+.Leader3Left {
+	position: absolute;
+	left: 0;
+	width: 0.052vw;
+	height: 2.5vw;
+	background: linear-gradient(179deg, rgba(192, 192, 192, 0.25) 1.08%, rgba(192, 192, 192, 0.00) 81.81%)
+}
+
+.LeaderBoardPP1 {
+	margin-top: 1.1vw;
+	width: 7.292vw;
+	height: 7.292vw;
+	background-image: url(./img/pp.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+}
+
+.LeaderBoardPP3 {
+	margin-top: 0.9vw;
+	width: 6.51vw;
+	height: 6.6vw;
+	background-image: url(./img/pp.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+}
+
+.LeaderBoardTopLine {
+	width: 100%;
+	height: 1.042vw;
+
+	background: #C0C0C0;
+	box-shadow: 0vw 0.208vw 1.302vw 0vw rgba(192, 192, 192, 0.35);
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	color: rgba(26, 26, 26, 0.80);
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: 0.625vw; /* 120% */
+	gap: 0.156vw;
+}
+
+.LeaderBoardMore{
+	margin-left: 0.4vw;
+	margin-top: 0.5vw;
+	width: 27.6vw;
+	height: 25.8vw;
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.TopPlayersBox {
+	margin-top: 1.1vw;
+	width: 27.6vw;
+	height: 23.5vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+	overflow-x: hidden;
+	overflow-y: hidden;
+	gap: 0.26vw;
+}
+
+.TopPlayerItem {
+	width: 27.5vw;
+	height: 3.125vw;
+	flex-shrink: 0;
+
+	border: 0.078vw solid rgba(255, 255, 255, 0.05);
+	background: rgba(255, 255, 255, 0.05);
+
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.TopPlayerItemLeftCont {
+	margin-left: 1.2vw;
+	width: 18.6vw;
+	height: 2vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.TopPlayerItemLeftContTop span {
+	color: #FFF;
+	text-shadow: 0vw 0.208vw 0.208vw rgba(255, 255, 255, 0.25);
+	font-family: "Chakra Petch";
+	font-size: 0.677vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.034vw;
+	text-transform: capitalize;
+}
+
+.TopPlayerItemLeftContTop {
+	background: radial-gradient(82.5% 82.5% at 50% 50%, #FFF 0%, rgba(255, 255, 255, 0.00) 100%);
+	background-clip: text;
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	gap: 0.421vw;
+	margin-top: 0.1vw;
+	display: flex;
+	align-items: flex-end;
+	justify-content: flex-start;
+
+	width: 18.6vw;
+	height: 1vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+	font-family: "Chakra Petch";
+	font-size: 0.781vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	text-transform: uppercase;
+}
+
+.TopPlayerItemLeftContBottom {
+	width: 18.6vw;
+	height: 1vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.TopPlayerItemJobCountIcon {
+	width: 0.833vw;
+	height: 0.833vw;
+	background: rgba(255, 255, 255, 0.10);
+	background-image: url(./img/icons/user.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: 50% 50%;
+}
+
+.TopPlayerItemJobCountText {
+	height: 0.677vw;
+	margin-left: 0.4vw;
+
+	color: #FFF;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+}
+
+.TopPlayerItemRightCont {
+	width: 4.2vw;
+	height: 2vw;
+	display: flex;
+	align-items: flex-end;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.TopPlayerItemRightContTop {
+	height: 0.885vw;
+
+	color: #FFF;
+	font-family: "Chakra Petch";
+	font-size: 0.677vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.034vw;
+	margin-top: 0.1vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+}
+
+.TopPlayerItemRightContBottom {
+	width: 4.167vw;
+	height: 1.042vw;
+
+	border: 0.052vw solid rgba(255, 255, 255, 0.05);
+	background: rgba(255, 255, 255, 0.05);
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	color: #FFF;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+}
+
+.TopPlayerItemRightContBottom span {
+	color: #FFF;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+}
+
+.TopPlayerItemRightLevel {
+	width: 1.667vw;
+	height: 1.667vw;
+	margin-left: 0.4vw;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.ProfilesMidCont {
+	margin-top: 1vw;
+	margin-left: 0.4vw;
+	width: 27.6vw;
+	height: 18vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.ProfilesMidContTopCon {
+	width: 27.6vw;
+	height: 13.1vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.ProfilesMidContTopConLeft {
+	width: 11.8vw;
+	height: 13.1vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+	border: 0.052vw solid rgba(255, 255, 255, 0.05);
+	background: rgba(255, 255, 255, 0.05);
+
+	background-image: url(./img/icons/money_earned.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+}
+
+.ProfilesMidContTopConLeftInTop {
+	width: 11.8vw;
+	height: 1.5vw;
+	margin-top: 1vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	flex-direction: row;
+}
+
+.ProfilesMidContTopConLeftInTopBox {
+	width: 1.563vw;
+	height: 1.563vw;
+	margin-right: 1.1vw;
+	border: 0.052vw solid rgba(255, 255, 255, 0.05);
+	background: rgba(255, 255, 255, 0.05);
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	
+}
+
+.ProfilesMidContTopConLeftInTopBoxIcon {
+	width: 0.729vw;
+	height: 0.729vw;
+	background-image: url(./img/icons/money_icon.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+}
+
+.ProfilesMidContTopConLeftInTopText {
+	height: 1.563vw;
+	width: 9vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.ProfilesMidContTopConLeftInTopTextTop {
+	width: 8vw;
+	height: 0.677vw;
+	color: #FFF;
+	text-align: right;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+}
+
+.ProfilesMidContTopConLeftInTopTextBottom {
+	width: 8vw;
+	height: 0.677vw;
+	color: #FFF;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+}
+
+.ProfilesMidContTopConRightCon {
+	width: 15vw;
+	height: 13.1vw;
+	margin-left: 0.6vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.ProfilesMidContBottom{
+	margin-top: 0.7vw;
+	margin-right: 0.13vw;
+	width: 27.5vw;
+	height: 4.5vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+	border: 0.052vw solid rgba(255, 255, 255, 0.05);
+	background: rgba(255, 255, 255, 0.05);
+	background-image: url(./img/icons/levelprogres_bg.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+}
+
+.ProfilesMidContBottomLeft {
+	width: 11.719vw;
+	height: 1.6vw;
+	margin-left: 6.6vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.ProfilesMidContBottomLeftTop {
+	width: 11.719vw;
+	height: 0.677vw;
+	margin-top: 0.2vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	flex-direction: row;
+}
+
+.ProfilesMidContBottomLeftTopRight {
+	white-space: nowrap;
+	/* width: 9vw; */
+	height: 0.677vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	color: rgba(255, 255, 255, 0.50);
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	text-transform: uppercase;
+}
+
+.ProfilesMidContBottomLeftTopRight span {
+	margin-right: 0.1vw;
+	color: rgba(255, 255, 255, 0.50);
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	text-transform: uppercase;
+}
+
+.ProfilesMidContBottomLeftTopLeft {
+	width: 2.6vw;
+	height: 0.677vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	color: #FFF;
+	text-align: center;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+}
+
+.ProfilesMidContTopConRightConTopCont {
+	width: 15vw;
+	height: 6.3vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+	border: 0.052vw solid rgba(255, 255, 255, 0.05);
+	background: rgba(255, 255, 255, 0.05);
+	background-image: url(./img/icons/level_bg.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+}
+
+.ProfilesMidContTopConRightConBottomCont {
+	margin-top: 0.6vw;
+	width: 15vw;
+	height: 6.3vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+	border: 0.052vw solid rgba(255, 255, 255, 0.05);
+	background: rgba(255, 255, 255, 0.05);
+	background-image: url(./img/icons/jobdone_bg.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+}
+
+.ProfilesMidContTopConRightConTopContInBottom {
+	margin-top: 0.45vw;
+	width: 12vw;
+	height: 2.031vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	position: relative;
+}
+
+.ProfilesMidContTopConRightConTopContInBottomBehindNumber {
+	-webkit-text-stroke-width: 0.052vw;
+	-webkit-text-stroke-color: #ffffff;
+	color: transparent;
+	opacity: 0.3;
+	font-family: "Chakra Petch";
+	font-size: 1.563vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.078vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	position: absolute;
+	height: 2.031vw;
+	width: 10vw;
+	right: 0;
+}
+
+.ProfilesMidContTopConLeftMidText {
+	margin-right: 0.2vw;
+	width:10vw;
+	margin-top: 0.4vw;
+	height: 2.031vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	position: relative;
+}
+
+.ProfilesMidContTopConRightConTopContInBottomTopNumber {
+	height: 1.719vw;
+	width: 10vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+
+	color: #FFF;
+	text-shadow: 0vw 0.208vw 0.208vw rgba(255, 255, 255, 0.25);
+	font-family: "Chakra Petch";
+	font-size: 1.302vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.065vw;
+}
+
+.ProfilesMidContTopConRightConTopContInTop {
+	width: 15vw;
+	height: 1.7vw;
+	margin-top: 1.1vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	flex-direction: row;
+}
+
+.ProfilesMidContTopConRightConTopContInTopIconCont {
+	width: 1.563vw;
+	height: 1.563vw;
+	margin-right: 1.4vw;
+
+	border: 0.052vw solid rgba(255, 255, 255, 0.05);
+	background: rgba(255, 255, 255, 0.05);
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.ProfilesMidContTopConRightConTopContInTopIconContIcon {
+	width: 0.729vw;
+	height: 0.729vw;
+	background-image: url(./img/icons/start_icon.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+}
+
+.ProfilesMidContTopConRightConTopContInTopText {
+	width: 11.5vw;
+	height: 1.4vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.ProfilesMidContTopConRightConTopContInTopTextTop {
+	width: 11vw;
+	margin-right: 0.2vw;
+	height: 0.6vw;
+	color: #FFF;
+	text-align: right;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+	text-transform: uppercase;
+
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+}
+
+.ProfilesMidContTopConRightConTopContInTopTextBottom {
+	margin-right: 0.2vw;
+	margin-top: 0.1vw;
+	width: 11vw;
+	height: 0.6vw;
+	color: #FFF;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+	text-transform: uppercase;
+
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+}
+
+.ProfilesMidContBottomConBottom {
+	width: 11.719vw;
+	height: 0.365vw;
+	margin-top: 0.2vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+
+	background: linear-gradient(90deg, rgba(255, 255, 255, 0.48) 0%, rgba(255, 255, 255, 0) 100%);
+}
+
+.ProfilesMidContBottomConBottomPercentage {
+	width: 50%;
+	height: 100%;
+	box-shadow: 0vw 0.208vw 0.521vw 0vw rgba(200, 126, 8, 0.35);
+	background: rgba(200, 126, 8, 1);
+}
+
+.ProfilesMidContBottomRight {
+	width: 7.6vw;
+	height: 1.7vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	flex-direction: row;
+}
+
+.ProfilesMidContBottomRightIconBox {
+	width: 1.563vw;
+	height: 1.563vw;
+	border: 0.052vw solid rgba(255, 255, 255, 0.05);
+	background: rgba(255, 255, 255, 0.05);
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.ProfilesMidContBottomRightTextBox {
+	width: 5vw;
+	height: 1.7vw;
+	margin-right: 0.3vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.ProfilesMidContBottomRightTextBoxTop {
+	height: 0.677vw;
+	width: 5vw;
+	color: #FFF;
+	text-align: right;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+	text-transform: uppercase;
+	margin-top: 0.1vw;
+	margin-right: 0.1vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+}
+
+.ProfilesMidContBottomRightTextBoxBottom {
+	margin-top: 0.1vw;
+	margin-right: 0.1vw;
+	height: 0.677vw;
+	width: 5vw;
+	color: #FFF;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+	text-transform: uppercase;
+
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+}
+
+.LastRoutesBottomCont {
+	margin-top: 2.5vw;
+	width: 27.6vw;
+	height: 18vw;
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+	flex-direction: column;
+}
+
+.LastRoutesBottomContCont {
+	gap: 0.26vw;
+	width: 27.6vw;
+	margin-left: 0.4vw;
+	margin-top: 1.1vw;
+	height: 15.4vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: column;
+	overflow-x: hidden;
+	overflow-y: auto;
+}
+
+.LastRoutesBottomContCont::-webkit-scrollbar {
+    width: 0vw;
+}
+
+.LastRoutesItem {
+	position: relative;
+	width: 27.5vw;
+	height: 2.344vw;
+
+	min-width: 27.5vw;
+	min-height: 2.344vw;
+
+	border: 0.078vw solid rgba(255, 255, 255, 0.05);
+	background: rgba(255, 255, 255, 0.05);
+
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	flex-direction: row;
+}
+
+.LastRouteTypeLeft {
+	width: 1.563vw;
+	height: 0.781vw;
+
+	margin-left: 1vw;
+
+	background: #C87E08;
+	box-shadow: 0vw 0.208vw 0.521vw 0vw rgba(200, 126, 8, 0.35);
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	color: #FFF;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+	text-transform: uppercase;
+}
+
+.LastRouteLeftIcon {
+	width: 0.781vw;
+	height: 0.781vw;
+	margin-left: 0.4vw;
+
+	background-image: url(./img/icons/city_icon.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+}
+
+.LastRouteLeftName {
+	white-space: nowrap;
+	height: 0.885vw;
+	color: #FFF;
+	margin-left: 0.3vw;
+	text-shadow: 0vw 0.208vw 0.208vw rgba(255, 255, 255, 0.25);
+	font-family: "Chakra Petch";
+	font-size: 0.677vw;
+	font-style: normal;
+	font-weight: 700;
+	line-height: normal;
+	letter-spacing: -0.034vw;
+	text-transform: capitalize;
+}
+
+.LastRouteCabBox {
+	position: relative;
+	width: 2.083vw;
+	height: 0.781vw;
+	margin-left: 0.3vw;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	color: #FFF;
+	font-family: "Chakra Petch";
+	font-size: 0.417vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.021vw;
+}
+
+.LastRouteRightCont {
+	position: absolute;
+	height: 0.833vw;
+	width: 15vw;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	flex-direction: row;
+	right: 0;
+}
+
+.LastRouteXPText {
+	height: 0.677vw;
+	color: #FFF;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+	margin-right: 1.3vw;
+}
+
+.LastRouteXPIcon {
+	width: 0.833vw;
+	height: 0.833vw;
+	margin-right: 0.4vw;
+	background: rgba(255, 255, 255, 0.10);
+
+	background-image: url(./img/icons/xp_icon.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: 50% 50%;
+}
+
+.LastRouteMoneyIcon {
+	width: 0.833vw;
+	height: 0.833vw;
+	margin-right: 0.4vw;
+	background: rgba(101, 221, 141, 0.10);
+
+	background-image: url(./img/icons/coin_icon.png);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: 50% 50%;
+}
+
+.LastRouteMoneyText {
+	height: 0.677vw;
+	color: #65DD8D;
+	font-family: "Chakra Petch";
+	font-size: 0.521vw;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: -0.026vw;
+	margin-right: 0.5vw;
+}

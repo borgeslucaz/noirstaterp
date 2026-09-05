@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link rel="stylesheet" href="main.css" />
+		<script src="jquery.min.js"></script>
+		<script src="app.js"></script>
+	</head>
+	<body>
+		<div class="MainContainer">
+			<div id="MainMenu" class="MainMenu">
+				<div class="TopContainer">
+					<div class="TopContainerLeft">
+						<div class="LeftTopHeaderCont">
+							<div class="LeftTopLogo">
+								<div class="LeftTopLogoBlur"></div>
+							</div>
+							<div class="LefTopHeader">
+								<div data-locale="taxi_job" class="LeftTopInsideHeader">Taxi job</div>
+								<div class="TextBottomLeftLogo"></div>
+								<div class="TextTopRightLogo"></div>
+							</div>
+						</div>
+						<div data-locale="left_top_desc" class="LeftTopDesc">Pick up passengers around the city and drive them to their destination. Earn money based on distance, time, and tips.</div>
+						<div id="TopButtons" class="TopButtons">
+							<div onclick="showSection('DCCMain')" id="DCCMain-button" data-locale="dcc_main" class="DCCMain-button SelectedButton">DCC MAIN</div>
+							<div onclick="showSection('LeaderBoard')" id="LeaderBoard-button" data-locale="leaderboard" class="LeaderBoard-button UnselectedButton">LEADERBOARD</div>
+							<div onclick="showSection('Profile')" id="Profile-button" data-locale="profile" class="Profile-button UnselectedButton">PROFILE</div>
+						</div>
+					</div>
+					<div class="TopContainerRight">
+						<div id="TopContainerRightLevel" class="TopContainerRightLevel">204
+							<div class="LevelRightBorder"></div>
+							<div class="LevelLeftBorder2"></div>
+							<div class="LevelBottomBorder"></div>
+							<div class="LevelTopBorder"></div>
+						</div>
+						<div class="TopRightMiddleCont">
+							<div data-locale="nickname" class="TopRightNickLabel">Nickname</div>
+							<div id="myname" class="TopRightName">Tudor Mapamond</div>
+							<div id="myleveltext" class="TopRightLevelBox">LEVEL 3</div>
+						</div>
+						<div id="ProfilePic" class="TopRightProfilePic">
+							<div id="ProfilePic2" class="TopRightProfilePicBig"></div>
+							<!-- <div id="MyLevelRightTop" class="TopRightProfileLevelNumber">2</div> -->
+						</div>
+					</div>
+				</div>
+				<div id="DCCMain" class="DCCMain">
+					<div class="MainSelectLoc">
+						<div class="LocLogo">
+							<div class="LocIcon"></div>
+							<div class="LogoWhiteBlur"></div>
+							<div class="LevelRightBorder"></div>
+							<div class="LevelLeftBorder"></div>
+							<div class="LevelBottomBorder"></div>
+							<div class="LevelTopBorder"></div>
+						</div>
+						<div class="SelectCont">
+							<div data-locale="select_loc" class="SelectHeader">SELECT LOCATION</div>
+							<div data-locale="select_loc_desc" class="SelectDesc">Here you select the location where you want to work</div>
+						</div>
+					</div>
+					<div class="MainSelectJobCont">
+						<div class="MainSelectJobContLeftCont"></div>
+						<div class="MainSelectRightCont">
+							<div class="MainSelectRightTopCont">
+								<div class="MainSelectRightTopLogo"></div>
+								<div data-locale="downtown" class="MainSelectRightTopText">Downtown</div>
+								<div class="MainSelectRightTopArea">CabArea
+									<div class="LevelRightBorder"></div>
+									<div class="LevelLeftBorder"></div>
+									<div class="LevelBottomBorder"></div>
+									<div class="LevelTopBorder"></div>
+								</div>
+							</div>
+							<div data-locale="downtown_desc" class="MainSelectRightMidDesc">The Downtown Cab Area is a busy urban zone at the city’s core, ideal for players seeking fast-paced taxi jobs in a vibrant, high-traffic environment.</div>
+							<div class="MainSelectRightBoxes">
+								<div class="MainSelectRightBox" style="background-image: url(./img/icons/levelbg.png);">
+									<div data-locale="non_selected" id="requiredlevel" class="MainSelectRightBoxText" style="color: #DDCB65;">NON SELECTED</div>
+								</div>
+								<div class="MainSelectRightBox" style="background-image: url(./img/icons/moneymg.png);">
+									<div data-locale="non_selected" id="pricecont" class="MainSelectRightBoxText" style="color: #65DD8D;">NON SELECTED</div>
+								</div>
+								<div class="MainSelectRightBox" style="background-image: url(./img/icons/personbg.png);">
+									<div data-locale="civilian_or_player" class="MainSelectRightBoxText">Civilian or Player</div>
+								</div>
+								<div class="MainSelectRightBox" style="background-image: url(./img/icons/xpbg.png);">
+									<div data-locale="non_selected" id="xpcont" class="MainSelectRightBoxText">NON SELECTED</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="MainSelectVehicleCont">
+						<div class="OtherSelectLoc">
+							<div class="LocLogo">
+								<div class="LocIcon" style="background-image: url(./img/icons/car_icon.png);"></div>
+								<div class="LogoWhiteBlur"></div>
+								<div class="LevelRightBorder"></div>
+								<div class="LevelLeftBorder"></div>
+								<div class="LevelBottomBorder"></div>
+								<div class="LevelTopBorder"></div>
+							</div>
+							<div class="SelectCont">
+								<div data-locale="select_vehicle" class="SelectHeader">SELECT YOUR VEHICLE</div>
+								<div data-locale="select_vehicle_desc" class="SelectDesc">Here you can select the car with which to do the job</div>
+							</div>
+						</div>
+						<div id="MainSelectVehiclesBox" class="MainSelectVehiclesBox">
+							<div class="VehicleItem">
+								<div class="VehicleItemTaxiImage"></div>
+								<div class="VehicleItemTopContText">
+									<div class="VehicleItemTopHeader">DT Cab Normal</div>
+									<div class="VehicleItemTopDesc">Level 1 vehicle</div>
+								</div>
+								<div class="VehicleItemTopContButton VehicleSelected">Selected</div>
+							</div>
+							<div class="VehicleItem" style="opacity: 0.5;">
+								<div class="VehicleItemTaxiImage"></div>
+								<div class="VehicleItemTopContText">
+									<div class="VehicleItemTopHeader">DT Cab Normal</div>
+									<div class="VehicleItemTopDesc">Level 1 vehicle</div>
+								</div>
+								<div class="VehicleItemTopContButton VehicleUnSelected">SEÇ</div>
+							</div>
+							<div class="VehicleItem" style="opacity: 0.5;">
+								<div class="VehicleItemTaxiImage"></div>
+								<div class="VehicleItemTopContText">
+									<div class="VehicleItemTopHeader">DT Cab Normal</div>
+									<div class="VehicleItemTopDesc">Level 1 vehicle</div>
+								</div>
+								<div class="VehicleItemTopContButton VehicleUnSelected">SEÇ</div>
+							</div>
+						</div>
+					</div>
+					<div class="MainDailyMissionsCont">
+						<div class="OtherSelectLoc">
+							<div class="LocLogo">
+								<div class="LocIcon" style="background-image: url(./img/icons/target_icon.png);"></div>
+								<div class="LogoWhiteBlur"></div>
+								<div class="LevelRightBorder"></div>
+								<div class="LevelLeftBorder"></div>
+								<div class="LevelBottomBorder"></div>
+								<div class="LevelTopBorder"></div>
+							</div>
+							<div class="SelectCont">
+								<div data-locale="daily_missions" class="SelectHeader">daily missions</div>
+								<div data-locale="daily_missions_desc" class="SelectDesc">Here you can see the daily missions you can complete</div>
+							</div>
+						</div>
+						<div id="MainDailyTasksCont" class="MainDailyTasksCont">
+							<div class="MainDailyTasksContNoTask">
+								<div data-locale="no_task" class="MainDailyTasksContNoTaskTopText">No active tasks</div>
+								<div data-locale="empty" class="MainDailyTasksContNoTaskBottomText">Empty</div>
+							</div>
+							<!-- <div class="TaskItem">
+								<div class="TaskItemTop">
+									<div class="TaskItemLeftHead">Task #1</div>
+									<div class="TaskItemXpBox">20xp
+										<div class="LevelRightBorder"></div>
+										<div class="LevelLeftBorder"></div>
+										<div class="LevelBottomBorder"></div>
+										<div class="LevelTopBorder"></div>
+									</div>
+								</div>
+								<div class="TaskItemMid">Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book.</div>
+								<div class="TaskItemCompleteBox">
+									<div class="TaskItemNonComplete"></div>
+									<div class="TaskItemCompleteText">Not Completed</div>
+									<div class="TaskItemProgress">
+										<div class="TaskItemProgressIn"></div>
+									</div>
+									<div class="TaskItemProgressText">100/1000</div>
+								</div>
+							</div>
+							<div class="TaskItem">
+								<div class="TaskItemTop">
+									<div class="TaskItemLeftHead">Task #1</div>
+									<div class="TaskItemXpBox">20xp
+										<div class="LevelRightBorder"></div>
+										<div class="LevelLeftBorder"></div>
+										<div class="LevelBottomBorder"></div>
+										<div class="LevelTopBorder"></div>
+									</div>
+								</div>
+								<div class="TaskItemMid">Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book.</div>
+								<div class="TaskItemCompleteBox">
+									<div class="TaskItemComplete"></div>
+									<div class="TaskItemCompleteText">Completed</div>
+								</div>
+							</div>
+							<div class="TaskItem">
+								<div class="TaskItemTop">
+									<div class="TaskItemLeftHead">Task #1</div>
+									<div class="TaskItemXpBox">20xp
+										<div class="LevelRightBorder"></div>
+										<div class="LevelLeftBorder"></div>
+										<div class="LevelBottomBorder"></div>
+										<div class="LevelTopBorder"></div>
+									</div>
+								</div>
+								<div class="TaskItemMid">Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book.</div>
+								<div class="TaskItemCompleteBox">
+									<div class="TaskItemNonComplete"></div>
+									<div class="TaskItemCompleteText">Not Completed</div>
+								</div>
+							</div> -->
+						</div>
+					</div>
+				</div>
+				<div id="LeaderBoard" class="LeaderBoard">
+					<div class="MainSelectLoc">
+						<div class="LocLogo">
+							<div class="LocIcon" style="background-image: url(./img/icons/ranking_icon.png);"></div>
+							<div class="LogoWhiteBlur"></div>
+							<div class="LevelRightBorder"></div>
+							<div class="LevelLeftBorder"></div>
+							<div class="LevelBottomBorder"></div>
+							<div class="LevelTopBorder"></div>
+						</div>
+						<div class="SelectCont">
+							<div data-locale="top_3" class="SelectHeader">leaderboard - TOP 3</div>
+							<div data-locale="top_3_desc" class="SelectDesc">Here you can see the top 3 in this leaderboard</div>
+						</div>
+					</div>
+					<div class="LeaderBoardMidTop3">
+						<div class="LeaderBoard2">
+							<div data-locale="top_second" class="LeaderBoardTopLine">LEADERBOARD <span>- TOP 2</span> </div>
+							<div class="LeaderBoardPP3"></div>
+							<div class="LeaderBottomLine"></div>
+							<div class="LeaderBoardBottom3">
+								<div class="Leader3Left"></div>
+								<div class="Leader3Right"></div>
+								<div data-locale="nickname" class="LeaderNick">Nickname</div>
+								<div class="LeaderName">NO PLAYER</div>
+							</div>
+						</div>
+						<div class="LeaderBoard1">
+							<div class="LeaderBoardKrown"></div>
+							<div data-locale="top_first" class="LeaderBoardTopLine" style="background: #FFD700; box-shadow: 0px 4px 25px 0px rgba(205, 127, 50, 0.35);">LEADERBOARD <span>- TOP 1</span> </div>
+							<div class="LeaderBoardPP1"></div>
+							<div class="LeaderBottomLine1" style="background: #FFD700;"></div>
+							<div class="LeaderBoardBottom1" style="background: linear-gradient(179deg, rgba(255, 215, 0, 0.25) 1.08%, rgba(255, 215, 0, 0.00) 81.81%);">
+								<div class="Leader3Left" style="background: linear-gradient(179deg, rgba(255, 215, 0, 0.25) 1.08%, rgba(255, 215, 0, 0.00) 81.81%);"></div>
+								<div class="Leader3Right" style="background: linear-gradient(179deg, rgba(255, 215, 0, 0.25) 1.08%, rgba(255, 215, 0, 0.00) 81.81%);"></div>
+								<div data-locale="nickname" class="LeaderNick">Nickname</div>
+								<div class="LeaderName">NO PLAYER</div>
+							</div>
+						</div>
+						<div class="LeaderBoard3">
+							<div data-locale="top_third" class="LeaderBoardTopLine" style="background: #CD7F32; box-shadow: 0px 4px 25px 0px rgba(205, 127, 50, 0.35);">LEADERBOARD <span>- TOP 3</span> </div>
+							<div class="LeaderBoardPP3"></div>
+							<div class="LeaderBottomLine" style="background: #CD7F32;"></div>
+							<div class="LeaderBoardBottom3" style="background: linear-gradient(179deg, rgba(205, 127, 50, 0.25) 1.08%, rgba(205, 127, 50, 0.00) 81.81%);">
+								<div class="Leader3Left" style="background: linear-gradient(179deg, rgba(205, 127, 50, 0.25) 1.08%, rgba(205, 127, 50, 0.00) 81.81%);"></div>
+								<div class="Leader3Right" style="background: linear-gradient(179deg, rgba(205, 127, 50, 0.25) 1.08%, rgba(205, 127, 50, 0.00) 81.81%);"></div>
+								<div data-locale="nickname" class="LeaderNick">Nickname</div>
+								<div class="LeaderName">NO PLAYER</div>
+							</div>
+						</div>
+					</div>
+					<div class="LeaderBoardMore">
+						<div class="OtherSelectLoc">
+							<div class="LocLogo">
+								<div class="LocIcon" style="background-image: url(./img/icons/ranking_icon.png);"></div>
+								<div class="LogoWhiteBlur"></div>
+								<div class="LevelRightBorder"></div>
+								<div class="LevelLeftBorder"></div>
+								<div class="LevelBottomBorder"></div>
+								<div class="LevelTopBorder"></div>
+							</div>
+							<div class="SelectCont">
+								<div data-locale="leaderboard" class="SelectHeader">leaderboard</div>
+								<div data-locale="leaderboard_desc" class="SelectDesc">Here you can see the rest of leaderboard</div>
+							</div>
+						</div>
+						<div id="TopPlayersBox" class="TopPlayersBox">
+							<div class="TopPlayerItem">
+								<div class="TopPlayerItemLeftCont">
+									<div class="TopPlayerItemLeftContTop">#4 <span>alex shakira</span> </div>
+									<div class="TopPlayerItemLeftContBottom">
+										<div class="TopPlayerItemJobCountIcon"></div>
+										<div class="TopPlayerItemJobCountText">203 Jobd Done</div>
+										<div class="TopPlayerItemJobCountIcon" style="margin-left: 0.2vw;"></div>
+										<div class="TopPlayerItemJobCountText">102 Xp Acummulated</div>
+									</div>
+								</div>
+								<div class="TopPlayerItemRightCont">
+									<div class="TopPlayerItemRightContTop">Level 3</div>
+									<div class="TopPlayerItemRightContBottom">2500/ <span>5000 XP</span> </div>
+								</div>
+								<div class="TopPlayerItemRightLevel">
+									<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
+										<circle cx="11.5215" cy="11.5215" r="11.5215" transform="matrix(-1 0 0 1 27.5215 4.47852)" fill="white" fill-opacity="0.05"/>
+										<circle cx="11.5215" cy="11.5215" r="11.0215" transform="matrix(-1 0 0 1 27.5215 4.47852)" stroke="white" stroke-opacity="0.05"/>
+										<path d="M1.5 16C1.5 17.9042 1.87505 19.7897 2.60375 21.5489C3.33244 23.3081 4.4005 24.9066 5.74695 26.253C7.0934 27.5995 8.69187 28.6676 10.4511 29.3963C12.2103 30.1249 14.0958 30.5 16 30.5C17.9042 30.5 19.7897 30.1249 21.5489 29.3963C23.3081 28.6676 24.9066 27.5995 26.253 26.253C27.5995 24.9066 28.6676 23.3081 29.3963 21.5489C30.1249 19.7897 30.5 17.9042 30.5 16C30.5 14.0958 30.1249 12.2103 29.3963 10.4511C28.6676 8.69187 27.5995 7.0934 26.253 5.74695C24.9066 4.4005 23.3081 3.33244 21.5489 2.60375C19.7897 1.87505 17.9042 1.5 16 1.5C14.0958 1.5 12.2103 1.87505 10.4511 2.60375C8.69187 3.33244 7.0934 4.4005 5.74695 5.74695C4.4005 7.0934 3.33244 8.69187 2.60375 10.4511C1.87505 12.2103 1.5 14.0958 1.5 16L1.5 16Z" stroke="white" stroke-opacity="0.05" stroke-width="3"/>
+										<path d="M16 30.5C18.29 30.5 20.5474 29.9576 22.5874 28.9173C24.6275 27.8769 26.3921 26.3682 27.7368 24.5146C29.0815 22.661 29.968 20.5153 30.3239 18.2531C30.6797 15.9909 30.4947 13.6767 29.784 11.4998C29.0732 9.32286 27.857 7.34525 26.2349 5.72885C24.6128 4.11245 22.6309 2.90323 20.4515 2.20021C18.2721 1.49719 15.9572 1.32035 13.6963 1.68417C11.4354 2.048 9.2928 2.94215 7.44398 4.2934" stroke="#C87E08" stroke-width="3" stroke-linecap="round"/>
+									</svg>
+									<div class="leveltext">3</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div id="Profile" class="Profile">
+					<div class="MainSelectLoc">
+						<div class="LocLogo">
+							<div class="LocIcon" style="background-image: url(./img/icons/ranking_icon.png);"></div>
+							<div class="LogoWhiteBlur"></div>
+							<div class="LevelRightBorder"></div>
+							<div class="LevelLeftBorder"></div>
+							<div class="LevelBottomBorder"></div>
+							<div class="LevelTopBorder"></div>
+						</div>
+						<div class="SelectCont">
+							<div data-locale="stats" class="SelectHeader">STATS</div>
+							<div data-locale="stats_desc" class="SelectDesc">Here you can see the stats of your profile</div>
+						</div>
+					</div>
+					<div class="ProfilesMidCont">
+						<div class="ProfilesMidContTopCon">
+							<div class="ProfilesMidContTopConLeft">
+								<div class="ProfilesMidContTopConLeftInTop">
+									<div class="ProfilesMidContTopConLeftInTopText">
+										<div data-locale="money_earned" class="ProfilesMidContTopConLeftInTopTextTop">MONEY EARNED</div>
+										<div data-locale="from_job" class="ProfilesMidContTopConLeftInTopTextBottom">FROM JOB</div>
+									</div>
+									<div class="ProfilesMidContTopConLeftInTopBox">
+										<div class="ProfilesMidContTopConLeftInTopBoxIcon"></div>
+									</div>
+								</div>
+								<div class="ProfilesMidContTopConLeftMidText">
+									<div id="earnedmoney" class="ProfilesMidContTopConRightConTopContInBottomBehindNumber">201.000$</div>
+									<div id="earnedmoney2" class="ProfilesMidContTopConRightConTopContInBottomTopNumber">201.000$</div>
+								</div>
+							</div>
+							<div class="ProfilesMidContTopConRightCon">
+								<div class="ProfilesMidContTopConRightConTopCont">
+									<div class="ProfilesMidContTopConRightConTopContInTop">
+										<div class="ProfilesMidContTopConRightConTopContInTopText">
+											<div data-locale="level_have" class="ProfilesMidContTopConRightConTopContInTopTextTop">LEVEL YOU HAVE</div>
+											<div data-locale="level_have_desc" class="ProfilesMidContTopConRightConTopContInTopTextBottom">ACHIEVED IN THIS JOB</div>
+										</div>
+										<div class="ProfilesMidContTopConRightConTopContInTopIconCont">
+											<div class="ProfilesMidContTopConRightConTopContInTopIconContIcon"></div>
+										</div>
+									</div>
+									<div class="ProfilesMidContTopConRightConTopContInBottom">
+										<div id="mylevel" class="ProfilesMidContTopConRightConTopContInBottomBehindNumber">LEVEL 3</div>
+										<div id="mylevel2" class="ProfilesMidContTopConRightConTopContInBottomTopNumber">LEVEL 3</div>
+									</div>
+								</div>
+								<div class="ProfilesMidContTopConRightConBottomCont">
+									<div class="ProfilesMidContTopConRightConTopContInTop">
+										<div class="ProfilesMidContTopConRightConTopContInTopText">
+											<div data-locale="routes_complete" class="ProfilesMidContTopConRightConTopContInTopTextTop">ROUTES COMPLETED</div>
+											<div data-locale="routes_complete_desc" class="ProfilesMidContTopConRightConTopContInTopTextBottom">ON THIS JOB</div>
+										</div>
+										<div class="ProfilesMidContTopConRightConTopContInTopIconCont">
+											<div class="ProfilesMidContTopConRightConTopContInTopIconContIcon"></div>
+										</div>
+									</div>
+									<div class="ProfilesMidContTopConRightConTopContInBottom">
+										<div id="completedroutes" class="ProfilesMidContTopConRightConTopContInBottomBehindNumber">203</div>
+										<div id="completedroutes2" class="ProfilesMidContTopConRightConTopContInBottomTopNumber">203</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="ProfilesMidContBottom">
+							<div class="ProfilesMidContBottomLeft">
+								<div class="ProfilesMidContBottomLeftTop">
+									<div id="myxp" class="ProfilesMidContBottomLeftTopLeft">23XP</div>
+									<div id="needxp" class="ProfilesMidContBottomLeftTopRight">Gereken XP: <span>45 xp</span></div>
+								</div>
+								<div class="ProfilesMidContBottomConBottom">
+									<div id="nextlevelpercentage" class="ProfilesMidContBottomConBottomPercentage"></div>
+								</div>
+							</div>
+							<div class="ProfilesMidContBottomRight">
+								<div class="ProfilesMidContBottomRightTextBox">
+									<div class="ProfilesMidContBottomRightTextBoxTop">LEVEL XP</div>
+									<div data-locale="progression" class="ProfilesMidContBottomRightTextBoxBottom">PROGRESSION</div>
+								</div>
+								<div class="ProfilesMidContBottomRightIconBox">
+									<div class="ProfilesMidContTopConRightConTopContInTopIconContIcon"></div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="LastRoutesBottomCont">
+						<div class="MainSelectLoc">
+							<div class="LocLogo">
+								<div class="LocIcon" style="background-image: url(./img/icons/date_icon.png);"></div>
+								<div class="LogoWhiteBlur"></div>
+								<div class="LevelRightBorder"></div>
+								<div class="LevelLeftBorder"></div>
+								<div class="LevelBottomBorder"></div>
+								<div class="LevelTopBorder"></div>
+							</div>
+							<div class="SelectCont">
+								<div data-locale="last_routes" class="SelectHeader">last routes</div>
+								<div data-locale="last_routes_desc" class="SelectDesc">Here you can see last routes you have completed</div>
+							</div>
+						</div>
+						<div id="LastRoutesBottomContCont" class="LastRoutesBottomContCont">
+							<div class="LastRoutesItem">
+								<div class="LastRouteTypeLeft">NPC</div>
+								<div class="LastRouteLeftIcon"></div>
+								<div class="LastRouteLeftName">Sandy Shores</div>
+								<div class="LastRouteCabBox">Cab Area
+									<div class="LogoWhiteBlur"></div>
+									<div class="LevelRightBorder"></div>
+									<div class="LevelLeftBorder"></div>
+									<div class="LevelBottomBorder"></div>
+									<div class="LevelTopBorder"></div>
+								</div>
+								<div class="LastRouteRightCont">
+									<div class="LastRouteMoneyIcon"></div>
+									<div class="LastRouteMoneyText">$132 Money Earned</div>
+									<div class="LastRouteXPIcon"></div>
+									<div class="LastRouteXPText">100XP Earned</div>
+								</div>
+							</div>
+							<div class="LastRoutesItem">
+								<div class="LastRouteTypeLeft">NPC</div>
+								<div class="LastRouteLeftIcon"></div>
+								<div class="LastRouteLeftName">Sandy Shores</div>
+								<div class="LastRouteCabBox">Cab Area
+									<div class="LogoWhiteBlur"></div>
+									<div class="LevelRightBorder"></div>
+									<div class="LevelLeftBorder"></div>
+									<div class="LevelBottomBorder"></div>
+									<div class="LevelTopBorder"></div>
+								</div>
+								<div class="LastRouteRightCont">
+									<div class="LastRouteMoneyIcon"></div>
+									<div class="LastRouteMoneyText">$132 Money Earned</div>
+									<div class="LastRouteXPIcon"></div>
+									<div class="LastRouteXPText">100XP Earned</div>
+								</div>
+							</div>
+							<div class="LastRoutesItem">
+								<div class="LastRouteTypeLeft">NPC</div>
+								<div class="LastRouteLeftIcon"></div>
+								<div class="LastRouteLeftName">Sandy Shores</div>
+								<div class="LastRouteCabBox">Cab Area
+									<div class="LogoWhiteBlur"></div>
+									<div class="LevelRightBorder"></div>
+									<div class="LevelLeftBorder"></div>
+									<div class="LevelBottomBorder"></div>
+									<div class="LevelTopBorder"></div>
+								</div>
+								<div class="LastRouteRightCont">
+									<div class="LastRouteMoneyIcon"></div>
+									<div class="LastRouteMoneyText">$132 Money Earned</div>
+									<div class="LastRouteXPIcon"></div>
+									<div class="LastRouteXPText">100XP Earned</div>
+								</div>
+							</div>
+							<div class="LastRoutesItem">
+								<div class="LastRouteTypeLeft">NPC</div>
+								<div class="LastRouteLeftIcon"></div>
+								<div class="LastRouteLeftName">Sandy Shores</div>
+								<div class="LastRouteCabBox">Cab Area
+									<div class="LogoWhiteBlur"></div>
+									<div class="LevelRightBorder"></div>
+									<div class="LevelLeftBorder"></div>
+									<div class="LevelBottomBorder"></div>
+									<div class="LevelTopBorder"></div>
+								</div>
+								<div class="LastRouteRightCont">
+									<div class="LastRouteMoneyIcon"></div>
+									<div class="LastRouteMoneyText">$132 Money Earned</div>
+									<div class="LastRouteXPIcon"></div>
+									<div class="LastRouteXPText">100XP Earned</div>
+								</div>
+							</div>
+							<div class="LastRoutesItem">
+								<div class="LastRouteTypeLeft">NPC</div>
+								<div class="LastRouteLeftIcon"></div>
+								<div class="LastRouteLeftName">Sandy Shores</div>
+								<div class="LastRouteCabBox">Cab Area
+									<div class="LogoWhiteBlur"></div>
+									<div class="LevelRightBorder"></div>
+									<div class="LevelLeftBorder"></div>
+									<div class="LevelBottomBorder"></div>
+									<div class="LevelTopBorder"></div>
+								</div>
+								<div class="LastRouteRightCont">
+									<div class="LastRouteMoneyIcon"></div>
+									<div class="LastRouteMoneyText">$132 Money Earned</div>
+									<div class="LastRouteXPIcon"></div>
+									<div class="LastRouteXPText">100XP Earned</div>
+								</div>
+							</div>
+							<div class="LastRoutesItem">
+								<div class="LastRouteTypeLeft">NPC</div>
+								<div class="LastRouteLeftIcon"></div>
+								<div class="LastRouteLeftName">Sandy Shores</div>
+								<div class="LastRouteCabBox">Cab Area
+									<div class="LogoWhiteBlur"></div>
+									<div class="LevelRightBorder"></div>
+									<div class="LevelLeftBorder"></div>
+									<div class="LevelBottomBorder"></div>
+									<div class="LevelTopBorder"></div>
+								</div>
+								<div class="LastRouteRightCont">
+									<div class="LastRouteMoneyIcon"></div>
+									<div class="LastRouteMoneyText">$132 Money Earned</div>
+									<div class="LastRouteXPIcon"></div>
+									<div class="LastRouteXPText">100XP Earned</div>
+								</div>
+							</div>
+							<div class="LastRoutesItem">
+								<div class="LastRouteTypeLeft">NPC</div>
+								<div class="LastRouteLeftIcon"></div>
+								<div class="LastRouteLeftName">Sandy Shores</div>
+								<div class="LastRouteCabBox">Cab Area
+									<div class="LogoWhiteBlur"></div>
+									<div class="LevelRightBorder"></div>
+									<div class="LevelLeftBorder"></div>
+									<div class="LevelBottomBorder"></div>
+									<div class="LevelTopBorder"></div>
+								</div>
+								<div class="LastRouteRightCont">
+									<div class="LastRouteMoneyIcon"></div>
+									<div class="LastRouteMoneyText">$132 Money Earned</div>
+									<div class="LastRouteXPIcon"></div>
+									<div class="LastRouteXPText">100XP Earned</div>
+								</div>
+							</div>
+							<div class="LastRoutesItem">
+								<div class="LastRouteTypeLeft">NPC</div>
+								<div class="LastRouteLeftIcon"></div>
+								<div class="LastRouteLeftName">Sandy Shores</div>
+								<div class="LastRouteCabBox">Cab Area
+									<div class="LogoWhiteBlur"></div>
+									<div class="LevelRightBorder"></div>
+									<div class="LevelLeftBorder"></div>
+									<div class="LevelBottomBorder"></div>
+									<div class="LevelTopBorder"></div>
+								</div>
+								<div class="LastRouteRightCont">
+									<div class="LastRouteMoneyIcon"></div>
+									<div class="LastRouteMoneyText">$132 Money Earned</div>
+									<div class="LastRouteXPIcon"></div>
+									<div class="LastRouteXPText">100XP Earned</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="NotifyFailed">
+				<div class="NotifyLeftBg">
+					<div class="NotifyLeftBgGlow"></div>
+				</div>
+				<div class="NotifyRightCon">
+					<div class="NotifyRightConTop">FAILED!</div>
+					<div class="NotifyRightConBottom">There’s not enough money in your balance. Top up your balance and  try again!</div>
+				</div>
+			</div>
+			<div class="NotifySuccess">
+				<div class="NotifyLeftBg" style="background-image: url(./img/icons/success.png);">
+					<div class="NotifyLeftBgGlow" style="background-image: url(./img/icons/success.png);"></div>
+				</div>
+				<div class="NotifyRightCon">
+					<div class="NotifyRightConTop" style="color: #2AD685;">FAILED!</div>
+					<div class="NotifyRightConBottom">There’s not enough money in your balance. Top up your balance and  try again!</div>
+				</div>
+			</div>
+			<div class="NotifyWrong">
+				<div class="NotifyLeftBg" style="background-image: url(./img/icons/wrong.png);">
+					<div class="NotifyLeftBgGlow" style="background-image: url(./img/icons/wrong.png);"></div>
+				</div>
+				<div class="NotifyRightCon">
+					<div class="NotifyRightConTop" style="color: #FFC64B;">FAILED!</div>
+					<div class="NotifyRightConBottom">There’s not enough money in your balance. Top up your balance and  try again!</div>
+				</div>
+			</div>
+			<div id="KeybindButtonsCont" class="KeybindButtonsCont">
+				<div class="KeybindItem">
+					<div class="KeybindItemLeftBorder"></div>
+					<div id="mousekey" class="KeybindItemKeyBox">M</div>
+					<div class="KeybindTextRightCont">
+						<div class="KeybindTextRightContTop">press m to</div>
+						<div data-locale="active_mouse" class="KeybindTextRightContBottom">ACTIVE MOUSE</div>
+					</div>
+				</div>
+				<div class="KeybindItem">
+					<div class="KeybindItemLeftBorder"></div>
+					<div id="taximeteropen" class="KeybindItemKeyBox">M</div>
+					<div class="KeybindTextRightCont">
+						<div class="KeybindTextRightContTop">press m to</div>
+						<div data-locale="active_taximeter" class="KeybindTextRightContBottom">ACTIVE TAXIMETER</div>
+					</div>
+				</div>
+				<div class="KeybindItem">
+					<div class="KeybindItemLeftBorder"></div>
+					<div id="airopenkey" class="KeybindItemKeyBox">M</div>
+					<div class="KeybindTextRightCont">
+						<div class="KeybindTextRightContTop">press m to</div>
+						<div data-locale="open_air" class="KeybindTextRightContBottom">activate AIR CONDITIONING</div>
+					</div>
+				</div>
+			</div>
+			<div id="ClientSatisfaction" class="ClientSatisfaction">
+				<div class="ClientSatisfactionTopCont">
+					<div id="ClientSatisfactionTopContBox" class="ClientSatisfactionTopContBox">😃</div>
+					<div class="ClientSatisfactionTopContRightTextCont">
+						<div id="clientstext" class="ClientSatisfactionTopContRightTextContTop">client satisfied</div>
+						<div id="clientsdesc" class="ClientSatisfactionTopContRightTextContBottom">Client is satisfied at the moment</div>
+					</div>
+				</div>
+				<div class="ClientSatisfactionBottomLine"></div>
+			</div>
+			<div id="TaxiMeter" class="TaxiMeter">
+				<div class="TaxiMeterTopLine">
+					<div id="TaxiMeterDragHandle" class="TaxiMeterDragHandle" data-locale-title="drag_handle">⋮⋮</div>
+					<div id="TaximetereCloseX" class="TaximetereCloseX"></div>
+					<div class="TaxiMeterTopLineIcon"></div>
+					<div class="TaxiMeterTopLineText">DOWNTOWN</div>
+					<div class="TaxiMeterTopLineCabIcon">Cab Area</div>
+					<div class="TaxiMeterTopLineRightText">/ / /   <span>08.02.2025</span>   / / /   <span>12:02:10</span> </div>
+				</div>
+				<div class="TaxiMeterBottomBox">
+					<div class="TaxiMeterBottomBoxTop">
+						<div data-locale="fare" class="TaxiMeterBottomBoxTopInLeft">fare</div>
+						<div data-locale="distance" class="TaxiMeterBottomBoxTopInRight">distance</div>
+					</div>
+					<div class="TaxiMeterBottomBoxBottom">
+						<div id="changeprice" class="TaxiMeterBottomBoxBottomLeft">05.53
+							<!-- <div class="TaxiMeterBottomBoxBottomLeftInText">00.00</div> -->
+						</div>
+						<div id="changedistance" class="TaxiMeterBottomBoxBottomRight">25.00
+							<!-- <div class="TaxiMeterBottomBoxBottomRightInText">00.00</div> -->
+						</div>
+					</div>
+				</div>
+				<div class="TaxiMeterUnderBottomCont">
+					<div data-locale="vacant" data-action="vacant" class="VacantBox TaxiMeterUnselected">VACANT</div>
+					<div data-locale="hired" data-action="hired" class="HiredBox TaxiMeterUnselected">HIRED</div>
+					<div data-locale="timeof" data-action="openclose" class="TimeOff TaxiMeterUnselected">SÜRE KAPALI</div>
+					<div data-locale="end_trip" data-action="end" class="EndTripBill TaxiMeterUnselected">END TRIP AND BILL</div>
+				</div>
+			</div>
+			<div id="BillMenu" class="BillMenu">
+				<div class="BillMenuTop"></div>
+				<div id="billdate" class="BillMenuTopText">Wed, June 27, 2025 • 3:28:53 AM</div>
+				<div id="token" class="BillMenuTokenNumber">0237-7746-8981-9028-5626
+					<div class="tokenmbr">Token Nmbr.</div>
+				</div>
+				<div class="CustomerName">
+					<div data-locale="customername" class="BillTextLeft">Müşteri Adı</div>
+					<div id="customername" class="BillTextRight">Akay Scripts</div>
+				</div>
+				<div class="DriverName">
+					<div data-locale="drivename" class="BillTextLeft">Şoför Adı</div>
+					<div id="myname2" class="BillTextRight">Tudor Mapamond</div>
+				</div>
+				<div class="BillLine"></div>
+				<div class="CustomerName">
+					<div data-locale="distance2" class="BillTextLeft">Mesafe</div>
+					<div id="distancetrav" class="BillTextRight">12.02 km</div>
+				</div>
+				<div class="DriverName" style="margin-top: 0.5vw;">
+					<div data-locale="fare2" class="BillTextLeft">Ücret</div>
+					<div id="fare" class="BillTextRight">02.79/ km</div>
+				</div>
+				<div class="BillLine"></div>
+				<div class="CustomerName">
+					<div data-locale="amount2" class="BillTextLeft">Tutar</div>
+					<div id="billamount" class="BillTextRight">950$</div>
+				</div>
+				<div class="DriverName" style="margin-top: 0.6vw;">
+					<!-- <div class="BillTextRight">20$</div> -->
+				</div>
+				<div class="DriverName" style="margin-top: 0.5vw;">
+					<div class="BillTextLeft">Toplam</div>
+					<div id="billamount2" class="BillTextRight">970$</div>
+				</div>
+				<div class="BillLine"></div>
+				<div data-locale="confirm_payment" id="ConfirmPaymentBox" class="ConfirmPaymentBox">ÖDEMEYİ ONAYLA</div>
+			</div>
+			<div id="JobDoneMenu" class="JobDoneMenu">
+				<div data-locale="jobdone1" class="JobDoneMenuJobDoneText"> İŞ <br> <span>BİTTİ</span> 
+					<div class="JobDoneMenuJobDoneTextIn">İŞ <br>BİTTİ</div>
+				</div>
+				<div class="JobDoneBoxes">
+					<div class="JobDoneBoxesIcon">
+						<div class="InIcon"></div>
+					</div>
+					<div data-locale="client_transporter" class="JobDoneBoxesTextLeft">Clients Transported</div>
+					<div id="clients" class="JobDoneBoxesTextRight">5 clients</div>
+				</div>
+				<div class="JobDoneBoxes" style="margin-top: 0.5vw;">
+					<div class="JobDoneBoxesIcon">
+						<div class="InIcon" style="background-image: url(./img/icons/streering_icon.png); margin-left: 0.1vw;"></div>
+					</div>
+					<div data-locale="time_taken" class="JobDoneBoxesTextLeft">Time Taken</div>
+					<div id="time" class="JobDoneBoxesTextRight">12m37s</div>
+				</div>
+				<div class="JobDoneBoxes" style="margin-top: 0.6vw;">
+					<div class="JobDoneBoxesIcon">
+						<div class="InIcon"></div>
+					</div>
+					<div data-locale="satis_client" class="JobDoneBoxesTextLeft">Satisfied Clients</div>
+					<div id="Satisfied" class="JobDoneBoxesTextRight">5 Clients</div>
+				</div>
+				<div class="JobDoneBoxes" style="margin-top: 0.6vw;">
+					<div class="JobDoneBoxesIcon">
+						<div class="InIcon"></div>
+					</div>
+					<div data-locale="dissatis_client" class="JobDoneBoxesTextLeft">Dissatisfied Clients</div>
+					<div id="Dissatisfied" class="JobDoneBoxesTextRight">5 Clients</div>
+				</div>
+				<div class="JobDoneBoxes" style="margin-top: 0.6vw;">
+					<div class="JobDoneBoxesIcon">
+						<div class="InIcon" style="background-image: url(./img/icons/money_icon_jobdone.png); background-size: 0.67vw 0.67vw; margin-left: 0.1vw;"></div>
+					</div>
+					<div data-locale="money_earn" class="JobDoneBoxesTextLeft">Money Earned</div>
+					<div id="moneyearns" class="JobDoneBoxesTextRight">1000$ Money</div>
+				</div>
+			</div>
+			<div id="AirContitioning" class="AirContitioning">
+				<div class="AirContitioningTop">
+					<div class="AirContitioningTopGlow">
+						<svg xmlns="http://www.w3.org/2000/svg" width="255" height="147" viewBox="0 0 255 147" style="width: 300%; height: 300%;" fill="none">
+							<g filter="url(#filter0_f_340_1781)">
+								<ellipse cx="33.0277" cy="0.4881" rx="122.87" ry="41.0574" transform="rotate(-10 33.0277 0.4881)" fill="#C87E08"/>
+							</g>
+							<defs>
+								<filter id="filter0_f_340_1781" x="-188.189" y="-145.238" width="442.434" height="291.453" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+								<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+								<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+								<feGaussianBlur stdDeviation="50" result="effect1_foregroundBlur_340_1781"/>
+								</filter>
+							</defs>
+						</svg>
+					</div>
+					<div class="AirContitioningTopCont">
+						<div class="AirContitioningTopLeftLogo"></div>
+						<div class="AirContitioningTopLeftHeadCont">
+							<div data-locale="air_con" class="AirContitioningTopLeftHeadContTop">AIR CONDITIONING</div>
+							<div data-locale="air_con_desc" class="AirContitioningTopLeftHeadContBottom">The air conditioner that blows you cold air</div>
+						</div>
+						<div id="exitair" data-locale="exitpanel" class="AirContitioningTopClosebtn">Exit Panel x</div>
+					</div>
+					<div class="AirContitioningUnderTop">
+						<div data-locale="turnoff" id="AirClose" class="AirControlBtn AirOpen">Turn Off</div>
+						<div data-locale="turnon" id="AirOpen" class="AirControlBtn AirClosed">Turn On</div>
+					</div>
+					<div class="AirContitioningMidContainer">
+						<div class="AirContitioningMidFanIcon">
+							<div class="AirContitioningMidFanIconGlow"></div>
+						</div>
+						<div class="AirContitioningMidFanTexts">
+							<div class="AirContitioningMidFanTextsTop">FAN</div>
+							<div data-locale="adjust_fan" class="AirContitioningMidFanTextsBottom">Adjust the fan speed</div>
+						</div>
+						<div class="AirContinerMidLevelChangerBox">
+							<div class="AirContinerMidLevelChangerBoxLevel">
+								<div class="AirContinerMidLevelChangerBoxLevelInBox"></div>
+							</div>
+							<div id="AirSliderBox" class="AirSliderBox"></div>
+							<input type="range" min="1" max="5" step="1" value="1" class="AirSlider" />
+							<div class="AirContinerNumber">1</div>
+							<div class="AirContinerNumber">2</div>
+							<div class="AirContinerNumber">3</div>
+							<div class="AirContinerNumber">4</div>
+							<div class="AirContinerNumber">5</div>
+						</div>
+					</div>
+					<div class="AirContitioningTempContainer">
+						<div class="AirContitioningMidFanIcon" style="background-image: url(./img/icons/thermometer_icon.png);">
+							<div class="AirContitioningMidFanIconGlow"></div>
+						</div>
+						<div class="AirContitioningMidFanTexts">
+							<div data-locale="temp" class="AirContitioningMidFanTextsTop">TEMPERATURE</div>
+							<div data-locale="temp_desc" class="AirContitioningMidFanTextsBottom">Adjust the temperature</div>
+						</div>
+						<div data-locale="warm" class="AirContinionWarmBox">Warm</div>
+						<div class="SliderAlt">
+							<div id="SliderAltCircle" class="SliderAltCircle">
+								<svg width="12" height="12" viewBox="0 0 12 12" style="width: 100%; height: 100%;" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<circle cx="6" cy="6" r="6" fill="#778ABC"/>
+									<circle cx="6" cy="6" r="4.5" stroke="black" stroke-opacity="0.25" stroke-width="3"/>
+								</svg>
+								<div id="derecetext" class="SliderAltText">22°C</div>
+							</div>
+						</div>
+						<div data-locale="cold" class="AirContinionColdBox">Cold</div>
+					</div>
+				</div>
+				<div class="AirContitioningBottom">
+					The customer is not satisfied with the air conditioning     / / /     Reduce air conditioning speed  
+					<div class="AirContitioningBottomx" style="left: 1.55vw;"></div>
+					<div class="AirContitioningBottomx" style="right: 1.55vw;"></div>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>
