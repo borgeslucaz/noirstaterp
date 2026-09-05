@@ -1,6 +1,6 @@
 # Guia de design de interfaces v2 — Noir State RP
 
-> Padrão visual para novas NUIs, menus, notificações, confirmações e outros componentes do servidor. A referência principal é o `rome_pausemenu` (`[standalone]/rome_pausemenu/ui`). A v1 deste guia (`DESIGN.md`) permanece como referência histórica.
+> Padrão visual para novas NUIs, menus, notificações, confirmações e outros componentes do servidor. A referência principal é o `noir_pausemenu` (`[standalone]/noir_pausemenu/ui`). A v1 deste guia (`DESIGN.md`) permanece como referência histórica.
 
 ## 0. O que mudou da v1 para a v2
 
@@ -35,7 +35,7 @@ Evite gradientes coloridos, neon, glow intenso, sombras pesadas de caixa, bordas
 
 ## 2. Fonte de verdade
 
-A referência canônica é o build do `rome_pausemenu` em `[standalone]/rome_pausemenu/ui`. A fonte padrão é:
+A referência canônica é o build do `noir_pausemenu` em `[standalone]/noir_pausemenu/ui`. A fonte padrão é:
 
 ```css
 font-family: "Plus Jakarta Sans", Inter, sans-serif;
@@ -104,7 +104,7 @@ Centralize os valores abaixo; replique os nomes em vez de espalhar literais.
 
 ## 4. Unidades: tudo em `vh`
 
-NUIs de tela cheia dimensionam **tudo em `vh`** (1vh = 1% da altura da viewport). Assim a interface escala com a proporção da tela do jogo, igual ao `rome_pausemenu`.
+NUIs de tela cheia dimensionam **tudo em `vh`** (1vh = 1% da altura da viewport). Assim a interface escala com a proporção da tela do jogo, igual ao `noir_pausemenu`.
 
 Referência em 1080p (1vh ≈ 10,8px):
 

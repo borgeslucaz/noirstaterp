@@ -1,62 +1,113 @@
-CreateThread(function()
-    for k,v in pairs(Config.CabLocations) do
-        CORE:SafeRequestModel(v.PedModel, 5000)
-        local ped = CreatePed(4, v.PedModel, v.AccesCoord.x, v.AccesCoord.y, v.AccesCoord.z - 1.0, 0.0, false, true)
-        SetEntityHeading(ped, v.AccesCoord.w)
-        FreezeEntityPosition(ped, true)
-        SetBlockingOfNonTemporaryEvents(ped, true)
-        SetPedFleeAttributes(ped, 0, false)
-        SetPedCombatAttributes(ped, 17, true)
-        SetPedCanBeTargetted(ped, false)
-        SetEntityInvincible(ped, true)
-        SetPedCanBeDraggedOut(ped, false)
-        SetPedCanRagdoll(ped, false)
-        SetCanAttackFriendly(ped, false, false)
-        if Config.Interaction == "target" then
-            exports["ox_target"]:addBoxZone({
-                coords = vec3(v.AccesCoord.x, v.AccesCoord.y, v.AccesCoord.z),
-                size = vec3(1, 1, 1),
-                drawSprite = true,
-                options = {
-                    {
-                        name = "taxi_job" .. k,
-                        label = Config.locales[Config.Locale].ui.open_taxi_menu,
-                        icon = "fa-solid fa-atom",
-                        canInteract = function()
-                            local srvId = GetPlayerServerId(NetworkGetPlayerIndexFromPed(PlayerPedId()))
-                            if Player(srvId).state["qbx_medical:deathState"] == 3 or Player(srvId).state["qbx_medical:deathState"] == 2 then return false end
-                            return true
-                        end,
-                        onSelect = function()
-                            TriggerEvent('ak4y-taxi:Open')
-                        end,
-                    }
-                }
-            })
-        end
+-- Central de táxi: ped com ox_target para pegar/devolver o táxi. Fora do veículo, sem NUI própria.
+Depot = { netId = nil, ped = 0, blip = nil }
+
+local D = Config.Depot
+
+local function depotVehicle()
+    if not Depot.netId or not NetworkDoesEntityExistWithNetworkId(Depot.netId) then return 0 end
+    local veh = NetToVeh(Depot.netId)
+    if veh == 0 or not DoesEntityExist(veh) then return 0 end
+    return veh
+end
+
+local function hasVehicleNearby()
+    local veh = depotVehicle()
+    if veh == 0 then return false end
+    return #(GetEntityCoords(cache.ped) - GetEntityCoords(veh)) <= 10.0
+end
+
+local depotErrors = {
+    already = 'notify.depot_already',
+    no_space = 'notify.depot_no_space',
+    duty = 'notify.off_duty',
+    job = 'notify.not_taxi_job',
+    failed = 'notify.depot_failed',
+    not_near = 'notify.depot_not_near',
+    not_yours = 'notify.depot_not_yours',
+}
+
+function Depot.take()
+    if not Taxi.canWork() then
+        local job = Taxi.getJob()
+        Notify((job and job.name == Config.Job) and 'notify.off_duty' or 'notify.not_taxi_job', 'error')
+        return
     end
+    local res = lib.callback.await('ak4y-taxi:server:takeVehicle', false)
+    if not res or not res.ok then
+        local key = res and depotErrors[res.reason]
+        if key then Notify(key, 'error') end
+        return
+    end
+    Depot.netId = res.netId
+    Notify('notify.depot_taken', 'success')
+end
+
+function Depot.returnVehicle()
+    local veh = depotVehicle()
+    if veh == 0 then
+        Notify('notify.depot_not_near', 'error')
+        return
+    end
+    local res = lib.callback.await('ak4y-taxi:server:returnVehicle', false, Depot.netId)
+    if not res or not res.ok then
+        local key = res and depotErrors[res.reason]
+        if key then Notify(key, 'error') end
+        return
+    end
+    Depot.netId = nil
+    Notify('notify.depot_returned', 'success')
+end
+
+CreateThread(function()
+    lib.requestModel(D.pedModel, 10000)
+    local ped = CreatePed(4, joaat(D.pedModel), D.coords.x, D.coords.y, D.coords.z - 1.0, D.coords.w, false, true)
+    SetModelAsNoLongerNeeded(joaat(D.pedModel))
+    FreezeEntityPosition(ped, true)
+    SetEntityInvincible(ped, true)
+    SetBlockingOfNonTemporaryEvents(ped, true)
+    SetPedCanRagdoll(ped, false)
+    SetPedCanBeTargetted(ped, false)
+    TaskStartScenarioInPlace(ped, 'WORLD_HUMAN_CLIPBOARD', 0, true)
+    Depot.ped = ped
+
+    if D.blip then
+        local blip = AddBlipForCoord(D.coords.x, D.coords.y, D.coords.z)
+        SetBlipSprite(blip, D.blip.sprite)
+        SetBlipColour(blip, D.blip.color)
+        SetBlipScale(blip, D.blip.scale)
+        SetBlipAsShortRange(blip, true)
+        BeginTextCommandSetBlipName('STRING')
+        AddTextComponentSubstringPlayerName(D.blip.label)
+        EndTextCommandSetBlipName(blip)
+        Depot.blip = blip
+    end
+
+    exports.ox_target:addLocalEntity(ped, {
+        {
+            name = 'ak4y_taxi_take',
+            icon = 'fa-solid fa-taxi',
+            label = locale('target.take_taxi'),
+            distance = 3.0,
+            canInteract = function()
+                return Taxi.canWork() and not cache.vehicle and depotVehicle() == 0
+            end,
+            onSelect = Depot.take,
+        },
+        {
+            name = 'ak4y_taxi_return',
+            icon = 'fa-solid fa-square-parking',
+            label = locale('target.return_taxi'),
+            distance = 3.0,
+            canInteract = function()
+                return not cache.vehicle and hasVehicleNearby()
+            end,
+            onSelect = Depot.returnVehicle,
+        },
+    })
 end)
 
-GiveVehicleKeys = function(plate, model)
-    TriggerServerEvent('qb-vehiclekeys:server:AcquireVehicleKeys', plate)
-end
-
-PathTaken = function(distance)
-end
-
-SatisfiedTrip = function()
-end
-
-DissatisfiedTrip = function()
-    
-end
-
-FinishJob = function()
-end
-
-EarnedMoney = function(money)
-end
-
-function SetFuelFunction(veh)
-    SetVehicleFuelLevel(veh, 100.0)
-end
+AddEventHandler('onResourceStop', function(resource)
+    if resource ~= GetCurrentResourceName() then return end
+    if Depot.ped ~= 0 and DoesEntityExist(Depot.ped) then DeleteEntity(Depot.ped) end
+    if Depot.blip then RemoveBlip(Depot.blip) end
+end)

@@ -1,0 +1,26 @@
+Locales = Locales or {}
+
+Locales['pt-br'] = {
+    resume = 'Continuar',
+    settings = 'Configurações',
+    maps = 'Mapa',
+    photomode = 'Modo Foto',
+    exit_server = 'Sair do Servidor',
+    exit_confirm = 'Tem certeza de que deseja sair do servidor?',
+    yes = 'Sim',
+    no = 'Não',
+    cash = 'Dinheiro',
+    bank = 'Banco',
+    job = 'Emprego',
+    id = 'ID',
+    rotate_left = 'Girar para a esquerda',
+    rotate_right = 'Girar para a direita',
+    prev_filter = 'Filtro anterior',
+    next_filter = 'Próximo filtro',
+    exit_photomode = 'Sair do Modo Foto',
+    filter = 'Filtro',
+    blur = 'Desfoque de fundo',
+    players = 'Jogadores',
+    none = 'Nenhum',
+    press_esc = 'Pressione ESC para voltar ao menu',
+}

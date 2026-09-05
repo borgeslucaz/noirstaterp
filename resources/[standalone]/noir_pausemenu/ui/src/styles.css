@@ -1,0 +1,66 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Plus+Jakarta+Sans:wght@500;600&display=swap");
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+html, body, #root { width: 100%; height: 100%; overflow: hidden; background: transparent !important; }
+button, input { font: inherit; }
+
+.nui { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; color: white; opacity: 1; transition: opacity 180ms ease; }
+.nui.phase-entering { animation: nui-enter 550ms cubic-bezier(.16, 1, .3, 1) both; }
+.nui.phase-exiting { opacity: 0; transition-duration: 600ms; }
+@keyframes nui-enter { from { opacity: 0; } to { opacity: 1; } }
+
+.pause-view, .photo-view { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+.shade { position: absolute; top: 0; width: 48%; height: 100%; pointer-events: none; z-index: 1; }
+.shade-left { left: 0; background: linear-gradient(to right, rgba(0,0,0,.52), rgba(0,0,0,.28) 45%, transparent); }
+.shade-right { right: 0; background: linear-gradient(to left, rgba(0,0,0,.52), rgba(0,0,0,.28) 45%, transparent); }
+.top-left, .top-right, .pause-view nav { position: absolute; z-index: 2; }
+.top-left { top: 5vh; left: 5vh; }
+.top-right { top: 5vh; right: 5vh; }
+.pause-view nav { left: 5vh; top: 50%; width: 26vh; transform: translateY(-50%); display: flex; flex-direction: column; }
+
+.player-card { min-width: 22vh; padding-left: 1.2vh; border-left: 1px solid rgba(255,255,255,.18); font-family: "Plus Jakarta Sans", sans-serif; }
+.player-card h2 { display: flex; align-items: baseline; gap: .55vh; margin-bottom: .8vh; line-height: 1.1; }
+.player-card h2 span { font-size: 1.9vh; font-weight: 600; letter-spacing: .02em; }
+.player-card h2 small { color: rgba(255,255,255,.38); font-size: 1.15vh; font-weight: 600; letter-spacing: .02em; }
+.cash { display: flex; align-items: baseline; gap: .5vh; }
+.cash > span { color: rgba(255,255,255,.3); font-size: .95vh; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.cash > span::after { content: "·"; margin-left: .5vh; color: rgba(255,255,255,.15); }
+.cash strong { color: rgba(255,255,255,.82); font-size: 1.1vh; font-weight: 600; letter-spacing: .02em; }
+
+.server-card { min-width: 20vh; text-align: right; }
+.server-card h2 { margin-bottom: .5vh; color: rgba(255,255,255,.92); font: 600 1.8vh "Plus Jakarta Sans", sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+
+.menu-button { --index: 0; display: flex; align-items: center; gap: 1.6vh; width: 100%; padding: 1.1vh 0; border: 0; border-bottom: 1px solid rgba(255,255,255,.06); background: transparent; color: rgba(255,255,255,.72); cursor: pointer; text-align: left; font: 600 1.45vh "Plus Jakarta Sans", sans-serif; letter-spacing: .04em; animation: menu-enter 700ms cubic-bezier(.16,1,.3,1) both; animation-delay: calc(100ms + var(--index) * 70ms); transition: border-color .25s, color .25s, transform .2s; }
+.phase-exiting .menu-button { opacity: 0; transform: translateX(-3vh); transition-delay: calc((4 - var(--index)) * 45ms); }
+.menu-button:hover { border-bottom-color: rgba(255,255,255,.18); color: white; transform: translateX(.4vh); }
+.menu-button.danger { color: rgba(255,255,255,.45); }
+.menu-button.danger:hover { color: rgba(255,130,130,.95); }
+.menu-icon { display: flex; align-items: center; justify-content: center; min-width: 2.4vh; }
+.menu-icon svg { width: 1.6vh; height: 1.6vh; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+@keyframes menu-enter { from { opacity: 0; transform: translateX(-4vh); } to { opacity: 1; transform: translateX(0); } }
+
+.confirm-backdrop { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.5); }
+.confirm-box { max-width: 38vh; padding: 3vh 3.5vh; border: 1px solid rgba(255,255,255,.08); background: rgba(10,10,12,.88); text-align: center; animation: confirm-enter 300ms ease both; }
+.confirm-box p { margin-bottom: 2.2vh; color: rgba(255,255,255,.75); font: 300 1.35vh/1.6 Inter, sans-serif; }
+.confirm-box > div { display: flex; justify-content: center; gap: 1vh; }
+.confirm-box button { padding: .9vh 2.2vh; border: 1px solid rgba(255,255,255,.12); background: transparent; color: rgba(255,255,255,.7); font: 400 1.15vh Inter, sans-serif; letter-spacing: .06em; cursor: pointer; transition: all .2s; }
+.confirm-box button:hover { border-color: rgba(255,255,255,.3); color: white; }
+.confirm-box .confirm-yes { border-color: rgba(255,100,100,.35); color: rgba(255,150,150,.9); }
+@keyframes confirm-enter { from { opacity: 0; transform: translateY(1.2vh); } to { opacity: 1; transform: translateY(0); } }
+
+.photo-view { pointer-events: none; background: transparent; font-family: Inter, sans-serif; }
+.drag-zone { position: absolute; inset: 0; z-index: 0; pointer-events: all; cursor: grab; }
+.drag-zone:active { cursor: grabbing; }
+.filter-controls, .camera-controls { position: absolute; left: 2.2vh; z-index: 2; display: flex; align-items: center; gap: .4vh; pointer-events: all; }
+.filter-controls { top: 2.2vh; }
+.camera-controls { bottom: 2.2vh; }
+.filter-controls label { display: inline-flex; align-items: center; justify-content: center; min-width: 4.2vh; height: 2.6vh; }
+.filter-controls input { width: 2.5ch; padding: 0; border: 0; outline: 0; background: transparent; color: white; text-align: right; font-size: .88vh; font-weight: 600; text-shadow: 0 1px 2px black; }
+.filter-controls label span { color: rgba(255,255,255,.5); font-size: .72vh; font-weight: 500; text-shadow: 0 1px 2px black; }
+.circle-button { display: flex; align-items: center; justify-content: center; width: 2.6vh; height: 2.6vh; padding: 0; border: 1px solid rgba(255,255,255,.2); border-radius: 50%; background: rgba(0,0,0,.28); color: rgba(255,255,255,.92); cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.5); transition: background .15s, border-color .15s, transform .1s; }
+.circle-button:hover { border-color: rgba(255,255,255,.35); background: rgba(0,0,0,.42); transform: scale(1.05); }
+.circle-button:active { transform: scale(.92); }
+.circle-button.active { border-color: rgba(255,255,255,.55); background: rgba(255,255,255,.14); }
+.circle-button svg { width: 1.05vh; height: 1.05vh; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }

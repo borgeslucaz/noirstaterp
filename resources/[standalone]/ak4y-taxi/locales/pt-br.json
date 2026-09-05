@@ -1,0 +1,37 @@
+{
+    "notify": {
+        "not_taxi_job": "Você não é taxista.",
+        "off_duty": "Entre em serviço para trabalhar de táxi.",
+        "vehicle_not_allowed": "Este veículo não é um táxi válido.",
+        "activation_failed": "Não foi possível ativar o taxímetro. Tente novamente.",
+        "offer_expired": "Chamada ignorada. A central vai procurar outra corrida.",
+        "accept_failed": "Não foi possível aceitar a chamada.",
+        "no_seat": "Não há assento disponível para o passageiro.",
+        "boarding_failed": "O passageiro não conseguiu embarcar. Corrida cancelada.",
+        "passenger_left": "O passageiro desistiu da corrida.",
+        "driver_left": "Você abandonou o táxi. Corrida cancelada.",
+        "return_to_taxi": "Volte ao táxi em %s segundos ou a corrida será cancelada.",
+        "vehicle_lost": "O táxi foi perdido. Corrida cancelada.",
+        "impossible_movement": "Movimento inválido detectado. Corrida cancelada.",
+        "complete_failed": "Não foi possível finalizar a corrida. Aproxime-se do destino e pare o táxi.",
+        "fare_paid": "Corrida finalizada. Você recebeu $%s.",
+        "calls_paused": "Chamadas pausadas.",
+        "calls_resumed": "Chamadas retomadas.",
+        "cannot_pause": "Finalize a corrida atual antes de pausar as chamadas.",
+        "depot_taken": "Táxi liberado. Boa corrida.",
+        "depot_already": "Você já está com um táxi da central.",
+        "depot_no_space": "Todas as vagas da central estão ocupadas.",
+        "depot_failed": "Não foi possível liberar o táxi.",
+        "depot_returned": "Táxi devolvido à central.",
+        "depot_not_near": "Aproxime-se do seu táxi para devolvê-lo.",
+        "depot_not_yours": "Este táxi não é da central."
+    },
+    "target": {
+        "take_taxi": "Pegar táxi",
+        "return_taxi": "Devolver táxi"
+    },
+    "blip": {
+        "pickup": "Passageiro",
+        "dropoff": "Destino"
+    }
+}

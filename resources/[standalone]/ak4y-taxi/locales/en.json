@@ -1,0 +1,37 @@
+{
+    "notify": {
+        "not_taxi_job": "You are not a taxi driver.",
+        "off_duty": "Go on duty to work as a taxi driver.",
+        "vehicle_not_allowed": "This vehicle is not a valid taxi.",
+        "activation_failed": "Could not activate the taximeter. Try again.",
+        "offer_expired": "Call ignored. Dispatch will look for another fare.",
+        "accept_failed": "Could not accept the call.",
+        "no_seat": "There is no free seat for the passenger.",
+        "boarding_failed": "The passenger could not board. Fare cancelled.",
+        "passenger_left": "The passenger gave up on the fare.",
+        "driver_left": "You abandoned the taxi. Fare cancelled.",
+        "return_to_taxi": "Return to the taxi within %s seconds or the fare will be cancelled.",
+        "vehicle_lost": "The taxi was lost. Fare cancelled.",
+        "impossible_movement": "Invalid movement detected. Fare cancelled.",
+        "complete_failed": "Could not finish the fare. Get close to the destination and stop the taxi.",
+        "fare_paid": "Fare finished. You received $%s.",
+        "calls_paused": "Calls paused.",
+        "calls_resumed": "Calls resumed.",
+        "cannot_pause": "Finish the current fare before pausing calls.",
+        "depot_taken": "Taxi released. Have a good run.",
+        "depot_already": "You already have a taxi from the depot.",
+        "depot_no_space": "All depot bays are occupied.",
+        "depot_failed": "Could not release the taxi.",
+        "depot_returned": "Taxi returned to the depot.",
+        "depot_not_near": "Get close to your taxi to return it.",
+        "depot_not_yours": "This taxi is not from the depot."
+    },
+    "target": {
+        "take_taxi": "Take taxi",
+        "return_taxi": "Return taxi"
+    },
+    "blip": {
+        "pickup": "Passenger",
+        "dropoff": "Destination"
+    }
+}
