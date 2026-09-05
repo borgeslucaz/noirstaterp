@@ -1,6 +1,6 @@
 # Noir Taxi V2 — Planejamento funcional, técnico e de NUI
 
-> Status: **documento de planejamento**. Nenhuma funcionalidade descrita aqui está implementada por este documento.
+> Status: **implementado em 2026-09-05** no resource `noir_taxijob` (v2.1.0). As decisões da seção 31 foram aplicadas com os defaults deste documento e podem ser ajustadas em `serverConfig.lua` (`Progression`, `Ranking`, `Central`, `Migration`) e `config.lua` (`RentalVehicles`, `Depot`).
 >
 > Resource alvo: `noir_taxijob`.
 >

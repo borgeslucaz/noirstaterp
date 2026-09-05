@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Noir Taxi HUD</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600&family=Inter:wght@300;400&display=swap" rel="stylesheet" />
+    <title>Noir Taxi</title>
     <link rel="stylesheet" href="main.css" />
 </head>
 <body>
-    <div id="root">
+    <div id="root" data-mode="closed">
+
+        <!-- ═══════════════════════ HUD de trabalho (sem foco) ═══════════════════════ -->
         <aside class="taxi-hud" id="taxi-hud" hidden aria-live="polite">
             <div class="taxi-stack">
 
@@ -55,7 +54,8 @@
                     <!-- COMPLETING (resultado) -->
                     <div class="meter__body meter__body--result" id="body-result" hidden>
                         <div class="row"><span class="data-label">TARIFA</span><span class="value value--accent" id="result-fare">$0</span></div>
-                        <div class="row"><span class="data-label">REPUTAÇÃO</span><span class="value" id="result-rep">+0</span></div>
+                        <div class="row"><span class="data-label">BÔNUS</span><span class="value value--accent" id="result-bonus">$0</span></div>
+                        <div class="row"><span class="data-label">CONFIANÇA</span><span class="value" id="result-confidence">+0</span></div>
                     </div>
                 </section>
 
@@ -71,10 +71,18 @@
                 </section>
 
                 <!-- Status do passageiro -->
-                <section class="passenger" id="passenger" data-mood="none">
-                    <span class="passenger__dot" aria-hidden="true"></span>
-                    <span class="data-label">PASSAGEIRO</span>
-                    <span class="passenger__label" id="passenger-label">SEM PASSAGEIRO</span>
+                <section class="taxi-panel passenger" id="passenger" data-mood="none">
+                    <div class="passenger__row">
+                        <span class="passenger__id">
+                            <span class="passenger__dot" aria-hidden="true"></span>
+                            <span class="data-label">PASSAGEIRO</span>
+                        </span>
+                        <span class="passenger__label" id="passenger-label">SEM PASSAGEIRO</span>
+                    </div>
+                    <div class="passenger__fear" id="passenger-fear" hidden>
+                        <span class="data-label">SENTIMENTO</span>
+                        <span class="passenger__fear-value" id="passenger-fear-label">TRANQUILO</span>
+                    </div>
                 </section>
 
                 <!-- Dicas de tecla -->
@@ -84,6 +92,149 @@
                 </footer>
             </div>
         </aside>
+
+        <!-- ═══════════════════════ Central do táxi (menu com foco) ═══════════════════════ -->
+        <div class="menu" id="taxi-menu" hidden data-anim="idle" data-status="ready">
+            <div class="window">
+
+                <header class="window__header menu__fx menu__fx--left" style="--i: 0">
+                    <div class="brand">
+                        <svg class="brand__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M5 17h-2v-5l2-5h14l2 5v5h-2" /><path d="M7 17a2 2 0 1 0 4 0 2 2 0 1 0-4 0" /><path d="M13 17a2 2 0 1 0 4 0 2 2 0 1 0-4 0" /><path d="M9 7v-2h6v2" /><path d="M3 12h18" />
+                        </svg>
+                        <span class="brand__stack">
+                            <span class="brand__name" id="menu-brand">NOIR CAB CO.</span>
+                            <span class="brand__sub" id="menu-context">CENTRAL · LOS SANTOS</span>
+                        </span>
+                    </div>
+
+                    <nav class="menu__nav" aria-label="Seções da central" role="tablist">
+                        <button class="nav-item" type="button" role="tab" data-tab="overview" id="nav-overview" aria-selected="true" aria-controls="tab-overview">CENTRAL</button>
+                        <button class="nav-item" type="button" role="tab" data-tab="vehicles" id="nav-vehicles" aria-selected="false" aria-controls="veh-section" tabindex="-1">VEÍCULOS</button>
+                        <button class="nav-item" type="button" role="tab" data-tab="ranking" id="nav-ranking" aria-selected="false" aria-controls="tab-ranking" tabindex="-1">RANKING</button>
+                    </nav>
+
+                    <div class="window__profile">
+                        <span class="profile__stack">
+                            <span class="profile__name" id="drv-name">—</span>
+                            <span class="profile__level" id="drv-level">NÍVEL 1</span>
+                        </span>
+                        <span class="window__sep" aria-hidden="true"></span>
+                        <button class="menu__close" id="menu-close" type="button" aria-label="Fechar a central"><kbd>ESC</kbd> FECHAR</button>
+                    </div>
+                </header>
+
+                <main class="window__main menu__fx menu__fx--left" style="--i: 1" id="wnd-main" data-tab="overview">
+
+                    <!-- Hero: saudação, estado do turno e estatísticas -->
+                    <section class="hero tab" id="tab-overview" role="tabpanel" aria-labelledby="nav-overview" aria-label="Resumo do turno">
+                        <div class="hero__main">
+                            <p class="hero__eyebrow">CENTRAL DO TÁXI</p>
+                            <h1 class="hero__greeting" id="hero-greeting">BEM-VINDO</h1>
+                            <p class="hero__note">Pronto para mais um dia nas ruas de Los Santos?</p>
+                                                        <div class="hero__shift" id="hero-shift" data-state="idle">
+                                <button class="btn btn--fill" type="button" id="hero-cta">ALUGAR VEÍCULO</button>
+                                <span class="hero__status">
+                                    <span class="hero__status-dot" aria-hidden="true"></span>
+                                    <span class="hero__status-text" id="hero-status">FORA DE SERVIÇO</span>
+                                </span>
+                                <span class="hero__alert" id="veh-message" role="alert" hidden>
+                                    <span class="hero__alert-dot" aria-hidden="true"></span>
+                                    <span class="hero__alert-text"></span>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="hero__stats">
+                            <div class="stat">
+                                <span class="data-label">GANHOS DE HOJE</span>
+                                <span class="stat__value" id="stat-earned">$0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="data-label">CORRIDAS</span>
+                                <span class="stat__value" id="stat-rides">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="data-label">SUA POSIÇÃO</span>
+                                <span class="stat__value" id="stat-position">—</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Progressão -->
+                    <section class="progression" aria-label="Progressão do motorista">
+                        <div class="prog__level">
+                            <span class="level-ring" id="lvl-ring" role="img" aria-label="Progresso do nível atual">
+                                <span class="level-ring__inner"><span class="level-ring__num" id="lvl-ring-num">1</span></span>
+                            </span>
+                            <div class="prog__info">
+                                <p class="data-label">NÍVEL DE CONFIANÇA</p>
+                                <h2 class="prog__label" id="lvl-label">INICIANTE</h2>
+                                <div class="prog__bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="ov-progress" aria-label="Progresso no nível atual">
+                                    <span class="prog__track"><span class="prog__fill" id="ov-progress-fill"></span></span>
+                                    <span class="prog__pct" id="ov-progress-pct">0%</span>
+                                    <span class="prog__fraction" id="prog-fraction">0 / 100</span>
+                                </div>
+                                <p class="prog__next" id="prog-next">PRÓXIMO NÍVEL · MOTORISTA</p>
+                                <p class="prog__remaining" id="prog-remaining">FALTAM 100 DE CONFIANÇA</p>
+                            </div>
+                        </div>
+                        <aside class="prog__side">
+                            <p class="data-label">VEÍCULO EM USO</p>
+                            <p class="prog__side-value" id="use-value" data-active="false">NENHUM</p>
+                            <p class="prog__side-sub" id="use-sub">Alugue um veículo para iniciar o turno.</p>
+                        </aside>
+                    </section>
+
+                    <!-- Veículos (visível nas abas CENTRAL e VEÍCULOS) -->
+                    <section class="veh-section tab" id="veh-section" role="tabpanel" aria-labelledby="nav-vehicles" data-mode="compact" aria-label="Veículos disponíveis">
+                        <header class="veh-section__head">
+                            <p class="data-label">VEÍCULOS DISPONÍVEIS</p>
+                            <p class="veh-section__sub" id="veh-sub">Escolha um veículo para iniciar o turno.</p>
+                        </header>
+                        <p class="tab__notice" id="veh-notice" hidden>Devolva seu táxi atual antes de alugar outro.</p>
+                        <div class="veh-list" id="veh-list" role="listbox" aria-label="Veículos da central"></div>
+                        <p class="veh-message" id="veh-rent-message" role="status" hidden></p>
+                    </section>
+
+                    <!-- RANKING -->
+                    <section class="tab tab--ranking" id="tab-ranking" role="tabpanel" aria-labelledby="nav-ranking" hidden aria-label="Ranking da central">
+                        <p class="tab__intro">Os motoristas com maior Confiança na central.</p>
+                        <div class="rank-loading" id="rank-loading" hidden>CARREGANDO RANKING</div>
+                        <p class="tab__notice" id="rank-error" hidden>Não foi possível carregar o ranking. Tente novamente.</p>
+                        <p class="tab__notice" id="rank-empty" hidden>O ranking ainda não possui corridas registradas.</p>
+                        <ol class="rank-list" id="rank-list"></ol>
+                        <div class="rank-self" id="rank-self" hidden>
+                            <span class="data-label rank-self__label">SUA POSIÇÃO</span>
+                            <div class="rank-row rank-row--self" id="rank-self-row"></div>
+                        </div>
+                        <p class="rank-updated" id="rank-updated" hidden></p>
+                    </section>
+
+                    <!-- Erro de carregamento do perfil -->
+                    <div class="menu__error" id="menu-error" hidden>
+                        <p class="menu__error-text">Não foi possível carregar seu perfil. Tente novamente.</p>
+                        <button class="btn" type="button" id="menu-retry">TENTAR NOVAMENTE</button>
+                    </div>
+                </main>
+
+                <footer class="window__footer menu__fx menu__fx--left" style="--i: 2">
+                    <span class="footer__brand">NOIR CAB CO. · PESSOAS EM MOVIMENTO</span>
+                    <span class="footer__motto">MAIS QUE CORRIDAS, CONEXÕES.</span>
+                </footer>
+            </div>
+
+            <!-- Confirmação de taxa -->
+            <div class="backdrop" id="menu-modal" hidden role="dialog" aria-modal="true" aria-labelledby="modal-title">
+                <div class="confirm-box">
+                    <h2 class="confirm-box__title" id="modal-title">ALUGAR TÁXI</h2>
+                    <p id="modal-text">O aluguel custa $0 e será cobrado da sua conta definida pela central.</p>
+                    <div class="confirm-box__actions">
+                        <button class="btn" type="button" id="modal-cancel">VOLTAR</button>
+                        <button class="btn btn--primary" type="button" id="modal-confirm">CONFIRMAR ALUGUEL</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     <script src="app.js"></script>
 </body>

@@ -101,7 +101,7 @@ function NPC.board(ped, vehicle, seat, abortFn, serverWarp)
     return IsPedInVehicle(ped, vehicle, false)
 end
 
----Desembarque: sai do veículo e caminha para longe. A remoção da entidade é do servidor.
+---Desembarque: sai do veículo, fecha a porta e caminha para longe. A remoção da entidade é do servidor.
 ---@param ped number
 ---@param vehicle number
 function NPC.exit(ped, vehicle)
@@ -117,6 +117,11 @@ function NPC.exit(ped, vehicle)
         if DoesEntityExist(ped) then
             SetBlockingOfNonTemporaryEvents(ped, false)
             TaskWanderStandard(ped, 10.0, 10)
+        end
+        -- Fecha as portas que o passageiro deixou abertas ao sair.
+        if DoesEntityExist(vehicle) and not IsPedInVehicle(ped, vehicle, false) then
+            Wait(400)
+            if DoesEntityExist(vehicle) then SetVehicleDoorsShut(vehicle, false) end
         end
     end)
 end

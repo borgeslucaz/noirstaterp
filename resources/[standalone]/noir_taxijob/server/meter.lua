@@ -6,6 +6,14 @@ local C = Config.Climate
 local P = Config.Passenger
 local RL = ServerConfig.RateLimits
 
+-- Limiares dos níveis de medo: batida forte sobe para ASSUSTADO; atingir DESPERADO trava o medo.
+local F = Config.Fear
+local SCARED_MIN, DESPERATE_MIN = math.huge, math.huge
+for _, lv in ipairs(F.Levels) do
+    if lv.key == 'scared' then SCARED_MIN = lv.min end
+    if lv.key == 'desperate' then DESPERATE_MIN = lv.min end
+end
+
 local function fareFor(meters)
     return M.StartingFare + (meters / 1000.0) * M.PricePerKm
 end
@@ -17,7 +25,7 @@ end
 ---@param dtSec number
 local function tickFare(src, driver, fare, now, dtSec)
     local veh = Sessions.getVehicle(driver)
-    if veh == 0 or GetEntityHealth(veh) <= 0 then
+    if veh == 0 or GetEntityHealth(veh) <= 0 or GetVehicleEngineHealth(veh) <= 0 then
         return Sessions.cancelFare(src, 'vehicle_lost')
     end
 
@@ -57,10 +65,13 @@ local function tickFare(src, driver, fare, now, dtSec)
     fare.currentFare = math.min(fareFor(billable), M.MaxFare)
 
     -- Conforto do passageiro (temperatura sincronizada pelo client e validada em server.lua)
+    -- Cada passageiro tem uma faixa de conforto própria, gerada no aceite da chamada.
     if npcInside then
         local climate = driver.climate
         if climate and (now - climate.at) <= ServerConfig.ClimateStaleMs then
-            if climate.temp >= C.ComfortMin and climate.temp <= C.ComfortMax then
+            local prefMin = fare.comfortMin or C.ComfortMin
+            local prefMax = fare.comfortMax or C.ComfortMax
+            if climate.temp >= prefMin and climate.temp <= prefMax then
                 fare.comfort = math.min(100.0, fare.comfort + C.ComfortGain * dtSec)
             else
                 fare.comfort = math.max(0.0, fare.comfort - C.ComfortLoss * dtSec)
@@ -68,8 +79,47 @@ local function tickFare(src, driver, fare, now, dtSec)
         end
     end
 
+    -- Batida forte: queda brusca da lataria (body health) entre medições assusta o passageiro.
+    local crashed = false
+    local body = GetVehicleBodyHealth(veh)
+    if npcInside and fare.bodyHealth and (fare.bodyHealth - body) >= F.CrashDamage then
+        crashed = true
+        if (fare.fear or 0.0) < SCARED_MIN then
+            fare.fear = SCARED_MIN
+        end
+    end
+    fare.bodyHealth = body
+
+    -- Medo do passageiro: velocidade acima do limite assusta; dirigir tranquilo acalma.
+    -- Ao atingir DESESPERADO o susto é permanente: o medo não diminui mais nesta corrida.
+    if npcInside then
+        local speedKmh = GetEntitySpeed(veh) * 3.6
+        local desperate = (fare.fear or 0.0) >= DESPERATE_MIN
+        if speedKmh > F.SpeedLimit then
+            local intensity = math.min(1.0, (speedKmh - F.SpeedLimit) / math.max(1.0, F.HardSpeed - F.SpeedLimit))
+            fare.fear = math.min(100.0, (fare.fear or 0.0) + F.GainPerSecond * (0.3 + 0.7 * intensity) * dtSec)
+        elseif not desperate and not crashed then
+            fare.fear = math.max(0.0, (fare.fear or 0.0) - F.CalmPerSecond * dtSec)
+        end
+    end
+
     TriggerClientEvent('noir_taxijob:client:meter', src, Sessions.snapshot(fare, driver))
 end
+
+---Avisa o servidor sobre uma batida forte detectada no client (perda súbita de velocidade).
+---O medo sobe para o nível ASSUSTADO; a autoridade do valor continua no servidor.
+RegisterNetEvent('noir_taxijob:server:passengerScared', function()
+    local src = source
+    if not Security.rateLimit(src, 'scare', ServerConfig.RateLimits.scare) then return end
+    local driver = Drivers[src]
+    local fare = ActiveFares[src]
+    if not driver or not fare or fare.status ~= 'hired' then return end
+    if not Sessions.isEligible(src, driver.vehicleNetId) then return end
+    if (fare.fear or 0.0) < SCARED_MIN then
+        fare.fear = SCARED_MIN
+        TriggerClientEvent('noir_taxijob:client:meter', src, Sessions.snapshot(fare, driver))
+    end
+end)
 
 ---@param now number
 ---@param dtSec number
@@ -96,9 +146,14 @@ lib.callback.register('noir_taxijob:server:completeFare', function(src, fareId)
     if fare.id ~= id or fare.status ~= 'hired' or fare.paid then
         return Security.deny(src, 'completeFare', 'wrong_state', { id = id, status = fare.status, paid = fare.paid })
     end
-    if not Sessions.isValidDriver(src) then
-        Sessions.removeDriver(src, 'job_changed')
+    if not Sessions.isEligible(src, driver.vehicleNetId) then
+        Sessions.removeDriver(src, 'vehicle_lost')
         return false
+    end
+    local character = Central.identity(src)
+    local rental = ActiveRentals[src]
+    if not character or not rental or rental.citizenid ~= character.citizenId then
+        return Security.deny(src, 'completeFare', 'identity_mismatch', { id = id })
     end
 
     local veh = Sessions.getVehicle(driver)
@@ -118,7 +173,7 @@ lib.callback.register('noir_taxijob:server:completeFare', function(src, fareId)
         return Security.deny(src, 'completeFare', 'trip_too_short', { id = id, meters = math.floor(fare.distanceMeters) })
     end
 
-    -- A partir daqui a corrida não pode ser paga duas vezes.
+    -- A partir daqui a corrida não pode ser paga nem pontuada duas vezes.
     fare.status = 'completing'
     fare.paid = true
 
@@ -131,38 +186,59 @@ lib.callback.register('noir_taxijob:server:completeFare', function(src, fareId)
     else
         tip = fare.currentFare * (Config.Payout.SatisfiedTipPercent / 100.0)
     end
-    local finalFare = math.floor(math.min(fare.currentFare * multiplier + tip, M.MaxFare))
 
-    local repDelta = Config.Reputation.BasePerFare
-    if satisfaction >= C.SatisfiedThreshold then
-        repDelta = repDelta + Config.Reputation.SatisfiedBonus
-    elseif satisfaction <= C.UnhappyThreshold then
-        repDelta = math.max(0, repDelta - Config.Reputation.UnhappyPenalty)
+    -- Bônus de calma: entrega com o ar dentro da faixa térmica do passageiro (mood 'happy')
+    -- e sentimento TRANQUILO (medo nunca passou do primeiro nível).
+    local calmBonus = 0.0
+    if Sessions.mood(fare, driver) == 'happy' and Sessions.fearLevel(fare).key == 'calm' then
+        calmBonus = Config.Payout.CalmBonusPercent / 100.0
     end
+    local bonusAmount = math.floor(fare.currentFare * multiplier * calmBonus + 0.5)
+    local finalFare = math.floor(math.min(fare.currentFare * multiplier * (1.0 + calmBonus) + tip, M.MaxFare))
+    local confidenceDelta = Progression.confidenceFor(satisfaction)
+    local mood = Sessions.mood(fare, driver)
+    local distance = math.floor(fare.distanceMeters)
 
+    -- Ledger + perfil + diário em uma transação; só depois o pagamento.
+    local persisted, row = false, nil
+    if finalFare > 0 or ServerConfig.Progression.CountZeroFare then
+        persisted, row = Progression.recordFare(character.citizenId, Sessions.fareKey(fare.id), finalFare, confidenceDelta, distance, satisfaction)
+    end
+    if not persisted then
+        confidenceDelta = 0
+        if ServerConfig.Progression.PayWhenPersistFails then
+            print(('[noir_taxijob] progressão não persistida src=%s fare=%s (pagamento mantido)'):format(src, fare.id))
+            exports.bgrz_core:Notify(src, locale('notify.progress_not_saved'), 'error')
+        else
+            finalFare = 0
+            exports.bgrz_core:Notify(src, locale('notify.progress_not_saved'), 'error')
+        end
+    end
     if finalFare > 0 then
         exports.bgrz_core:AddMoney(src, 'cash', finalFare, 'taxi-npc-fare')
     end
-    local totalRep = exports.bgrz_core:AddJobReputation(src, Config.Job, repDelta)
-    local mood = Sessions.mood(fare, driver)
 
-    Sessions.debug('fare paid src=%s id=%s meters=%.0f fare=%s satisfaction=%.0f rep=+%s', src, id, fare.distanceMeters, finalFare, satisfaction, repDelta)
+    Sessions.debug('fare_progress cid=%s fareId=%s confidence=+%s earned=%s satisfaction=%.0f', character.citizenId, fare.id, confidenceDelta, finalFare, satisfaction)
 
     -- O ped sai do veículo no client; o servidor remove a entidade depois.
     Sessions.releasePickup(fare.pickupIndex)
     Sessions.deleteNpc(fare, P.DespawnDelay)
-    ActiveFares[src] = nil
-    driver.status = 'available'
-    driver.awaySince = nil
-    driver.nextOfferAt = now + Config.Dispatch.CooldownAfterFare
+    if ActiveFares[src] == fare then ActiveFares[src] = nil end
+    if Drivers[src] == driver then
+        driver.status = 'available'
+        driver.awaySince = nil
+        driver.nextOfferAt = Sessions.now() + Config.Dispatch.CooldownAfterFare
+    end
 
+    local progress = row and Progression.view(row, Progression.earnedToday(character.citizenId)) or nil
     return {
         ok = true,
         fare = finalFare,
-        reputation = repDelta,
-        totalReputation = totalRep,
+        confidence = confidenceDelta,
         satisfaction = math.floor(satisfaction),
         mood = mood,
-        distance = math.floor(fare.distanceMeters),
+        distance = distance,
+        calmBonus = bonusAmount,
+        progress = progress,
     }
 end)

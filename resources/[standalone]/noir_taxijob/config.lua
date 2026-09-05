@@ -4,17 +4,50 @@ Config = {}
 Config.Debug = false
 Config.Locale = 'pt-br'
 
--- Emprego e serviço
-Config.Job = 'taxi'
-Config.RequireDuty = true
--- Permite que o jogador com este emprego seja contratado diretamente na central.
-Config.StarterJob = 'unemployed'
+-- Atividade autônoma: o Taxi V2 é renda extra e não altera emprego, grade ou duty.
+-- A autorização para trabalhar vem da sessão interna de aluguel (server-side), nunca de PlayerData.job.
 
--- Modelos que ativam o taxímetro quando o taxista senta no banco do motorista
+-- Modelos que ativam o taxímetro quando o taxista senta no banco do motorista.
+-- Todo model do catálogo (Config.RentalVehicles) precisa constar aqui; o servidor valida na inicialização.
 Config.AllowedVehicles = {
     'taxi',
-    -- 'tailgater',
-    -- 'stretch',
+    'tailgater',
+    'stretch',
+}
+
+-- Catálogo de veículos da central. A ordem da lista é a ordem de exibição dentro do mesmo nível.
+-- O browser envia somente o `id`; model, nível, taxa e spawn são resolvidos pelo servidor.
+Config.RentalVehicles = {
+    {
+        id = 'standard',
+        label = 'Táxi Standard',
+        model = 'taxi',
+        requiredLevel = 1,
+        rentalFee = 0,
+        image = 'img/vehicles/taxi.png',
+        description = 'O clássico da cidade. Confiável e econômico.',
+        enabled = true,
+    },
+    {
+        id = 'executive',
+        label = 'Executivo',
+        model = 'tailgater',
+        requiredLevel = 3,
+        rentalFee = 0,
+        image = 'img/vehicles/tailgater.png',
+        description = 'Atendimento executivo para motoristas experientes.',
+        enabled = true,
+    },
+    {
+        id = 'limousine',
+        label = 'Limousine',
+        model = 'stretch',
+        requiredLevel = 6,
+        rentalFee = 0,
+        image = 'img/vehicles/stretch.png',
+        description = 'O nível máximo de confiança da central.',
+        enabled = true,
+    },
 }
 
 -- Teclas padrão (o jogador pode trocar em Configurações > Teclas do FiveM)
@@ -55,6 +88,7 @@ Config.Passenger = {
     MaxDropoffSpeed = 3.0,       -- km/h
     ArrivalHoldMs = 1500,        -- tempo parado no destino antes de finalizar
     DropoffHoldMs = 4000,        -- táxi travado enquanto o passageiro desce
+    ResultHoldMs = 6000,         -- tempo total que o resultado (+dinheiro/confiança) fica na HUD
     DespawnDelay = 15000,        -- ms até o servidor remover o ped após a corrida
 
     DriverAwayGraceMs = 60000,   -- tempo fora do táxi antes de cancelar a corrida
@@ -88,6 +122,7 @@ Config.Meter = {
 Config.Climate = {
     ComfortMin = 21.0,
     ComfortMax = 24.0,
+    ComfortVariation = 2.0,      -- desvio aleatório (°C) da faixa de conforto por passageiro (0 desativa)
     MinTemp = 8.0,
     MaxTemp = 36.0,
     MaxFan = 5,
@@ -113,28 +148,41 @@ Config.Climate = {
     DefaultOutsideTemp = 22,
 }
 
+-- Medo do passageiro: dirigir acima do limite assusta; abaixo, ele se acalma.
+Config.Fear = {
+    SpeedLimit = 80,        -- km/h: acima disso o medo começa a subir
+    HardSpeed = 140,        -- km/h: velocidade de ganho máximo
+    GainPerSecond = 5.0,    -- pontos/s no pico (escala linear com a velocidade)
+    CalmPerSecond = 2.5,    -- pontos/s de recuperação abaixo do limite
+    CrashDamage = 35.0,     -- (server) perda de lataria em um ciclo que conta como batida forte
+    CrashDeltaSpeed = 8.0,  -- (client) perda súbita de velocidade (m/s) entre medições que indica batida
+    CrashDeltaHard = 15.0,  -- (client) perda tão grande que dispensa confirmar a colisão
+    Levels = {              -- sentimento exibido no HUD por faixa de medo (0-100)
+        { min = 0,  key = 'calm',      label = 'TRANQUILO' },
+        { min = 25, key = 'nervous',   label = 'MEDO' },
+        { min = 50, key = 'scared',    label = 'ASSUSTADO' },
+        { min = 75, key = 'desperate', label = 'DESESPERADO' },
+    },
+}
+
 -- Pagamento (multiplicadores por satisfação, aplicados no servidor)
 Config.Payout = {
     SatisfiedTipPercent = 10,    -- gorjeta quando satisfação ≥ SatisfiedThreshold
     NeutralMultiplier = 0.85,    -- satisfação entre Unhappy e Satisfied
     UnhappyMultiplier = 0.70,    -- satisfação ≤ UnhappyThreshold
-}
-
--- Reputação (PlayerData.metadata.jobrep.taxi)
-Config.Reputation = {
-    BasePerFare = 5,
-    SatisfiedBonus = 2,
-    UnhappyPenalty = 2,
+    CalmBonusPercent = 35,       -- bônus ao entregar com ar confortável (faixa do passageiro) e sentimento TRANQUILO
 }
 
 -- Central de táxi (ped, blip e vagas do veículo)
 Config.Depot = {
     coords = vec4(894.9, -179.17, 74.7, 242.89),
     pedModel = 'a_m_m_eastsa_02',
-    vehicleModel = 'taxi',
-    interactDistance = 15.0,
+    routingBucket = 0,
+    interactDistance = 15.0,     -- distância máxima do atendente para abrir a central e alugar
     returnRadius = 30.0,
+    warpIntoVehicle = true,      -- coloca o taxista no banco do motorista após o aluguel
     blip = { sprite = 198, color = 46, scale = 0.7, label = 'Central de Táxi' },
+    header = { brand = 'NOIR CAB CO.', context = 'CENTRAL · LOS SANTOS' },
     spawnPoints = {
         vec4(906.53, -185.91, 74.01, 60.35),
         vec4(908.81, -183.34, 74.21, 61.0),
@@ -220,4 +268,14 @@ function Config.IsAllowedVehicle(model)
         if joaat(m) == hash then return true end
     end
     return false
+end
+
+---@param id string
+---@return table|nil vehicle entrada do catálogo
+function Config.GetRentalVehicle(id)
+    if type(id) ~= 'string' then return nil end
+    for _, v in ipairs(Config.RentalVehicles) do
+        if v.id == id then return v end
+    end
+    return nil
 end

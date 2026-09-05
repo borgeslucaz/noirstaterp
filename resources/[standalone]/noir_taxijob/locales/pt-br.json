@@ -1,7 +1,6 @@
 {
     "notify": {
-        "not_taxi_job": "Você não é taxista.",
-        "off_duty": "Entre em serviço para trabalhar de táxi.",
+        "rental_invalid": "Este táxi não pertence ao seu aluguel na central.",
         "vehicle_not_allowed": "Este veículo não é um táxi válido.",
         "activation_failed": "Não foi possível ativar o taxímetro. Tente novamente.",
         "offer_expired": "Chamada ignorada. A central vai procurar outra corrida.",
@@ -15,20 +14,23 @@
         "impossible_movement": "Movimento inválido detectado. Corrida cancelada.",
         "complete_failed": "Não foi possível finalizar a corrida. Aproxime-se do destino e pare o táxi.",
         "fare_paid": "Corrida finalizada. Você recebeu $%s.",
+        "progress_not_saved": "Não foi possível registrar sua progressão nesta corrida. Avise a administração.",
         "calls_paused": "Chamadas pausadas.",
         "calls_resumed": "Chamadas retomadas.",
         "cannot_pause": "Finalize a corrida atual antes de pausar as chamadas.",
-        "depot_hired": "Você foi contratado como taxista. Táxi liberado, boa corrida.",
-        "depot_taken": "Táxi liberado. Boa corrida.",
-        "depot_already": "Você já está com um táxi da central.",
-        "depot_no_space": "Todas as vagas da central estão ocupadas.",
-        "depot_failed": "Não foi possível liberar o táxi.",
-        "depot_returned": "Táxi devolvido à central.",
-        "depot_not_near": "Aproxime-se do seu táxi para devolvê-lo.",
-        "depot_not_yours": "Este táxi não é da central."
+        "central_not_loaded": "Personagem não carregado.",
+        "central_not_near": "Aproxime-se do atendente da central de táxi.",
+        "central_restricted": "A central de táxi está indisponível para seu personagem neste momento.",
+        "central_failed": "Não foi possível abrir a central. Tente novamente.",
+        "rental_taken": "Táxi liberado. Boa corrida.",
+        "rental_resolve_failed": "O táxi foi preparado, mas ainda não apareceu. Aguarde alguns instantes.",
+        "rental_returned": "Táxi devolvido à central.",
+        "rental_not_near": "Aproxime-se do seu táxi para devolvê-lo.",
+        "rental_not_yours": "Este táxi não é do seu aluguel.",
+        "rental_lost": "Seu táxi da central foi perdido. O aluguel foi encerrado."
     },
     "target": {
-        "take_taxi": "Iniciar trabalho de táxi",
+        "open_central": "Central de táxi",
         "return_taxi": "Devolver táxi"
     },
     "blip": {
