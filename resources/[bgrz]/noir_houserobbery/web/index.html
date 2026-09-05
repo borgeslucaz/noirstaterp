@@ -3,15 +3,24 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>html,body{background:transparent!important}body{visibility:hidden}</style>
+    <meta name="color-scheme" content="only light">
+    <title>Noir Houserobbery</title>
+    <style>
+        html, body { background-color: rgba(0, 0, 0, 0) !important; }
+        #app[hidden] { display: none !important; }
+    </style>
     <link rel="stylesheet" href="style.css">
-    <title>Noir Noise</title>
 </head>
-<body style="background:transparent;visibility:hidden">
-    <section id="noise" aria-hidden="true">
-        <header><span>NOISE</span><strong id="value">0</strong></header>
-        <div class="track"><i id="fill"></i></div>
-    </section>
+<body>
+    <main id="app" hidden aria-hidden="true">
+        <section id="checklist" aria-labelledby="checklist-title">
+            <header class="checklist-header">
+                <span id="checklist-title">Checklist</span>
+            </header>
+            <ul id="checklist-list" aria-live="polite" aria-atomic="true"></ul>
+            <footer class="checklist-footer">Aperte <kbd>J</kbd> para fechar</footer>
+        </section>
+    </main>
     <script src="app.js"></script>
 </body>
 </html>

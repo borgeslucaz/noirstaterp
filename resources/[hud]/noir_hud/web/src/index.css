@@ -1,0 +1,274 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Oswald:wght@200..700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600&display=swap");
+
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+@import url("./fonts.css");
+
+:root {
+  font-family: Montserrat, Geist, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  line-height: 1.5;
+  font-weight: 500;
+  font-synthesis: none;
+  color-scheme: only light !important;
+  overflow: hidden !important;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: transparent !important;
+  font-synthesis: none;
+  user-select: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  outline: none !important;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: transparent;
+}
+
+/* Shared compact HUD language; all layout sizes follow viewport height. */
+.hud-surface {
+  --hud-text: #f0f1ef;
+  --hud-muted: #c0c2c5;
+  --hud-warning: #c9a86a;
+  --hud-danger: #ff8282;
+  --hud-track: rgba(0, 0, 0, 0.55);
+  color: var(--hud-text);
+  font-family: "Plus Jakarta Sans", Geist, sans-serif;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px #000, 0 2px 5px rgba(0, 0, 0, 0.85);
+  background: radial-gradient(ellipse at center, rgba(8, 10, 13, 0.48), transparent 72%);
+}
+.player-hud { position: fixed; bottom: 3.9vh; z-index: 20; }
+.player-hud-content { display: flex; align-items: center; gap: 0.0vh; }
+.player-indicators {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 0.85vh;
+  /* Centers the larger status icons on the armour-row icon. */
+  margin-top: -0.7vh;
+}
+.hud-indicator {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 3.8vh;
+  min-height: 5vh;
+  gap: 1.6vh;
+  line-height: 1.15;
+}
+.hud-indicator-symbol { position: relative; height: 2.3vh; }
+.hud-indicator-symbol svg {
+  width: 2.3vh; height: 4.3vh; stroke-width: 1.5;
+  filter: drop-shadow(0 1px 2px #000);
+}
+.hud-indicator-track { width: 2.9vh; height: max(2px, 0.24vh); background: var(--hud-track); border-radius: 1px; overflow: hidden; margin-top: 0.2vh; }
+.hud-indicator-track span { display: block; height: 100%; background: currentColor; transition: width 250ms ease-out; }
+.hud-surface [data-tone="warning"] { color: var(--hud-warning); }
+.hud-surface [data-tone="danger"] { color: var(--hud-danger); }
+.hud-surface [data-tone="inactive"] { color: #a3a6ab; }
+.hud-surface [data-tone="active"] { color: #78a98b; }
+.hud-surface [data-tone="inactive"] .hud-indicator-symbol::after { content: ""; position: absolute; width: 1.8vh; height: 1px; background: currentColor; transform: rotate(-45deg); left: -0.15vh; top: 0.75vh; }
+.hud-alert-mark { position: absolute; right: -0.7vh; top: -0.3vh; font-size: max(9px, 1vh); }
+.noir-vitals [data-tone="warning"] .status-bar-icon, .noir-vitals [data-tone="danger"] .status-bar-icon { color: inherit; }
+.player-vitals-column { position: relative; flex: 0 0 var(--vitals-width, 25.32vh); width: var(--vitals-width, 25.32vh); }
+.player-vitals-column .noir-vitals { width: 100%; }
+.voice-line {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  display: flex;
+  align-items: center;
+  min-height: 1.7vh;
+  gap: 0.42vh;
+  margin-top: 0.55vh;
+  color: var(--hud-muted);
+  font-size: max(9px, 0.95vh);
+  line-height: 1;
+  white-space: nowrap;
+}
+.voice-line-icon svg { width: 1.3vh; height: 1.3vh; stroke-width: 1.6; }
+.voice-line[data-speaking="true"] {
+  color: #78a98b;
+}
+.voice-line[data-speaking="true"] .voice-line-icon svg {
+  color: #78a98b;
+  stroke: #78a98b;
+  stroke-width: 2.3;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
+}
+.voice-indicator-spacer { flex: 0 0 3.5vh; width: 3.5vh; }
+
+.car-hud { position: fixed; z-index: 20; bottom: 3.9vh; right: 4.5vh; display: flex; flex-direction: column; align-items: center; width: 26vh; }
+.speedometer { position: relative; width: 23vh; height: 21.16vh; }
+.speedometer[data-tone="normal"] { color: var(--hud-text); }
+.speedometer[data-tone="warning"] { color: var(--hud-warning); }
+.speedometer[data-tone="danger"] { color: var(--hud-danger); }
+.speedometer svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.65)); }
+.rpm-track, .rpm-fill, .rpm-redline { fill: none; stroke-width: 2.2; }
+.rpm-track { stroke: rgba(255, 255, 255, 0.18); }
+.rpm-fill { stroke: currentColor; transition: stroke-dashoffset 150ms linear, stroke 150ms linear; }
+.rpm-redline { stroke: var(--hud-danger); stroke-width: 3; }
+.rpm-tick { stroke: var(--hud-muted); stroke-width: 0.6; }
+.rpm-number { font-size: 4px; fill: var(--hud-muted); text-anchor: middle; dominant-baseline: central; }
+.speedometer-reading { position: absolute; top: 34%; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; line-height: 1; color: var(--hud-text); }
+.speedometer-speed { font-size: 4.6vh; font-weight: 700; letter-spacing: -0.06em; }
+.speedometer-meta { display: flex; align-items: center; justify-content: center; gap: 1vh; margin-top: 0.5vh; font-size: 1.05vh; }
+.speedometer-gear { color: var(--hud-muted); }
+.speedometer-gear b { color: var(--hud-text); font-size: 1.35vh; }
+.vehicle-indicators { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.65vh; width: 100%; margin-top: -1.3vh; }
+.vehicle-indicators .hud-indicator { width: auto; }
+.dev-preview-backdrop { position: fixed; inset: 0; z-index: -1; background: #34383f; }
+.dev-preview-backdrop[data-background="light"] { background: #ddd9cf; }
+.dev-preview-controls { position: fixed; top: 2vh; left: 2vh; display: flex; flex-wrap: wrap; gap: 12px; padding: 12px; background: #181b20; color: #fff; font: 12px Geist, sans-serif; z-index: 50; }
+.dev-preview-controls label { display: flex; align-items: center; gap: 6px; }
+.dev-preview-controls select { background: #30343b; color: #fff; padding: 4px; border: 1px solid #787b80; }
+.dev-preview-controls select:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .hud-surface *, .hud-surface *::before, .hud-surface *::after { transition: none !important; animation: none !important; }
+}
+
+
+.debug-minimap-preview {
+  position: fixed;
+  z-index: 10;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background:
+    linear-gradient(32deg, transparent 46%, rgba(255, 255, 255, 0.16) 47% 49%, transparent 50%),
+    linear-gradient(145deg, transparent 42%, rgba(255, 255, 255, 0.1) 43% 46%, transparent 47%),
+    repeating-linear-gradient(0deg, transparent 0 24px, rgba(255, 255, 255, 0.04) 25px),
+    repeating-linear-gradient(90deg, transparent 0 24px, rgba(255, 255, 255, 0.04) 25px),
+    rgba(10, 12, 14, 0.62);
+  box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.65);
+  pointer-events: none;
+}
+
+.debug-minimap-preview::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-right: 5px solid transparent;
+  border-bottom: 10px solid rgba(255, 255, 255, 0.9);
+  border-left: 5px solid transparent;
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.debug-minimap-preview span {
+  position: absolute;
+  top: 0.45vh;
+  left: 0.55vh;
+  color: rgba(255, 255, 255, 0.55);
+  font: 600 0.8vh/1 "Plus Jakarta Sans", Inter, sans-serif;
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 2px #000;
+}
+
+.noir-vitals {
+  --noir-text-strong: rgba(255, 255, 255, 0.96);
+  --vitals-health: #d7d9d9;
+  --vitals-armor: #f0f1ef;
+  --noir-text-shadow: 0 1px 2px rgb(0 0 0), 0 2px 6px rgba(0, 0, 0, 0.85);
+  --noir-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --noir-transition: 250ms var(--noir-ease-out);
+
+  gap: 0.4vh;
+  font-family: "Plus Jakarta Sans", Inter, sans-serif;
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 var(--vitals-width, 25.32vh);
+  width: var(--vitals-width, 25.32vh);
+}
+
+.noir-vitals .status-bar-row {
+  gap: 0.55vh;
+  min-height: 1.35vh;
+  animation: noir-vital-enter 350ms var(--noir-ease-out) both;
+}
+
+.noir-vitals .status-bar-row:nth-child(2) {
+  animation-delay: 60ms;
+}
+
+.noir-vitals .status-bar-icon {
+  flex: 0 0 auto;
+  width: clamp(18px, 1.82vh, 24px);
+  height: clamp(18px, 1.82vh, 24px);
+  color: var(--noir-text-strong);
+  filter: drop-shadow(0 1px 2px rgb(0 0 0));
+  stroke-width: 1.5;
+}
+
+.noir-vitals .status-bar-value {
+  flex: 0 0 2.4vh;
+  color: var(--noir-text-strong);
+  font-size: max(9px, 1.1vh);
+  font-weight: 600;
+  line-height: 1;
+  text-align: right;
+  text-shadow: var(--noir-text-shadow);
+  font-variant-numeric: tabular-nums;
+}
+
+.noir-vitals .status-bar-track {
+  position: relative;
+  flex: 1 1 auto;
+  height: clamp(8px, 0.48vh, 9px);
+  margin-left: 0;
+  overflow: hidden;
+  border-radius: 1px;
+  background: rgba(5, 6, 8, 0.58);
+  clip-path: polygon(0 0, 100% 12%, 99.2% 88%, 0 100%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+.noir-vitals .status-bar-fill {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  min-width: 0;
+  border-radius: 0;
+  transition: width var(--noir-transition);
+}
+
+@keyframes noir-vital-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-1.1vh);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .noir-vitals .status-bar-row,
+  .noir-vitals .status-bar-fill {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+}

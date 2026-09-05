@@ -1,83 +1,492 @@
-/* The document is absent until a client message opens it. An inactive burner
- * therefore cannot paint over character selection or any other NUI. */
+:root {
+    font-family: "Segoe UI", Inter, Arial, sans-serif;
+    --screen: #090909;
+    --tile: #181818;
+    --tile-hover: #222222;
+    --tile-active: #292929;
+    --accent: #1f4f82;
+    --text: #f2f2f2;
+    --muted: #a9adb0;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
 html,
 body {
     width: 100%;
     height: 100%;
     margin: 0;
-    padding: 0;
-    background: transparent;
+    overflow: hidden;
+    background-color: rgba(0, 0, 0, 0) !important;
 }
 
 body {
-    display: none;
-    visibility: hidden;
     pointer-events: none;
-    font-family: "Segoe UI", Inter, Arial, sans-serif;
+    user-select: none;
 }
 
-body.open { display: block; visibility: visible; pointer-events: auto; }
-body.open .phone { animation: burner-phone-in .26s cubic-bezier(.22, .8, .28, 1) both; }
-body.open.closing .phone { animation: burner-phone-out .22s cubic-bezier(.55, 0, .8, .2) both; }
+button,
+input { font: inherit; }
+
+button { -webkit-tap-highlight-color: transparent; }
+
+body.open {
+    pointer-events: auto;
+}
 
 .phone {
     position: fixed;
-    right: 4vw;
-    bottom: 4vh;
-    width: 286px;
-    padding: 18px 15px 17px;
-    border: 5px solid #151515;
-    border-radius: 16px;
-    color: #f4f4f4;
+    right: clamp(1.5rem, 3.7vw, 4.5rem);
+    bottom: clamp(1.25rem, 3.5vh, 3.5rem);
+    width: clamp(17.5rem, 17vw, 20.25rem);
+    padding: clamp(.8rem, 1.3vh, 1.1rem) clamp(.7rem, .8vw, .95rem) clamp(.9rem, 1.5vh, 1.2rem);
+    border: clamp(4px, .28vw, 6px) solid #151617;
+    border-radius: clamp(.85rem, 1vw, 1.15rem);
+    color: var(--text);
     background: #343638;
-    box-shadow: 0 18px 42px rgba(0, 0, 0, .72), inset 0 0 0 2px rgba(255,255,255,.12), inset 0 -7px 10px rgba(0, 0, 0, .18);
+    box-shadow:
+        0 1.25rem 2.8rem rgba(0, 0, 0, .7),
+        inset 0 0 0 2px rgba(255, 255, 255, .09),
+        inset 0 -.45rem .7rem rgba(0, 0, 0, .2);
+    transform-origin: center bottom;
 }
 
-.phone-top { display: flex; justify-content: center; height: 16px; }
-.speaker { width: 55px; height: 5px; border-radius: 5px; background: #101112; box-shadow: inset 0 1px 1px #000, 0 1px rgba(255,255,255,.14); }
+body.open .phone { animation: phone-in 180ms cubic-bezier(.2, .75, .3, 1) both; }
+body.open.closing .phone { animation: phone-out 160ms cubic-bezier(.55, 0, .8, .25) both; }
 
-.screen { position: relative; min-height: 405px; overflow: hidden; border: 7px solid #0b0b0b; border-radius: 3px; color: #f2f2f2; background: #090909; box-shadow: inset 0 0 19px #000, 0 1px rgba(255,255,255,.1); }
-.status { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; height: 22px; padding: 0 9px; color: #bfc2c4; }
-.status svg { width: 16px; height: 12px; fill: currentColor; }
-.status svg:last-child { width: 22px; }
-.app-shell { position: relative; z-index: 1; height: calc(100% - 22px); }
-.page { min-height: 100%; padding: 8px 9px; }
-.page.hidden { display: none; }
+.phone-hardware {
+    display: grid;
+    place-items: start center;
+    height: clamp(1rem, 1.8vh, 1.35rem);
+}
 
-.metro-tile { display: grid; grid-template-columns: 56px 1fr; align-items: stretch; width: 100%; min-height: 59px; margin: 0 0 6px; padding: 0; border: 0; color: #f2f2f2; background: #181818; cursor: pointer; font: 300 23px/1 "Segoe UI", Inter, Arial, sans-serif; text-align: left; transition: background .12s ease, transform .1s ease; }
-.metro-tile:hover, .metro-tile:focus { background: #222; outline: 0; }
-.metro-tile:active { background: #292929; transform: scale(.985); }
-.tile-icon { display: grid; place-items: center; color: #fff; background: #1f4f82; }
-.tile-icon svg { width: 26px; height: 26px; fill: currentColor; }
-.metro-tile > span:last-child { display: flex; align-items: center; padding: 0 14px; }
-.close-tile { margin-bottom: 0; }
-.close-tile .tile-icon { background: #363a3d; }
+.speaker {
+    display: block;
+    width: 3.45rem;
+    height: .3rem;
+    border-radius: 999px;
+    background: #101112;
+    box-shadow: inset 0 1px 1px #000, 0 1px rgba(255, 255, 255, .13);
+}
 
-.back-link { display: block; margin: 1px 0 18px; padding: 0; border: 0; color: #d7d9da; background: transparent; cursor: pointer; font: 300 19px/1.15 "Segoe UI", Inter, Arial, sans-serif; }
-.back-link:hover, .back-link:focus { color: #fff; outline: 0; }
-.placeholder { margin: 0; color: #c5c5c5; font: 300 18px/1.4 "Segoe UI", Inter, Arial, sans-serif; }
-.illegal-tile { margin-top: 8px; }
-.call-action { width: 100%; margin-top: 23px; padding: 14px 12px; border: 0; color: #f2f2f2; background: #1f4f82; cursor: pointer; font: 300 17px/1.1 "Segoe UI", Inter, Arial, sans-serif; letter-spacing: .1px; text-align: left; transition: background .12s ease, transform .1s ease; }
-.call-action:hover, .call-action:focus { background: #286196; outline: 0; }
-.call-action:active { transform: scale(.985); background: #326d9f; }
-.contact-row { display: flex; flex-direction: column; width: 100%; padding: 13px; border: 0; color: #eee; background: #181818; text-align: left; cursor: pointer; }
-.contact-row strong { font-size: 18px; font-weight: 500; }
-.contact-row small { margin-top: 4px; color: #9ca1a5; font-size: 13px; }
-.message-list { display: flex; flex-direction: column; gap: 7px; height: 278px; overflow-y: auto; padding-right: 3px; }
-.message { max-width: 82%; padding: 8px 9px; color: #eee; background: #26292b; font-size: 13px; line-height: 1.3; overflow-wrap: anywhere; }
-.message.outgoing { align-self: flex-end; background: #1f4f82; }
+.phone-screen {
+    position: relative;
+    height: clamp(25.5rem, 48vh, 31rem);
+    overflow: hidden;
+    border: clamp(5px, .4vw, 7px) solid #0a0a0a;
+    border-radius: .2rem;
+    color: var(--text);
+    background: var(--screen);
+    box-shadow: inset 0 0 1.1rem #000, 0 1px rgba(255, 255, 255, .08);
+}
+
+.status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: clamp(1.3rem, 2.2vh, 1.55rem);
+    padding: 0 .55rem;
+    color: #bcc0c2;
+}
+
+.status-bar svg { display: block; fill: currentColor; }
+.signal-icon { width: 1rem; height: .75rem; }
+.battery-icon { width: 1.45rem; height: .8rem; }
+
+.app-shell {
+    position: relative;
+    height: calc(100% - clamp(1.3rem, 2.2vh, 1.55rem));
+    overflow: hidden;
+}
+
+.page {
+    position: absolute;
+    inset: 0;
+    padding: clamp(.5rem, .8vh, .7rem) clamp(.5rem, .55vw, .7rem);
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: none;
+    opacity: 0;
+    transform: translateX(.5rem);
+}
+
+.page::-webkit-scrollbar,
+.message-list::-webkit-scrollbar { display: none; }
+
+.page.active {
+    opacity: 1;
+    transform: translateX(0);
+    animation: page-in 150ms ease-out both;
+}
+
+.app-list {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(.35rem, .65vh, .48rem);
+}
+
+.app-tile {
+    display: grid;
+    grid-template-columns: clamp(3.25rem, 3.4vw, 3.8rem) minmax(0, 1fr);
+    width: 100%;
+    min-height: clamp(3.35rem, 6.2vh, 4rem);
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 0;
+    color: var(--text);
+    background: var(--tile);
+    cursor: pointer;
+    text-align: left;
+    transition: background 120ms ease, transform 100ms ease;
+}
+
+.app-tile:hover,
+.app-tile:focus-visible {
+    outline: 0;
+    background: var(--tile-hover);
+}
+
+.app-tile:active {
+    background: var(--tile-active);
+    transform: scale(.985);
+}
+
+.app-icon {
+    display: grid;
+    place-items: center;
+    color: #fff;
+    background: var(--accent);
+    transition: filter 120ms ease;
+    height: 100%;
+}
+
+.app-tile:hover .app-icon { filter: brightness(1.08); }
+.app-icon svg { width: 1.55rem; height: 1.55rem; fill: currentColor; }
+
+.app-label {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    padding: 0 clamp(.7rem, .85vw, .95rem);
+    font-size: clamp(1.12rem, 1.25vw, 1.48rem);
+    font-weight: 300;
+    line-height: 1.05;
+    align-self: center;
+}
+
+.close-tile .app-icon { background: #363a3d; }
+.compact-list { gap: .45rem; }
+
+.back-link {
+    display: block;
+    margin: 0 0 1.15rem;
+    padding: 0;
+    border: 0;
+    color: #d7d9da;
+    background: transparent;
+    cursor: pointer;
+    font-size: clamp(1.05rem, 1.05vw, 1.25rem);
+    font-weight: 300;
+    line-height: 1.2;
+    text-align: left;
+}
+
+.back-link:hover,
+.back-link:focus-visible { color: #fff; outline: 0; }
+
+.placeholder {
+    margin: 0;
+    color: #c5c5c5;
+    font-size: clamp(1rem, 1vw, 1.15rem);
+    font-weight: 300;
+    line-height: 1.45;
+}
+
+.contact-row {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding: .85rem;
+    border: 0;
+    color: #eee;
+    background: var(--tile);
+    text-align: left;
+}
+
+.contact-row > span { font-size: 1.12rem; font-weight: 400; }
+.contact-row small { margin-top: .25rem; color: var(--muted); font-size: .8rem; }
+
+.message-list {
+    display: flex;
+    flex-direction: column;
+    gap: .42rem;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: .15rem;
+    scrollbar-width: none;
+}
+
+.message {
+    max-width: 84%;
+    padding: .48rem .56rem;
+    color: #eee;
+    background: #26292b;
+    font-size: .82rem;
+    line-height: 1.32;
+    overflow-wrap: anywhere;
+}
+
+.message.outgoing { align-self: flex-end; background: var(--accent); }
 .message.incoming { align-self: flex-start; }
-.message button { display: block; width: 100%; margin-top: 7px; padding: 6px; border: 0; color: white; background: #3976a8; cursor: pointer; font-size: 11px; }
-.message-form { display: grid; grid-template-columns: 1fr auto; gap: 5px; margin-top: 9px; }
-.message-form input { min-width: 0; padding: 9px 7px; border: 1px solid #333; color: #eee; background: #111; outline: 0; }
-.message-form button { padding: 0 9px; border: 0; color: white; background: #1f4f82; cursor: pointer; font-size: 10px; }
 
-@keyframes burner-phone-in {
-    from { transform: translateY(calc(100vh + 80px)); opacity: 0; }
+.primary-action {
+    border: 0;
+    border-radius: 0;
+    color: #fff;
+    background: var(--accent);
+    cursor: pointer;
+    font-weight: 300;
+    transition: background 120ms ease, transform 100ms ease;
+}
+
+.primary-action { width: 100%; margin-top: 1.4rem; padding: .85rem .7rem; font-size: 1rem; text-align: left; }
+.primary-action:hover { background: #286196; }
+.primary-action:active { transform: scale(.985); background: #326d9f; }
+
+/* Contracts page ------------------------------------------------------- */
+
+.contract-sections {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(.7rem, 1.1vh, .95rem);
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    width: 100%;
+    margin: 0 0 .4rem;
+    padding: .15rem 0;
+    border: 0;
+    color: #d7d9da;
+    background: transparent;
+    cursor: pointer;
+    font-size: clamp(1rem, 1vw, 1.18rem);
+    font-weight: 300;
+    line-height: 1.2;
+    text-align: left;
+    transition: color 120ms ease;
+}
+
+.section-title:hover,
+.section-title:focus-visible { color: #fff; outline: 0; }
+.section-title:focus-visible span { text-decoration: underline; }
+.section-title:active { transform: scale(.985); }
+
+.section-title .chevron {
+    flex: 0 0 auto;
+    width: .85rem;
+    height: .85rem;
+    fill: currentColor;
+    transition: transform 120ms ease;
+}
+
+.section-title[aria-expanded="false"] .chevron { transform: rotate(-90deg); }
+
+.contract-list {
+    display: flex;
+    flex-direction: column;
+    gap: .32rem;
+}
+
+.contract-empty {
+    margin: .1rem 0 0;
+    color: var(--muted);
+    font-size: clamp(.9rem, .9vw, 1.02rem);
+    font-style: italic;
+    font-weight: 300;
+    text-align: center;
+}
+
+.contract-row {
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+}
+
+.contract-row-main {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    min-height: 2.4rem;
+    padding: .2rem 0 .2rem .35rem;
+    border-bottom: 1px solid #1c1c1c;
+}
+
+.contract-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text);
+    font-size: clamp(1rem, 1vw, 1.15rem);
+    font-weight: 300;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.contract-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: .32rem;
+}
+
+.icon-action {
+    display: grid;
+    place-items: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    color: #fff;
+    cursor: pointer;
+    transition: filter 120ms ease, transform 100ms ease, opacity 120ms ease;
+}
+
+.icon-action svg { width: 1.15rem; height: 1.15rem; fill: currentColor; }
+.icon-action.route { background: #2f7a43; }
+.icon-action.abandon { background: #8a2c2c; }
+.icon-action:hover,
+.icon-action:focus-visible { filter: brightness(1.15); outline: 0; }
+.icon-action:focus-visible { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .7); }
+.icon-action:active { transform: scale(.985); }
+.icon-action:disabled { opacity: .45; cursor: default; filter: none; transform: none; }
+
+.contract-confirm {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .3rem .35rem;
+    background: var(--tile);
+    font-size: .88rem;
+    font-weight: 300;
+}
+
+.contract-confirm > span { flex: 1 1 auto; color: #e8e8e8; }
+
+.mini-action {
+    padding: .35rem .6rem;
+    border: 0;
+    border-radius: 0;
+    color: #fff;
+    background: #363a3d;
+    cursor: pointer;
+    font-size: .82rem;
+    font-weight: 300;
+    transition: background 120ms ease, transform 100ms ease;
+}
+
+.mini-action.danger { background: #8a2c2c; }
+.mini-action:hover,
+.mini-action:focus-visible { filter: brightness(1.15); outline: 0; }
+.mini-action:active { transform: scale(.985); }
+.mini-action:disabled { opacity: .45; cursor: default; }
+
+.contract-offer {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    width: 100%;
+    min-height: 2.4rem;
+    padding: .2rem .35rem;
+    border: 0;
+    border-bottom: 1px solid #1c1c1c;
+    border-radius: 0;
+    color: var(--text);
+    background: transparent;
+    cursor: pointer;
+    font-size: clamp(1rem, 1vw, 1.15rem);
+    font-weight: 300;
+    text-align: left;
+    transition: background 120ms ease, transform 100ms ease;
+}
+
+.contract-offer:hover,
+.contract-offer:focus-visible { background: var(--tile-hover); outline: 0; }
+.contract-offer:active { background: var(--tile-active); transform: scale(.985); }
+.contract-offer[aria-expanded="true"] { background: var(--tile); }
+
+.contract-detail {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    padding: .5rem .55rem .6rem;
+    background: var(--tile);
+}
+
+.contract-detail-name {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 400;
+}
+
+.contract-detail-meta {
+    margin: 0;
+    color: var(--muted);
+    font-size: .82rem;
+    font-weight: 300;
+}
+
+.contract-detail .primary-action {
+    margin-top: .35rem;
+    padding: .6rem .65rem;
+    font-size: .95rem;
+}
+
+.contract-detail .primary-action:disabled { opacity: .45; cursor: default; transform: none; }
+
+.contract-error {
+    margin: .7rem 0 0;
+    padding: .45rem .55rem;
+    color: #f4d4d4;
+    background: #4a1d1d;
+    font-size: .85rem;
+    font-weight: 300;
+    line-height: 1.35;
+}
+
+.contract-error.success { color: #d8f0dc; background: #1f4a2a; }
+
+@keyframes phone-in {
+    from { transform: translateY(calc(100vh + 5rem)); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
 }
 
-@keyframes burner-phone-out {
+@keyframes phone-out {
     from { transform: translateY(0); opacity: 1; }
-    to { transform: translateY(calc(100vh + 80px)); opacity: 0; }
+    to { transform: translateY(calc(100vh + 5rem)); opacity: 0; }
+}
+
+@keyframes page-in {
+    from { opacity: 0; transform: translateX(.5rem); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@media (max-height: 700px) {
+    .phone { bottom: .8rem; transform: scale(.88); }
+    body.open .phone { animation-name: phone-in-small; }
+    body.open.closing .phone { animation-name: phone-out; }
+}
+
+@keyframes phone-in-small {
+    from { transform: translateY(calc(100vh + 5rem)) scale(.88); opacity: 0; }
+    to { transform: translateY(0) scale(.88); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .phone,
+    .page { animation-duration: 1ms !important; }
 }

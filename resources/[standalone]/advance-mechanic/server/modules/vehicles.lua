@@ -1,0 +1,573 @@
+local Vehicles = {}
+local Database = require 'server.modules.database'
+local Framework = require 'shared.framework'
+local Validation = require 'server.modules.validation'
+
+local function canAccessVehicle(source, vehicle, plate, requireMechanic)
+    local Player = Framework.GetPlayer(source)
+    if not Player then return false end
+
+    if not vehicle or not DoesEntityExist(vehicle) then return false end
+    if not Validation.IsPlayerNearEntity(source, vehicle, 10.0) then return false end
+
+    if requireMechanic and not Validation.IsMechanic(Player) and not Validation.IsAdmin(source) then
+        return false
+    end
+
+    local isOwner = Validation.IsVehicleOwnedBy(plate, Player.PlayerData.citizenid)
+    if not isOwner and not Validation.IsMechanic(Player) and not Validation.IsAdmin(source) then
+        return false
+    end
+
+    return true
+end
+
+-- Get vehicle inspection data
+function Vehicles.GetInspectionData(plate)
+    plate = Validation.NormalizePlate(plate)
+    local query = 'SELECT inspection_data FROM player_vehicles WHERE plate = ?'
+    local result = MySQL.query.await(query, {plate})
+    
+    if result and result[1] and result[1].inspection_data then
+        local ok, decoded = pcall(json.decode, result[1].inspection_data)
+        if ok and type(decoded) == 'table' then return decoded end
+    end
+    
+    -- Return default inspection data
+    local defaultData = {}
+    for name, checkpoint in pairs(Config.Inspection.checkPoints) do
+        defaultData[name] = {
+            health = 100,
+            lastChecked = os.time()
+        }
+    end
+    return defaultData
+end
+
+-- Get vehicle fluid data
+function Vehicles.GetFluidData(plate)
+    plate = Validation.NormalizePlate(plate)
+    local query = 'SELECT fluid_data FROM player_vehicles WHERE plate = ?'
+    local result = MySQL.query.await(query, {plate})
+    
+    if result and result[1] and result[1].fluid_data then
+        local ok, fluidData = pcall(json.decode, result[1].fluid_data)
+        if not ok or type(fluidData) ~= 'table' then fluidData = {} end
+        return {
+            oilLevel = fluidData.oilLevel or 100,
+            coolantLevel = fluidData.coolantLevel or 100,
+            brakeFluidLevel = fluidData.brakeFluidLevel or 100,
+            transmissionFluidLevel = fluidData.transmissionFluidLevel or 100,
+            powerSteeringLevel = fluidData.powerSteeringLevel or 100,
+            tireWear = fluidData.tireWear or 0,
+            batteryLevel = fluidData.batteryLevel or 100,
+            gearBoxHealth = fluidData.gearBoxHealth or 100,
+            lastUpdate = fluidData.lastUpdate or os.time(),
+            lastUpdated = fluidData.lastUpdated or fluidData.lastUpdate or os.time()
+        }
+    end
+    
+    -- Return default fluid data
+    return {
+        oilLevel = 100,
+        coolantLevel = 100,
+        brakeFluidLevel = 100,
+        transmissionFluidLevel = 100,
+        powerSteeringLevel = 100,
+        tireWear = 0,
+        batteryLevel = 100,
+        gearBoxHealth = 100,
+        lastUpdate = os.time(),
+        lastUpdated = os.time()
+    }
+end
+
+-- Update vehicle fluid data
+function Vehicles.UpdateFluidData(plate, data)
+    plate = Validation.NormalizePlate(plate)
+    local query = 'UPDATE player_vehicles SET fluid_data = ? WHERE plate = ?'
+    data.lastUpdate = os.time()
+    data.lastUpdated = data.lastUpdate
+    return MySQL.update.await(query, {json.encode(data), plate}) > 0
+end
+
+-- Update vehicle inspection data
+function Vehicles.UpdateInspectionData(plate, data)
+    plate = Validation.NormalizePlate(plate)
+    local query = 'UPDATE player_vehicles SET inspection_data = ? WHERE plate = ?'
+    return MySQL.update.await(query, {json.encode(data), plate}) > 0
+end
+
+-- Check if vehicle is owned
+function Vehicles.IsOwned(plate)
+    plate = Validation.NormalizePlate(plate)
+    local query = 'SELECT citizenid FROM player_vehicles WHERE plate = ?'
+    local result = MySQL.query.await(query, {plate})
+    return result and result[1] ~= nil
+end
+
+-- Update vehicle color using ox_lib
+function Vehicles.UpdateColor(source, plate, colorType, color)
+    local Player = Framework.GetPlayer(source)
+    if not Player then return false end
+    
+    -- Check if player owns the vehicle
+    local query = 'SELECT citizenid, props FROM player_vehicles WHERE plate = ?'
+    local result = MySQL.query.await(query, {plate})
+    
+    if not result or not result[1] or result[1].citizenid ~= Player.PlayerData.citizenid then
+        TriggerClientEvent('ox_lib:notify', source, {
+            title = locale('not_vehicle_owner'),
+            type = 'error'
+        })
+        return false
+    end
+    
+    -- Get current properties
+    local props = {}
+    if result[1].props then
+        local ok, decoded = pcall(json.decode, result[1].props)
+        if ok and type(decoded) == 'table' then props = decoded end
+    end
+    
+    -- Update color in properties
+    if colorType == 'primary' then
+        props.color1 = color
+    elseif colorType == 'secondary' then
+        props.color2 = color
+    end
+    
+    -- Save to database
+    if Database.UpdateVehicleProperties(plate, props) then
+        -- Apply to vehicle if it exists
+        local vehicle = Vehicles.GetVehicleByPlate(plate)
+        if vehicle and DoesEntityExist(vehicle) then
+            local vehicleCoords = GetEntityCoords(vehicle)
+            local netId = NetworkGetNetworkIdFromEntity(vehicle)
+            for _, playerId in ipairs(GetPlayers()) do
+                local ped = GetPlayerPed(tonumber(playerId))
+                if ped and DoesEntityExist(ped) then
+                    local playerCoords = GetEntityCoords(ped)
+                    if #(playerCoords - vehicleCoords) < 300.0 then
+                        TriggerClientEvent('mechanic:client:syncVehicleProperties', tonumber(playerId), netId, props)
+                    end
+                end
+            end
+        end
+        
+        return true
+    end
+    
+    return false
+end
+
+-- Get vehicle by plate
+function Vehicles.GetVehicleByPlate(plate)
+    plate = Validation.NormalizePlate(plate)
+    local vehicles = GetAllVehicles()
+    for _, vehicle in ipairs(vehicles) do
+        if Validation.NormalizePlate(GetVehicleNumberPlateText(vehicle)) == plate then
+            return vehicle
+        end
+    end
+    return nil
+end
+
+-- Handle vehicle damage
+function Vehicles.ProcessDamage(plate, impactData)
+    if type(impactData) ~= 'table' or type(impactData.side) ~= 'string' then return end
+
+    local inspectionData = Vehicles.GetInspectionData(plate)
+    for _, name in ipairs({ 'engine', 'coolant', 'transmission', 'suspension', 'tires' }) do
+        if type(inspectionData[name]) ~= 'table' then
+            inspectionData[name] = { health = 100, lastChecked = os.time() }
+        end
+    end
+
+    -- Apply damage based on impact
+    if impactData.side:find('front') then
+        inspectionData.engine.health = math.max(0, (inspectionData.engine.health or 100) - (impactData.severity * 10))
+        inspectionData.coolant = inspectionData.coolant or { health = 100 }
+        inspectionData.coolant.health = math.max(0, (inspectionData.coolant.health or 100) - (impactData.severity * 5))
+    elseif impactData.side:find('rear') then
+        inspectionData.transmission.health = math.max(0, (inspectionData.transmission.health or 100) - (impactData.severity * 8))
+    end
+    
+    -- Wheel damage
+    if impactData.wheelDamage then
+        inspectionData.suspension.health = math.max(0, (inspectionData.suspension.health or 100) - 20)
+        inspectionData.tires.health = math.max(0, (inspectionData.tires.health or 100) - 30)
+    end
+    
+    -- Save updated data
+    Vehicles.UpdateInspectionData(plate, inspectionData)
+    
+    -- Notify nearby mechanics
+    local coords = impactData.coords
+    if coords then
+        for _, playerId in ipairs(GetPlayers()) do
+            local Player = Framework.GetPlayer(tonumber(playerId))
+            if Player and Player.PlayerData.job.name == Config.JobName then
+                local ped = GetPlayerPed(tonumber(playerId))
+                local playerCoords = GetEntityCoords(ped)
+                
+                if #(playerCoords - coords) < 100.0 then
+                    TriggerClientEvent('ox_lib:notify', tonumber(playerId), {
+                        title = locale('vehicle_damaged_nearby'),
+                        description = locale('vehicle_needs_repair'),
+                        type = 'info'
+                    })
+                end
+            end
+        end
+    end
+end
+
+-- Repair vehicle part
+function Vehicles.RepairPart(source, plate, part, amount)
+    local Player = Framework.GetPlayer(source)
+    if not Player then return false end
+    
+    -- Check if mechanic
+    if not Validation.IsMechanic(Player) then
+        TriggerClientEvent('ox_lib:notify', source, {
+            title = locale('not_mechanic'),
+            type = 'error'
+        })
+        return false
+    end
+    
+    -- Get inspection data
+    local inspectionData = Vehicles.GetInspectionData(plate)
+    
+    if inspectionData[part] then
+        inspectionData[part].health = math.min(100, (inspectionData[part].health or 0) + amount)
+        inspectionData[part].lastRepaired = os.time()
+        inspectionData[part].repairedBy = Player.PlayerData.citizenid
+        
+        -- Save data
+        if Vehicles.UpdateInspectionData(plate, inspectionData) then
+            -- Log repair
+            local charinfo = Player.PlayerData.charinfo
+            local playerName = charinfo and (charinfo.firstname .. ' ' .. charinfo.lastname) or 'Unknown'
+            print(string.format('[Mechanic] %s repaired %s on vehicle %s', playerName, part, plate))
+            
+            return true
+        end
+    end
+    
+    return false
+end
+
+-- Purchase vehicle part
+function Vehicles.PurchasePart(source, partId, quantity, totalPrice)
+    local Player = Framework.GetPlayer(source)
+    if not Player then return false end
+    
+    local partData = Config.VehicleParts[partId]
+    local applyMarkup = partData ~= nil
+    if not partData then
+        for _, candidate in pairs(Config.VehicleParts) do
+            if candidate.item == partId then partData = candidate applyMarkup = true break end
+        end
+    end
+    if not partData then
+        for _, candidate in pairs(Config.MaintenanceItems) do
+            if candidate.item == partId then partData = candidate break end
+        end
+    end
+    if not partData then
+        for _, category in pairs(Config.Tools) do
+            for _, candidate in ipairs(category) do
+                if candidate.item == partId then
+                    partData = { item = candidate.item, label = candidate.label, price = 500 }
+                    break
+                end
+            end
+            if partData then break end
+        end
+    end
+    if not partData then return false end
+    
+    quantity = tonumber(quantity)
+    if not Validation.IsPositiveInteger(quantity, 1, Config.Billing.parts.maxQuantity) then
+        return false
+    end
+
+    local unitPrice = math.floor(partData.price * (applyMarkup and Config.Economy.partMarkup or 1.0))
+    local calculatedTotal = unitPrice * quantity
+
+    -- Check money
+    local money = Config.Economy.payWithCash and Player.PlayerData.money.cash or Player.PlayerData.money.bank
+    if money < calculatedTotal then
+        return false
+    end
+    
+    -- Remove money
+    local account = Config.Economy.payWithCash and 'cash' or 'bank'
+    if not Player.Functions.RemoveMoney(account, calculatedTotal, 'mechanic-parts-purchase') then return false end
+    
+    -- Give items
+    if exports.ox_inventory:AddItem(source, partData.item, quantity) then
+        TriggerClientEvent('ox_lib:notify', source, {
+            title = locale('purchase_successful'),
+            description = locale('purchased_parts', quantity, partData.label),
+            type = 'success'
+        })
+        return true
+    end
+    
+    -- Refund if failed
+    Player.Functions.AddMoney(account, calculatedTotal, 'mechanic-parts-refund')
+    
+    return false
+end
+
+-- Callbacks
+lib.callback.register('mechanic:server:isVehicleOwned', function(source, plate)
+    local Player = Framework.GetPlayer(source)
+    if not Player then return false end
+    if not Validation.IsValidPlate(plate) then return false end
+
+    if not Validation.CheckRateLimit(source, 'vehicle_owned', Config.Security.rateLimits.vehicleInspectionMs) then
+        Validation.LogDenied(source, 'vehicle_owned', 'rate_limited')
+        return false
+    end
+
+    local isOwner = Validation.IsVehicleOwnedBy(plate, Player.PlayerData.citizenid)
+    if not isOwner and not Validation.IsMechanic(Player) and not Validation.IsAdmin(source) then
+        Validation.LogDenied(source, 'vehicle_owned', 'not_authorized')
+        return false
+    end
+
+    return Vehicles.IsOwned(plate)
+end)
+
+lib.callback.register('mechanic:server:getVehicleInspection', function(source, plate)
+    local Player = Framework.GetPlayer(source)
+    if not Player or not Validation.IsValidPlate(plate) then return nil end
+
+    if not Validation.CheckRateLimit(source, 'vehicle_inspection', Config.Security.rateLimits.vehicleInspectionMs) then
+        Validation.LogDenied(source, 'vehicle_inspection', 'rate_limited')
+        return nil
+    end
+
+    local vehicle = Vehicles.GetVehicleByPlate(plate)
+    if vehicle then
+        if not canAccessVehicle(source, vehicle, plate, false) then
+            Validation.LogDenied(source, 'vehicle_inspection', 'not_authorized')
+            return nil
+        end
+    else
+        local isOwner = Validation.IsVehicleOwnedBy(plate, Player.PlayerData.citizenid)
+        if not isOwner and not Validation.IsMechanic(Player) and not Validation.IsAdmin(source) then
+            Validation.LogDenied(source, 'vehicle_inspection', 'not_authorized')
+            return nil
+        end
+    end
+
+    return Vehicles.GetInspectionData(plate)
+end)
+
+lib.callback.register('mechanic:server:purchasePart', function(source, partId, quantity, totalPrice)
+    if type(partId) ~= 'string' or #partId < 1 or #partId > 64 then
+        Validation.LogDenied(source, 'purchase_part', 'invalid_part_id')
+        return false
+    end
+    local numericQuantity = tonumber(quantity)
+    if not Validation.IsNumberInRange(numericQuantity, 1, Config.Billing.parts.maxQuantity) then
+        Validation.LogDenied(source, 'purchase_part', 'invalid_quantity')
+        return false
+    end
+    return Vehicles.PurchasePart(source, partId, numericQuantity, totalPrice)
+end)
+
+lib.callback.register('mechanic:server:saveInspection', function(source, netId, _results)
+    local Player = Framework.GetPlayer(source)
+    if not Player or not Validation.IsMechanic(Player) then return false end
+    if not Validation.CheckRateLimit(source, 'save_inspection', Config.Security.rateLimits.vehicleInspectionMs) then
+        return false
+    end
+    local vehicle = Validation.GetVehicleByNetId(netId)
+    if not vehicle or not Validation.IsPlayerNearEntity(source, vehicle, 10.0) then return false end
+
+    local plate = GetVehicleNumberPlateText(vehicle)
+    if not Validation.IsVehicleOwned(plate) then return false end
+
+    local existing = Vehicles.GetInspectionData(plate)
+    local fluids = Vehicles.GetFluidData(plate)
+    local bodyHealth = Validation.ClampNumber(GetVehicleBodyHealth(vehicle) / 10, 0, 100, 100)
+    local engineHealth = Validation.ClampNumber(GetVehicleEngineHealth(vehicle) / 10, 0, 100, 100)
+    local measured = {
+        engine = engineHealth,
+        oil = fluids.oilLevel,
+        battery = fluids.batteryLevel,
+        transmission = fluids.gearBoxHealth,
+        coolant = fluids.coolantLevel,
+        suspension = bodyHealth,
+        tires = 100 - (tonumber(fluids.tireWear) or 0)
+    }
+
+    local sanitized = {}
+    for name in pairs(Config.Inspection.checkPoints) do
+        local previous = type(existing[name]) == 'table' and tonumber(existing[name].health) or 100
+        local current = Validation.ClampNumber(tonumber(measured[name]), 0, 100, previous)
+        sanitized[name] = {
+            health = math.floor(current),
+            lastChecked = os.time()
+        }
+    end
+    if not Vehicles.UpdateInspectionData(plate, sanitized) then return false end
+    return true, sanitized
+end)
+
+lib.callback.register('mechanic:server:getVehicleFluidData', function(source, plate)
+    local Player = Framework.GetPlayer(source)
+    if not Player or not Validation.IsValidPlate(plate) then return nil end
+
+    if not Validation.CheckRateLimit(source, 'vehicle_fluid', Config.Security.rateLimits.vehicleFluidMs) then
+        Validation.LogDenied(source, 'vehicle_fluid', 'rate_limited')
+        return nil
+    end
+
+    local vehicle = Vehicles.GetVehicleByPlate(plate)
+    if vehicle then
+        if not canAccessVehicle(source, vehicle, plate, false) then
+            Validation.LogDenied(source, 'vehicle_fluid', 'not_authorized')
+            return nil
+        end
+    else
+        local isOwner = Validation.IsVehicleOwnedBy(plate, Player.PlayerData.citizenid)
+        if not isOwner and not Validation.IsMechanic(Player) and not Validation.IsAdmin(source) then
+            Validation.LogDenied(source, 'vehicle_fluid', 'not_authorized')
+            return nil
+        end
+    end
+
+    return Vehicles.GetFluidData(plate)
+end)
+
+lib.callback.register('mechanic:server:updateVehicleFluidData', function(source, plate, fluidData)
+    local Player = Framework.GetPlayer(source)
+    if not Player or not Validation.IsValidPlate(plate) then return false end
+
+    local vehicle = Vehicles.GetVehicleByPlate(plate)
+    if not vehicle then
+        Validation.LogDenied(source, 'vehicle_fluid_update', 'vehicle_not_found')
+        return false
+    end
+
+    if not Validation.CheckRateLimit(source, 'fluid_update', Config.Security.rateLimits.fluidUpdateMs) then
+        Validation.LogDenied(source, 'vehicle_fluid_update', 'rate_limited')
+        return false
+    end
+
+    if not canAccessVehicle(source, vehicle, plate, false) then
+        Validation.LogDenied(source, 'vehicle_fluid_update', 'not_authorized')
+        return false
+    end
+
+    local normalized = Validation.NormalizeFluidData(fluidData)
+    if not normalized then
+        Validation.LogDenied(source, 'vehicle_fluid_update', 'invalid_fluid_data')
+        return false
+    end
+
+    local current = Vehicles.GetFluidData(plate)
+    if not Validation.IsPlausibleFluidUpdate(current, normalized) then
+        Validation.LogDenied(source, 'vehicle_fluid_update', 'fluid_levels_increased')
+        return false
+    end
+
+    return Vehicles.UpdateFluidData(plate, normalized)
+end)
+
+-- Damage updates are accepted only from the driver or the current network owner.
+RegisterNetEvent('mechanic:server:vehicleDamaged', function(plate, impactData)
+    if not Validation.IsValidPlate(plate) then return end
+
+    if not Validation.CheckRateLimit(source, 'vehicle_damage', Config.Security.rateLimits.vehicleDamageMs) then
+        Validation.LogDenied(source, 'vehicle_damage', 'rate_limited')
+        return
+    end
+
+    local vehicle = Vehicles.GetVehicleByPlate(plate)
+    if not vehicle or not DoesEntityExist(vehicle) then return end
+
+    if not Validation.IsPlayerNearEntity(source, vehicle, 15.0) then return end
+
+    local ped = GetPlayerPed(source)
+    if GetVehiclePedIsIn(ped, false) ~= vehicle and NetworkGetEntityOwner(vehicle) ~= source then
+        return
+    end
+
+    local normalizedImpact = Validation.NormalizeImpactData(impactData)
+    if not normalizedImpact then
+        Validation.LogDenied(source, 'vehicle_damage', 'invalid_impact')
+        return
+    end
+
+    -- Add source coords for nearby notification
+    normalizedImpact.coords = GetEntityCoords(ped)
+    
+    MySQL.update('UPDATE player_vehicles SET damage_data = ? WHERE plate = ?', {
+        json.encode(normalizedImpact),
+        plate
+    })
+
+    Vehicles.ProcessDamage(plate, normalizedImpact)
+end)
+
+-- Sincronización de niveles de fluidos
+RegisterNetEvent('mechanic:server:syncFluidLevels', function(plate, fluidData)
+    local src = source
+
+    if not Validation.CheckRateLimit(src, 'fluid_sync', Config.Security.rateLimits.fluidSyncMs) then
+        Validation.LogDenied(src, 'fluid_sync', 'rate_limited')
+        return
+    end
+
+    if not Validation.IsValidPlate(plate) or type(fluidData) ~= 'table' then return end
+
+    local ped = GetPlayerPed(src)
+    local vehicle = Vehicles.GetVehicleByPlate(plate)
+
+    if vehicle and DoesEntityExist(vehicle) then
+        local Player = Framework.GetPlayer(src)
+        if not Player then return end
+
+        local isOwner = Validation.IsVehicleOwnedBy(plate, Player.PlayerData.citizenid)
+        if not isOwner and not Validation.IsMechanic(Player) and not Validation.IsAdmin(src) then
+            Validation.LogDenied(src, 'fluid_sync', 'not_authorized')
+            return
+        end
+
+        local vehicleCoords = GetEntityCoords(vehicle)
+        local playerCoords = GetEntityCoords(ped)
+        
+        -- Solo permitir sincronización si está cerca del vehículo
+        if #(vehicleCoords - playerCoords) < 10.0 then
+            local normalized = Validation.NormalizeFluidData(fluidData)
+            if not normalized then
+                Validation.LogDenied(src, 'fluid_sync', 'invalid_fluid_data')
+                return
+            end
+            
+            local current = Vehicles.GetFluidData(plate)
+            if not Validation.IsPlausibleFluidUpdate(current, normalized) then
+                Validation.LogDenied(src, 'fluid_sync', 'fluid_levels_increased')
+                return
+            end
+
+            -- Actualizar en base de datos
+            Vehicles.UpdateFluidData(plate, normalized)
+            
+            -- Log para debugging
+            if Config.Debug then
+                print(string.format('[Mechanic] Player %s synced fluid levels for vehicle %s', src, plate))
+            end
+        end
+    end
+end)
+
+return Vehicles

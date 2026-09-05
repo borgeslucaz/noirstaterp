@@ -8,6 +8,7 @@ return {
     searchDuration = { min = 4000, max = 7000 },
     carryClaimDuration = { min = 3000, max = 5000 },
     carryTokenLifetime = 30 * 60,
+    droppedPropLifetime = 10 * 60,
     contractTimeout = 45 * 60,
     cooldowns = { player = 15 * 60, house = 30 * 60 },
     cleanupHouseToCooldown = true,

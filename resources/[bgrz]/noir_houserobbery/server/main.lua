@@ -11,6 +11,7 @@ local playerCooldowns = {}
 local activeCarry = {}
 local startedLoot = {}
 local startedPickup = {}
+local startedStash = {}
 local allocatedBuckets = {}
 local releasedBuckets = {}
 local sequence = 0
@@ -19,7 +20,8 @@ local nextRoutingBucket = shared.baseRoutingBucket
 local LOOT_TRANSITIONS = {
     available = { claiming = true, removed = true },
     dropped = { claiming = true, removed = true },
-    claiming = { available = true, dropped = true, carried = true, removed = true },
+    -- claiming -> stored is the direct "pocket" path for carry = false pickups
+    claiming = { available = true, dropped = true, carried = true, stored = true, removed = true },
     carried = { dropped = true, storing = true, removed = true },
     storing = { carried = true, stored = true, removed = true },
     stored = { sold = true, removed = true },
@@ -141,6 +143,17 @@ local function selectRuntimeEntries(entries, minimum, maximum)
             model = entry.model,
             reward = entry.reward,
             rotation = entry.rotation,
+            -- defaults to true (carry-to-vehicle) when unset, preserving old behavior
+            carry = entry.carry ~= false,
+            -- optional { min, max } range for the reward's item amount; a
+            -- single reward quantity (1) is used when unset
+            amount = entry.amount,
+            -- friendly checklist label; falls back to the reward item name
+            -- so the UI never has to show a raw model hash/string
+            name = entry.name or entry.reward,
+            -- reserved for future optional objectives; every pickup counts
+            -- toward checklist completion today
+            required = entry.required ~= false,
             status = 'available',
             busyBy = nil,
         }
@@ -177,6 +190,10 @@ local function setupHouse(contract)
             model = pickup.model,
             reward = pickup.reward,
             rotation = pickup.rotation,
+            carry = pickup.carry,
+            amount = pickup.amount,
+            name = pickup.name,
+            required = pickup.required,
             state = 'available',
             carrier = nil,
             vehicle = nil,
@@ -184,6 +201,8 @@ local function setupHouse(contract)
             entity = nil,
             location = 'inside',
             dropped = false,
+            droppedAt = nil,
+            stolen = false,
             currentBucket = nil,
             lastCoords = pickup.coords,
             lastHeading = pickup.rotation,
@@ -207,6 +226,56 @@ local function setupHouse(contract)
     end
 end
 
+-- A carry objective is fulfilled permanently once the prop has left its
+-- original position. Dropping it later is a tactical choice and must not
+-- reopen an objective that was already completed.
+local function pickupObjectiveCompleted(pickup)
+    return pickup.stolen == true
+        or pickup.state == 'stored'
+        or pickup.state == 'sold'
+end
+
+-- Presentation-only summary of the robbery session, sent to clients so the
+-- checklist NUI never has to compute progress itself (see docs/noir_houserobbery/NUI.md).
+local function buildChecklist(contract)
+    local searchTotal = #contract.searchPoints
+    local searchCompleted = 0
+
+    for _, loot in ipairs(contract.searchPoints) do
+        if loot.status == 'opened' then searchCompleted += 1 end
+    end
+
+    local pickups = {}
+
+    for lootId, pickup in pairs(contract.loot) do
+        pickups[#pickups + 1] = {
+            id = lootId,
+            name = pickup.name or pickup.reward,
+            required = pickup.required ~= false,
+            completed = pickupObjectiveCompleted(pickup),
+        }
+    end
+
+    table.sort(pickups, function(a, b) return a.id < b.id end)
+
+    local completed = searchCompleted == searchTotal
+
+    if completed then
+        for _, pickup in ipairs(pickups) do
+            if pickup.required and not pickup.completed then
+                completed = false
+                break
+            end
+        end
+    end
+
+    return {
+        search = searchTotal > 0 and { completed = searchCompleted, total = searchTotal } or nil,
+        pickups = pickups,
+        completed = completed,
+    }
+end
+
 local function clientContract(contract, source)
     local house = housesById[contract.houseId].config
     local state = houseState[contract.houseId]
@@ -215,6 +284,7 @@ local function clientContract(contract, source)
         houseId = contract.houseId,
         tier = contract.tier,
         status = contract.status,
+        checklist = buildChecklist(contract),
         coords = house.coords,
         interior = house.interior,
         routingBucket = contract.routingBucket,
@@ -228,6 +298,7 @@ local function clientContract(contract, source)
                     coords = pickup.coords,
                     model = pickup.model,
                     rotation = pickup.rotation,
+                    carry = pickup.carry,
                     state = pickup.state,
                     carrier = pickup.carrier,
                     vehicle = pickup.vehicle,
@@ -333,7 +404,12 @@ local function spawnLootEntity(contract, pickup, bucket, coords)
 
     SetEntityOrphanMode(entity, 2)
     SetEntityRoutingBucket(entity, bucket)
-    SetEntityHeading(entity, pickup.rotation or 0.0)
+    local rotation = pickup.rotation
+    if type(rotation) == 'vector3' or (type(rotation) == 'table' and rotation.x and rotation.y and rotation.z) then
+        SetEntityRotation(entity, rotation.x, rotation.y, rotation.z, 2, true)
+    else
+        SetEntityHeading(entity, rotation or 0.0)
+    end
     FreezeEntityPosition(entity, pickup.state == 'available' or pickup.state == 'claiming')
     pickup.entity = entity
     pickup.netId = NetworkGetNetworkIdFromEntity(entity)
@@ -463,6 +539,15 @@ local function cleanupRobberyEntities(contract, interiorOnly, reason)
     end
 end
 
+-- Rewards that must stack across separate robberies instead of each grab
+-- getting its own metadata-tagged (and therefore non-stacking) slot.
+local CURRENCY_REWARDS = { money = true, black_money = true }
+
+local function pickupRewardAmount(pickup)
+    if not pickup.amount then return 1 end
+    return math.random(pickup.amount.min, pickup.amount.max)
+end
+
 local function getPickup(contract, robberyId, lootId)
     if not contract or contract.id ~= robberyId or type(lootId) ~= 'string' then return nil end
     return contract.loot[lootId]
@@ -472,6 +557,33 @@ local function getCarriedPickup(source, contract)
     local carry = activeCarry[source]
     if not carry or carry.robberyId ~= contract?.id then return nil, nil end
     return contract.loot[carry.lootId], carry
+end
+
+local function getAccessibleLootContract(source, robberyId)
+    local contract = getContract(source)
+    if contract?.id == robberyId then return contract end
+
+    contract = archivedRobberies[robberyId]
+    if contract?.status ~= 'closed' then return nil end
+    local citizenId = getCitizenId(source)
+    if not citizenId or not contract.members[citizenId] then return nil end
+    if not contract.players[source] then
+        contract.players[source] = { citizenId = citizenId, inside = false }
+    end
+    return contract
+end
+
+local function clientCarryState(source)
+    local carry = activeCarry[source]
+    if not carry then return nil end
+    local contract = robberiesById[carry.robberyId] or archivedRobberies[carry.robberyId]
+    local pickup = contract?.loot?[carry.lootId]
+    if not pickup or pickup.state ~= 'carried' or pickup.carrier ~= source then return nil end
+    return {
+        robberyId = carry.robberyId,
+        lootId = carry.lootId,
+        netId = pickup.netId,
+    }
 end
 
 local function recreateCarriedLoot(source, contract, bucket, targetCoords, targetHeading)
@@ -554,6 +666,7 @@ local function finalizeRobbery(contract, reason, completed)
         if not preserveCarry[playerSource] then activeCarry[playerSource] = nil end
         startedLoot[playerSource] = nil
         startedPickup[playerSource] = nil
+        startedStash[playerSource] = nil
         contractsBySource[playerSource] = nil
         if participant.citizenId then playerCooldowns[participant.citizenId] = now() + config.cooldowns.player end
         if GetPlayerName(playerSource) then
@@ -586,8 +699,8 @@ local function finalizeRobbery(contract, reason, completed)
     for playerSource in pairs(contract.players) do
         if GetPlayerName(playerSource) then
             TriggerClientEvent('noir_houserobbery:client:contractEnded', playerSource,
-                reason or 'Contrato encerrado.', completed == true, preserveCarry[playerSource] == true,
-                preserveCarry[playerSource] and clientContract(contract, playerSource) or nil)
+                reason or 'Contrato encerrado.', completed == true, preserveCarry[playerSource] == true)
+            NoirBurnerIntegration.refreshContracts(playerSource)
         end
     end
     return true
@@ -602,36 +715,60 @@ local function allLootResolved(contract)
         if loot.status ~= 'opened' then return false end
     end
     for _, pickup in pairs(contract.loot) do
-        if pickup.state ~= 'stored' then return false end
+        if pickup.required ~= false and not pickupObjectiveCompleted(pickup) then return false end
     end
     return true
 end
 
-local function requestContract(source)
-    local player = getPlayer(source)
-    if not player then return end
-    local citizenId = player.PlayerData.citizenid
+-- Contract offers shown on the burner phone are exposed per tier, never per
+-- house: the concrete address is only picked (at random) when the player
+-- accepts, exactly like the legacy message flow. Offer ids are opaque.
+local TIER_OFFERS = {
+    [1] = { label = 'Roubo a casa simples', difficulty = 'Baixo' },
+    [2] = { label = 'Roubo a casa média', difficulty = 'Médio' },
+    [3] = { label = 'Roubo a casa grande', difficulty = 'Alto' },
+}
+local OFFER_ID_PATTERN = '^house:tier:(%d+)$'
 
-    if activeContracts[citizenId] then
-        NoirBurnerIntegration.sendMessage(source, 'Você já tem um endereço. Termine o serviço primeiro.')
-        return
-    end
-    if playerCooldowns[citizenId] and playerCooldowns[citizenId] > now() then
-        NoirBurnerIntegration.sendMessage(source, 'Nada por enquanto. Fique fora do radar.')
-        return
-    end
-
+local function eligibleHouses(tier)
     local eligible = {}
+    local timestamp = now()
     for _, house in ipairs(shared.houses) do
         local state = houseState[house.id]
-        if state.status == 'cooldown' and state.cooldownUntil <= now() then state.status = 'available' end
-        if house.tier == 1 and shared.tiers[house.tier].enabled and state.status == 'available' then
+        if state.status == 'cooldown' and state.cooldownUntil <= timestamp then state.status = 'available' end
+        if (tier == nil or house.tier == tier) and shared.tiers[house.tier]?.enabled and state.status == 'available' then
             eligible[#eligible + 1] = house
         end
     end
+    return eligible
+end
+
+local function playerOnCooldown(citizenId)
+    return playerCooldowns[citizenId] ~= nil and playerCooldowns[citizenId] > now()
+end
+
+-- `quiet` skips the burner contact message so the NUI can show the returned
+-- reason inline instead. Returns ok, reason.
+local function requestContract(source, tier, quiet)
+    local player = getPlayer(source)
+    if not player then return false, 'Jogador indisponível.' end
+    local citizenId = player.PlayerData.citizenid
+
+    local function reject(message)
+        if not quiet then NoirBurnerIntegration.sendMessage(source, message) end
+        return false, message
+    end
+
+    if activeContracts[citizenId] then
+        return reject('Você já tem um endereço. Termine o serviço primeiro.')
+    end
+    if playerOnCooldown(citizenId) then
+        return reject('Nada por enquanto. Fique fora do radar.')
+    end
+
+    local eligible = eligibleHouses(tier)
     if #eligible == 0 then
-        NoirBurnerIntegration.sendMessage(source, 'Não tenho nenhum lugar seguro agora.')
-        return
+        return reject('Não tenho nenhum lugar seguro agora.')
     end
 
     local house = eligible[math.random(#eligible)]
@@ -650,10 +787,86 @@ local function requestContract(source)
     houseState[house.id].contractId = contract.id
     setupHouse(contract)
     TriggerClientEvent('noir_houserobbery:client:contractAssigned', source, clientContract(contract, source))
-    NoirBurnerIntegration.sendLocation(source, { coords = house.coords, id = contract.id })
+    if not quiet then NoirBurnerIntegration.sendLocation(source, { coords = house.coords, id = contract.id }) end
+    NoirBurnerIntegration.refreshContracts(source)
+    return true
 end
 
-exports('RequestHouseContract', requestContract)
+-- Legacy message-driven entrypoint (random enabled tier, burner message).
+exports('RequestHouseContract', function(source)
+    return requestContract(tonumber(source), nil, false)
+end)
+
+-- Burner phone contract bridge ------------------------------------------
+-- Consumed server-side by noir_burnerphone. Nothing here exposes coordinates,
+-- house ids or rewards; the phone only receives labels and opaque ids.
+
+local function contractLabel(contract)
+    return TIER_OFFERS[contract.tier]?.label or 'Roubo a casa'
+end
+
+exports('GetBurnerContracts', function(source)
+    source = tonumber(source)
+    local result = { active = {}, available = {} }
+    if not source then return result end
+
+    local contract, citizenId = getContract(source)
+    if contract and contract.status ~= 'closing' and contract.status ~= 'closed' then
+        result.active[#result.active + 1] = {
+            id = contract.id,
+            label = contractLabel(contract),
+            status = contract.status,
+            canResume = contract.players[source]?.inside ~= true,
+            canAbandon = true,
+        }
+        return result
+    end
+
+    if not citizenId or playerOnCooldown(citizenId) then return result end
+    for tier = 1, #TIER_OFFERS do
+        local offer = TIER_OFFERS[tier]
+        if shared.tiers[tier]?.enabled and #eligibleHouses(tier) > 0 then
+            result.available[#result.available + 1] = {
+                id = ('house:tier:%d'):format(tier),
+                label = offer.label,
+                tier = tier,
+                difficulty = offer.difficulty,
+            }
+        end
+    end
+    return result
+end)
+
+exports('AcceptBurnerContract', function(source, offerId)
+    source = tonumber(source)
+    local tier = type(offerId) == 'string' and tonumber(offerId:match(OFFER_ID_PATTERN)) or nil
+    if not source or not tier or not TIER_OFFERS[tier] or not shared.tiers[tier]?.enabled then
+        return false, 'Contrato indisponível.'
+    end
+    return requestContract(source, tier, true)
+end)
+
+exports('ResumeBurnerContract', function(source, contractId)
+    source = tonumber(source)
+    local contract = source and getContract(source) or nil
+    if not contract or contract.id ~= contractId or contract.status == 'closing' or contract.status == 'closed' then
+        return false, 'Contrato indisponível.'
+    end
+    if contract.players[source]?.inside then return false, 'Você já está no endereço.' end
+    local house = housesById[contract.houseId].config
+    TriggerClientEvent('noir_houserobbery:client:contractRoute', source, house.coords)
+    return true
+end)
+
+exports('AbandonBurnerContract', function(source, contractId)
+    source = tonumber(source)
+    local contract = source and getContract(source) or nil
+    if not contract or contract.id ~= contractId then return false, 'Contrato indisponível.' end
+    if not finalizeRobbery(contract, 'Você abandonou o serviço.', false) then
+        return false, 'Esse contrato já foi encerrado.'
+    end
+    return true
+end)
 
 local function addParticipant(contract, source)
     source = tonumber(source)
@@ -675,6 +888,7 @@ local function addParticipant(contract, source)
     contractsBySource[source] = contract.id
     TriggerClientEvent('noir_houserobbery:client:contractAssigned', source, clientContract(contract, source))
     syncContract(contract)
+    NoirBurnerIntegration.refreshContracts(source)
     return true
 end
 
@@ -688,6 +902,10 @@ end)
 lib.callback.register('noir_houserobbery:server:getContract', function(source)
     local contract = getContract(source)
     return contract and clientContract(contract, source) or nil
+end)
+
+lib.callback.register('noir_houserobbery:server:getCarryState', function(source)
+    return clientCarryState(source)
 end)
 
 local function startSkillcheck(source, houseId)
@@ -797,6 +1015,12 @@ RegisterNetEvent('noir_houserobbery:server:leaveHouse', function()
     participant.inside = false
     TriggerClientEvent('noir_houserobbery:client:leftHouse', src, clientContract(contract, src))
     syncContract(contract)
+
+    -- Objectives completed inside keep the session alive until a participant
+    -- performs a valid exit. The contractEnded event notifies every member.
+    if allLootResolved(contract) then
+        finalizeContract(src, 'Roubo concluído. Você saiu do endereço.', true)
+    end
 end)
 
 local function validInside(source, contract, coords)
@@ -809,7 +1033,8 @@ end
 local function validPickupLocation(source, contract, pickup)
     if not contract or not pickup then return false end
     if pickup.location == 'outside' then
-        return contract.status == 'active'
+        return (contract.status == 'active' or contract.status == 'closed')
+            and contract.players[source] ~= nil
             and contract.players[source]?.inside == false
             and GetPlayerRoutingBucket(source) == 0
             and distanceTo(source, pickup.coords) <= config.maxExteriorDistance
@@ -819,7 +1044,7 @@ end
 
 lib.callback.register('noir_houserobbery:server:checkLoot', function(source, lootId)
     local contract = getContract(source)
-    if activeCarry[source] or startedPickup[source] or startedLoot[source] then return false end
+    if activeCarry[source] or startedPickup[source] or startedLoot[source] or startedStash[source] then return false end
     local loot = contract and houseState[contract.houseId].loot[tonumber(lootId)]
     if not loot or not validInside(source, contract, loot.coords) or loot.status ~= 'available' then return false end
     loot.status, loot.busyBy = 'busy', source
@@ -866,10 +1091,11 @@ RegisterNetEvent('noir_houserobbery:server:cancelLoot', function(lootId)
 end)
 
 lib.callback.register('noir_houserobbery:server:beginCarry', function(source, robberyId, lootId)
-    local contract = getContract(source)
-    if activeCarry[source] or startedPickup[source] or startedLoot[source] then return false end
+    local contract = getAccessibleLootContract(source, robberyId)
+    if activeCarry[source] or startedPickup[source] or startedLoot[source] or startedStash[source] then return false end
     local pickup = getPickup(contract, robberyId, lootId)
     if not pickup or (pickup.state ~= 'available' and pickup.state ~= 'dropped')
+        or (contract.status == 'closed' and pickup.state ~= 'dropped')
         or not validPickupLocation(source, contract, pickup) then return false end
 
     -- This transition is atomic in the server event loop. A second request sees claiming.
@@ -884,13 +1110,13 @@ lib.callback.register('noir_houserobbery:server:beginCarry', function(source, ro
         startedAt = now(),
     }
     updateLootRepresentation(contract, pickup)
-    syncContract(contract)
+    if contract.status ~= 'closed' then syncContract(contract) end
     return { duration = duration }
 end)
 
 RegisterNetEvent('noir_houserobbery:server:finishCarry', function(robberyId, lootId)
     local src = source
-    local contract = getContract(src)
+    local contract = getAccessibleLootContract(src, robberyId)
     local started = startedPickup[src]
     local pickup = getPickup(contract, robberyId, lootId)
     if not started or started.robberyId ~= robberyId or started.lootId ~= lootId then return end
@@ -903,6 +1129,8 @@ RegisterNetEvent('noir_houserobbery:server:finishCarry', function(robberyId, loo
     if not transitionLoot(pickup, 'carried') then return end
     pickup.location = participant.inside and 'inside' or 'outside'
     pickup.dropped = false
+    pickup.droppedAt = nil
+    pickup.stolen = true
     pickup.vehicle = nil
     local coords = GetEntityCoords(ped)
     local heading = GetEntityHeading(ped)
@@ -915,17 +1143,23 @@ RegisterNetEvent('noir_houserobbery:server:finishCarry', function(robberyId, loo
     moveLootEntityToBucket(contract, pickup, bucket, coords, heading)
     debugLog(contract, pickup, 'claiming -> carried carrier=%s entity=%s netId=%s bucket=%s',
         src, pickup.entity or 0, pickup.netId or 0, bucket)
-    syncContract(contract)
+    if contract.status ~= 'closed' then syncContract(contract) end
     TriggerClientEvent('noir_houserobbery:client:carryApproved', src, {
         robberyId = contract.id,
         lootId = pickup.id,
         netId = pickup.netId,
     })
+
+    -- A pickup completed outside (for example, one recovered after being
+    -- dropped) completes the robbery immediately when it was the last goal.
+    if contract.status == 'active' and not participant.inside and allLootResolved(contract) then
+        finalizeContract(src, 'Roubo concluído. Todos os objetivos foram finalizados.', true)
+    end
 end)
 
 RegisterNetEvent('noir_houserobbery:server:cancelPickup', function(robberyId, lootId)
     local src = source
-    local contract = getContract(src)
+    local contract = getAccessibleLootContract(src, robberyId)
     local started = startedPickup[src]
     local pickup = getPickup(contract, robberyId, lootId)
     if started and started.robberyId == robberyId and started.lootId == lootId
@@ -933,6 +1167,88 @@ RegisterNetEvent('noir_houserobbery:server:cancelPickup', function(robberyId, lo
         if not transitionLoot(pickup, started.previousState) then return end
         pickup.carrier = nil
         startedPickup[src] = nil
+        updateLootRepresentation(contract, pickup)
+        if contract.status ~= 'closed' then syncContract(contract) end
+    end
+end)
+
+-- carry = false pickups skip the claim/carry/vehicle flow entirely: the
+-- item goes straight into the player's own inventory, like a loot search.
+lib.callback.register('noir_houserobbery:server:checkStash', function(source, robberyId, lootId)
+    local contract = getContract(source)
+    if activeCarry[source] or startedPickup[source] or startedLoot[source] or startedStash[source] then return false end
+    local pickup = getPickup(contract, robberyId, lootId)
+    if not pickup or pickup.carry ~= false or pickup.state ~= 'available'
+        or not validPickupLocation(source, contract, pickup) then return false end
+
+    if not transitionLoot(pickup, 'claiming') then return false end
+    pickup.carrier = source
+    local duration = math.random(config.searchDuration.min, config.searchDuration.max)
+    startedStash[source] = {
+        robberyId = contract.id,
+        lootId = pickup.id,
+        readyAt = GetGameTimer() + duration,
+        startedAt = now(),
+    }
+    updateLootRepresentation(contract, pickup)
+    syncContract(contract)
+    return { duration = duration }
+end)
+
+RegisterNetEvent('noir_houserobbery:server:finishStash', function(robberyId, lootId)
+    local src = source
+    local contract = getContract(src)
+    local started = startedStash[src]
+    local pickup = getPickup(contract, robberyId, lootId)
+    if not started or started.robberyId ~= robberyId or started.lootId ~= lootId then return end
+    if GetGameTimer() < started.readyAt then return end
+    if not pickup or pickup.state ~= 'claiming' or pickup.carrier ~= src
+        or not validPickupLocation(src, contract, pickup) then return end
+
+    startedStash[src] = nil
+
+    -- currency-like rewards must stay metadata-free so ox_inventory stacks
+    -- them together instead of giving every robbery its own separate slot
+    local metadata = not CURRENCY_REWARDS[pickup.reward] and {
+        stolen = true,
+        robberyId = contract.id,
+        lootId = pickup.id,
+    } or nil
+
+    local addOk, success = pcall(function()
+        return exports.ox_inventory:AddItem(src, pickup.reward, pickupRewardAmount(pickup), metadata)
+    end)
+
+    if not addOk or not success then
+        transitionLoot(pickup, 'available')
+        pickup.carrier = nil
+        updateLootRepresentation(contract, pickup)
+        syncContract(contract)
+        notify(src, 'Inventário cheio.', 'error')
+        return
+    end
+
+    removeLootEntity(contract, pickup, 'stashed_in_pocket')
+    if not transitionLoot(pickup, 'stored') then return end
+    pickup.carrier = nil
+    pickup.location = 'stashed'
+    syncContract(contract)
+    notify(src, 'Objeto guardado no bolso.', 'success')
+    -- Finishing the checklist doesn't finalize the robbery by itself - the
+    -- player still has to walk out; noir_houserobbery:server:leaveHouse is
+    -- what actually closes the session (see docs/noir_houserobbery/NUI.md #20-21).
+end)
+
+RegisterNetEvent('noir_houserobbery:server:cancelStash', function(robberyId, lootId)
+    local src = source
+    local contract = getContract(src)
+    local started = startedStash[src]
+    local pickup = getPickup(contract, robberyId, lootId)
+    if started and started.robberyId == robberyId and started.lootId == lootId
+        and pickup and pickup.state == 'claiming' and pickup.carrier == src then
+        if not transitionLoot(pickup, 'available') then return end
+        pickup.carrier = nil
+        startedStash[src] = nil
         updateLootRepresentation(contract, pickup)
         syncContract(contract)
     end
@@ -962,6 +1278,7 @@ local function dropCarriedLoot(src, contract, reason, notifyClient)
     pickup.rotation = heading
     pickup.location = bucket == contract.routingBucket and 'inside' or 'outside'
     pickup.dropped = true
+    pickup.droppedAt = now()
     pickup.lastCoords = pickup.coords
     pickup.lastHeading = heading
     pickup.lastBucket = bucket
@@ -970,7 +1287,13 @@ local function dropCarriedLoot(src, contract, reason, notifyClient)
     debugLog(contract, pickup, 'carried -> dropped reason=%s coords=%s bucket=%s',
         reason or 'unknown', json.encode(pickup.coords), bucket)
     if contract.status ~= 'closed' then syncContract(contract) end
-    if notifyClient and GetPlayerName(src) then TriggerClientEvent('noir_houserobbery:client:carryCancelled', src) end
+    if notifyClient and GetPlayerName(src) then
+        TriggerClientEvent('noir_houserobbery:client:carryCancelled', src, {
+            robberyId = contract.id,
+            lootId = pickup.id,
+            state = 'dropped',
+        })
+    end
     return true
 end
 
@@ -1016,20 +1339,22 @@ RegisterNetEvent('noir_houserobbery:server:storeCarryInVehicle', function(robber
         return
     end
     if not transitionLoot(pickup, 'storing') then return end
+    local amount = pickupRewardAmount(pickup)
     local carryOk, canCarry = pcall(function()
-        return exports.ox_inventory:CanCarryItem(inventory.id, pickup.reward, 1)
+        return exports.ox_inventory:CanCarryItem(inventory.id, pickup.reward, amount)
     end)
     if not carryOk or not canCarry then
         transitionLoot(pickup, 'carried')
         notify(src, 'O porta-malas está cheio.', 'error')
         return
     end
+    local metadata = not CURRENCY_REWARDS[pickup.reward] and {
+        stolen = true,
+        robberyId = contract.id,
+        lootId = pickup.id,
+    } or nil
     local addOk, success = pcall(function()
-        return exports.ox_inventory:AddItem(inventory.id, pickup.reward, 1, {
-            stolen = true,
-            robberyId = contract.id,
-            lootId = pickup.id,
-        })
+        return exports.ox_inventory:AddItem(inventory.id, pickup.reward, amount, metadata)
     end)
     if not addOk or not success then
         transitionLoot(pickup, 'carried')
@@ -1044,10 +1369,18 @@ RegisterNetEvent('noir_houserobbery:server:storeCarryInVehicle', function(robber
     pickup.location = 'vehicle'
     activeCarry[src] = nil
     if contract.status ~= 'closed' then syncContract(contract) end
-    TriggerClientEvent('noir_houserobbery:client:carryStored', src)
-    notify(src, 'Objeto guardado no porta-malas.', 'success')
+    TriggerClientEvent('noir_houserobbery:client:carryStored', src, {
+        robberyId = contract.id,
+        lootId = pickup.id,
+        state = 'stored',
+    })
+
+    -- Vehicle storage always happens outside. If this was the final objective,
+    -- close immediately; otherwise only acknowledge the stored item.
     if contract.status == 'active' and allLootResolved(contract) then
-        finalizeContract(src, 'O endereço foi limpo. Serviço encerrado.', true)
+        finalizeContract(src, 'Roubo concluído. Todos os objetivos foram finalizados.', true)
+    else
+        notify(src, 'Objeto guardado no porta-malas.', 'success')
     end
 end)
 
@@ -1072,7 +1405,11 @@ RegisterNetEvent('noir_houserobbery:server:completeContract', function()
     if not contract or contract.status ~= 'active' or contract.players[src]?.inside or activeCarry[src] then return end
     local house = housesById[contract.houseId].config
     if distanceTo(src, house.coords) > 8.0 then return end
-    finalizeContract(src, 'Você encerrou o serviço e saiu do endereço.', true)
+    if not allLootResolved(contract) then
+        notify(src, 'Ainda existem objetivos pendentes neste endereço.', 'error')
+        return
+    end
+    finalizeContract(src, 'Roubo concluído. Todos os objetivos foram finalizados.', true)
 end)
 
 local function releasePlayerClaims(src, contract)
@@ -1083,6 +1420,14 @@ local function releasePlayerClaims(src, contract)
         updateLootRepresentation(contract, pickup)
     end
     startedPickup[src] = nil
+
+    local stashStarted = startedStash[src]
+    local stashPickup = stashStarted and getPickup(contract, stashStarted.robberyId, stashStarted.lootId)
+    if stashPickup and stashPickup.state == 'claiming' and stashPickup.carrier == src then
+        if transitionLoot(stashPickup, 'available') then stashPickup.carrier = nil end
+        updateLootRepresentation(contract, stashPickup)
+    end
+    startedStash[src] = nil
 
     local smallStarted = startedLoot[src]
     local loot = smallStarted and contract and houseState[contract.houseId].loot[smallStarted.lootId]
@@ -1125,6 +1470,41 @@ AddStateBagChangeHandler('isDead', nil, function(bagName, _, value)
         dropCarriedLoot(playerSource, contract, 'death', true)
         releasePlayerClaims(playerSource, contract)
         syncContract(contract)
+    end
+end)
+
+local function cleanupExpiredDroppedProps(contracts, timestamp)
+    for _, contract in pairs(contracts) do
+        local changed = false
+
+        for _, pickup in pairs(contract.loot) do
+            if pickup.state == 'dropped' and pickup.droppedAt
+                and timestamp - pickup.droppedAt >= config.droppedPropLifetime then
+                if transitionLoot(pickup, 'removed') then
+                    pickup.carrier = nil
+                    pickup.vehicle = nil
+                    pickup.location = 'removed'
+                    pickup.dropped = false
+                    pickup.droppedAt = nil
+                    removeLootEntity(contract, pickup, 'dropped_prop_expired')
+                    debugLog(contract, pickup, 'dropped prop expired after %ss', config.droppedPropLifetime)
+                    changed = true
+                end
+            end
+        end
+
+        if changed and contract.status == 'active' then syncContract(contract) end
+    end
+end
+
+-- Dropped props remain available for ten minutes. A short server-side sweep
+-- keeps the expiration close to the configured TTL without any client polling.
+CreateThread(function()
+    while true do
+        Wait(5000)
+        local timestamp = now()
+        cleanupExpiredDroppedProps(robberiesById, timestamp)
+        cleanupExpiredDroppedProps(archivedRobberies, timestamp)
     end
 end)
 
@@ -1202,6 +1582,18 @@ CreateThread(function()
                     syncContract(contract)
                 end
                 startedPickup[source] = nil
+            end
+        end
+        for source, started in pairs(startedStash) do
+            if timestamp - started.startedAt >= 30 then
+                local contract = robberiesById[started.robberyId]
+                local pickup = getPickup(contract, started.robberyId, started.lootId)
+                if pickup and pickup.state == 'claiming' and pickup.carrier == source then
+                    if transitionLoot(pickup, 'available') then pickup.carrier = nil end
+                    updateLootRepresentation(contract, pickup)
+                    syncContract(contract)
+                end
+                startedStash[source] = nil
             end
         end
         for source, carry in pairs(activeCarry) do

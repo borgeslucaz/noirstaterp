@@ -6,9 +6,15 @@ local Handler = require 'modules.handler'
 local Settings <const> = lib.load('data.vehicle')
 local Units <const> = Settings.units == 'mph' and 2.23694 or 3.6
 
+---@param vehicle number | nil
+---@return boolean
+local function isValidVehicle(vehicle)
+    return vehicle ~= nil and vehicle ~= 0 and DoesEntityExist(vehicle)
+end
+
 ---@param vehicle number
 local function startThread(vehicle)
-    if not vehicle then return end
+    if not isValidVehicle(vehicle) then return end
     if not Handler or Handler:isActive() then return end
 
     Handler:setActive(true)
@@ -19,7 +25,7 @@ local function startThread(vehicle)
     local model = Handler:getModel()
 
     CreateThread(function()
-        while (cache.vehicle == vehicle) and (cache.seat == -1) do
+        while cache.vehicle == vehicle and cache.seat == -1 and isValidVehicle(vehicle) do
 
             -- Retrieve latest vehicle data
             local engine, body = Handler:setData({
@@ -46,6 +52,8 @@ local function startThread(vehicle)
 
             -- Driveability handler (fuel)
             if not electric and class ~= 14 then
+                if not isValidVehicle(vehicle) then break end
+
                 local fuel = oxfuel and Entity(vehicle).state.fuel or GetVehicleFuelLevel(vehicle)
 
                 if fuel <= 7 then
@@ -60,7 +68,7 @@ local function startThread(vehicle)
                 Handler:setLimited(true)
 
                 CreateThread(function()
-                    while cache.vehicle == vehicle and cache.seat == -1 do
+                    while cache.vehicle == vehicle and cache.seat == -1 and isValidVehicle(vehicle) do
                         local engineLevel = Handler:getData('engine')
                         if engineLevel >= 500 then break end
 
@@ -102,7 +110,7 @@ local function startThread(vehicle)
         Handler:setActive(false)
 
         -- Retrigger thread if admin spawns a new vehicle while in one
-        if cache.vehicle and cache.seat == -1 then
+        if isValidVehicle(cache.vehicle) and cache.seat == -1 then
             startThread(cache.vehicle)
         end
     end)

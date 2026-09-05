@@ -3,90 +3,77 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="only light">
     <title>Burner Phone</title>
-    <style>html,body{background:transparent!important}body{display:none;visibility:hidden}</style>
+    <style>
+        html, body { background-color: rgba(0, 0, 0, 0) !important; }
+        .phone[hidden] { display: none !important; }
+    </style>
     <link rel="stylesheet" href="style.css">
 </head>
-<body style="display:none;visibility:hidden;background:transparent">
-    <main class="phone" aria-label="Burner phone">
-        <div class="phone-top" aria-hidden="true">
-            <i class="speaker"></i>
-        </div>
-        <section class="screen">
-            <header class="status">
-                <svg viewBox="0 0 20 14" aria-label="Sinal"><path d="M1 12h2V9H1v3Zm4 0h2V6H5v6Zm4 0h2V3H9v9Zm4 0h2V1h-2v11Z"/></svg>
-                <svg viewBox="0 0 25 14" aria-label="Bateria"><path d="M1 3h20v8H1V3Zm21 2h2v4h-2V5ZM3 5v4h14V5H3Z"/></svg>
+<body>
+    <main class="phone" hidden aria-label="Telefone descartável" aria-hidden="true">
+        <div class="phone-hardware" aria-hidden="true"><span class="speaker"></span></div>
+        <section class="phone-screen">
+            <header class="status-bar" aria-label="Status do aparelho">
+                <svg class="signal-icon" viewBox="0 0 20 14" role="img" aria-label="Sinal"><path d="M1 13h2V9H1v4Zm4 0h2V6H5v7Zm4 0h2V3H9v10Zm4 0h2V0h-2v13Z"/></svg>
+                <svg class="battery-icon" viewBox="0 0 26 14" role="img" aria-label="Bateria"><path d="M1 2h21v10H1V2Zm22 3h2v4h-2V5ZM3 4v6h15V4H3Z"/></svg>
             </header>
+
             <div class="app-shell">
-                <section id="home-page" class="page">
-                    <button class="metro-tile" data-page="phone" type="button">
-                        <span class="tile-icon"><svg viewBox="0 0 24 24"><path d="M7.2 3.2 5.1 5.3c-1 1 1.3 5.5 4.3 8.5s7.5 5.3 8.5 4.3l2.1-2.1-3.2-3.2-1.8 1.4c-1.1-.5-3.8-3.2-4.3-4.3l1.4-1.8-3.2-3.2Z"/></svg></span>
-                        <span>Telefone</span>
-                    </button>
-                    <button class="metro-tile" data-page="contacts" type="button">
-                        <span class="tile-icon"><svg viewBox="0 0 24 24"><path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-4.1 0-7.5 2.1-7.5 4.8V21h15v-3.2c0-2.7-3.4-4.8-7.5-4.8Z"/></svg></span>
-                        <span>Contatos</span>
-                    </button>
-                    <button class="metro-tile" data-page="messages" type="button">
-                        <span class="tile-icon"><svg viewBox="0 0 24 24"><path d="M3 4h18v12H8l-5 4V4Zm3 4v2h12V8H6Zm0 4v2h8v-2H6Z"/></svg></span>
-                        <span>Mensagens</span>
-                    </button>
-                    <button class="metro-tile" data-page="illegal" type="button">
-                        <span class="tile-icon"><svg viewBox="0 0 24 24"><path d="M3 9.5 6.2 5h11.6L21 9.5v7.2l-3.4 2.3-2.8-2.4H9.2L6.4 19 3 16.7V9.5Zm5.2.5a2.1 2.1 0 1 0 0 4.2 2.1 2.1 0 0 0 0-4.2Zm7.6 0a2.1 2.1 0 1 0 0 4.2 2.1 2.1 0 0 0 0-4.2Z"/></svg></span>
-                        <span>Atividades Ilegais</span>
-                    </button>
-                    <button id="close" class="metro-tile close-tile" type="button">
-                        <span class="tile-icon"><svg viewBox="0 0 24 24"><path d="M11 2h2v10h-2V2Zm5.7 2.5 1.4-1.4A9 9 0 1 1 6 3.1l1.4 1.4a7 7 0 1 0 9.3 0Z"/></svg></span>
-                        <span>Fechar</span>
-                    </button>
+                <section id="home-page" class="page active" aria-label="Aplicativos">
+                    <div class="app-list">
+                        <button class="app-tile" data-page="illegal" type="button">
+                            <span class="app-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 4 2.2 4h9.6L19 4l3 7v7l-4.2 3-3-2.8H9.2L6.2 21 2 18v-7l3-7Zm3.3 7a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4Zm7.4 0a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4Z"/></svg></span>
+                            <span class="app-label">Venda de rua</span>
+                        </button>
+                        <button class="app-tile" data-page="contracts" type="button">
+                            <span class="app-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6V2Zm8 1.5V8h4.5L14 3.5ZM8 12h8v1.6H8V12Zm0 4h8v1.6H8V16Zm0-8h4v1.6H8V8Z"/></svg></span>
+                            <span class="app-label">Contratos</span>
+                        </button>
+                        <button id="close-phone" class="app-tile close-tile" type="button">
+                            <span class="app-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M11 1h2v11h-2V1Zm5.8 3.1 1.5-1.5A10 10 0 1 1 5.7 2.6l1.5 1.5a8 8 0 1 0 9.6 0Z"/></svg></span>
+                            <span class="app-label">Fechar</span>
+                        </button>
+                    </div>
                 </section>
 
-                <section id="phone-page" class="page hidden">
-                    <button class="back-link" data-page="home" type="button">‹ telefone</button>
-                    <p class="placeholder">Chamadas não configuradas.</p>
+                <section id="contracts-page" class="page" aria-label="Contratos" hidden>
+                    <button class="back-link" data-page="home" type="button">‹ contratos</button>
+                    <div class="contract-sections">
+                        <section class="contract-section" data-section="active">
+                            <button class="section-title" type="button" aria-expanded="true" aria-controls="active-contracts" data-toggle="active">
+                                <svg class="chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 5.5 8 10.5l5-5-1.2-1.2L8 8.1 4.2 4.3 3 5.5Z"/></svg>
+                                <span>Contratos ativos</span>
+                            </button>
+                            <div id="active-contracts" class="contract-list" role="list"></div>
+                        </section>
+                        <section class="contract-section" data-section="available">
+                            <button class="section-title" type="button" aria-expanded="true" aria-controls="available-contracts" data-toggle="available">
+                                <svg class="chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 5.5 8 10.5l5-5-1.2-1.2L8 8.1 4.2 4.3 3 5.5Z"/></svg>
+                                <span>Contratos disponíveis</span>
+                            </button>
+                            <div id="available-contracts" class="contract-list" role="list"></div>
+                        </section>
+                    </div>
+                    <p id="contract-error" class="contract-error" role="alert" hidden></p>
                 </section>
 
-                <section id="contacts-page" class="page hidden">
-                    <button class="back-link" data-page="home" type="button">‹ contatos</button>
-                    <button class="contact-row" data-page="housechat" type="button">
-                        <strong id="house-contact-name">Ninguém</strong>
-                        <small id="house-contact-number">404-0199</small>
-                    </button>
-                </section>
-
-                <section id="messages-page" class="page hidden">
-                    <button class="back-link" data-page="home" type="button">‹ mensagens</button>
-                    <button class="contact-row" data-page="housechat" type="button">
-                        <strong>Ninguém</strong>
-                        <small>Canal de trabalho</small>
-                    </button>
-                </section>
-
-                <section id="illegal-page" class="page hidden">
+                <section id="illegal-page" class="page" aria-label="Atividades ilegais" hidden>
                     <button class="back-link" data-page="home" type="button">‹ atividades</button>
-                    <button class="metro-tile illegal-tile" data-page="street" type="button">
-                        <span class="tile-icon"><svg viewBox="0 0 24 24"><path d="m12 2 8 4.5v11L12 22l-8-4.5v-11L12 2Zm-1 6v5.6l4.8 2.7.9-1.6-3.7-2.1V8H11Z"/></svg></span>
-                        <span>Venda na rua</span>
-                    </button>
-                    <button class="metro-tile illegal-tile" data-page="housechat" type="button">
-                        <span class="tile-icon"><svg viewBox="0 0 24 24"><path d="M3 11 12 3l9 8v10h-6v-6H9v6H3V11Z"/></svg></span>
-                        <span>Invasões</span>
-                    </button>
+                    <div id="illegal-apps" class="app-list compact-list">
+                        <button id="street-activity" class="app-tile" data-page="street" type="button">
+                            <span class="app-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 2 9 5v10l-9 5-9-5V7l9-5Zm-1 6v6.2l5 2.8 1-1.8-4-2.2V8h-2Z"/></svg></span>
+                            <span class="app-label">Venda na rua</span>
+                        </button>
+                    </div>
+                    <p id="no-activities" class="placeholder" hidden>Nenhuma atividade disponível.</p>
                 </section>
 
-                <section id="housechat-page" class="page hidden">
-                    <button class="back-link" data-page="messages" type="button">‹ Ninguém</button>
-                    <div id="house-messages" class="message-list"></div>
-                    <form id="house-message-form" class="message-form">
-                        <input id="house-message-input" maxlength="120" autocomplete="off" aria-label="Mensagem">
-                        <button type="submit">ENVIAR</button>
-                    </form>
-                </section>
-
-                <section id="street-page" class="page hidden">
+                <section id="street-page" class="page" aria-label="Venda na rua" hidden>
                     <button class="back-link" data-page="illegal" type="button">‹ venda na rua</button>
                     <p class="placeholder">Ative o canal para procurar compradores próximos.</p>
-                    <button id="start-street-sale" class="call-action" type="button">LIGAR VENDA DE DROGA</button>
+                    <button id="start-street-sale" class="primary-action" type="button">LIGAR VENDA DE DROGA</button>
                 </section>
             </div>
         </section>

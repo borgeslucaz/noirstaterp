@@ -25,11 +25,17 @@ server_scripts {
     'server/main.lua',
 }
 
+ui_page 'web/index.html'
+nui_callback_strict_mode 'true'
+
 files {
     'config/shared.lua',
     'config/client.lua',
     'config/server.lua',
     'locales/*.json',
+    'web/index.html',
+    'web/style.css',
+    'web/app.js',
 }
 
 dependencies {
@@ -40,6 +46,9 @@ dependencies {
     'qbx_core',
     'noir_burnerphone',
     'peuren_minigames',
+    'noir_shell',
 }
 
-use_experimental_fxv2_oal 'yes'
+-- OAL is intentionally not required by the NUI. Keep it disabled until the
+-- resource's native calls have been audited independently.
+-- use_experimental_fxv2_oal 'yes'

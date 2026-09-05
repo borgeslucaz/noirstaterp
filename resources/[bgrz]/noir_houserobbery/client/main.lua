@@ -14,13 +14,19 @@ local noiseUiValue
 local lastMovementAt = 0
 local lastWakeCheck = 0
 local wasJumping = false
-local carryProp
-local carriedPickupId
-local carriedNetId
+local nuiReady = false
+local checklistHidden = false
+local checklistSessionId
+local checklistPayload
+-- Physical cargo has its own lifecycle. The robbery id is retained only as
+-- the server-side authorization key; it does not make the visual carry state
+-- depend on a live (or archived) contract snapshot.
+local carryState
 local carryTextUiShown = false
 local exteriorTargets = {}
 local refreshExteriorTarget
 local resolveNetworkEntity
+local currentShellId
 
 local function finishTransition()
     DoScreenFadeIn(500)
@@ -28,6 +34,86 @@ end
 
 local function notify(message, kind)
     lib.notify({ description = message, type = kind or 'inform' })
+end
+
+-- ox_lib 3.39 has action progress bars and a singleton TextUI, but no
+-- persistent status bar. Using either would conflict with this resource's
+-- progress circles/TextUI, so noise remains a separate native HUD element.
+local function showNoiseUI()
+    noiseUiValue = noiseUiValue or math.floor(currentNoise + 0.5)
+end
+
+local function hideNoiseUI()
+    noiseUiValue = nil
+end
+
+local function sendChecklistState()
+    if not nuiReady then return end
+
+    if not checklistPayload then
+        SendNUIMessage({ action = 'checklist:clear' })
+        return
+    end
+
+    SendNUIMessage({
+        action = 'checklist:render',
+        sessionId = checklistSessionId,
+        visible = not checklistHidden,
+        data = checklistPayload,
+    })
+end
+
+-- Presentation-only mirror of the server-owned robbery session. Keeping the
+-- local visibility flag in Lua avoids a third independent state in the NUI.
+local function refreshChecklistUI()
+    if contract and contract.status == 'active' and contract.checklist then
+        if checklistSessionId ~= contract.id then
+            checklistSessionId = contract.id
+            checklistHidden = false
+        end
+        checklistPayload = contract.checklist
+        sendChecklistState()
+        return
+    end
+
+    checklistSessionId = nil
+    checklistPayload = nil
+    checklistHidden = false
+    sendChecklistState()
+end
+
+-- Interiors defined with a `shell` model/origin are spawned locally via
+-- noir_shell instead of relying on a pre-placed map interior. The shell is
+-- non-networked and per-client, so this must run on every participant's
+-- own client (see noir_shell's design doc: local shells, no routing bucket
+-- ownership) rather than server-side.
+local function ensureInteriorShell()
+    if currentShellId or not contract then return currentShellId end
+
+    local interior = shared.interiors[contract.interior]
+
+    if not interior or not interior.shell then return nil end
+
+    local id, err = exports.noir_shell:Create({
+        model = interior.shell.model,
+        origin = interior.shell.origin,
+    })
+
+    if not id then
+        notify(('Falha ao criar o interior: %s'):format(err), 'error')
+        return nil
+    end
+
+    currentShellId = id
+
+    return id
+end
+
+local function destroyCurrentShell()
+    if not currentShellId then return end
+
+    exports.noir_shell:Destroy(currentShellId)
+    currentShellId = nil
 end
 
 local function loadModel(model)
@@ -88,8 +174,8 @@ local function cleanupInterior()
 end
 
 local function clearCarry()
-    local wasCarrying = carriedPickupId ~= nil
-    carryProp, carriedPickupId, carriedNetId = nil, nil, nil
+    local wasCarrying = carryState ~= nil
+    carryState = nil
     StopAnimTask(cache.ped, config.carryAnimation.dict, config.carryAnimation.clip, 2.0)
     ClearPedSecondaryTask(cache.ped)
     SetPedCanSwitchWeapon(cache.ped, true)
@@ -100,14 +186,21 @@ local function clearCarry()
     end
 end
 
-local function cleanEverything()
+local function cleanContractState()
     inside = false
     cleanupInterior()
-    clearCarry()
+    destroyCurrentShell()
     removeBlip()
     contract = nil
     if refreshExteriorTarget then refreshExteriorTarget() end
+    hideNoiseUI()
+    refreshChecklistUI()
     finishTransition()
+end
+
+local function cleanEverything()
+    cleanContractState()
+    clearCarry()
 end
 
 local function wakeResident()
@@ -214,7 +307,12 @@ local function detachLootEntity(entity, state)
     requestNetworkControl(entity)
     DetachEntity(entity, true, true)
     SetEntityCollision(entity, true, true)
-    SetEntityHeading(entity, state['loot:rotation'] or 0.0)
+    local rotation = state['loot:rotation']
+    if type(rotation) == 'vector3' or (type(rotation) == 'table' and rotation.x and rotation.y and rotation.z) then
+        SetEntityRotation(entity, rotation.x, rotation.y, rotation.z, 2, true)
+    else
+        SetEntityHeading(entity, rotation or 0.0)
+    end
     if state['loot:dropped'] then
         PlaceObjectOnGroundProperly(entity)
         FreezeEntityPosition(entity, false)
@@ -246,13 +344,13 @@ AddStateBagChangeHandler('loot:state', nil, function(bagName) applyLootRepresent
 AddStateBagChangeHandler('loot:carrier', nil, function(bagName) applyLootRepresentation(bagName) end)
 
 local function updateLocalCarryEntity(data)
-    if not contract or contract.id ~= data.robberyId or carriedPickupId ~= data.lootId then return end
+    if not carryState or carryState.robberyId ~= data.robberyId or carryState.lootId ~= data.lootId then return end
     if not data.netId then return end
-    carriedNetId = data.netId
+    carryState.netId = data.netId
     CreateThread(function()
         local entity = resolveNetworkEntity(data.netId)
-        if entity and carriedPickupId == data.lootId and carriedNetId == data.netId then
-            carryProp = entity
+        if entity and carryState?.robberyId == data.robberyId
+            and carryState?.lootId == data.lootId and carryState?.netId == data.netId then
             attachLootEntity(entity, GetPlayerServerId(PlayerId()))
         end
     end)
@@ -260,38 +358,50 @@ end
 
 local function startCarry(data)
     clearCarry()
-    if not contract or contract.id ~= data.robberyId then return end
-    carriedPickupId = data.lootId
+    if not data?.robberyId or not data?.lootId then return end
+    carryState = {
+        robberyId = data.robberyId,
+        lootId = data.lootId,
+        netId = data.netId,
+    }
     SetCurrentPedWeapon(cache.ped, joaat('WEAPON_UNARMED'), true)
     SetPedCanSwitchWeapon(cache.ped, false)
     if loadAnim(config.carryAnimation.dict) then
         TaskPlayAnim(cache.ped, config.carryAnimation.dict, config.carryAnimation.clip, 2.0, 2.0, -1, 49, 0.0, false, false, false)
     end
     lib.showTextUI('Pressione G para soltar o item', {
-        position = 'left-center',
+        position = 'bottom-center',
         icon = 'hand',
     })
     carryTextUiShown = true
     updateLocalCarryEntity(data)
-    addNoise(shared.noise.actions.pickupLarge)
+    if not data.recovered then addNoise(shared.noise.actions.pickupLarge) end
 end
 
 RegisterNetEvent('noir_houserobbery:client:carryApproved', startCarry)
 RegisterNetEvent('noir_houserobbery:client:carryEntity', updateLocalCarryEntity)
-RegisterNetEvent('noir_houserobbery:client:carryCancelled', clearCarry)
-RegisterNetEvent('noir_houserobbery:client:carryStored', clearCarry)
 
-local function reconcileLocalCarry()
-    if not contract then return end
-    local serverId = GetPlayerServerId(PlayerId())
-    for lootId, pickup in pairs(contract.pickups or {}) do
-        if pickup.state == 'carried' and pickup.carrier == serverId then
-            local data = { robberyId = contract.id, lootId = lootId, netId = pickup.netId }
-            if carriedPickupId ~= lootId then startCarry(data) else updateLocalCarryEntity(data) end
-            return
+local function finishLocalCarry(data)
+    if data and carryState and (carryState.robberyId ~= data.robberyId
+        or carryState.lootId ~= data.lootId) then return end
+    clearCarry()
+end
+
+RegisterNetEvent('noir_houserobbery:client:carryCancelled', finishLocalCarry)
+RegisterNetEvent('noir_houserobbery:client:carryStored', finishLocalCarry)
+
+local function recoverCarryState()
+    local data = lib.callback.await('noir_houserobbery:server:getCarryState', false)
+    if data then
+        data.recovered = true
+        if carryState?.robberyId ~= data.robberyId or carryState?.lootId ~= data.lootId then
+            startCarry(data)
+        else
+            updateLocalCarryEntity(data)
         end
+    elseif carryState then
+        clearCarry()
     end
-    if carriedPickupId then clearCarry() end
 end
 
 local function reconcileSharedCarryEntities()
@@ -319,8 +429,8 @@ CreateThread(function()
         Wait(3000)
         if contract then
             reconcileSharedCarryEntities()
-            reconcileLocalCarry()
         end
+        if carryState?.netId then updateLocalCarryEntity(carryState) end
     end
 end)
 
@@ -330,7 +440,7 @@ end
 
 local function searchLoot(lootId)
     local current = contract?.loot?[lootId]
-    if not inside or not current or current.status ~= 'available' or carriedPickupId then return end
+    if not inside or not current or current.status ~= 'available' or carryState then return end
     dropFingerprint()
     local claim = lib.callback.await('noir_houserobbery:server:checkLoot', false, lootId)
     if not claim then return end
@@ -344,11 +454,32 @@ local function searchLoot(lootId)
     if finished then addNoise(shared.noise.actions.takeSmall) end
 end
 
+local function stashPickup(pickupId)
+    local robberyId = contract.id
+    local claim = lib.callback.await('noir_houserobbery:server:checkStash', false, robberyId, pickupId)
+    if not claim then return end
+    local finished = lib.progressCircle({
+        duration = claim.duration, position = 'bottom', canCancel = true,
+        disable = { move = true, combat = true },
+        anim = { dict = 'missexile3', clip = 'ex03_dingy_search_case_base_michael', flag = 1 },
+    })
+    TriggerServerEvent(finished and 'noir_houserobbery:server:finishStash' or 'noir_houserobbery:server:cancelStash', robberyId, pickupId)
+    if finished then addNoise(shared.noise.actions.takeSmall) end
+end
+
 local function takePickup(pickupId)
     local current = contract?.pickups?[pickupId]
-    if carriedPickupId or not current or not pickupIsHere(current)
+    if carryState or not current or not pickupIsHere(current)
         or (current.state ~= 'available' and current.state ~= 'dropped') then return end
     dropFingerprint()
+
+    -- carry = false items go straight into the player's own inventory
+    -- instead of the claim/carry/vehicle flow
+    if current.carry == false then
+        stashPickup(pickupId)
+        return
+    end
+
     local robberyId = contract.id
     local claim = lib.callback.await('noir_houserobbery:server:beginCarry', false, robberyId, pickupId)
     if not claim then return end
@@ -377,7 +508,7 @@ local function setupInteriorTargets()
                 distance = 1.5,
                 canInteract = function()
                     local current = contract?.loot?[lootId]
-                    return inside and not carriedPickupId and current and current.status == 'available'
+                    return inside and not carryState and current and current.status == 'available'
                 end,
                 onSelect = function() searchLoot(lootId) end,
             }},
@@ -394,12 +525,12 @@ local function setupInteriorTargets()
                 debug = shared.debug,
                 options = {{
                     name = ('noir_houserobbery_pickup_%s_%s'):format(contract.id, pickupId),
-                    icon = 'fa-solid fa-box',
-                    label = 'Carregar objeto',
+                    icon = pickup.carry == false and 'fa-solid fa-hand' or 'fa-solid fa-box',
+                    label = pickup.carry == false and 'Guardar no bolso' or 'Carregar objeto',
                     distance = 1.7,
                     canInteract = function()
                         local current = contract?.pickups?[pickupId]
-                        return inside and not carriedPickupId and current
+                        return inside and not carryState and current
                             and (current.state == 'available' or current.state == 'dropped')
                     end,
                     onSelect = function() takePickup(pickupId) end,
@@ -427,14 +558,16 @@ end
 local function enterClient(data)
     contract = data
     inside = true
+    ensureInteriorShell()
     if refreshExteriorTarget then refreshExteriorTarget() end
     removeBlip()
     currentNoise, lastMovementAt, lastWakeCheck = 0.0, GetGameTimer(), GetGameTimer()
     setupInteriorTargets()
     spawnResident()
     reconcileSharedCarryEntities()
-    reconcileLocalCarry()
     noiseUiValue = 0
+    showNoiseUI()
+    refreshChecklistUI()
     finishTransition()
 end
 
@@ -444,12 +577,14 @@ RegisterNetEvent('noir_houserobbery:client:leftHouse', function(data)
     contract = data
     inside = false
     cleanupInterior()
+    destroyCurrentShell()
     if refreshExteriorTarget then refreshExteriorTarget() end
     reconcileSharedCarryEntities()
-    reconcileLocalCarry()
-    if carriedPickupId and loadAnim(config.carryAnimation.dict) then
+    if carryState and loadAnim(config.carryAnimation.dict) then
         TaskPlayAnim(cache.ped, config.carryAnimation.dict, config.carryAnimation.clip, 2.0, 2.0, -1, 49, 0.0, false, false, false)
     end
+    hideNoiseUI()
+    refreshChecklistUI()
     finishTransition()
 end)
 
@@ -459,11 +594,16 @@ RegisterNetEvent('noir_houserobbery:client:syncContract', function(data)
     inside = data.inside == true
     if refreshExteriorTarget then refreshExteriorTarget() end
     if inside then
+        ensureInteriorShell()
         setupInteriorTargets()
         spawnResident()
+        showNoiseUI()
+    else
+        destroyCurrentShell()
+        hideNoiseUI()
     end
+    refreshChecklistUI()
     reconcileSharedCarryEntities()
-    reconcileLocalCarry()
 end)
 
 RegisterNetEvent('noir_houserobbery:client:contractAssigned', function(data)
@@ -473,18 +613,24 @@ RegisterNetEvent('noir_houserobbery:client:contractAssigned', function(data)
     setContractBlip(data.coords)
     SetNewWaypoint(data.coords.x, data.coords.y)
     notify('O contato enviou um endereço ao GPS.', 'success')
+    refreshChecklistUI()
 end)
 
-RegisterNetEvent('noir_houserobbery:client:contractEnded', function(reason, completed, preserveCarry, closedContract)
-    if preserveCarry and carriedPickupId and closedContract then
-        inside = false
-        cleanupInterior()
-        removeBlip()
-        contract = closedContract
-        if refreshExteriorTarget then refreshExteriorTarget() end
-        reconcileLocalCarry()
+-- Re-marks the assigned address on the GPS (burner phone "localização"
+-- action). Only meaningful while a contract is still assigned to this client.
+RegisterNetEvent('noir_houserobbery:client:contractRoute', function(coords)
+    if not contract or type(coords) ~= 'vector3' and type(coords) ~= 'table' then return end
+    setContractBlip(coords)
+    SetNewWaypoint(coords.x, coords.y)
+    notify('Endereço marcado no GPS.', 'success')
+end)
+
+RegisterNetEvent('noir_houserobbery:client:contractEnded', function(reason, completed, preserveCarry)
+    cleanContractState()
+    if preserveCarry then
+        CreateThread(recoverCarryState)
     else
-        cleanEverything()
+        clearCarry()
     end
     notify(reason or 'Contrato encerrado.', completed and 'success' or 'error')
 end)
@@ -537,10 +683,12 @@ refreshExteriorTarget = function()
     if not house then return end
 
     local houseId = house.id
-    exteriorTargets[1] = exports.ox_target:addBoxZone({
-        coords = vec3(house.coords.x, house.coords.y, house.coords.z + 1.0),
-        size = vec3(2.4, 2.4, 2.8),
-        rotation = house.targetRotation or 0.0,
+    -- absolute sphere zone at the door coordinate (no rotation to get
+    -- wrong), same approach as noir_shell_test - house.coords is already
+    -- measured at stand height, so no extra Z offset here
+    exteriorTargets[1] = exports.ox_target:addSphereZone({
+        coords = vec3(house.coords.x, house.coords.y, house.coords.z),
+        radius = 1.5,
         debug = shared.debug,
         options = {
             {
@@ -573,7 +721,9 @@ refreshExteriorTarget = function()
                 label = 'Encerrar serviço',
                 distance = 2.5,
                 canInteract = function()
-                    return contract and not inside and not carriedPickupId and contract.houseId == houseId and contract.status == 'active'
+                    return contract and not inside and not carryState
+                        and contract.houseId == houseId and contract.status == 'active'
+                        and contract.checklist?.completed == true
                 end,
                 onSelect = function()
                     TriggerServerEvent('noir_houserobbery:server:completeContract')
@@ -596,7 +746,7 @@ refreshExteriorTarget = function()
                     distance = 1.7,
                     canInteract = function()
                         local current = contract?.pickups?[pickupId]
-                        return not inside and not carriedPickupId and current
+                        return not inside and not carryState and current
                             and current.location == 'outside' and current.state == 'dropped'
                     end,
                     onSelect = function() takePickup(pickupId) end,
@@ -613,6 +763,25 @@ local function getVehicleRear(vehicle)
     return rear, #(pedCoords - rear)
 end
 
+local function takeDetachedPickup(entity)
+    if inside or carryState or not DoesEntityExist(entity) then return end
+    local state = Entity(entity).state
+    local robberyId = state['robbery:id']
+    local pickupId = state['loot:id']
+    if not robberyId or not pickupId or state['loot:state'] ~= 'dropped' then return end
+
+    dropFingerprint()
+    local claim = lib.callback.await('noir_houserobbery:server:beginCarry', false, robberyId, pickupId)
+    if not claim then return end
+    local finished = lib.progressCircle({
+        duration = claim.duration, position = 'bottom', canCancel = true,
+        disable = { move = true, combat = true },
+        anim = { dict = 'missexile3', clip = 'ex03_dingy_search_case_base_michael', flag = 1 },
+    })
+    TriggerServerEvent(finished and 'noir_houserobbery:server:finishCarry'
+        or 'noir_houserobbery:server:cancelPickup', robberyId, pickupId)
+end
+
 local function setupCarryTargets()
     exports.ox_target:addGlobalVehicle({
         name = 'noir_houserobbery_store_carry',
@@ -620,7 +789,7 @@ local function setupCarryTargets()
         label = 'Guardar objeto roubado',
         distance = config.vehicleSearchRadius,
         canInteract = function(vehicle)
-            if inside or not carriedPickupId or not DoesEntityExist(vehicle) or IsEntityDead(vehicle) then return false end
+            if inside or not carryState or not DoesEntityExist(vehicle) or IsEntityDead(vehicle) then return false end
             local vehicleClass = GetVehicleClass(vehicle)
             if vehicleClass == 13 or (vehicleClass >= 14 and vehicleClass <= 16) then return false end
             local _, rearDistance = getVehicleRear(vehicle)
@@ -629,27 +798,47 @@ local function setupCarryTargets()
                 or vehicleDistance <= config.vehicleSearchRadius
         end,
         onSelect = function(data)
+            local currentCarry = carryState
+            if not currentCarry then return end
             local vehicleNetId = NetworkGetNetworkIdFromEntity(data.entity)
             if vehicleNetId == 0 then
                 notify('Aguarde o veículo sincronizar e tente novamente.', 'error')
                 return
             end
             TriggerServerEvent('noir_houserobbery:server:storeCarryInVehicle',
-                contract.id, carriedPickupId, vehicleNetId)
+                currentCarry.robberyId, currentCarry.lootId, vehicleNetId)
         end,
+    })
+
+    -- A dropped prop can outlive its robbery session. Its replicated state
+    -- bag is sufficient to recover it, so no closed contract is retained on
+    -- the client merely to provide an interaction zone.
+    exports.ox_target:addGlobalObject({
+        name = 'noir_houserobbery_recover_dropped',
+        icon = 'fa-solid fa-box',
+        label = 'Carregar objeto',
+        distance = 1.7,
+        canInteract = function(entity)
+            if inside or carryState or contract or not DoesEntityExist(entity) then return false end
+            local state = Entity(entity).state
+            return state['loot:state'] == 'dropped'
+                and state['loot:dropped'] == true
+                and state['loot:bucket'] == 0
+        end,
+        onSelect = function(data) takeDetachedPickup(data.entity) end,
     })
 end
 
 CreateThread(function()
     while true do
-        if carriedPickupId then
+        if carryState then
             Wait(0)
             -- The carry can be cleared by a server event while this thread is yielding.
             -- Recheck it before restoring the looping animation.
-            if carriedPickupId then
+            if carryState then
                 if IsControlJustPressed(0, 47) then -- G
                     if inside then addNoise(shared.noise.actions.dropLarge) end
-                    TriggerServerEvent('noir_houserobbery:server:dropCarry', contract.id, carriedPickupId)
+                    TriggerServerEvent('noir_houserobbery:server:dropCarry', carryState.robberyId, carryState.lootId)
                 end
                 DisableControlAction(0, 21, true) -- Sprint
                 DisableControlAction(0, 22, true) -- Jump
@@ -720,10 +909,15 @@ CreateThread(function()
 end)
 
 local function drawNoiseMeter(value)
+    value = tonumber(value)
+    if not value then return end
+    value = math.floor(value + 0.5)
+
     local x, y = 0.925, 0.885
     local width, height = 0.115, 0.007
     local progress = math.max(0.0, math.min(1.0, value / 100.0))
     local red, green, blue = 216, 210, 193
+
     if value >= 90 then red, green, blue = 240, 40, 40
     elseif value >= 70 then red, green, blue = 198, 83, 63
     elseif value >= 50 then red, green, blue = 213, 146, 79
@@ -740,22 +934,32 @@ local function drawNoiseMeter(value)
 
     DrawRect(x, y, width, height, 12, 13, 14, 190)
     if progress > 0 then
-        DrawRect(x - width * 0.5 + (width * progress) * 0.5, y, width * progress, height, red, green, blue, 235)
+        DrawRect(x - width * 0.5 + (width * progress) * 0.5, y,
+            width * progress, height, red, green, blue, 235)
     end
 end
 
 CreateThread(function()
     while true do
-        if inside and noiseUiValue ~= nil then
+        -- Snapshot before yielding: contract cleanup can clear noiseUiValue
+        -- during Wait(0), between the condition and the draw call.
+        local value = noiseUiValue
+        if inside and type(value) == 'number' then
             Wait(0)
-            drawNoiseMeter(noiseUiValue)
+            drawNoiseMeter(value)
         else
             Wait(250)
         end
     end
 end)
 
-AddEventHandler('onResourceStart', function(resource)
+RegisterNUICallback('ready', function(_, cb)
+    nuiReady = true
+    sendChecklistState()
+    cb({ ok = true })
+end)
+
+AddEventHandler('onClientResourceStart', function(resource)
     if resource ~= GetCurrentResourceName() then return end
     finishTransition()
     SetTimeout(750, finishTransition)
@@ -771,10 +975,11 @@ AddEventHandler('onResourceStart', function(resource)
             else
                 setContractBlip(active.coords)
                 refreshExteriorTarget()
+                refreshChecklistUI()
                 reconcileSharedCarryEntities()
-                reconcileLocalCarry()
             end
         end
+        recoverCarryState()
     end)
 end)
 
@@ -788,16 +993,31 @@ RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
         else
             setContractBlip(active.coords)
             refreshExteriorTarget()
+            refreshChecklistUI()
             reconcileSharedCarryEntities()
-            reconcileLocalCarry()
         end
     end
+    recoverCarryState()
 end)
 
 RegisterNetEvent('QBCore:Client:OnPlayerUnload', cleanEverything)
 
-AddEventHandler('onResourceStop', function(resource)
+-- Purely visual toggle (docs/noir_houserobbery/NUI.md #5-6) - never touches
+-- robbery/session state, only this client's own checklist visibility.
+RegisterCommand('toggleRobberyChecklist', function()
+    if not checklistPayload then return end
+    checklistHidden = not checklistHidden
+    if nuiReady then
+        SendNUIMessage({ action = 'checklist:visibility', visible = not checklistHidden })
+    end
+end, false)
+
+RegisterKeyMapping('toggleRobberyChecklist', 'Esconder/mostrar checklist do roubo', 'keyboard', 'J')
+
+AddEventHandler('onClientResourceStop', function(resource)
     if resource ~= GetCurrentResourceName() then return end
+    nuiReady = false
     exports.ox_target:removeGlobalVehicle('noir_houserobbery_store_carry')
+    exports.ox_target:removeGlobalObject('noir_houserobbery_recover_dropped')
     cleanEverything()
 end)

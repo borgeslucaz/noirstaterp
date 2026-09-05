@@ -1,14 +1,15 @@
--- Minimal lifecycle following sd-phone's order: acquire focus, show its NUI;
--- on close, release focus before hiding the NUI.
 local isOpen = false
+local isOpening = false
 local activeAnimDict
 local activeAnimName = 'cellphone_text_read_base'
 local readFlags = 1 | 8 | 16 | 32
-local messages = {}
 local phoneDisabled = false
 local inputThreadRunning = false
 local nextAvailabilityCheck = 0
-local typingInPhone = false
+
+local function notify(message, kind)
+    lib.notify({ description = message, type = kind or 'inform' })
+end
 
 local function playPhoneAnimation()
     local ped = PlayerPedId()
@@ -17,15 +18,11 @@ local function playPhoneAnimation()
     CreateThread(function()
         RequestAnimDict(animDict)
         local timeout = GetGameTimer() + 1000
-
-        while not HasAnimDictLoaded(animDict) and GetGameTimer() < timeout do
-            Wait(0)
-        end
-
+        while not HasAnimDictLoaded(animDict) and GetGameTimer() < timeout do Wait(0) end
         if not isOpen or not HasAnimDictLoaded(animDict) then return end
 
-        local currentPed = PlayerPedId()
-        TaskPlayAnim(currentPed, animDict, activeAnimName, 8.0, -8.0, -1, readFlags, 0.0, false, false, false)
+        TaskPlayAnim(PlayerPedId(), animDict, activeAnimName, 8.0, -8.0, -1,
+            readFlags, 0.0, false, false, false)
         activeAnimDict = animDict
         RemoveAnimDict(animDict)
     end)
@@ -33,7 +30,6 @@ end
 
 local function stopPhoneAnimation()
     if not activeAnimDict then return end
-
     StopAnimTask(PlayerPedId(), activeAnimDict, activeAnimName, 1.0)
     activeAnimDict = nil
 end
@@ -41,7 +37,7 @@ end
 local function closeBurnerPhone()
     local wasOpen = isOpen
     isOpen = false
-    typingInPhone = false
+    isOpening = false
     SetNuiFocus(false, false)
     SetNuiFocusKeepInput(false)
     SendNUIMessage({ action = 'burner:close' })
@@ -57,31 +53,18 @@ local function startInputThread()
             if GetGameTimer() >= nextAvailabilityCheck and GetResourceState('sd-phone') == 'started' then
                 nextAvailabilityCheck = GetGameTimer() + 500
                 local ok, disabled = pcall(function() return exports['sd-phone']:isDisabled() end)
-                if ok and disabled then
-                    closeBurnerPhone()
-                    break
-                end
+                if ok and disabled then closeBurnerPhone() break end
             end
 
+            local ped = PlayerPedId()
             if IsPauseMenuActive()
-                or (BurnerPhoneConfig.blockWhileDead and IsEntityDead(PlayerPedId()))
-                or (BurnerPhoneConfig.blockWhileSwimming and IsPedSwimming(PlayerPedId())) then
+                or (BurnerPhoneConfig.blockWhileDead and IsEntityDead(ped))
+                or (BurnerPhoneConfig.blockWhileSwimming and IsPedSwimming(ped)) then
                 closeBurnerPhone()
                 break
             end
 
-            if typingInPhone then
-                DisableControlAction(0, 19, true)  -- Left Alt / targeting
-                DisableControlAction(0, 30, true)  -- left/right
-                DisableControlAction(0, 31, true)  -- forward/back
-                DisableControlAction(0, 32, true)  -- W
-                DisableControlAction(0, 33, true)  -- S
-                DisableControlAction(0, 34, true)  -- A
-                DisableControlAction(0, 35, true)  -- D
-                DisableControlAction(0, 44, true)  -- cover
-                DisableControlAction(0, 245, true) -- chat / T
-                DisableControlAction(0, 249, true) -- push-to-talk
-            elseif BurnerPhoneConfig.allowMovement then
+            if BurnerPhoneConfig.allowMovement then
                 DisableControlAction(0, 1, true)
                 DisableControlAction(0, 2, true)
                 DisableControlAction(0, 24, true)
@@ -101,27 +84,39 @@ local function startInputThread()
 end
 
 local function openBurnerPhone()
-    if isOpen then return end
-
+    if isOpen or isOpening then return end
     if not BurnerPhoneConfig.enabled or phoneDisabled then
-        lib.notify({ description = 'Você não pode usar o burner phone agora.', type = 'error' })
+        notify('Você não pode usar o burner phone agora.', 'error')
         return
     end
 
     local ped = PlayerPedId()
     if BurnerPhoneConfig.blockWhileDead and IsEntityDead(ped) then
-        lib.notify({ description = 'Você não pode usar o telefone desacordado.', type = 'error' })
+        notify('Você não pode usar o telefone desacordado.', 'error')
         return
     end
     if BurnerPhoneConfig.blockWhileSwimming and IsPedSwimming(ped) then
-        lib.notify({ description = 'Você não pode usar o telefone enquanto nada.', type = 'error' })
+        notify('Você não pode usar o telefone enquanto nada.', 'error')
+        return
+    end
+
+    isOpening = true
+    local payload, reason = lib.callback.await('noir_burnerphone:server:getState', false)
+    isOpening = false
+    if not payload then
+        notify(reason == 'missing_phone' and 'Você precisa ter um burner phone no bolso.'
+            or 'Não foi possível acessar o burner phone agora.', 'error')
+        return
+    end
+    if exports.ox_inventory:GetItemCount(BurnerPhoneConfig.itemName) < 1 then
+        notify('Você precisa ter um burner phone no bolso.', 'error')
         return
     end
 
     if GetResourceState('sd-phone') == 'started' then
         local disabledOk, disabled = pcall(function() return exports['sd-phone']:isDisabled() end)
         if disabledOk and disabled then
-            lib.notify({ description = 'Você não pode usar o telefone agora.', type = 'error' })
+            notify('Você não pode usar o telefone agora.', 'error')
             return
         end
         local openOk, regularOpen = pcall(function() return exports['sd-phone']:isOpen() end)
@@ -129,21 +124,19 @@ local function openBurnerPhone()
     end
 
     isOpen = true
-    typingInPhone = false
     playPhoneAnimation()
     SetNuiFocus(true, true)
     SetNuiFocusKeepInput(BurnerPhoneConfig.allowMovement == true)
     startInputThread()
     SendNUIMessage({
         action = 'burner:open',
-        messages = messages,
-        contact = BurnerPhoneConfig.houseRobberyContact,
-        contractsEnabled = BurnerPhoneConfig.activities.contracts,
+        state = payload.state,
+        activities = payload.activities,
+        contracts = payload.contracts,
     })
     TriggerEvent('noir_burnerphone:client:openState', true)
 end
 
--- ox_inventory item client.export = 'noir_burnerphone.useDevice'.
 local function toggleBurnerPhone()
     if isOpen then closeBurnerPhone() else openBurnerPhone() end
 end
@@ -175,59 +168,63 @@ RegisterNUICallback('close', function(_, cb)
     cb({ ok = true })
 end)
 
-RegisterNUICallback('typing', function(data, cb)
-    typingInPhone = isOpen and type(data) == 'table' and data.active == true
-    if isOpen then
-        SetNuiFocus(true, true)
-        SetNuiFocusKeepInput(BurnerPhoneConfig.allowMovement == true and not typingInPhone)
-    end
-    cb({ ok = true })
-end)
+RegisterNUICallback('startActivity', function(data, cb)
+    local activityId = type(data) == 'table' and data.id or nil
+    if not isOpen or type(activityId) ~= 'string' then cb({ ok = false }) return end
 
-RegisterNUICallback('startStreetSale', function(_, cb)
-    closeBurnerPhone()
-
-    if GetResourceState('op-drugselling') ~= 'started' then
-        cb({ ok = false, error = 'op-drugselling indisponível' })
+    local authorized = lib.callback.await('noir_burnerphone:server:authorizeActivity', false, activityId)
+    if not authorized then
+        notify('Essa atividade não está disponível.', 'error')
+        cb({ ok = false })
         return
     end
 
-    -- Uses the exact same entry point as /venderdrogas, preserving the
-    -- existing sale state, cooldown and nearby-ped behaviour.
-    ExecuteCommand('venderdrogas')
-    cb({ ok = true })
-end)
-
-RegisterNUICallback('sendHouseMessage', function(data, cb)
-    local message = type(data) == 'table' and data.message or nil
-    if type(message) ~= 'string' or message == '' then cb({ ok = false }) return end
-    messages[#messages + 1] = { outgoing = true, message = message, timestamp = GetGameTimer() }
-    TriggerServerEvent('noir_burnerphone:server:sendHouseMessage', message)
-    cb({ ok = true })
-end)
-
-RegisterNUICallback('setWaypoint', function(data, cb)
-    local location = type(data) == 'table' and data.location or nil
-    if location and tonumber(location.x) and tonumber(location.y) then
-        SetNewWaypoint(tonumber(location.x), tonumber(location.y))
+    if activityId == 'drugSales' then
+        if GetResourceState('op-drugselling') ~= 'started' then
+            notify('Esse canal está indisponível.', 'error')
+            cb({ ok = false })
+            return
+        end
+        closeBurnerPhone()
+        ExecuteCommand('venderdrogas')
         cb({ ok = true })
         return
     end
+
     cb({ ok = false })
 end)
 
-RegisterNetEvent('noir_burnerphone:client:contactMessage', function(data)
-    if type(data) ~= 'table' or type(data.message) ~= 'string' then return end
-    messages[#messages + 1] = data
-    SendNUIMessage({ action = 'burner:message', message = data })
-    if data.location then
-        SetNewWaypoint(data.location.x + 0.0, data.location.y + 0.0)
-        lib.notify({ description = 'Nova localização recebida no burner phone.', type = 'success' })
-    end
+-- Contracts: the NUI only ever sees the snapshot the server produced. Every
+-- action goes server -> provider and returns a fresh snapshot on success.
+RegisterNUICallback('loadContracts', function(_, cb)
+    if not isOpen then cb({ ok = false }) return end
+    local contracts = lib.callback.await('noir_burnerphone:server:getContracts', false)
+    cb({ ok = contracts ~= nil, contracts = contracts })
 end)
 
--- A client resource can survive character logout while its NUI and focus remain
--- active. Always reset both sides of the state during startup and logout.
+local function contractAction(action)
+    return function(data, cb)
+        local contractId = type(data) == 'table' and data.id or nil
+        if not isOpen or type(contractId) ~= 'string' then cb({ ok = false, error = 'Ação inválida.' }) return end
+
+        local ok, payload = lib.callback.await('noir_burnerphone:server:contractAction', false, action, contractId)
+        if not ok then
+            cb({ ok = false, error = type(payload) == 'string' and payload or 'Não foi possível concluir a ação.' })
+            return
+        end
+        cb({ ok = true, contracts = payload })
+    end
+end
+
+RegisterNUICallback('acceptContract', contractAction('accept'))
+RegisterNUICallback('resumeContract', contractAction('resume'))
+RegisterNUICallback('abandonContract', contractAction('abandon'))
+
+RegisterNetEvent('noir_burnerphone:client:contractsChanged', function(contracts)
+    if not isOpen or type(contracts) ~= 'table' then return end
+    SendNUIMessage({ action = 'burner:contracts', contracts = contracts })
+end)
+
 CreateThread(function()
     Wait(250)
     closeBurnerPhone()
@@ -235,6 +232,22 @@ end)
 
 RegisterNetEvent('QBCore:Client:OnPlayerUnload', closeBurnerPhone)
 RegisterNetEvent('qbx_core:client:playerLoggedOut', closeBurnerPhone)
+
+RegisterNetEvent('noir_burnerphone:client:stateUpdated', function(payload)
+    if not isOpen or type(payload) ~= 'table' then return end
+    SendNUIMessage({
+        action = 'burner:state',
+        state = payload.state,
+        activities = payload.activities,
+    })
+end)
+
+AddEventHandler('ox_inventory:updateInventory', function()
+    if isOpen and exports.ox_inventory:GetItemCount(BurnerPhoneConfig.itemName) < 1 then
+        closeBurnerPhone()
+        notify('O burner phone não está mais no seu bolso.', 'error')
+    end
+end)
 
 AddEventHandler('sd-phone:client:openState', function(open)
     if open and isOpen then closeBurnerPhone() end

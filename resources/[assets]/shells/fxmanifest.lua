@@ -6,7 +6,7 @@ game 'gta5'
 this_is_a_map 'yes'
 
 files {
-      'starter_shells_k4mb1.ytyp'
+      'stream_enhanced/starter_shells_k4mb1.ytyp'
 }
 
-data_file 'DLC_ITYP_REQUEST' 'starter_shells_k4mb1.ytyp'
+data_file 'DLC_ITYP_REQUEST' 'stream_enhanced/starter_shells_k4mb1.ytyp'

@@ -16,6 +16,15 @@ function NoirBurnerIntegration.sendMessage(source, message, location)
     return ok
 end
 
+-- Asks the burner phone to push a fresh contract snapshot to the player's NUI
+-- (no-op when the phone is closed or the resource is not running).
+function NoirBurnerIntegration.refreshContracts(source)
+    if GetResourceState(RESOURCE) ~= 'started' then return false end
+    return pcall(function()
+        exports[RESOURCE]:refreshContracts(source)
+    end)
+end
+
 function NoirBurnerIntegration.sendLocation(source, contract)
     return NoirBurnerIntegration.sendMessage(source, 'Tenho um endereço. Vá com calma e não chame atenção.', {
         x = contract.coords.x,

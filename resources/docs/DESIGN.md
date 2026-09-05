@@ -365,3 +365,30 @@ Antes de aprovar uma nova interface, confirme:
 Uma interface pode sair deste padrão quando o universo do recurso exigir uma identidade própria — por exemplo, um celular, terminal policial ou painel de veículo. Mesmo nesses casos, mantenha os fundamentos compartilhados: legibilidade, escala de espaçamento, feedback, navegação por teclado, estados semânticos e respeito à safe zone.
 
 Qualquer novo token global ou exceção recorrente deve ser documentado aqui antes de ser replicado em vários resources.
+
+## IMPORTANT — FiveM NUI transparency
+
+All HUD-style NUI pages MUST have a fully transparent document/root
+background.
+
+html, body, #root and the top-level application container MUST NOT
+define an opaque background.
+
+Only the actual visible UI components may define backgrounds.
+
+Never use a fullscreen black/dark overlay as the application root.
+
+Avoid backdrop-filter on transparent Fullscreen NUI elements because
+it may render the game backdrop as black in FiveM.
+
+Default:
+
+html,
+body,
+#root {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: transparent !important;
+}
