@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RD-Taxi Service</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="taxiPanel" class="taxi-panel hidden">
+        <div class="panel-header">
+            <div class="header-icon">
+                <i class="fas fa-taxi"></i>
+            </div>
+            <div class="header-content">
+                <h1>TAXI SERVICE</h1>
+                <p>Premium Transportation in Los Santos</p>
+            </div>
+            <button class="close-btn" onclick="closePanel()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div class="panel-body">
+            <div class="drivers-section">
+                <div class="section-title">
+                    <i class="fas fa-users"></i>
+                    <span>AVAILABLE DRIVERS</span>
+                    <div class="stop-badge">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span id="stopName"></span>
+                    </div>
+                </div>
+                <div class="drivers-list" id="driversList">
+                </div>
+            </div>
+
+            <div class="details-section">
+                <div class="section-title">
+                    <i class="fas fa-info-circle"></i>
+                    <span>TAXI DETAILS</span>
+                </div>
+                <div class="taxi-details" id="taxiDetails">
+                    <div class="no-selection">
+                        <i class="fas fa-hand-pointer"></i>
+                        <p>Select a driver to view taxi details</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirmDialog" class="confirm-dialog hidden">
+        <div class="confirm-content">
+            <div class="confirm-icon">
+                <i class="fas fa-map-marked-alt"></i>
+            </div>
+            <h2>Confirm Destination</h2>
+            <p id="confirmMessage">Drive to this location?</p>
+            <div class="confirm-buttons">
+                <button class="confirm-btn cancel" onclick="confirmWaypoint(false)">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button class="confirm-btn confirm" onclick="confirmWaypoint(true)">
+                    <i class="fas fa-check"></i> Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="script.js"></script>
+	
+	<audio id="driverVoice" preload="auto"></audio>
+</body>
+</html>
