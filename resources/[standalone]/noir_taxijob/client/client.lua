@@ -1,8 +1,8 @@
--- Entrada do client: emprego/duty, detecção do táxi, keybinds, missão (coleta → destino) e cleanup.
+-- Entrada do client: detecção do táxi alugado, keybinds, missão (coleta → destino) e cleanup.
+-- A capacidade de trabalhar vem do aluguel ativo (Rental); emprego, grade e duty não são consultados.
 lib.locale(Config.Locale)
 
 local P = Config.Passenger
-local job = nil
 local awaySince = nil
 
 ---@param key string chave do locale
@@ -11,23 +11,14 @@ function Notify(key, ntype, ...)
     exports.bgrz_core:Notify(locale(key, ...), ntype or 'inform')
 end
 
-local function refreshJob()
-    job = exports.bgrz_core:GetJob()
-end
-
-function Taxi.getJob()
-    return job
-end
-
+---Reflete a sessão de aluguel devolvida pelo servidor.
 ---@return boolean
 function Taxi.canWork()
-    if not job or job.name ~= Config.Job then return false end
-    if Config.RequireDuty and not job.onDuty then return false end
-    return true
+    return Rental.active()
 end
 
 local function isJobVehicle(veh)
-    return veh and veh ~= 0 and Config.IsAllowedVehicle(GetEntityModel(veh))
+    return veh and veh ~= 0 and Rental.isRentalVehicle(veh) and Config.IsAllowedVehicle(GetEntityModel(veh))
 end
 
 local function speedKmh(entity)
@@ -37,8 +28,6 @@ end
 -- ───────────────────────── ativação / desativação ─────────────────────────
 
 local deactivateMessages = {
-    job_changed = 'notify.not_taxi_job',
-    off_duty = 'notify.off_duty',
     driver_left = 'notify.driver_left',
 }
 
@@ -59,7 +48,7 @@ function Taxi.deactivateLocal(reason)
     Taxi.result = nil
     Taxi.routeDistance = 0
     Taxi.meter = { fare = 0, distance = 0 }
-    Taxi.passenger = { mood = 'none', comfort = 100 }
+    Taxi.passenger = { mood = 'none', comfort = 100, fear = nil }
     awaySince = nil
     UI.setVisible(false)
     SetTaxiState(TAXI_STATE.HIDDEN)
@@ -85,11 +74,12 @@ local function tryActivate(veh)
     local res = lib.callback.await('noir_taxijob:server:setAvailable', false, NetworkGetNetworkIdFromEntity(veh))
     activating = false
     if not res or not res.ok then
-        if res and res.reason == 'duty' then
-            Notify('notify.off_duty', 'error')
+        if res and res.reason == 'rental' then
+            Notify('notify.rental_invalid', 'error')
+            Rental.clear()
         elseif res and res.reason == 'vehicle' then
             Notify('notify.vehicle_not_allowed', 'error')
-        elseif res and res.reason ~= 'job' and res.reason ~= 'rate' then
+        elseif res and res.reason ~= 'rate' then
             Notify('notify.activation_failed', 'error')
         end
         return
@@ -189,7 +179,7 @@ local function boardPassenger(fare, veh)
     fare.dropoff = vec3(res.dropoff.x, res.dropoff.y, res.dropoff.z)
     fare.destination = Dispatch.zoneName(fare.dropoff)
     Taxi.meter = { fare = res.snapshot.fare, distance = res.snapshot.distance }
-    Taxi.passenger = { mood = res.snapshot.mood, comfort = res.snapshot.comfort }
+    Taxi.passenger = { mood = res.snapshot.mood, comfort = res.snapshot.comfort, fear = res.snapshot.fear }
     SetTaxiState(TAXI_STATE.HIRED)
 end
 
@@ -204,8 +194,8 @@ local function completeFare(fare, veh)
         return false
     end
 
-    Taxi.result = { fare = res.fare, reputation = res.reputation, mood = res.mood, satisfaction = res.satisfaction }
-    Taxi.passenger = { mood = res.mood, comfort = res.satisfaction }
+    Taxi.result = { fare = res.fare, confidence = res.confidence, mood = res.mood, satisfaction = res.satisfaction, bonus = res.calmBonus or 0 }
+    Taxi.passenger = { mood = res.mood, comfort = res.satisfaction, fear = nil }
     Taxi.meter = { fare = res.fare, distance = res.distance }
     UI.render()
 
@@ -224,20 +214,40 @@ local function completeFare(fare, veh)
 
     NPC.release()
     Taxi.fare = nil
-    Taxi.result = nil
     Taxi.routeDistance = 0
     Taxi.meter = { fare = 0, distance = 0 }
-    Taxi.passenger = { mood = 'none', comfort = 100 }
+    Taxi.passenger = { mood = 'none', comfort = 100, fear = nil }
+
+    -- Mantém o resultado (+dinheiro/confiança) visível por ResultHoldMs no total.
+    Wait(math.max(0, (P.ResultHoldMs or 6000) - P.DropoffHoldMs))
+    Taxi.result = nil
     if not Taxi.is(TAXI_STATE.HIDDEN) then
         SetTaxiState(TAXI_STATE.AVAILABLE)
     end
     return true
 end
 
+-- Detector de batida forte: perda súbita de velocidade entre medições.
+-- Uma perda grande dispensa confirmar colisão; a intermediária exige contato (diferencia freada de impacto).
+local crashWatch = { speed = nil }
+
+local function checkCrash(veh)
+    local F = Config.Fear
+    local speed = GetEntitySpeed(veh)
+    local last = crashWatch.speed
+    crashWatch.speed = speed
+    if not last then return end
+    local loss = last - speed
+    if loss < F.CrashDeltaSpeed then return end
+    if loss < F.CrashDeltaHard and not HasEntityCollidedWithAnything(veh) then return end
+    TriggerServerEvent('noir_taxijob:server:passengerScared')
+end
+
 local function missionLoop(fare)
     local fareId = fare.id
     local parkedSince = nil
     local requesting = false
+    crashWatch.speed = nil
 
     while Taxi.fare and Taxi.fare.id == fareId and Taxi.inMission() do
         Wait(250)
@@ -268,6 +278,7 @@ local function missionLoop(fare)
                     boardPassenger(fare, veh)
                 end
             elseif Taxi.is(TAXI_STATE.HIRED) and fare.dropoff then
+                checkCrash(veh)
                 local dist = #(coords - fare.dropoff)
                 if dist <= P.DropoffDistance and speedKmh(veh) <= P.MaxDropoffSpeed
                     and fare.npc ~= 0 and IsPedInVehicle(fare.npc, veh, false) then
@@ -316,25 +327,27 @@ RegisterCommand('taxi_pause', function()
 end, false)
 RegisterKeyMapping('taxi_pause', Config.Keybinds.pause.label, 'keyboard', Config.Keybinds.pause.key)
 
--- ───────────────────────── emprego / sessão ─────────────────────────
+-- ───────────────────────── sessão ─────────────────────────
 
-AddEventHandler('bgrz_core:client:playerLoaded', function()
-    refreshJob()
+-- Motor morto ou veículo destruído encerra o trabalho; o servidor confirma e limpa o aluguel.
+CreateThread(function()
+    while true do
+        Wait(500)
+        local veh = Taxi.vehicle
+        if veh ~= 0 and DoesEntityExist(veh) and not Taxi.is(TAXI_STATE.HIDDEN) then
+            if GetVehicleEngineHealth(veh) <= 0 or GetEntityHealth(veh) <= 0 then
+                TriggerServerEvent('noir_taxijob:server:vehicleBroken')
+                Wait(3000) -- evita spam enquanto o servidor processa o cleanup
+            end
+        end
+    end
 end)
 
 AddEventHandler('bgrz_core:client:playerUnloaded', function()
-    job = nil
     if not Taxi.is(TAXI_STATE.HIDDEN) then Taxi.deactivateLocal() end
 end)
 
-AddEventHandler('bgrz_core:client:jobUpdated', function(newJob)
-    job = newJob
-    -- O servidor decide se a sessão continua e envia 'deactivated' quando não.
-end)
-
-AddEventHandler('bgrz_core:client:dutyUpdated', function(onDuty)
-    if job then job.onDuty = onDuty end
-end)
+-- Mudança de emprego ou duty não desativa a atividade: o Taxi V2 é renda extra independente.
 
 AddEventHandler('onResourceStop', function(resource)
     if resource ~= GetCurrentResourceName() then return end
@@ -343,8 +356,4 @@ AddEventHandler('onResourceStop', function(resource)
     local veh = Taxi.vehicle
     if veh ~= 0 and DoesEntityExist(veh) then FreezeEntityPosition(veh, false) end
     UI.setVisible(false)
-end)
-
-CreateThread(function()
-    refreshJob()
 end)

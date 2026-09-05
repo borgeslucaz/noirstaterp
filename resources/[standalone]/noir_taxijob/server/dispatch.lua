@@ -4,6 +4,7 @@ Dispatch = {}
 local D = Config.Dispatch
 local P = Config.Passenger
 local M = Config.Meter
+local CL = Config.Climate
 local RL = ServerConfig.RateLimits
 
 local function fareFor(meters)
@@ -93,6 +94,11 @@ function Dispatch.createOffer(src, driver, veh)
     local maxBillable = math.min(expected * M.MaxRouteMultiplier + M.ExtraDistanceTolerance, M.AbsoluteMaxBillable)
 
     local id = Sessions.newFareId()
+    -- Preferência térmica individual: desvio aleatório (±ComfortVariation °C) sobre a faixa global.
+    local band = CL.ComfortMax - CL.ComfortMin
+    local spread = math.floor(CL.ComfortVariation * 100 + 0.5)
+    local offset = (math.random(-spread, spread) / 100.0)
+    local prefMin = math.max(CL.MinTemp, math.min(CL.MaxTemp - band, CL.ComfortMin + offset))
     ---@type TaxiFare
     local fare = {
         id = id,
@@ -111,6 +117,9 @@ function Dispatch.createOffer(src, driver, veh)
         distanceMeters = 0.0,
         currentFare = 0.0,
         comfort = 100.0,
+        comfortMin = prefMin,
+        comfortMax = prefMin + band,
+        fear = 0.0,
         ignoredJumps = 0,
         paid = false,
     }
@@ -182,8 +191,8 @@ lib.callback.register('noir_taxijob:server:acceptOffer', function(src, fareId)
         Dispatch.expireOffer(src, driver, fare)
         return false
     end
-    if not Sessions.isValidDriver(src) then
-        Sessions.removeDriver(src, 'job_changed')
+    if not Sessions.isEligible(src, driver.vehicleNetId) then
+        Sessions.removeDriver(src, 'vehicle_lost')
         return false
     end
 

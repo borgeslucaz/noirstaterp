@@ -25,6 +25,39 @@ function Security.sanitizeNumber(v, minV, maxV)
     return n + 0.0
 end
 
+---Sanitiza uma string curta vinda do client (sem controle, tamanho limitado).
+---@param v any
+---@param maxLen number
+---@return string|nil
+function Security.sanitizeString(v, maxLen)
+    if type(v) ~= 'string' then return nil end
+    if #v == 0 or #v > (maxLen or 32) then return nil end
+    if v:find('[%c]') then return nil end
+    return v
+end
+
+---Nome de exibição para o ranking: sem controle, sem excesso de espaço, tamanho limitado.
+---@param name any
+---@return string
+function Security.sanitizeName(name)
+    if type(name) ~= 'string' then return 'Motorista' end
+    name = name:gsub('[%c]', ''):gsub('%s+', ' ')
+    name = name:match('^%s*(.-)%s*$') or ''
+    if name == '' then return 'Motorista' end
+    if #name > 48 then name = name:sub(1, 48) end
+    return name
+end
+
+---Token opaco, não previsível, para sessões curtas.
+---@return string
+function Security.token()
+    local parts = {}
+    for i = 1, 4 do
+        parts[i] = ('%08x'):format(math.random(0, 0x7fffffff))
+    end
+    return table.concat(parts) .. ('%x'):format(GetGameTimer())
+end
+
 ---@return boolean allowed
 function Security.rateLimit(src, key, ms)
     if not src or src <= 0 then return false end
@@ -48,6 +81,13 @@ function Security.getCoords(src)
     local ped = GetPlayerPed(src)
     if not ped or ped == 0 then return nil end
     return GetEntityCoords(ped)
+end
+
+---@return boolean
+function Security.isOnFoot(src)
+    local ped = GetPlayerPed(src)
+    if not ped or ped == 0 then return false end
+    return GetVehiclePedIsIn(ped, false) == 0
 end
 
 function Security.isNearCoords(src, coords, maxDist)

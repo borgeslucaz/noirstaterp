@@ -30,15 +30,37 @@ Sessions = {}
 ---@field currentFare number
 ---@field lastCoords vector3|nil
 ---@field comfort number
+---@field comfortMin number
+---@field comfortMax number
+---@field fear number
+---@field bodyHealth number|nil última lataria medida (detecção de batida forte)
 ---@field ignoredJumps number
 ---@field paid boolean
 
-Drivers = {}        ---@type table<number, TaxiDriver>
-ActiveFares = {}    ---@type table<number, TaxiFare>
-ReservedPickups = {}---@type table<number, number> pointIndex → fareId
-DepotVehicles = {}  ---@type table<number, number> source → netId
+---@class TaxiRental
+---@field source number
+---@field citizenid string
+---@field vehicleId string id do catálogo
+---@field netId number
+---@field plate string
+---@field state 'validating'|'spawning'|'active'|'returning'
+---@field createdAt number
+
+---@class CentralSession
+---@field source number
+---@field token string
+---@field citizenid string
+---@field expiresAt number
+
+Drivers = {}         ---@type table<number, TaxiDriver>
+ActiveFares = {}     ---@type table<number, TaxiFare>
+ReservedPickups = {} ---@type table<number, number> pointIndex → fareId
+ActiveRentals = {}   ---@type table<number, TaxiRental> source → aluguel (fonte autoritativa da capacidade de trabalhar)
+CentralSessions = {} ---@type table<number, CentralSession> source → sessão curta da NUI
 
 local fareCounter = 0
+-- Chave única do ledger: sobrevive a restarts do resource (epoch de boot + contador).
+local bootEpoch = os.time()
 
 function Sessions.now()
     return GetGameTimer()
@@ -54,9 +76,24 @@ function Sessions.newFareId()
     return fareCounter
 end
 
+---@param fareId number
+---@return string chave persistente e não reutilizável do ledger
+function Sessions.fareKey(fareId)
+    return ('%d-%d'):format(bootEpoch, fareId)
+end
+
+---Capacidade de trabalhar = aluguel ativo pertencente ao jogador + veículo da sessão existente.
+---Não consulta emprego, grade ou duty.
+---@param src number
+---@param vehicleNetId? number quando informado, exige que seja o veículo do aluguel
 ---@return boolean
-function Sessions.isValidDriver(src)
-    return exports.bgrz_core:HasJob(src, Config.Job, Config.RequireDuty) == true
+function Sessions.isEligible(src, vehicleNetId)
+    local rental = ActiveRentals[src]
+    if not rental or rental.state ~= 'active' then return false end
+    if vehicleNetId and rental.netId ~= vehicleNetId then return false end
+    local veh = NetworkGetEntityFromNetworkId(rental.netId)
+    if not veh or veh == 0 or not DoesEntityExist(veh) then return false end
+    return true
 end
 
 ---@param driver TaxiDriver
@@ -159,19 +196,36 @@ function Sessions.mood(fare, driver)
     if fare.comfort <= climate.UnhappyThreshold then return 'unhappy' end
     local c = driver and driver.climate
     if not c or (Sessions.now() - c.at) > ServerConfig.ClimateStaleMs then return 'neutral' end
-    if c.temp < climate.ComfortMin then return 'cold' end
-    if c.temp > climate.ComfortMax then return 'hot' end
+    -- Preferência pessoal do passageiro (definida no aceite da chamada).
+    local prefMin = fare.comfortMin or climate.ComfortMin
+    local prefMax = fare.comfortMax or climate.ComfortMax
+    if c.temp < prefMin then return 'cold' end
+    if c.temp > prefMax then return 'hot' end
     return 'happy'
+end
+
+---Sentimento do passageiro conforme o nível de medo (0-100).
+---@param fare TaxiFare
+---@return table level { key, label, min }
+function Sessions.fearLevel(fare)
+    local fear = fare.fear or 0.0
+    local current = Config.Fear.Levels[1]
+    for _, lv in ipairs(Config.Fear.Levels) do
+        if fear >= lv.min then current = lv else break end
+    end
+    return current
 end
 
 ---@param fare TaxiFare
 ---@param driver TaxiDriver
 function Sessions.snapshot(fare, driver)
+    local lv = Sessions.fearLevel(fare)
     return {
         fare = math.floor(fare.currentFare * 100 + 0.5) / 100,
         distance = math.floor(fare.distanceMeters),
         comfort = math.floor(fare.comfort),
         mood = Sessions.mood(fare, driver),
+        fear = { level = lv.key, label = lv.label },
     }
 end
 
@@ -184,4 +238,5 @@ function Sessions.cleanupAll()
         Drivers[src] = nil
     end
     ReservedPickups = {}
+    CentralSessions = {}
 end

@@ -1,4 +1,5 @@
--- Entrada do servidor: disponibilidade do taxista, pausa, clima, central (depósito) e cleanup.
+-- Entrada do servidor: disponibilidade do taxista, pausa, clima, cleanup e loop principal.
+-- A capacidade de trabalhar vem do aluguel ativo (ActiveRentals); emprego, grade e duty nunca são lidos ou alterados.
 lib.locale(Config.Locale)
 
 local RL = ServerConfig.RateLimits
@@ -8,6 +9,25 @@ local function notify(src, key, ntype, ...)
     exports.bgrz_core:Notify(src, locale(key, ...), ntype or 'inform')
 end
 
+-- ───────────────────────── validação de configuração ─────────────────────────
+
+do
+    local seen = {}
+    for _, v in ipairs(Config.RentalVehicles) do
+        if type(v.id) ~= 'string' or v.id == '' then
+            error('[noir_taxijob] Config.RentalVehicles: entrada sem id')
+        end
+        if seen[v.id] then error(('[noir_taxijob] Config.RentalVehicles: id duplicado `%s`'):format(v.id)) end
+        seen[v.id] = true
+        if not Config.IsAllowedVehicle(v.model) then
+            error(('[noir_taxijob] Config.RentalVehicles: model `%s` (%s) não consta em Config.AllowedVehicles'):format(v.model, v.id))
+        end
+        if type(v.requiredLevel) ~= 'number' or v.requiredLevel < 1 then
+            error(('[noir_taxijob] Config.RentalVehicles: requiredLevel inválido em `%s`'):format(v.id))
+        end
+    end
+end
+
 -- ───────────────────────── disponibilidade ─────────────────────────
 
 lib.callback.register('noir_taxijob:server:setAvailable', function(src, vehicleNetId)
@@ -15,8 +35,7 @@ lib.callback.register('noir_taxijob:server:setAvailable', function(src, vehicleN
     local netId = Security.sanitizeInt(vehicleNetId, 1)
     if not netId then return { ok = false, reason = 'vehicle' } end
 
-    if not exports.bgrz_core:HasJob(src, Config.Job, false) then return { ok = false, reason = 'job' } end
-    if Config.RequireDuty and not exports.bgrz_core:HasJob(src, Config.Job, true) then return { ok = false, reason = 'duty' } end
+    if not Sessions.isEligible(src, netId) then return { ok = false, reason = 'rental' } end
 
     local veh = NetworkGetEntityFromNetworkId(netId)
     if not veh or veh == 0 or not DoesEntityExist(veh) then return { ok = false, reason = 'vehicle' } end
@@ -25,7 +44,7 @@ lib.callback.register('noir_taxijob:server:setAvailable', function(src, vehicleN
 
     local driver = Drivers[src]
     if driver then
-        -- Voltou ao táxi (ou trocou de táxi) com sessão existente.
+        -- Voltou ao táxi com sessão existente.
         if ActiveFares[src] and driver.vehicleNetId ~= netId then
             Sessions.cancelFare(src, 'vehicle_changed')
         end
@@ -104,141 +123,24 @@ RegisterNetEvent('noir_taxijob:server:climate', function(temp, fan)
     driver.climate = { temp = t, fan = f, at = now }
 end)
 
--- ───────────────────────── central / depósito ─────────────────────────
-
-local function findFreeSpawnPoint()
-    local vehicles = GetAllVehicles()
-    for _, point in ipairs(Config.Depot.spawnPoints) do
-        local free = true
-        for _, veh in ipairs(vehicles) do
-            if #(GetEntityCoords(veh) - vec3(point.x, point.y, point.z)) < 2.5 then
-                free = false
-                break
-            end
-        end
-        if free then return point end
-    end
-    return nil
-end
-
-lib.callback.register('noir_taxijob:server:takeVehicle', function(src)
-    if not Security.rateLimit(src, 'depot', RL.depot) then return { ok = false, reason = 'rate' } end
-    if not Security.isNearCoords(src, Config.Depot.coords, Config.Depot.interactDistance + 5.0) then
-        Security.report(src, 'takeVehicle', 'not_near_depot')
-        return { ok = false, reason = 'failed' }
-    end
-
-    local job = exports.bgrz_core:GetJob(src)
-    if not job then return { ok = false, reason = 'failed' } end
-
-    local hired = false
-    if job.name == Config.StarterJob then
-        if not exports.qbx_core:SetJob(src, Config.Job, 0) then
-            return { ok = false, reason = 'failed' }
-        end
-        hired = true
-        job = exports.bgrz_core:GetJob(src)
-        if not job or job.name ~= Config.Job then
-            return { ok = false, reason = 'failed' }
-        end
-    elseif job.name ~= Config.Job then
-        return { ok = false, reason = 'job' }
-    end
-
-    if Config.RequireDuty and not job.onDuty then
-        exports.qbx_core:SetJobDuty(src, true)
-    end
-
-    if not exports.bgrz_core:HasJob(src, Config.Job, Config.RequireDuty) then
-        return { ok = false, reason = 'duty' }
-    end
-
-    local existing = DepotVehicles[src]
-    if existing then
-        local veh = NetworkGetEntityFromNetworkId(existing)
-        if veh ~= 0 and DoesEntityExist(veh) then
-            return { ok = false, reason = 'already' }
-        end
-        DepotVehicles[src] = nil
-    end
-
-    local point = findFreeSpawnPoint()
-    if not point then return { ok = false, reason = 'no_space' } end
-
-    local plate = ('TAXI%04d'):format(math.random(0, 9999))
-    local netId = exports.bgrz_core:SpawnVehicle(src, Config.Depot.vehicleModel, point, true, plate)
-    if not netId then return { ok = false, reason = 'failed' } end
-
-    DepotVehicles[src] = netId
-    return { ok = true, netId = netId, hired = hired }
-end)
-
-lib.callback.register('noir_taxijob:server:returnVehicle', function(src, vehicleNetId)
-    if not Security.rateLimit(src, 'depot', RL.depot) then return { ok = false, reason = 'rate' } end
-    local netId = Security.sanitizeInt(vehicleNetId, 1)
-    if not netId then return { ok = false, reason = 'not_yours' } end
-    if DepotVehicles[src] ~= netId then return { ok = false, reason = 'not_yours' } end
-    if not Security.isNearCoords(src, Config.Depot.coords, Config.Depot.returnRadius) then
-        return { ok = false, reason = 'not_near' }
-    end
-
-    local veh = NetworkGetEntityFromNetworkId(netId)
-    if veh == 0 or not DoesEntityExist(veh) then
-        DepotVehicles[src] = nil
-        return { ok = false, reason = 'not_yours' }
-    end
-    if #(GetEntityCoords(veh) - Security.getCoords(src)) > 10.0 then
-        return { ok = false, reason = 'not_near' }
-    end
-
-    if ActiveFares[src] then
-        Sessions.cancelFare(src, 'vehicle_returned')
-    end
-    Sessions.removeDriver(src, 'vehicle_returned')
-    DeleteEntity(veh)
-    DepotVehicles[src] = nil
-    return { ok = true }
-end)
-
 -- ───────────────────────── cleanup ─────────────────────────
-
-local function dropDepotVehicle(src)
-    local netId = DepotVehicles[src]
-    if not netId then return end
-    DepotVehicles[src] = nil
-    local veh = NetworkGetEntityFromNetworkId(netId)
-    if veh ~= 0 and DoesEntityExist(veh) then DeleteEntity(veh) end
-end
 
 AddEventHandler('playerDropped', function()
     local src = source
-    Sessions.removeDriver(src, 'disconnect')
-    dropDepotVehicle(src)
+    Rental.cleanup(src, 'disconnect')
     Security.clearPlayer(src)
 end)
 
-AddEventHandler('bgrz_core:server:jobUpdated', function(src, job)
-    if not job or job.name ~= Config.Job then
-        Sessions.removeDriver(src, 'job_changed')
-    elseif Config.RequireDuty and not job.onDuty then
-        Sessions.removeDriver(src, 'off_duty')
-    end
-end)
-
-AddEventHandler('bgrz_core:server:dutyUpdated', function(src, onDuty)
-    if Config.RequireDuty and not onDuty then
-        Sessions.removeDriver(src, 'off_duty')
-    end
-end)
-
 AddEventHandler('bgrz_core:server:playerUnloaded', function(src)
-    Sessions.removeDriver(src, 'unloaded')
-    dropDepotVehicle(src)
+    Rental.cleanup(src, 'unloaded')
 end)
+
+-- Mudança de emprego ou duty não interfere na atividade: o Taxi V2 é renda extra independente.
 
 AddEventHandler('onResourceStop', function(resource)
     if resource ~= GetCurrentResourceName() then return end
     Sessions.cleanupAll()
+    Rental.cleanupAll()
 end)
 
 -- ───────────────────────── loop principal (~1 Hz) ─────────────────────────
@@ -250,7 +152,9 @@ CreateThread(function()
         local now = GetGameTimer()
         local dt = (now - last) / 1000.0
         last = now
-        Dispatch.tick(now)
-        Meter.tick(now, dt)
+        if next(Drivers) ~= nil then
+            Dispatch.tick(now)
+            Meter.tick(now, dt)
+        end
     end
 end)

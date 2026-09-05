@@ -1,7 +1,6 @@
 {
     "notify": {
-        "not_taxi_job": "You are not a taxi driver.",
-        "off_duty": "Go on duty to work as a taxi driver.",
+        "rental_invalid": "This taxi does not belong to your depot rental.",
         "vehicle_not_allowed": "This vehicle is not a valid taxi.",
         "activation_failed": "Could not activate the taximeter. Try again.",
         "offer_expired": "Call ignored. Dispatch will look for another fare.",
@@ -15,20 +14,23 @@
         "impossible_movement": "Invalid movement detected. Fare cancelled.",
         "complete_failed": "Could not finish the fare. Get close to the destination and stop the taxi.",
         "fare_paid": "Fare finished. You received $%s.",
+        "progress_not_saved": "Your progression for this fare could not be saved. Please report it to the staff.",
         "calls_paused": "Calls paused.",
         "calls_resumed": "Calls resumed.",
         "cannot_pause": "Finish the current fare before pausing calls.",
-        "depot_hired": "You were hired as a taxi driver. Taxi released, have a good run.",
-        "depot_taken": "Taxi released. Have a good run.",
-        "depot_already": "You already have a taxi from the depot.",
-        "depot_no_space": "All depot bays are occupied.",
-        "depot_failed": "Could not release the taxi.",
-        "depot_returned": "Taxi returned to the depot.",
-        "depot_not_near": "Get close to your taxi to return it.",
-        "depot_not_yours": "This taxi is not from the depot."
+        "central_not_loaded": "Character not loaded.",
+        "central_not_near": "Get close to the taxi depot attendant.",
+        "central_restricted": "The taxi depot is unavailable for your character right now.",
+        "central_failed": "Could not open the depot. Try again.",
+        "rental_taken": "Taxi released. Have a good run.",
+        "rental_resolve_failed": "The taxi was prepared but has not appeared yet. Wait a moment.",
+        "rental_returned": "Taxi returned to the depot.",
+        "rental_not_near": "Get close to your taxi to return it.",
+        "rental_not_yours": "This taxi is not from your rental.",
+        "rental_lost": "Your depot taxi was lost. The rental has ended."
     },
     "target": {
-        "take_taxi": "Start taxi job",
+        "open_central": "Taxi depot",
         "return_taxi": "Return taxi"
     },
     "blip": {

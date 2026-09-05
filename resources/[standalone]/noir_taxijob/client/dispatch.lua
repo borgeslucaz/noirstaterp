@@ -116,7 +116,7 @@ RegisterNetEvent('noir_taxijob:client:fareCancelled', function(reason)
     Taxi.offer = nil
     Taxi.result = nil
     Taxi.meter = { fare = 0, distance = 0 }
-    Taxi.passenger = { mood = 'none', comfort = 100 }
+    Taxi.passenger = { mood = 'none', comfort = 100, fear = nil }
 
     local key = cancelMessages[reason]
     if key then Notify(key, 'error') end
@@ -135,9 +135,9 @@ end)
 RegisterNetEvent('noir_taxijob:client:meter', function(snapshot)
     if not Taxi.is(TAXI_STATE.HIRED) then return end
     Taxi.meter = { fare = snapshot.fare, distance = snapshot.distance }
-    Taxi.passenger = { mood = snapshot.mood, comfort = snapshot.comfort }
+    Taxi.passenger = { mood = snapshot.mood, comfort = snapshot.comfort, fear = snapshot.fear }
     UI.updateMeter(snapshot.fare, snapshot.distance)
-    UI.updatePassenger(snapshot.mood, snapshot.comfort)
+    UI.updatePassenger(snapshot.mood, snapshot.comfort, snapshot.fear)
 end)
 
 -- Blips: no máximo um (coleta ou destino), removido em toda transição.

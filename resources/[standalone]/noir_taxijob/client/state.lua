@@ -18,8 +18,8 @@ Taxi = {
     offer = nil,        -- { id, pickup, origin, distanceToPickup, estimateMin, estimateMax, expiresAt }
     routeDistance = 0,  -- metros até a coleta (EN_ROUTE)
     meter = { fare = 0, distance = 0 },
-    passenger = { mood = 'none', comfort = 100 },
-    result = nil,       -- { fare, reputation, mood, satisfaction }
+    passenger = { mood = 'none', comfort = 100, fear = nil },
+    result = nil,       -- { fare, confidence, mood, satisfaction }
 }
 
 local listeners = {}
