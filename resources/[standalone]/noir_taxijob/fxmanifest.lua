@@ -2,7 +2,7 @@ fx_version 'cerulean'
 game 'gta5'
 lua54 'yes'
 
-name 'ak4y-taxi'
+name 'noir_taxijob'
 description 'Noir State · Taxi Job (dispatcher NPC, taxímetro server-authoritative, HUD compacto)'
 version '2.0.0'
 
@@ -42,6 +42,7 @@ server_scripts {
 dependencies {
     'ox_lib',
     'ox_target',
+    'qbx_core',
     'bgrz_core',
 }
 

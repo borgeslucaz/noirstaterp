@@ -1,4 +1,4 @@
-CREATE TABLE `ak4y_taxi` (
+CREATE TABLE `noir_taxijob` (
 	`id` INT(11) NOT NULL AUTO_INCREMENT,
 	`identifier` LONGTEXT NULL DEFAULT NULL COLLATE 'utf8mb4_unicode_ci',
 	`name` LONGTEXT NULL DEFAULT NULL COLLATE 'utf8mb4_unicode_ci',

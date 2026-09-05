@@ -120,7 +120,7 @@ function Dispatch.createOffer(src, driver, veh)
     driver.status = 'offered'
     Sessions.debug('offer src=%s id=%s pickup=%s dropoff=%s expected=%.0f', src, id, pickupIndex, dropoffIndex, expected)
 
-    TriggerClientEvent('ak4y-taxi:client:offer', src, {
+    TriggerClientEvent('noir_taxijob:client:offer', src, {
         id = id,
         pickup = vec(pickup.coords),
         distanceToPickup = math.floor(#(coords - pickup.coords)),
@@ -138,7 +138,7 @@ function Dispatch.expireOffer(src, driver, fare)
     ActiveFares[src] = nil
     driver.status = 'available'
     driver.nextOfferAt = Sessions.now() + D.CooldownAfterTimeout
-    TriggerClientEvent('ak4y-taxi:client:offerExpired', src)
+    TriggerClientEvent('noir_taxijob:client:offerExpired', src)
 end
 
 ---@param now number
@@ -170,7 +170,7 @@ end
 
 -- ───────────────────────── callbacks client → server ─────────────────────────
 
-lib.callback.register('ak4y-taxi:server:acceptOffer', function(src, fareId)
+lib.callback.register('noir_taxijob:server:acceptOffer', function(src, fareId)
     if not Security.rateLimit(src, 'accept', RL.accept) then return false end
     local id = Security.sanitizeInt(fareId, 1)
     local driver, fare = Drivers[src], ActiveFares[src]
@@ -192,7 +192,7 @@ lib.callback.register('ak4y-taxi:server:acceptOffer', function(src, fareId)
     return { ok = true, pickup = vec(fare.pickup), heading = fare.pickupHeading }
 end)
 
-lib.callback.register('ak4y-taxi:server:requestPassenger', function(src, fareId)
+lib.callback.register('noir_taxijob:server:requestPassenger', function(src, fareId)
     if not Security.rateLimit(src, 'requestPassenger', RL.requestPassenger) then return false end
     local id = Security.sanitizeInt(fareId, 1)
     local driver, fare = Drivers[src], ActiveFares[src]
@@ -227,7 +227,7 @@ lib.callback.register('ak4y-taxi:server:requestPassenger', function(src, fareId)
 end)
 
 -- Último recurso do embarque: o servidor coloca o ped no veículo quando o client não tem controle da entidade.
-lib.callback.register('ak4y-taxi:server:warpPassenger', function(src, fareId, seat)
+lib.callback.register('noir_taxijob:server:warpPassenger', function(src, fareId, seat)
     if not Security.rateLimit(src, 'warpPassenger', RL.boarded) then return false end
     local id = Security.sanitizeInt(fareId, 1)
     local seatIndex = Security.sanitizeInt(seat, 0, 6)
@@ -250,7 +250,7 @@ lib.callback.register('ak4y-taxi:server:warpPassenger', function(src, fareId, se
     return inside == true
 end)
 
-lib.callback.register('ak4y-taxi:server:passengerBoarded', function(src, fareId)
+lib.callback.register('noir_taxijob:server:passengerBoarded', function(src, fareId)
     if not Security.rateLimit(src, 'boarded', RL.boarded) then return false end
     local id = Security.sanitizeInt(fareId, 1)
     local driver, fare = Drivers[src], ActiveFares[src]

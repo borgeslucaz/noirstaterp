@@ -18,6 +18,7 @@
         "calls_paused": "Calls paused.",
         "calls_resumed": "Calls resumed.",
         "cannot_pause": "Finish the current fare before pausing calls.",
+        "depot_hired": "You were hired as a taxi driver. Taxi released, have a good run.",
         "depot_taken": "Taxi released. Have a good run.",
         "depot_already": "You already have a taxi from the depot.",
         "depot_no_space": "All depot bays are occupied.",
@@ -27,7 +28,7 @@
         "depot_not_yours": "This taxi is not from the depot."
     },
     "target": {
-        "take_taxi": "Take taxi",
+        "take_taxi": "Start taxi job",
         "return_taxi": "Return taxi"
     },
     "blip": {

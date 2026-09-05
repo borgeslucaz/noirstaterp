@@ -68,7 +68,7 @@ function Taxi.deactivateLocal(reason)
     if key then Notify(key, 'error') end
 end
 
-RegisterNetEvent('ak4y-taxi:client:deactivated', function(reason)
+RegisterNetEvent('noir_taxijob:client:deactivated', function(reason)
     if Taxi.is(TAXI_STATE.HIDDEN) then return end
     Taxi.deactivateLocal(reason)
 end)
@@ -82,7 +82,7 @@ local function tryActivate(veh)
     if not NetworkGetEntityIsNetworked(veh) then return end
     activating = true
 
-    local res = lib.callback.await('ak4y-taxi:server:setAvailable', false, NetworkGetNetworkIdFromEntity(veh))
+    local res = lib.callback.await('noir_taxijob:server:setAvailable', false, NetworkGetNetworkIdFromEntity(veh))
     activating = false
     if not res or not res.ok then
         if res and res.reason == 'duty' then
@@ -124,7 +124,7 @@ local function onLeftDriverSeat()
         return
     end
 
-    TriggerServerEvent('ak4y-taxi:server:setUnavailable', 'left_vehicle')
+    TriggerServerEvent('noir_taxijob:server:setUnavailable', 'left_vehicle')
     Taxi.deactivateLocal()
 end
 
@@ -145,7 +145,7 @@ CreateThread(function()
             if Taxi.inVehicle then
                 onLeftDriverSeat()
             elseif awaySince and (GetGameTimer() - awaySince) > P.DriverAwayGraceMs then
-                TriggerServerEvent('ak4y-taxi:server:setUnavailable', 'driver_left')
+                TriggerServerEvent('noir_taxijob:server:setUnavailable', 'driver_left')
                 Taxi.deactivateLocal('driver_left')
             end
         end
@@ -155,7 +155,7 @@ end)
 -- ───────────────────────── missão: coleta → embarque → destino ─────────────────────────
 
 local function cancelFare(reason)
-    TriggerServerEvent('ak4y-taxi:server:cancelFare', reason)
+    TriggerServerEvent('noir_taxijob:server:cancelFare', reason)
 end
 
 local function boardPassenger(fare, veh)
@@ -171,7 +171,7 @@ local function boardPassenger(fare, veh)
     local ok = NPC.board(fare.npc, veh, seat, function()
         return not Taxi.fare or Taxi.fare.id ~= fareId or not Taxi.is(TAXI_STATE.BOARDING)
     end, function()
-        return lib.callback.await('ak4y-taxi:server:warpPassenger', false, fareId, seat) == true
+        return lib.callback.await('noir_taxijob:server:warpPassenger', false, fareId, seat) == true
     end)
     if not Taxi.fare or Taxi.fare.id ~= fareId then return end
     if not ok then
@@ -179,7 +179,7 @@ local function boardPassenger(fare, veh)
         return
     end
 
-    local res = lib.callback.await('ak4y-taxi:server:passengerBoarded', false, fareId)
+    local res = lib.callback.await('noir_taxijob:server:passengerBoarded', false, fareId)
     if not Taxi.fare or Taxi.fare.id ~= fareId then return end
     if not res or not res.ok then
         cancelFare('boarding_failed')
@@ -196,7 +196,7 @@ end
 local function completeFare(fare, veh)
     SetTaxiState(TAXI_STATE.COMPLETING)
 
-    local res = lib.callback.await('ak4y-taxi:server:completeFare', false, fare.id)
+    local res = lib.callback.await('noir_taxijob:server:completeFare', false, fare.id)
     if not Taxi.fare or Taxi.fare.id ~= fare.id then return false end
     if not res or not res.ok then
         Notify('notify.complete_failed', 'error')
@@ -252,7 +252,7 @@ local function missionLoop(fare)
 
                 if fare.npc == 0 and not requesting and dist <= P.SpawnDistance then
                     requesting = true
-                    local res = lib.callback.await('ak4y-taxi:server:requestPassenger', false, fareId)
+                    local res = lib.callback.await('noir_taxijob:server:requestPassenger', false, fareId)
                     if Taxi.fare and Taxi.fare.id == fareId and res and res.netId then
                         local ped = NPC.attach(res.netId)
                         if ped ~= 0 then
@@ -307,9 +307,9 @@ RegisterKeyMapping('taxi_accept', Config.Keybinds.accept.label, 'keyboard', Conf
 RegisterCommand('taxi_pause', function()
     if Taxi.is(TAXI_STATE.HIDDEN) then return end
     if Taxi.is(TAXI_STATE.AVAILABLE) then
-        TriggerServerEvent('ak4y-taxi:server:setPaused', true)
+        TriggerServerEvent('noir_taxijob:server:setPaused', true)
     elseif Taxi.is(TAXI_STATE.PAUSED) then
-        TriggerServerEvent('ak4y-taxi:server:setPaused', false)
+        TriggerServerEvent('noir_taxijob:server:setPaused', false)
     else
         Notify('notify.cannot_pause', 'error')
     end

@@ -68,7 +68,7 @@ local function tickFare(src, driver, fare, now, dtSec)
         end
     end
 
-    TriggerClientEvent('ak4y-taxi:client:meter', src, Sessions.snapshot(fare, driver))
+    TriggerClientEvent('noir_taxijob:client:meter', src, Sessions.snapshot(fare, driver))
 end
 
 ---@param now number
@@ -88,7 +88,7 @@ end
 
 -- ───────────────────────── conclusão e pagamento ─────────────────────────
 
-lib.callback.register('ak4y-taxi:server:completeFare', function(src, fareId)
+lib.callback.register('noir_taxijob:server:completeFare', function(src, fareId)
     if not Security.rateLimit(src, 'complete', RL.complete) then return false end
     local id = Security.sanitizeInt(fareId, 1)
     local driver, fare = Drivers[src], ActiveFares[src]

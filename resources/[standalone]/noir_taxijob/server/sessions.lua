@@ -46,7 +46,7 @@ end
 
 function Sessions.debug(fmt, ...)
     if not Config.Debug then return end
-    print(('[ak4y-taxi] ' .. fmt):format(...))
+    print(('[noir_taxijob] ' .. fmt):format(...))
 end
 
 function Sessions.newFareId()
@@ -135,7 +135,7 @@ function Sessions.cancelFare(src, reason, npcDespawnDelay)
         driver.awaySince = nil
         driver.nextOfferAt = Sessions.now() + Config.Dispatch.CooldownAfterTimeout
     end
-    TriggerClientEvent('ak4y-taxi:client:fareCancelled', src, reason)
+    TriggerClientEvent('noir_taxijob:client:fareCancelled', src, reason)
 end
 
 ---@param src number
@@ -147,7 +147,7 @@ function Sessions.removeDriver(src, reason)
     if Drivers[src] then
         Sessions.debug('removeDriver src=%s reason=%s', src, reason)
         Drivers[src] = nil
-        TriggerClientEvent('ak4y-taxi:client:deactivated', src, reason)
+        TriggerClientEvent('noir_taxijob:client:deactivated', src, reason)
     end
 end
 

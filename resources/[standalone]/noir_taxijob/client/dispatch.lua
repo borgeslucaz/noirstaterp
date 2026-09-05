@@ -45,7 +45,7 @@ function Dispatch.accept()
     local offer = Taxi.offer
     Taxi.offer = nil
 
-    local res = lib.callback.await('ak4y-taxi:server:acceptOffer', false, offer.id)
+    local res = lib.callback.await('noir_taxijob:server:acceptOffer', false, offer.id)
     if not res or not res.ok then
         Notify('notify.accept_failed', 'error')
         if Taxi.is(TAXI_STATE.OFFER) then SetTaxiState(TAXI_STATE.AVAILABLE) end
@@ -66,7 +66,7 @@ function Dispatch.accept()
     SetTaxiState(TAXI_STATE.EN_ROUTE)
 end
 
-RegisterNetEvent('ak4y-taxi:client:offer', function(offer)
+RegisterNetEvent('noir_taxijob:client:offer', function(offer)
     if not Taxi.is(TAXI_STATE.AVAILABLE) or not Taxi.inVehicle then return end
     local pickup = vec3(offer.pickup.x, offer.pickup.y, offer.pickup.z)
     Taxi.offer = {
@@ -89,7 +89,7 @@ RegisterNetEvent('ak4y-taxi:client:offer', function(offer)
     end)
 end)
 
-RegisterNetEvent('ak4y-taxi:client:offerExpired', function()
+RegisterNetEvent('noir_taxijob:client:offerExpired', function()
     if not Taxi.is(TAXI_STATE.OFFER) then return end
     Taxi.offer = nil
     Notify('notify.offer_expired', 'inform')
@@ -105,7 +105,7 @@ local cancelMessages = {
     no_seat = 'notify.no_seat',
 }
 
-RegisterNetEvent('ak4y-taxi:client:fareCancelled', function(reason)
+RegisterNetEvent('noir_taxijob:client:fareCancelled', function(reason)
     local vehicle = Taxi.vehicle
     if vehicle ~= 0 and DoesEntityExist(vehicle) then
         FreezeEntityPosition(vehicle, false)
@@ -126,13 +126,13 @@ RegisterNetEvent('ak4y-taxi:client:fareCancelled', function(reason)
     end
 end)
 
-RegisterNetEvent('ak4y-taxi:client:paused', function(paused)
+RegisterNetEvent('noir_taxijob:client:paused', function(paused)
     if Taxi.is(TAXI_STATE.HIDDEN) or Taxi.inMission() then return end
     Notify(paused and 'notify.calls_paused' or 'notify.calls_resumed', 'inform')
     SetTaxiState(paused and TAXI_STATE.PAUSED or TAXI_STATE.AVAILABLE)
 end)
 
-RegisterNetEvent('ak4y-taxi:client:meter', function(snapshot)
+RegisterNetEvent('noir_taxijob:client:meter', function(snapshot)
     if not Taxi.is(TAXI_STATE.HIRED) then return end
     Taxi.meter = { fare = snapshot.fare, distance = snapshot.distance }
     Taxi.passenger = { mood = snapshot.mood, comfort = snapshot.comfort }

@@ -10,7 +10,7 @@ end
 
 -- ───────────────────────── disponibilidade ─────────────────────────
 
-lib.callback.register('ak4y-taxi:server:setAvailable', function(src, vehicleNetId)
+lib.callback.register('noir_taxijob:server:setAvailable', function(src, vehicleNetId)
     if not Security.rateLimit(src, 'setAvailable', RL.setAvailable) then return { ok = false, reason = 'rate' } end
     local netId = Security.sanitizeInt(vehicleNetId, 1)
     if not netId then return { ok = false, reason = 'vehicle' } end
@@ -45,13 +45,13 @@ lib.callback.register('ak4y-taxi:server:setAvailable', function(src, vehicleNetI
     return { ok = true, status = 'available' }
 end)
 
-RegisterNetEvent('ak4y-taxi:server:setUnavailable', function(reason)
+RegisterNetEvent('noir_taxijob:server:setUnavailable', function(reason)
     Sessions.removeDriver(source, type(reason) == 'string' and reason:sub(1, 32) or 'left_vehicle')
 end)
 
 -- Cancelamento pedido pelo próprio client (sem assento, embarque falhou).
 local clientCancelReasons = { no_seat = true, boarding_failed = true, passenger_left = true }
-RegisterNetEvent('ak4y-taxi:server:cancelFare', function(reason)
+RegisterNetEvent('noir_taxijob:server:cancelFare', function(reason)
     local src = source
     local fare = ActiveFares[src]
     if not fare or (fare.status ~= 'accepted' and fare.status ~= 'hired') then return end
@@ -59,7 +59,7 @@ RegisterNetEvent('ak4y-taxi:server:cancelFare', function(reason)
     Sessions.cancelFare(src, reason)
 end)
 
-RegisterNetEvent('ak4y-taxi:server:setPaused', function(paused)
+RegisterNetEvent('noir_taxijob:server:setPaused', function(paused)
     local src = source
     local driver = Drivers[src]
     if not driver then return end
@@ -73,12 +73,12 @@ RegisterNetEvent('ak4y-taxi:server:setPaused', function(paused)
         driver.status = 'available'
         Dispatch.scheduleNext(driver)
     end
-    TriggerClientEvent('ak4y-taxi:client:paused', src, paused == true)
+    TriggerClientEvent('noir_taxijob:client:paused', src, paused == true)
 end)
 
 -- ───────────────────────── clima (validação) ─────────────────────────
 
-RegisterNetEvent('ak4y-taxi:server:climate', function(temp, fan)
+RegisterNetEvent('noir_taxijob:server:climate', function(temp, fan)
     local src = source
     if not Security.rateLimit(src, 'climate', RL.climate) then return end
     local driver = Drivers[src]
@@ -121,13 +121,36 @@ local function findFreeSpawnPoint()
     return nil
 end
 
-lib.callback.register('ak4y-taxi:server:takeVehicle', function(src)
+lib.callback.register('noir_taxijob:server:takeVehicle', function(src)
     if not Security.rateLimit(src, 'depot', RL.depot) then return { ok = false, reason = 'rate' } end
-    if not exports.bgrz_core:HasJob(src, Config.Job, false) then return { ok = false, reason = 'job' } end
-    if Config.RequireDuty and not exports.bgrz_core:HasJob(src, Config.Job, true) then return { ok = false, reason = 'duty' } end
     if not Security.isNearCoords(src, Config.Depot.coords, Config.Depot.interactDistance + 5.0) then
         Security.report(src, 'takeVehicle', 'not_near_depot')
         return { ok = false, reason = 'failed' }
+    end
+
+    local job = exports.bgrz_core:GetJob(src)
+    if not job then return { ok = false, reason = 'failed' } end
+
+    local hired = false
+    if job.name == Config.StarterJob then
+        if not exports.qbx_core:SetJob(src, Config.Job, 0) then
+            return { ok = false, reason = 'failed' }
+        end
+        hired = true
+        job = exports.bgrz_core:GetJob(src)
+        if not job or job.name ~= Config.Job then
+            return { ok = false, reason = 'failed' }
+        end
+    elseif job.name ~= Config.Job then
+        return { ok = false, reason = 'job' }
+    end
+
+    if Config.RequireDuty and not job.onDuty then
+        exports.qbx_core:SetJobDuty(src, true)
+    end
+
+    if not exports.bgrz_core:HasJob(src, Config.Job, Config.RequireDuty) then
+        return { ok = false, reason = 'duty' }
     end
 
     local existing = DepotVehicles[src]
@@ -147,10 +170,10 @@ lib.callback.register('ak4y-taxi:server:takeVehicle', function(src)
     if not netId then return { ok = false, reason = 'failed' } end
 
     DepotVehicles[src] = netId
-    return { ok = true, netId = netId }
+    return { ok = true, netId = netId, hired = hired }
 end)
 
-lib.callback.register('ak4y-taxi:server:returnVehicle', function(src, vehicleNetId)
+lib.callback.register('noir_taxijob:server:returnVehicle', function(src, vehicleNetId)
     if not Security.rateLimit(src, 'depot', RL.depot) then return { ok = false, reason = 'rate' } end
     local netId = Security.sanitizeInt(vehicleNetId, 1)
     if not netId then return { ok = false, reason = 'not_yours' } end

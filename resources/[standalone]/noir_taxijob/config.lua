@@ -1,4 +1,4 @@
--- ak4y-taxi · configuração compartilhada (client + server)
+-- noir_taxijob · configuração compartilhada (client + server)
 Config = {}
 
 Config.Debug = false
@@ -7,6 +7,8 @@ Config.Locale = 'pt-br'
 -- Emprego e serviço
 Config.Job = 'taxi'
 Config.RequireDuty = true
+-- Permite que o jogador com este emprego seja contratado diretamente na central.
+Config.StarterJob = 'unemployed'
 
 -- Modelos que ativam o taxímetro quando o taxista senta no banco do motorista
 Config.AllowedVehicles = {

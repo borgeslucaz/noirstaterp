@@ -59,7 +59,7 @@ end
 ---Registra uma inconsistência. Não pune: apenas loga (e envia webhook se configurado).
 function Security.report(src, action, reason, extra)
     if Config.Debug then
-        print(('[ak4y-taxi] %s: src=%s reason=%s %s'):format(action, src, reason, extra and json.encode(extra) or ''))
+        print(('[noir_taxijob] %s: src=%s reason=%s %s'):format(action, src, reason, extra and json.encode(extra) or ''))
     end
 
     local webhook = ServerConfig.Webhook
@@ -74,7 +74,7 @@ function Security.report(src, action, reason, extra)
         username = 'Noir Taxi',
         embeds = {{
             color = 16753920,
-            title = 'ak4y-taxi · validação rejeitada',
+            title = 'noir_taxijob · validação rejeitada',
             fields = {
                 { name = 'Player', value = ('%s (src: %s)'):format(GetPlayerName(src) or 'unknown', src) },
                 { name = 'Action', value = tostring(action), inline = true },

@@ -18,6 +18,7 @@
         "calls_paused": "Chamadas pausadas.",
         "calls_resumed": "Chamadas retomadas.",
         "cannot_pause": "Finalize a corrida atual antes de pausar as chamadas.",
+        "depot_hired": "Você foi contratado como taxista. Táxi liberado, boa corrida.",
         "depot_taken": "Táxi liberado. Boa corrida.",
         "depot_already": "Você já está com um táxi da central.",
         "depot_no_space": "Todas as vagas da central estão ocupadas.",
@@ -27,7 +28,7 @@
         "depot_not_yours": "Este táxi não é da central."
     },
     "target": {
-        "take_taxi": "Pegar táxi",
+        "take_taxi": "Iniciar trabalho de táxi",
         "return_taxi": "Devolver táxi"
     },
     "blip": {

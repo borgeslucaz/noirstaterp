@@ -27,19 +27,14 @@ local depotErrors = {
 }
 
 function Depot.take()
-    if not Taxi.canWork() then
-        local job = Taxi.getJob()
-        Notify((job and job.name == Config.Job) and 'notify.off_duty' or 'notify.not_taxi_job', 'error')
-        return
-    end
-    local res = lib.callback.await('ak4y-taxi:server:takeVehicle', false)
+    local res = lib.callback.await('noir_taxijob:server:takeVehicle', false)
     if not res or not res.ok then
         local key = res and depotErrors[res.reason]
         if key then Notify(key, 'error') end
         return
     end
     Depot.netId = res.netId
-    Notify('notify.depot_taken', 'success')
+    Notify(res.hired and 'notify.depot_hired' or 'notify.depot_taken', 'success')
 end
 
 function Depot.returnVehicle()
@@ -48,7 +43,7 @@ function Depot.returnVehicle()
         Notify('notify.depot_not_near', 'error')
         return
     end
-    local res = lib.callback.await('ak4y-taxi:server:returnVehicle', false, Depot.netId)
+    local res = lib.callback.await('noir_taxijob:server:returnVehicle', false, Depot.netId)
     if not res or not res.ok then
         local key = res and depotErrors[res.reason]
         if key then Notify(key, 'error') end
@@ -66,7 +61,6 @@ CreateThread(function()
     SetEntityInvincible(ped, true)
     SetBlockingOfNonTemporaryEvents(ped, true)
     SetPedCanRagdoll(ped, false)
-    SetPedCanBeTargetted(ped, false)
     TaskStartScenarioInPlace(ped, 'WORLD_HUMAN_CLIPBOARD', 0, true)
     Depot.ped = ped
 
@@ -84,17 +78,19 @@ CreateThread(function()
 
     exports.ox_target:addLocalEntity(ped, {
         {
-            name = 'ak4y_taxi_take',
+            name = 'noir_taxijob_take',
             icon = 'fa-solid fa-taxi',
             label = locale('target.take_taxi'),
             distance = 3.0,
             canInteract = function()
-                return Taxi.canWork() and not cache.vehicle and depotVehicle() == 0
+                -- Não esconda a ação por causa do cache de emprego/duty. A validação
+                -- autoritativa ocorre no servidor, que informa o motivo ao jogador.
+                return not cache.vehicle and depotVehicle() == 0
             end,
             onSelect = Depot.take,
         },
         {
-            name = 'ak4y_taxi_return',
+            name = 'noir_taxijob_return',
             icon = 'fa-solid fa-square-parking',
             label = locale('target.return_taxi'),
             distance = 3.0,

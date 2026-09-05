@@ -230,6 +230,20 @@ local function isPauseControlPressed()
         or IsDisabledControlJustPressed(2, 199)
 end
 
+local lastExternalNuiFocusAt
+
+local function externalNuiRecentlyFocused(now, nuiFocused)
+    if nuiFocused then
+        lastExternalNuiFocusAt = now
+        return true
+    end
+
+    if not lastExternalNuiFocusAt then return false end
+
+    local elapsed = now - lastExternalNuiFocusAt
+    return elapsed >= 0 and elapsed <= Config.ExternalNuiCloseGraceMs
+end
+
 CreateThread(function()
     while true do
         disablePauseControls()
@@ -245,6 +259,14 @@ CreateThread(function()
             SetPauseMenuActive(false)
         end
 
+        local now = GetGameTimer()
+        local nuiFocused = IsNuiFocused()
+        local externalNuiBlocked = false
+
+        if not PauseMenu.open and not Photomode.active and not PauseMenu.frontendActive then
+            externalNuiBlocked = externalNuiRecentlyFocused(now, nuiFocused)
+        end
+
         local pressed = isPauseControlPressed()
 
         if pressed then
@@ -254,9 +276,9 @@ CreateThread(function()
                 Photomode.ExitToPauseMenu()
             elseif PauseMenu.open and not PauseMenu.closing then
                 PauseMenu.RequestClose()
-            -- Do not steal ESC/focus from another interactive NUI. Its own
-            -- key handler remains responsible for closing it first.
-            elseif not PauseMenu.closing and not IsNuiFocused() then
+            -- Keep the ESC that closed another NUI from opening this menu in
+            -- the same input cycle, even if that NUI already released focus.
+            elseif not PauseMenu.closing and not externalNuiBlocked then
                 PauseMenu.Open()
             end
         end

@@ -3,6 +3,7 @@ Config = {}
 Config.Locale = 'pt-br'
 Config.ServerName = '' -- If left blank, the `sv_hostname` setting in `server.cfg` is used
 Config.OpenKey = 200 -- ESC
+Config.ExternalNuiCloseGraceMs = 250 -- Prevent the same ESC from closing another NUI and opening this menu
 Config.HideRadarOnPause = true
 Config.HideRadarOnPhotomode = true
 

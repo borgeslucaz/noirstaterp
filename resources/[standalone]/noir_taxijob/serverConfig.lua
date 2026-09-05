@@ -1,4 +1,4 @@
--- ak4y-taxi · configuração somente do servidor
+-- noir_taxijob · configuração somente do servidor
 ServerConfig = {
     -- Webhook opcional para registrar tentativas suspeitas (vazio = desligado)
     Webhook = '',

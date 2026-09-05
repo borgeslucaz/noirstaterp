@@ -207,7 +207,7 @@
     })
 
     // Avisa o client que a página carregou, para receber o estado atual.
-    const resource = typeof GetParentResourceName === "function" ? GetParentResourceName() : "ak4y-taxi"
+    const resource = typeof GetParentResourceName === "function" ? GetParentResourceName() : "noir_taxijob"
     fetch("https://" + resource + "/uiReady", {
         method: "POST",
         headers: { "Content-Type": "application/json; charset=UTF-8" },

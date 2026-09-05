@@ -51,7 +51,7 @@ function Climate.step(dt)
 end
 
 function Climate.sync()
-    TriggerServerEvent('ak4y-taxi:server:climate', math.floor(Climate.temp * 10 + 0.5) / 10, Climate.fan)
+    TriggerServerEvent('noir_taxijob:server:climate', math.floor(Climate.temp * 10 + 0.5) / 10, Climate.fan)
 end
 
 ---Tecla FAN: 0 → 1 → … → MaxFan → 0

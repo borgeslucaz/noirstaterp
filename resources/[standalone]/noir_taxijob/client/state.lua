@@ -52,7 +52,7 @@ function SetTaxiState(newState, data)
     local previous = Taxi.state
     Taxi.state = newState
     if Config.Debug then
-        print(('[ak4y-taxi] %s → %s'):format(previous, newState))
+        print(('[noir_taxijob] %s → %s'):format(previous, newState))
     end
     for _, fn in ipairs(listeners[newState] or {}) do
         fn(previous, data)
