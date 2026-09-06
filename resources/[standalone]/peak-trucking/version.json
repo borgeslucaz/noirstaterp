@@ -1,0 +1,6 @@
+{
+  "peak-trucking": {
+    "version": "0.3.0",
+    "changelog": "- Major server DB performance refactor: O(1) hash map player indexing, lazy DB loading, and cached leaderboard stats.\n- Added non-blocking promise-based SQL bridge and ExecuteSqlAsync for database operations.\n- Consolidated initial player data sync into single payload network event (SyncAllPlayerData).\n- Made Discord avatar fetching asynchronous and non-blocking.\n- Optimized client proximity math with squared distance vector math and screen-clipping guards on 3D text."
+  }
+}
