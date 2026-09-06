@@ -1,0 +1,201 @@
+-- ============================================================
+-- INTERACTION HANDLER — NPC zone and job check setup
+-- ============================================================
+
+jobData = {
+    jobname        = nil,
+    job_grade_name = nil,
+    job_grade      = nil,
+    job_label      = nil,
+}
+
+-- ============================================================
+-- NPC INTERACTION ZONES
+-- ============================================================
+
+--- Registers the interaction zone/prompt for the trucking NPC.
+--- Behavior adapts to the detected Config.InteractionHandler / Config.Target.
+function InitNPCInteraction()
+    while not Peak.Client.Ready do Wait(100) end
+    
+    local npcCoords = vector3(Config.NpcLocation.coords.x, Config.NpcLocation.coords.y, Config.NpcLocation.coords.z)
+    local illegalCoords = vector3(Config.IllegalNPC.coords.x, Config.IllegalNPC.coords.y, Config.IllegalNPC.coords.z)
+    local target = Peak.Client.GetTargetSystem()
+
+    if target == 'ox_target' then
+        exports.ox_target:addBoxZone({
+            name = 'trucker-npc',
+            coords = npcCoords,
+            size = vec3(3.6, 3.6, 3.6),
+            drawSprite = true,
+            options = {
+                {
+                    name = 'trucker-npc',
+                    event = 'peak-trucking:OpenMenu',
+                    icon = 'fas fa-gears',
+                    label = L('open_menu'),
+                }
+            }
+        })
+
+        exports.ox_target:addBoxZone({
+            name = 'trucker-illegal-npc',
+            coords = illegalCoords,
+            size = vec3(3.6, 3.6, 3.6),
+            drawSprite = true,
+            options = {
+                {
+                    name = 'trucker-illegal-npc',
+                    onSelect = function()
+                    end,
+                    icon = 'fas fa-user-secret',
+                    label = L('talk_to_dealer') or "Talk to Dealer",
+                }
+            }
+        })
+        return
+    end
+
+    -- qb-target logic...
+    if target == 'qb-target' then
+        exports['qb-target']:AddBoxZone('trucker-npc', npcCoords, 1.5, 1.6, {
+            name = 'trucker-npc',
+            heading = 12.0,
+            debugPoly = false,
+            minZ = npcCoords.z - 2,
+            maxZ = npcCoords.z + 2,
+        }, {
+            options = {
+                {
+                    type = 'client',
+                    icon = 'fas fa-gears',
+                    label = L('open_menu'),
+                    action = function() TriggerEvent('peak-trucking:OpenMenu') end,
+                }
+            },
+            distance = 3.5,
+        })
+        return
+    end
+
+    -- Fallback: text UI with proximity loop
+    CreateThread(function()
+        local showing = false
+        local showingIllegal = false
+        
+        while true do
+            local plyCoords = GetEntityCoords(PlayerPedId())
+            local dist = #(npcCoords - plyCoords)
+            local distIllegal = #(illegalCoords - plyCoords)
+            local cd = 1500
+
+            if dist < 5.0 then
+                cd = 0
+                if not showing then
+                    Peak.Client.ShowTextUI(L('open_menu'))
+                    showing = true
+                end
+                if IsControlJustPressed(0, 38) then TriggerEvent('peak-trucking:OpenMenu') end
+            elseif distIllegal < 5.0 then
+                cd = 0
+                if not showingIllegal then
+                    Peak.Client.ShowTextUI(L('talk_to_dealer') or "Talk to Dealer")
+                    showingIllegal = true
+                end
+                -- Logic is handled in main.lua thread for E press
+            else
+                if showing then Peak.Client.HideTextUI() showing = false end
+                if showingIllegal then Peak.Client.HideTextUI() showingIllegal = false end
+            end
+            Wait(cd)
+        end
+    end)
+end
+
+-- ============================================================
+-- JOB UPDATE LISTENERS
+-- ============================================================
+
+RegisterNetEvent('esx:setJob')
+AddEventHandler('esx:setJob', function()
+    Wait(1000)
+    SetPlayerJob()
+end)
+
+RegisterNetEvent('QBCore:Client:OnJobUpdate')
+AddEventHandler('QBCore:Client:OnJobUpdate', function()
+    Wait(1000)
+    SetPlayerJob()
+end)
+
+-- ============================================================
+-- JOB & PLAYER STATE
+-- ============================================================
+
+--- Reads the player's current job from the framework and caches it in jobData.
+function SetPlayerJob()
+    WaitCore()
+    Wait(500)
+
+    local data = Peak.Client.GetPlayerData()
+    if not data or not data.job then return end
+
+    local fw = Peak.Client.FrameworkName
+    if fw == 'esx' then
+        jobData.jobname        = data.job.name
+        jobData.job_grade_name = data.job.label
+        jobData.job_grade      = tonumber(data.job.grade)
+    else
+        local grade = data.job.grade or {}
+        jobData.jobname        = data.job.name
+        jobData.job_grade_name = data.job.label
+        jobData.job_grade      = grade.level or grade.grade or 0
+    end
+end
+
+--- Returns true if the local player is allowed to open the trucking menu.
+--- @return boolean
+function canOpenMenu()
+    if IsPedInAnyVehicle(PlayerPedId(), false) then
+        return false
+    end
+
+    if Open and Open.CanOpenTruckingMenu then
+        if not Open.CanOpenTruckingMenu() then return false end
+    end
+
+    if Config.JobName and Config.JobName ~= 'all' then
+        if Config.JobName ~= jobData.jobname then
+            return false
+        end
+    end
+
+    return true
+end
+
+-- ============================================================
+-- 3D TEXT HELPER
+-- ============================================================
+
+--- Renders 3D floating text at the given world coordinates.
+--- @param x number
+--- @param y number
+--- @param z number
+--- @param text string
+function DrawText3D(x, y, z, text)
+    local onScreen, _x, _y = World3dToScreen2d(x, y, z)
+    if not onScreen then return end
+
+    SetTextScale(0.35, 0.35)
+    SetTextFont(4)
+    SetTextProportional(1)
+    SetTextColour(255, 255, 255, 215)
+    SetTextEntry('STRING')
+    SetTextCentre(true)
+    AddTextComponentString(text)
+    SetDrawOrigin(x, y, z, 0)
+    DrawText(0.0, 0.0)
+    local factor = (string.len(text)) / 370
+    DrawRect(0.0, 0.0125, 0.017 + factor, 0.03, 0, 0, 0, 75)
+    ClearDrawOrigin()
+end

@@ -1,0 +1,321 @@
+Peak = Peak or {}
+Peak.Server = Peak.Server or {}
+
+-- ============================================================
+-- FRAMEWORK BRIDGE
+-- ============================================================
+
+--- Returns the framework player object for a source.
+--- @param source number
+--- @return table|nil
+function GetPlayer(source)
+    WaitCore()
+
+    local fw  = Peak.Server.FrameworkName
+    local obj = Peak.Server.FrameworkObject
+
+    if fw == 'esx' then
+        return obj.GetPlayerFromId(source)
+    end
+
+    return obj.Functions.GetPlayer(source)
+end
+
+--- Returns the primary player identifier.
+--- @param source number
+--- @return string|false
+function GetIdentifier(source)
+    local player = GetPlayer(source)
+    if not player then return false end
+
+    local fw = Peak.Server.FrameworkName
+    if fw == 'esx' then
+        return player.getIdentifier()
+    end
+
+    return player.PlayerData.citizenid
+end
+
+--- Returns the player's roleplay name.
+--- @param source number
+--- @return string
+function GetPlayerRPName(source)
+    local player = GetPlayer(tonumber(source))
+    if not player then return GetPlayerName(source) end
+
+    local fw = Peak.Server.FrameworkName
+    if fw == 'esx' then
+        return player.getName()
+    end
+
+    local charinfo = player.PlayerData.charinfo or {}
+    return ((charinfo.firstname or '') .. ' ' .. (charinfo.lastname or '')):gsub('^%s*(.-)%s*$', '%1')
+end
+
+--- Registers a server callback across supported frameworks.
+--- @param callbackName string
+--- @param callback function
+function RegisterCallback(callbackName, callback)
+    local fw  = Peak.Server.FrameworkName
+    local obj = Peak.Server.FrameworkObject
+
+    if fw == 'esx' then
+        obj.RegisterServerCallback(callbackName, function(source, cb, data)
+            callback(source, cb, data)
+        end)
+        return
+    end
+
+    obj.Functions.CreateCallback(callbackName, function(source, cb, data)
+        callback(source, cb, data)
+    end)
+end
+
+-- ============================================================
+-- DATABASE BRIDGE
+-- ============================================================
+
+--- Executes a SQL query synchronously using promises/exports without spin-wait loops.
+--- @param query string
+--- @param params? table
+--- @return table
+function ExecuteSql(query, params)
+    params = params or {}
+    local driver = exports['peak-trucking']:GetSQLDriver()
+
+    if driver == 'oxmysql' then
+        if MySQL and MySQL.query and MySQL.query.await then
+            return MySQL.query.await(query, params) or {}
+        else
+            local p = promise.new()
+            exports.oxmysql:execute(query, params, function(data)
+                p:resolve(data or {})
+            end)
+            return Citizen.Await(p)
+        end
+    elseif driver == 'ghmattimysql' then
+        local p = promise.new()
+        exports.ghmattimysql:execute(query, params, function(data)
+            p:resolve(data or {})
+        end)
+        return Citizen.Await(p)
+    elseif driver == 'mysql-async' then
+        if MySQL and MySQL.Async and MySQL.Async.fetchAll then
+            local p = promise.new()
+            MySQL.Async.fetchAll(query, params, function(data)
+                p:resolve(data or {})
+            end)
+            return Citizen.Await(p)
+        end
+    end
+
+    return {}
+end
+
+--- Executes a SQL query and returns nil (instead of {}) when the driver fails.
+--- Use for reads where "database unavailable" must fail closed.
+--- @param query string
+--- @param params? table
+--- @return table|nil
+function ExecuteSqlSafe(query, params)
+    params = params or {}
+    local driver = exports['peak-trucking']:GetSQLDriver()
+
+    if driver == 'oxmysql' then
+        if MySQL and MySQL.query and MySQL.query.await then
+            local ok, res = pcall(MySQL.query.await, query, params)
+            if not ok then return nil end
+            return res
+        end
+        local p = promise.new()
+        local okCall = pcall(function()
+            exports.oxmysql:execute(query, params, function(data) p:resolve(data) end)
+        end)
+        if not okCall then return nil end
+        return Citizen.Await(p)
+    end
+
+    local ok, res = pcall(ExecuteSql, query, params)
+    if not ok then return nil end
+    return res
+end
+
+--- Executes an UPDATE/INSERT/DELETE and returns affected rows, or nil on error.
+--- This is the primitive behind the atomic global-offer acquisition.
+--- @param query string
+--- @param params? table
+--- @return number|nil affectedRows
+function ExecuteSqlUpdate(query, params)
+    params = params or {}
+    local driver = exports['peak-trucking']:GetSQLDriver()
+
+    if driver == 'oxmysql' then
+        if MySQL and MySQL.update and MySQL.update.await then
+            local ok, res = pcall(MySQL.update.await, query, params)
+            if not ok or res == nil then return nil end
+            return tonumber(res)
+        end
+        local p = promise.new()
+        local okCall = pcall(function()
+            exports.oxmysql:update(query, params, function(affected) p:resolve(affected) end)
+        end)
+        if not okCall then return nil end
+        local res = Citizen.Await(p)
+        return res ~= nil and tonumber(res) or nil
+    elseif driver == 'ghmattimysql' then
+        local p = promise.new()
+        exports.ghmattimysql:execute(query, params, function(affected) p:resolve(affected) end)
+        local res = Citizen.Await(p)
+        return res ~= nil and tonumber(res) or nil
+    elseif driver == 'mysql-async' then
+        if MySQL and MySQL.Async and MySQL.Async.execute then
+            local p = promise.new()
+            MySQL.Async.execute(query, params, function(rows) p:resolve(rows) end)
+            local res = Citizen.Await(p)
+            return res ~= nil and tonumber(res) or nil
+        end
+    end
+
+    return nil
+end
+
+--- Executes a SQL query asynchronously without blocking the calling thread.
+--- @param query string
+--- @param params? table
+function ExecuteSqlAsync(query, params)
+    params = params or {}
+    local driver = exports['peak-trucking']:GetSQLDriver()
+
+    if driver == 'oxmysql' then
+        if MySQL and MySQL.query then
+            MySQL.query(query, params)
+        else
+            exports.oxmysql:execute(query, params)
+        end
+    elseif driver == 'ghmattimysql' then
+        exports.ghmattimysql:execute(query, params)
+    elseif driver == 'mysql-async' then
+        if MySQL and MySQL.Async and MySQL.Async.execute then
+            MySQL.Async.execute(query, params)
+        end
+    end
+end
+
+-- ============================================================
+-- MONEY & INVENTORY BRIDGE
+-- ============================================================
+
+--- Adds cash to a player.
+--- Respects Open.AddMoney override from server/custom.lua.
+--- @param source number
+--- @param amount number
+--- @return boolean
+function addMoney(source, amount)
+    amount = tonumber(amount) or 0
+    if amount <= 0 then return false end
+
+    if Open and Open.AddMoney then
+        local res = Open.AddMoney(source, amount, 'cash')
+        if res ~= nil then return res end
+    end
+
+    local player = GetPlayer(source)
+    if not player then return false end
+
+    local fw = Peak.Server.FrameworkName
+    if fw == 'esx' then
+        player.addMoney(amount)
+        return true
+    end
+
+    return player.Functions.AddMoney('cash', amount, 'peak-trucking')
+end
+
+--- Adds an item to a player's inventory.
+--- @param source number
+--- @param item string
+--- @param amount number
+--- @return boolean
+function AddInventoryItem(source, item, amount)
+    local player = GetPlayer(source)
+    if not player or not item then return false end
+
+    amount = tonumber(amount) or 1
+    if amount <= 0 then return false end
+
+    local inv = Config.Inventory
+    if inv == 'ox_inventory' or (inv == 'auto' and GetResourceState('ox_inventory') == 'started') then
+        local ok, res = pcall(function() return exports.ox_inventory:AddItem(source, item, amount) end)
+        return ok and res
+    elseif inv == 'qs_inventory' or (inv == 'auto' and GetResourceState('qs-inventory') == 'started') then
+        local ok, res = pcall(function() return exports['qs-inventory']:AddItem(source, item, amount) end)
+        return ok and res
+    elseif inv == 'qb_inventory' or (inv == 'auto' and GetResourceState('qb-inventory') == 'started') then
+        if player.Functions and player.Functions.AddItem then
+            return player.Functions.AddItem(item, amount)
+        end
+    elseif Peak.Server.FrameworkName == 'esx' or inv == 'esx_inventory' then
+        player.addInventoryItem(item, amount)
+        return true
+    end
+
+    return false
+end
+
+--- Removes an item from a player's inventory.
+--- @param source number
+--- @param item string
+--- @param amount number
+--- @return boolean
+function RemoveItem(source, item, amount)
+    local player = GetPlayer(source)
+    if not player or not item then return false end
+
+    amount = tonumber(amount) or 1
+    if amount <= 0 then return false end
+
+    local inv = Config.Inventory
+    if inv == 'ox_inventory' or (inv == 'auto' and GetResourceState('ox_inventory') == 'started') then
+        local ok, res = pcall(function() return exports.ox_inventory:RemoveItem(source, item, amount) end)
+        return ok and res
+    elseif inv == 'qs_inventory' or (inv == 'auto' and GetResourceState('qs-inventory') == 'started') then
+        local ok, res = pcall(function() return exports['qs-inventory']:RemoveItem(source, item, amount) end)
+        return ok and res
+    elseif inv == 'qb_inventory' or (inv == 'auto' and GetResourceState('qb-inventory') == 'started') then
+        if player.Functions and player.Functions.RemoveItem then
+            return player.Functions.RemoveItem(item, amount)
+        end
+    elseif Peak.Server.FrameworkName == 'esx' or inv == 'esx_inventory' then
+        player.removeInventoryItem(item, amount)
+        return true
+    end
+
+    return false
+end
+
+--- Checks whether a player has at least the requested item amount.
+--- @param source number
+--- @param itemData table {name: string, amount: number}
+--- @return boolean
+function HasItem(source, itemData)
+    local player = GetPlayer(source)
+    if not player or not itemData or not itemData.name then return false end
+
+    local required = tonumber(itemData.amount) or 1
+    local count    = 0
+    local inv      = Config.Inventory
+
+    if inv == 'ox_inventory' or (inv == 'auto' and GetResourceState('ox_inventory') == 'started') then
+        count = exports.ox_inventory:Search(source, 'count', itemData.name) or 0
+    elseif inv == 'qs_inventory' or (inv == 'auto' and GetResourceState('qs-inventory') == 'started') then
+        count = exports['qs-inventory']:GetItemTotalAmount(source, itemData.name) or 0
+    elseif inv == 'qb_inventory' or (inv == 'auto' and GetResourceState('qb-inventory') == 'started') then
+        local it = player.Functions.GetItemByName(itemData.name)
+        count = it and (it.amount or it.count) or 0
+    elseif Peak.Server.FrameworkName == 'esx' or inv == 'esx_inventory' then
+        local it = player.getInventoryItem(itemData.name)
+        count = it and (it.count or it.amount) or 0
+    end
+
+    return tonumber(count) >= required
+end

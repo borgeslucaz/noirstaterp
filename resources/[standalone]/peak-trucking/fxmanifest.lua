@@ -1,0 +1,45 @@
+fx_version 'cerulean'
+game 'gta5'
+author 'Peak Studios / Noir State'
+description 'Peak Trucking — Noir Truck V1 (Mercado Global)'
+version '1.0.0'
+lua54 'yes'
+
+shared_scripts {
+    'shared/utils.lua',
+    'shared/internal_config.lua',
+    'shared/config.lua',
+    'shared/contract_config.lua',
+    'shared/locales.lua',
+}
+
+client_scripts {
+    'client/init.lua',
+    'client/custom.lua',
+    'client/interactionHandler.lua',
+    'client/main.lua',
+}
+
+server_scripts {
+    '@oxmysql/lib/MySQL.lua',
+    'server/server-config.lua',
+    'server/init.lua',
+    'server/custom.lua',
+    'server/bridge.lua',
+    'server/xp.lua',
+    'server/dailymissions.lua',
+    'server/rotation.lua',
+    'server/contracts.lua',
+    'server/main.lua',
+}
+
+ui_page 'ui/dist/index.html'
+
+files {
+    'ui/dist/index.html',
+    'ui/dist/**/*',
+}
+
+dependencies {
+    'oxmysql',
+}
