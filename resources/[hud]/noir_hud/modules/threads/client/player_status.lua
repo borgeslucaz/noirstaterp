@@ -66,8 +66,8 @@ function PlayerStatusThread:setIsVehicleThreadRunning(value)
     self.isVehicleThreadRunning = value
 end
 
-function PlayerStatusThread:setRadarVisible(state)
-    if self.radarVisible == state then return end
+function PlayerStatusThread:setRadarVisible(state, force)
+    if not force and self.radarVisible == state then return end
     self.radarVisible = state
     DisplayRadar(state)
 end
@@ -123,9 +123,9 @@ function PlayerStatusThread:start(vehicleStatusThread, seatbeltLogic, framework)
                     vehicleStatusThread:start()
                     lib.print.verbose("(playerStatus) (vehicleStatusThread) Vehicle status thread started.")
                 end
-                self:setRadarVisible(true)
+                self:setRadarVisible(true, true)
             else
-                self:setRadarVisible(_G.minimapVisible)
+                self:setRadarVisible(_G.minimapVisible, true)
             end
 
             local player_data = {

@@ -11,6 +11,25 @@ if not IsDuplicityVersion() then
     local vehicleStatusThread = vehicleStatusClass.new(playerStatusThread, seatbeltLogic)
     local framework = utility.isFrameworkValid() and lib.require("modules.frameworks." .. config.framework:lower()).new() or false
 
+    -- Map zoom values previously supplied by neen-atlasmap-en2.
+    CreateThread(function()
+        SetMapZoomDataLevel(0, 2.75, 0.9, 0.08, 0.0, 0.0)
+        SetMapZoomDataLevel(1, 2.8, 0.9, 0.08, 0.0, 0.0)
+        SetMapZoomDataLevel(2, 8.0, 0.9, 0.08, 0.0, 0.0)
+        SetMapZoomDataLevel(3, 20.0, 0.9, 0.08, 0.0, 0.0)
+        SetMapZoomDataLevel(4, 35.0, 0.9, 0.08, 0.0, 0.0)
+        SetMapZoomDataLevel(5, 55.0, 0.0, 0.1, 2.0, 1.0)
+        SetMapZoomDataLevel(6, 450.0, 0.0, 0.1, 1.0, 1.0)
+        SetMapZoomDataLevel(7, 4.5, 0.0, 0.0, 0.0, 0.0)
+        SetMapZoomDataLevel(8, 11.0, 0.0, 0.0, 2.0, 3.0)
+        SetRadarZoom(1200)
+
+        while true do
+            Wait(10000)
+            SetRadarZoom(1100)
+        end
+    end)
+
     playerStatusThread:start(vehicleStatusThread, seatbeltLogic, framework)
 
     _G.minimapVisible = config.minimapAlways

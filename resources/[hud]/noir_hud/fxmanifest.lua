@@ -1,5 +1,6 @@
 fx_version("cerulean")
 game("gta5")
+this_is_a_map("yes")
 
 name("noir_hud")
 author("MadCap <discord:https://discord.gg/dTNWpmPGyc>")
