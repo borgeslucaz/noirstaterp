@@ -1,0 +1,220 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronRight, House, ReceiptText, Repeat } from 'lucide-react';
+
+import { useDeckActive } from '@/shell/deckActive';
+
+import { warm } from '@/core/warm';
+import { useAsyncData } from '@/hooks/useAsyncData';
+import { useNuiEvent } from '@/hooks/useNuiEvent';
+import { useSessionState } from '@/hooks/useSessionState';
+import { t } from '@/i18n';
+import { ActionSheet } from '@/ui/ActionSheet';
+import { formatMoney } from './data';
+import { useStreamerHidden } from '@/stores/themeStore';
+import { HIDDEN_TEXT } from '@/shell/streamerMode';
+import { fetchOverview, setCardStyle, type BankOverview, type BankTx } from './bankingApi';
+import { fetchReceivedInvoices } from '@/apps/services/servicesApi';
+import { AllTransactions } from './AllTransactions';
+import { SendMoney, prefillTransferAgain } from './SendMoney';
+import { BankCard } from './BankCard';
+import { BankCardPicker } from './BankCardPicker';
+import { resolveStyle, type CardStyle } from './bankBrands';
+import { TxRows } from './TxRow';
+import { InvoicesTab } from './InvoicesTab';
+import { StandingOrders } from './StandingOrders';
+import { GroupCard, ListRow } from '@/ui/ListGroup';
+import { TabBar, type TabBarItem } from '@/ui/TabBar';
+import { StatusBarSpacer } from '@/ui/StatusBarSpacer';
+
+type BankingTab = 'home' | 'invoices';
+
+const CARD_EXPIRY = '08/29';
+
+const loadOverview = () => warm('bank:overview', fetchOverview);
+const loadReceived = () => warm('bank:received', fetchReceivedInvoices);
+
+export function warmBanking(): void {
+    void loadOverview();
+    void loadReceived();
+}
+
+export function Banking({ onClose: _onClose }: { onClose: () => void }) {
+    const { data: overview, loading, refetch: refresh } = useAsyncData<BankOverview>(loadOverview, []);
+    // Received invoices live here, above the animated tab subtree: segment/tab switches render
+    // instantly from cached data, and the pending count feeds the Invoices tab badge.
+    const { data: receivedInv, loading: receivedLoading, refetch: refetchReceived } = useAsyncData(loadReceived, []);
+
+    const hideBalance = useStreamerHidden('balance');
+    const hideCard    = useStreamerHidden('card');
+    const [tab,      setTab]      = useSessionState<BankingTab>('banking:tab', 'home');
+    const [showAll,  setShowAll]  = useSessionState('banking:showAll', false);
+    const [sending,  setSending]  = useSessionState('banking:sending', false);
+    const [standing, setStanding] = useSessionState('banking:standing', false);
+    const [actionTx, setActionTx] = useState<BankTx | null>(null);
+    const [pickingCard, setPickingCard] = useState(false);
+    const [styleOverride, setStyleOverride] = useState<CardStyle | null>(null);
+
+    function transferAgain(tx: BankTx) {
+        if (!tx.peerNumber) return;
+        prefillTransferAgain(tx.peerNumber, tx.peerInitials ? tx.merchant : undefined);
+        setSending(true);
+    }
+
+    useNuiEvent('sd-phone:bank:received', useCallback(() => { refresh(); }, [refresh]));
+    useNuiEvent('sd-phone:bank:txAdded', useCallback(() => { refresh(); }, [refresh]));
+    useNuiEvent('sd-phone:services:invoices', useCallback(() => { refetchReceived(); }, [refetchReceived]));
+
+    // Keep-alive: a backgrounded Wallet misses the pushes above (suspended handlers), so
+    // balance, transactions and received invoices re-sync on the foreground rising edge.
+    const deckActive = useDeckActive();
+    const wasActive  = useRef(deckActive);
+    useEffect(() => {
+        const rising = deckActive && !wasActive.current;
+        wasActive.current = deckActive;
+        if (!rising) return;
+        // Held until the shell's 0.38s open animation has landed. Each refetch flips loading
+        // true then false, and nothing in this app is memoised, so firing two of them on the
+        // rising edge meant several full re-renders of the Banking tree inside the animation
+        // window. Bank renders 8 rows, so its jolt was never DOM size - it was this.
+        const id = window.setTimeout(() => { refresh(); refetchReceived(); }, 420);
+        return () => window.clearTimeout(id);
+    }, [deckActive, refresh, refetchReceived]);
+
+    const txs    = useMemo(() => overview?.transactions ?? [], [overview]);
+    const latest = useMemo(() => txs.slice(0, 8), [txs]);
+
+    const balance = overview?.balance ?? 0;
+    const holder  = (overview?.name || t('banking.accountHolderFallback', 'Account')).toUpperCase();
+    const last4   = (overview?.number || '').replace(/\D/g, '').slice(-4) || '0000';
+
+    const cardLast4  = hideCard ? HIDDEN_TEXT : last4;
+    const cardLocked = overview?.cardLocked ?? true;
+    const cardStyle  = resolveStyle(styleOverride ?? overview?.cardStyle);
+
+    function pickCardStyle(style: CardStyle) {
+        setStyleOverride(style);
+        void setCardStyle(style).then(res => {
+            if (!res.success) setStyleOverride(null);
+        });
+    }
+
+    const tabs: TabBarItem<BankingTab>[] = [
+        { id: 'home',     label: t('banking.tabHome', 'Home'),     icon: a => <House       className="h-[33px] w-[33px]" strokeWidth={a ? 2.2 : 1.9} /> },
+        { id: 'invoices', label: t('banking.invoices', 'Invoices'), icon: a => <ReceiptText className="h-[33px] w-[33px]" strokeWidth={a ? 2.2 : 1.9} />, badge: (receivedInv ?? []).filter(i => i.status === 'pending').length },
+    ];
+
+    return (
+        <div className="absolute inset-0 z-10 flex flex-col bg-base text-black dark:text-white">
+            <StatusBarSpacer />
+
+            {tab === 'invoices' ? (
+                <div key="invoices" className="flex min-h-0 flex-1 flex-col animate-swipe-in-left">
+                    <InvoicesTab
+                        received={receivedInv ?? []}
+                        receivedLoading={receivedLoading}
+                        onRefetchReceived={refetchReceived}
+                        onPaid={refresh}
+                    />
+                </div>
+            ) : (
+            <div key="home" className="flex min-h-0 flex-1 flex-col animate-swipe-in-left">
+            <div className="px-5 pb-2 pt-0.5 text-[34px] font-bold tracking-tight">{t('banking.wallet', 'Wallet')}</div>
+
+            <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar px-4 pb-10 pt-3" style={{ contain: 'paint' }}>
+                {cardLocked ? (
+                    <BankCard holder={holder} last4={cardLast4} expiry={CARD_EXPIRY} style={cardStyle} />
+                ) : (
+                    <button
+                        type="button"
+                        onClick={() => setPickingCard(true)}
+                        aria-label={t('banking.chooseBank', 'Choose Your Bank')}
+                        className="block w-full rounded-[20px] transition-transform active:scale-[0.985]"
+                    >
+                        <BankCard holder={holder} last4={cardLast4} expiry={CARD_EXPIRY} style={cardStyle} />
+                    </button>
+                )}
+
+                <div className="mt-5 flex items-center justify-between rounded-[16px] bg-surface px-5 py-3">
+                    <div>
+                        <div className="text-[17px] font-semibold text-black dark:text-white">{t('banking.balance', 'Balance')}</div>
+                        <div className="mt-0.5 text-[26px] font-bold tabular-nums tracking-tight text-black dark:text-white">
+                            {hideBalance ? HIDDEN_TEXT : formatMoney(balance, { whole: true })}
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setSending(true)}
+                        className="rounded-full bg-black px-6 py-2.5 text-[16px] font-semibold text-white active:opacity-70 dark:bg-white dark:text-black"
+                    >
+                        {t('banking.send', 'Send')}
+                    </button>
+                </div>
+
+                {overview?.standingOrders && (
+                    <GroupCard className="mt-3" radius={16}>
+                        <ListRow
+                            label={t('banking.standingOrders', 'Standing Orders')}
+                            left={<Repeat className="h-[21px] w-[21px] text-ios-blue" strokeWidth={2.2} />}
+                            onPress={() => setStanding(true)}
+                        />
+                    </GroupCard>
+                )}
+
+                <div className="mb-3 mt-6 flex items-center justify-between">
+                    <h2 className="text-[20px] font-bold tracking-tight">{t('banking.latestTransactions', 'Latest Transactions')}</h2>
+                    {txs.length > 0 && (
+                        <button type="button" onClick={() => setShowAll(true)} className="flex items-center gap-0.5 text-[17px] font-medium text-ios-blue active:opacity-60">
+                            {t('banking.allTransactions', 'All Transactions')}
+                            <ChevronRight className="h-[18px] w-[18px]" strokeWidth={2.5} />
+                        </button>
+                    )}
+                </div>
+
+                {loading && latest.length === 0 ? null : latest.length === 0 ? (
+                    <div className="rounded-[14px] bg-surface px-4 py-9 text-center text-[18px] font-medium text-ios-gray">
+                        {t('banking.noTransactionsYet', 'No transactions yet.')}
+                    </div>
+                ) : (
+                    <TxRows items={latest} onSelect={setActionTx} />
+                )}
+            </div>
+            </div>
+            )}
+
+            <TabBar tabs={tabs} active={tab} onChange={setTab} />
+
+            <button type="button" onClick={_onClose} aria-label={t('banking.closeWallet', 'Close Wallet')} className="absolute inset-x-0 bottom-0 h-7 cursor-default" />
+
+            {showAll && <AllTransactions transactions={txs} onBack={() => setShowAll(false)} onSelectTx={setActionTx} />}
+
+            {standing && overview?.standingOrders && <StandingOrders onBack={() => setStanding(false)} onChanged={refresh} />}
+
+            {sending && (
+                <SendMoney
+                    balance={balance}
+                    allowAnonymous={overview?.allowAnonymous ?? false}
+                    onClose={() => setSending(false)}
+                    onSent={() => { setSending(false); refresh(); }}
+                />
+            )}
+
+            {pickingCard && (
+                <BankCardPicker
+                    holder={holder}
+                    last4={cardLast4}
+                    expiry={CARD_EXPIRY}
+                    current={cardStyle}
+                    onPick={pickCardStyle}
+                    onClose={() => setPickingCard(false)}
+                />
+            )}
+
+            {actionTx && (
+                <ActionSheet
+                    actions={[{ label: t('banking.transferAgain', 'Transfer Again'), onClick: () => transferAgain(actionTx) }]}
+                    onClose={() => setActionTx(null)}
+                />
+            )}
+        </div>
+    );
+}

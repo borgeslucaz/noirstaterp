@@ -1,0 +1,226 @@
+import { useRef, useState } from 'react';
+import { ArrowLeft, Heart, Image as ImageIcon, MessageCircle, Repeat2, Trash2, X } from 'lucide-react';
+
+import { t } from '@/i18n';
+import { AlertDialog } from '@/ui/AlertDialog';
+import { EmptyState } from '@/ui/EmptyState';
+import { MediaPickerSheet } from '@/shared/MediaPickerSheet';
+import { GifPickerSheet } from '@/shared/chat/GifPickerSheet';
+import { absoluteTime, BG, BLUE, LIKE, MAX_POST_LENGTH, META, PILL, REPOST, type BirdyAuthor, type BirdyPoll, type BirdyPost } from '../data';
+import { compactCount } from '../polish/format';
+import { HeartBurst } from '../polish/HeartBurst';
+import { PollBlock } from './PollBlock';
+import { PostCard } from './PostCard';
+import { Avatar, PostImages, RichText, VerifiedBadge } from '../ui';
+
+export function PostDetail({ post, me, onBack, onToggleLike, onToggleRepost, onToggleReplyLike, onOpenAuthor, onReply, onDelete, onPollVoted }: {
+    post:              BirdyPost;
+    me:                BirdyAuthor;
+    onBack:            () => void;
+    onToggleLike:      () => void;
+    onToggleRepost:    () => void;
+    onToggleReplyLike: (replyId: string) => void;
+    onOpenAuthor?:     (handle: string) => void;
+    onReply?:          (body: string, images: string[]) => void;
+    onDelete?:         () => void;
+    onPollVoted?:      (poll: BirdyPoll) => void;
+}) {
+    const [reply, setReply] = useState('');
+    const [media, setMedia] = useState<string[]>([]);
+    const [picking, setPicking] = useState<'photo' | 'gif' | null>(null);
+    const [confirmDelete, setConfirmDelete] = useState(false);
+    const canDelete = onDelete != null && post.author.handle === me.handle;
+    const inputRef = useRef<HTMLInputElement>(null);
+    const openAuthor = () => onOpenAuthor?.(post.author.handle);
+    const canSend = reply.trim().length > 0 || media.length > 0;
+
+    function sendReply() {
+        if (!canSend || !onReply) return;
+        onReply(reply.trim(), media);
+        setReply('');
+        setMedia([]);
+    }
+
+    function addMedia(urls: string[]) {
+        setMedia(prev => [...prev, ...urls].slice(0, MAX_REPLY_IMAGES));
+        setPicking(null);
+    }
+
+    return (
+        <div className="flex h-full flex-col" style={{ background: BG }}>
+            <header className="flex shrink-0 items-center border-b border-hairline/10 px-3 py-2.5">
+                <button type="button" onClick={onBack} aria-label={t('squawk.back', 'Back')} style={{ color: BLUE }}>
+                    <ArrowLeft className="h-6 w-6" strokeWidth={2.4} />
+                </button>
+                <div className="flex-1 text-center text-[17px] font-bold text-label">{t('squawk.postTitle', 'Post')}</div>
+                {canDelete ? (
+                    <button
+                        type="button"
+                        onClick={() => setConfirmDelete(true)}
+                        aria-label={t('squawk.delete', 'Delete')}
+                        className="transition-transform active:scale-90"
+                        style={{ color: META }}
+                    >
+                        <Trash2 className="h-[22px] w-[22px]" strokeWidth={1.9} />
+                    </button>
+                ) : (
+                    <div className="w-6" aria-hidden />
+                )}
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto no-scrollbar">
+                <div className="px-4 pt-3">
+                    <button type="button" onClick={openAuthor} className="flex items-center gap-3 text-left">
+                        <Avatar size={52} src={post.author.avatar} />
+                        <div className="min-w-0 leading-tight">
+                            <div className="flex items-center gap-1">
+                                <span className="text-[18px] font-bold text-label">{post.author.name}</span>
+                                {post.author.verified && <VerifiedBadge size={18} type={post.author.verifiedType} />}
+                            </div>
+                            <div className="text-[16px]" style={{ color: META }}>@{post.author.handle}</div>
+                        </div>
+                    </button>
+
+                    {post.body && (
+                        <p className="mt-3 whitespace-pre-wrap break-words text-[22px] leading-[1.35] text-label">
+                            <RichText text={post.body} />
+                        </p>
+                    )}
+
+                    {post.poll && <PollBlock postId={post.id} poll={post.poll} onVoted={onPollVoted} />}
+
+                    <PostImages images={post.images} />
+
+                    <div className="mt-3 text-[16px]" style={{ color: META }}>
+                        {absoluteTime(post.createdAt)} · <span className="font-semibold text-label">{compactCount(post.views ?? 0)}</span> {t('squawk.views', 'views')}
+                    </div>
+                </div>
+
+                <div className="mx-4 mt-4 text-[16px]" style={{ color: META }}>
+                    <span className="font-bold text-label">{compactCount(post.reposts)}</span> {t('squawk.reposts', 'Reposts')}
+                    <span className="ml-5 font-bold text-label">{compactCount(post.likes)}</span> {t('squawk.likes', 'Likes')}
+                </div>
+
+                <div className="mx-4 flex items-center justify-around py-4" style={{ color: META }}>
+                    <button type="button" aria-label={t('squawk.reply', 'Reply')} onClick={() => inputRef.current?.focus()} className="transition-transform active:scale-90"><MessageCircle className="h-[25px] w-[25px]" strokeWidth={1.8} /></button>
+                    <button type="button" aria-label={t('squawk.repost', 'Repost')} onClick={onToggleRepost} className="transition-transform active:scale-90" style={post.reposted ? { color: REPOST } : undefined}><Repeat2 className="h-[25px] w-[25px]" strokeWidth={1.8} /></button>
+                    <button type="button" aria-label={t('squawk.like', 'Like')} onClick={onToggleLike} className="transition-transform active:scale-90" style={post.liked ? { color: LIKE } : undefined}>
+                        <HeartBurst liked={post.liked === true}>
+                            <Heart className="h-[25px] w-[25px]" strokeWidth={1.8} fill={post.liked ? LIKE : 'none'} color={post.liked ? LIKE : 'currentColor'} />
+                        </HeartBurst>
+                    </button>
+                </div>
+
+                {(post.thread?.length ?? 0) > 0 ? (
+                    <p className="border-t border-hairline/10 px-4 pt-3 text-[14px] font-semibold uppercase tracking-wide" style={{ color: META }}>
+                        {t('squawk.replies', 'Replies')}
+                    </p>
+                ) : (
+                    <div className="border-t border-hairline/10 pb-10">
+                        <EmptyState
+                            icon={<MessageCircle className="h-7 w-7" strokeWidth={1.8} />}
+                            circleClassName="bg-hairline/[0.06] text-label/35"
+                            title={t('squawk.noRepliesYet', 'No replies yet')}
+                            subtitle={t('squawk.postRepliesEmptySubtitle', 'When someone replies to this post, it will show up here.')}
+                            subtitleClassName="text-ios-gray"
+                        />
+                    </div>
+                )}
+                {post.thread?.map(r => (
+                    <PostCard
+                        key={r.id}
+                        post={r}
+                        isOwn={r.author.handle === me.handle}
+                        onToggleLike={() => onToggleReplyLike(r.id)}
+                        onOpenAuthor={onOpenAuthor}
+                    />
+                ))}
+            </div>
+
+            {onReply && (
+                <div className="shrink-0 border-t border-hairline/10" style={{ background: BG }}>
+                    {media.length > 0 && (
+                        <div className="flex gap-2 px-3 pt-2">
+                            {media.map((url, i) => (
+                                <div key={`${url}-${i}`} className="relative">
+                                    <img src={url} alt="" draggable={false} className="h-16 w-16 rounded-[10px] object-cover" />
+                                    <button
+                                        type="button"
+                                        onClick={() => setMedia(prev => prev.filter((_, idx) => idx !== i))}
+                                        aria-label={t('squawk.removeImage', 'Remove image')}
+                                        className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 active:opacity-70"
+                                    >
+                                        <X className="h-[12px] w-[12px] text-white" strokeWidth={2.6} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <div className="flex items-center gap-1.5 px-3 py-2.5">
+                        <button
+                            type="button"
+                            aria-label={t('squawk.addImage', 'Add image')}
+                            disabled={media.length >= MAX_REPLY_IMAGES}
+                            onClick={() => setPicking('photo')}
+                            className="flex h-10 w-9 shrink-0 items-center justify-center rounded-full active:bg-hairline/5 disabled:opacity-40"
+                        >
+                            <ImageIcon className="h-[24px] w-[24px]" style={{ color: BLUE }} strokeWidth={2} />
+                        </button>
+                        <button
+                            type="button"
+                            aria-label={t('squawk.addGif', 'Add GIF')}
+                            disabled={media.length >= MAX_REPLY_IMAGES}
+                            onClick={() => setPicking('gif')}
+                            className="mr-1 flex h-10 w-9 shrink-0 items-center justify-center rounded-full active:bg-hairline/5 disabled:opacity-40"
+                        >
+                            <span className="rounded-[6px] border-[1.5px] px-[4px] py-[2px] text-[12px] font-extrabold leading-none" style={{ borderColor: BLUE, color: BLUE }}>GIF</span>
+                        </button>
+                        <input
+                            ref={inputRef}
+                            value={reply}
+                            onChange={e => setReply(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') sendReply(); }}
+                            maxLength={MAX_POST_LENGTH}
+                            placeholder={t('squawk.writeAReply', 'Write a reply')}
+                            className="min-w-0 flex-1 rounded-full px-4 py-2.5 text-[17px] text-label outline-none placeholder:text-ios-gray"
+                            style={{ background: PILL, caretColor: BLUE }}
+                        />
+                        <button
+                            type="button"
+                            onClick={sendReply}
+                            disabled={!canSend}
+                            className="shrink-0 rounded-full px-5 py-2.5 text-[16px] font-bold text-white disabled:opacity-50"
+                            style={{ background: BLUE }}
+                        >
+                            {t('squawk.reply', 'Reply')}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {picking === 'photo' && (
+                <MediaPickerSheet
+                    multiple
+                    onSelectMany={ps => addMedia(ps.map(p => p.url))}
+                    onClose={() => setPicking(null)}
+                />
+            )}
+            {picking === 'gif' && (
+                <GifPickerSheet onSelect={url => addMedia([url])} onClose={() => setPicking(null)} />
+            )}
+
+            {confirmDelete && (
+                <AlertDialog
+                    title={t('squawk.deletePost', 'Delete post?')}
+                    message={t('squawk.deletePostMessage', 'This removes the post and its replies for everyone. This cannot be undone.')}
+                    confirmLabel={t('squawk.delete', 'Delete')}
+                    destructive
+                    onCancel={() => setConfirmDelete(false)}
+                    onConfirm={() => { setConfirmDelete(false); onDelete?.(); }}
+                />
+            )}
+        </div>
+    );
+}
+
+const MAX_REPLY_IMAGES = 3;

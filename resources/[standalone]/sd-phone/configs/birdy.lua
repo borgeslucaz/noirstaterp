@@ -23,6 +23,16 @@ return {
     -- Max length of a direct message.
     MaxDmLength = 500,
 
+    -- Polls. A post carries either a poll or media, never both, and the post
+    -- body is the question. Options are 2 to MaxPollOptions choices.
+    MaxPollOptions      = 4,
+    MaxPollOptionLength = 40,
+
+    -- Durations the composer offers, in seconds. The server accepts only
+    -- these exact values, so add a duration here and to the React composer
+    -- together (web/src/apps/birdy/data.ts).
+    PollDurations = { 3600, 86400, 259200, 604800 },
+
     -- Posts returned per feed load (newest first).
     FeedLimit = 50,
 
@@ -31,6 +41,22 @@ return {
 
     -- Notifications returned per alerts-tab load.
     NotificationLimit = 50,
+
+    -- Who a new post notifies.
+    --   'followers' - each of the author's followers, the way a real feed app does
+    --   'everyone'  - every Squawk account on the server, so nobody misses a post
+    --   false       - nobody; posts land silently and only likes, replies, reposts and follows
+    --                 still notify
+    -- (`true` is still read as 'followers'.)
+    --
+    -- 'everyone' writes one notification row per account per post, so it scales as posts times
+    -- players: fine for a small or news-driven server, heavy on a busy one where a prolific poster
+    -- alerts the whole map every time they type.
+    --
+    -- A PROTECTED account always notifies its followers only, whatever this is set to. The alert
+    -- carries a preview of the post body, so sending it server-wide would publish the very posts
+    -- that account chose to keep to its followers.
+    PostNotifications = 'followers',
 
     -- Account field bounds, mirrored by the React register/login forms.
     MaxNameLength     = 32,

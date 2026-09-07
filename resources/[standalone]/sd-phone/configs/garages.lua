@@ -20,8 +20,9 @@ return {
     -- ND keeps no garage-NAME column, so vehicles list with their status but without a location.
     Resources = {
         'qs-advancedgarages', 'jg-advancedgarages', 'qbx_garages', 'qb-garages',
-        'cd_garage', 'okokGarage', 'codem-garage', 'lunar_garage', 'nc_garage',
-        'op_garages', 'aty_garage_v2', 'aty_garage', 'esx_garage', 'ND_Core',
+        'mt_garages', 'cd_garage', 'okokGarage', 'codem-garage', 'lunar_garage',
+        'nc_garage', 'op_garages', 'aty_garage_v2', 'aty_garage', 'esx_garage',
+        'ND_Core',
     },
 
     -- Default for whether a real photo of each vehicle (matched by spawn name)
@@ -42,13 +43,21 @@ return {
     -- without a matching image (e.g. a custom add-on) falls back to the icon.
     VehicleImageUrl = 'https://docs.fivem.net/vehicles/{model}.webp',
 
+    -- Let players pick one of their own Photos as a vehicle's picture, from the
+    -- vehicle's detail page. The choice is saved per character and plate and
+    -- shows in place of the stock photo, even for players who switched the app
+    -- to icons. Only a photo already in that player's own Photos library is
+    -- accepted, so no outside URL can be stored. Set false to hide the option.
+    CustomImages = true,
+
     -- Garage waypoint coordinates - used as a FALLBACK. The app first auto-reads
     -- a garage's coords from the running system's own export, so these systems
     -- need NO setup: qs-advancedgarages, qbx_garages, qb-garages,
-    -- jg-advancedgarages, cd_garage, op-garages. ATY is read without an export -
-    -- aty_garage from its own config file, aty_garage_v2 from the `aty_garages`
-    -- table its in-game editor writes - so it usually needs no setup either;
-    -- run `garagediag` to see whether it resolved. Only systems without a usable
+    -- jg-advancedgarages, cd_garage, op-garages. ATY and mt_garages publish no
+    -- export, so their garages are discovered instead - aty_garage from its own
+    -- config file, aty_garage_v2 and mt_garages from the table their in-game
+    -- creator writes - and they usually need no setup either; run `garagediag`
+    -- to see whether it resolved. Only systems without a usable
     -- export (esx, codem, okok, nc, lunar) need entries here, plus any garage a
     -- player built themselves in qs-advancedgarages (those live in
     -- `player_garages`, not the config): key by the exact Location TEXT a

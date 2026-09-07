@@ -4,8 +4,12 @@
 local companion = require 'client.companion'
 ---@type table sd-phone config root (configs/config.lua).
 local config = require 'configs.config'
+---@type table Locale bridge (bridge.shared.locale): which catalogues this install ships.
+local locale = require 'bridge.shared.locale'
 ---@type table Notify bridge (bridge.client.notify): backend-agnostic on-screen toasts.
 local notify = require 'bridge.client.notify'
+---@type table Player-state bridge (bridge.client.playerstate): restrained / incapacitated reads.
+local playerstate = require 'bridge.client.playerstate'
 
 -- Apps disabled in configs/apps.lua never reach the NUI, so neither the home screen nor the
 -- App Store can show them. Built once - the catalog is static per boot.
@@ -72,6 +76,15 @@ end
 -- NOT, because YouTube ids are case-sensitive and folding them would let 'AbC' match 'abc'.
 ---@type { youtube: boolean, hosts: string[], videos: string[] }
 local MUSIC_SOURCES = {}
+
+---@type string[] Casino games this server offers, in lobby order. A game missing from
+---configs/casino.lua Games counts as on, so an older config keeps every game.
+local CASINO_GAMES = {}
+for _, id in ipairs({ 'blackjack', 'holdem', 'crash', 'baccarat', 'roulette', 'slots' }) do
+    if (((config.Casino or {}).Games or {})[id]) ~= false then
+        CASINO_GAMES[#CASINO_GAMES + 1] = id
+    end
+end
 do
     local cfg = type(config.Music) == 'table' and config.Music or {}
     local hosts = {}
@@ -125,6 +138,7 @@ local gameclock = require 'client.gameclock'
 -- server proxies.
 require 'client.apps.groups'
 require 'client.apps.health'
+require 'client.apps.medical'
 require 'client.apps.mail'
 require 'client.apps.messages'
 require 'client.apps.camera'
@@ -144,21 +158,25 @@ require 'client.apps.banking'
 require 'client.apps.services'
 require 'client.apps.voicememos'
 require 'client.apps.callrec'
+require 'client.apps.voicemail'
 require 'client.apps.music'
 require 'client.lockscreenwidgets'
 require 'client.apps.share'
 require 'client.apps.notifications'
 require 'client.apps.notes'
+require 'client.apps.calendar'
 require 'client.apps.documents'
 require 'client.apps.homes'
 require 'client.apps.maps'
 require 'client.apps.compass'
 require 'client.apps.findfriends'
+require 'client.apps.findmy'
 require 'client.apps.cherry'
 require 'client.apps.photogram'
 require 'client.apps.vibez'
 require 'client.apps.voice'
 require 'client.apps.streaks'
+require 'client.apps.id'
 require 'client.apps.mdt'
 require 'client.apps.cctv'
 require 'client.cctvplace'
@@ -178,7 +196,7 @@ require 'client.payphone'
 require 'client.celltowerblips'
 require 'client.media'
 
----@type table Phone visibility state: open/locked flags + cosmetic battery percentage.
+---@type table Phone visibility state: open/locked flags and the cosmetic battery percentage.
 local phoneState = {
     open       = false,  -- true while the NUI is focused on the phone
     locked     = true,   -- true while the lockscreen is shown
@@ -442,13 +460,45 @@ AddEventHandler('sd-phone:client:cameraCursor', function(on)
 end)
 
 
+---The message explaining why the phone cannot be opened right now, or nil when it can. Each
+---locale.t call is spelled out in full because the i18n generator scans this file for literal
+---keys; handing it a key through a variable would drop these strings from every catalogue.
+---@return string|nil message nil when the phone is allowed
+local function blockedReason()
+    local ped = cache.ped
+    if config.Phone.BlockWhileDead and IsEntityDead(ped) then
+        return locale.t('phone.blocked_dead', 'You can\'t use your phone right now.')
+    end
+    if config.Phone.BlockWhileDowned and playerstate.isDowned() then
+        return locale.t('phone.blocked_downed', 'You can\'t use your phone while you are down.')
+    end
+    if config.Phone.BlockWhileCuffed and playerstate.isCuffed() then
+        return locale.t('phone.blocked_cuffed', 'You can\'t use your phone while restrained.')
+    end
+    if config.Phone.BlockWhileSwimming and IsPedSwimming(ped) then
+        return locale.t('phone.blocked_swim', 'You can\'t use your phone while swimming.')
+    end
+    return nil
+end
+
+---Whether the player is restrained or incapacitated. Only these two states take an ALREADY-OPEN
+---phone away; being dead or swimming keeps its long-standing behaviour of refusing the open and
+---otherwise leaving an open phone alone.
+---@return boolean
+local function seizesOpenPhone()
+    if config.Phone.BlockWhileCuffed and playerstate.isCuffed() then return true end
+    if config.Phone.BlockWhileDowned and playerstate.isDowned() then return true end
+    return false
+end
+
 ---Opens the phone NUI onto the lockscreen, loads installed apps, focuses the NUI, and pushes a
----weather snapshot plus the session-start timestamp. Refuses while dead, swimming, or disabled.
+---weather snapshot plus the session-start timestamp. Refuses while dead, downed, restrained,
+---swimming, or disabled.
 local function OpenPhone()
     if phoneState.open then return end
 
     if phoneDisabled then
-        notify.show({ description = 'You can\'t use your phone right now.', type = 'error' })
+        notify.show({ description = locale.t('phone.blocked_dead', 'You can\'t use your phone right now.'), type = 'error' })
         return
     end
 
@@ -457,14 +507,9 @@ local function OpenPhone()
     -- third-party ones re-ask about their own gates on the same open.
     customApps.refreshGates()
 
-    local ped = cache.ped
-
-    if config.Phone.BlockWhileDead and IsEntityDead(ped) then
-        notify.show({ description = 'You can\'t use your phone right now.', type = 'error' })
-        return
-    end
-    if config.Phone.BlockWhileSwimming and IsPedSwimming(ped) then
-        notify.show({ description = 'You can\'t use your phone while swimming.', type = 'error' })
+    local blocked = blockedReason()
+    if blocked then
+        notify.show({ description = blocked, type = 'error' })
         return
     end
 
@@ -493,6 +538,7 @@ local function OpenPhone()
         action = 'sd-phone:open',
         data   = {
             locale    = config.Locale,
+            locales   = locale.available(),
             locked    = phoneState.locked,
             battery   = phoneState.battery,
             frameColor = currentFrameColor,
@@ -509,6 +555,7 @@ local function OpenPhone()
             mailDomain = config.Mail.Domain,
             number    = NUMBER_FORMAT,
             music     = MUSIC_SOURCES,
+            casino    = { games = CASINO_GAMES },
             bootScreen = config.Phone.BootScreen ~= false,
             wallpaper = {
                 lock = config.Lockscreen.Wallpaper,
@@ -586,7 +633,7 @@ local function TogglePhone()
 
     local res = lib.callback.await('sd-phone:server:phone:resolveOpen', false, currentFrameColor)
     if not res then
-        notify.show({ description = 'You don\'t have a phone.', type = 'error' })
+        notify.show({ description = locale.t('phone.noPhone', 'You don\'t have a phone.'), type = 'error' })
         return
     end
     local color = res
@@ -861,6 +908,19 @@ CreateThread(function()
     end
 end)
 
+-- Cuffs go on and players go down mid-session, so gating the open is not enough on its own: an
+-- already-open phone is taken away here. Without it the block is sidestepped by opening the phone
+-- first and being cuffed after.
+CreateThread(function()
+    while true do
+        Wait(500)
+        if (phoneState.open or companion.companionOpen) and seizesOpenPhone() then
+            if companion.companionOpen then TriggerEvent('sd-phone:client:companion:close') end
+            if phoneState.open then ClosePhone() end
+        end
+    end
+end)
+
 -- Draws a spotlight from the hand bone in the ped's facing direction each frame while the
 -- torch is on; idles at a 300ms poll while off. Direction is NOT camera-based so looking
 -- around does not move the beam.
@@ -1028,8 +1088,14 @@ local function pushCharacterLoaded()
     -- phone's frame colour (closed-shell peeks, hand prop) is right before the first open.
     SetTimeout(2000, function() TriggerServerEvent('sd-phone:server:sim:requestPush') end)
 end
+-- Every supported framework has to be listed: the page hydrates on this signal alone, so a
+-- framework missing here leaves the phone on its pre-character state forever - no number, no
+-- setup screen, nothing working. ox_core EMITS its event client-side rather than sending it, so
+-- it takes AddEventHandler; RegisterNetEvent registers cleanly there and then never fires.
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', pushCharacterLoaded)
 RegisterNetEvent('esx:playerLoaded', pushCharacterLoaded)
+RegisterNetEvent('ND:characterLoaded', pushCharacterLoaded)
+AddEventHandler('ox:playerLoaded', pushCharacterLoaded)
 
 ---Server-side settings appeared after the UI had already hydrated, so pull them again. The
 ---lb-phone import writes phone_settings partway through boot, long after the resource-start

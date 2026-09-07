@@ -1,0 +1,27 @@
+node_modules/
+web/build/
+web/build-demo/
+
+# High-res map tiles — hosted on CDN, not committed (see web HIGH_RES_TILES.md)
+maptiles/
+
+web/.realmap-cache/
+web/.realmap-src/
+
+.playwright-mcp/
+
+# Local brainstorming/design specs, not shipped in source
+docs/superpowers/
+
+
+# Local-only Lua test harness for the lb-phone importer (not shipped).
+tests/
+
+# Unit tests are written and run locally, never shipped in source. CI keeps its `npm run test`
+# step so a checkout that does carry tests still runs them; vitest passes when it finds none.
+*.test.ts
+*.test.tsx
+
+# Local-only migration test helper (never shipped).
+server/devswap.lua
+.secret

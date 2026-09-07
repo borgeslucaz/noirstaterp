@@ -1,0 +1,629 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Bell, ChevronLeft, House, Mail, Pen, Search as SearchIcon } from 'lucide-react';
+
+import { t } from '@/i18n';
+import { useRefreshOnReconnect } from '@/hooks/useRefreshOnReconnect';
+import { useAppAuth } from '@/hooks/useAppAuth';
+import { useIosPush } from '@/hooks/useIosPush';
+import { useDidEnter } from '@/hooks/useDidEnter';
+import { useNuiEvent } from '@/hooks/useNuiEvent';
+import { clearSessionState, useSessionState } from '@/hooks/useSessionState';
+import { useDeckActive } from '@/shell/deckActive';
+import { AccountSwitcher } from '@/shared/AccountSwitcher';
+import { AppAuth } from '@/shared/AppAuth';
+import { AlertDialog } from '@/ui/AlertDialog';
+import { MAIL_DOMAIN, accountsConfirmReset, accountsRequestReset, accountsSavePassword, accountsSuggestCode, accountsSwitch } from '@/core/accountsApi';
+import { signOutAllForApp } from '@/shared/signOutAll';
+import { logOutOrSwitch, switchTargetLabel } from '@/shared/logOutOrSwitch';
+import { toggleReactionLocal } from '@/shared/chat/messagesApi';
+import type { MessageDraft } from '@/shared/chat/ChatView';
+import {
+    apiCreate, apiDeletePost, apiDmList, apiDmMarkRead, apiDmReact, apiDmResolve, apiDmSend, apiDmThread, apiFeed, apiLogin, apiMe, apiPostDetail, apiProfile, apiRegister, apiNotificationCount, apiReply, apiToggleFollow, apiToggleLike, apiToggleRepost, apiWatch,
+    type PollDraft,
+} from './birdyApi';
+import { ChatView } from './dms/ChatView';
+import { Composer } from './feed/Composer';
+import { BG, BLUE, CARD, CURRENT_USER, META, type BirdyAuthor, type BirdyConversation, type BirdyMessage, type BirdyPoll, type BirdyPollCounts, type BirdyPost, type BirdyProfile } from './data';
+import { EditProfile } from './profile/EditProfile';
+import { Feed } from './feed/Feed';
+import { MessagesList } from './dms/Messages';
+import { Notifications } from './discover/Notifications';
+import { PostDetail } from './feed/PostDetail';
+import { Profile } from './profile/Profile';
+import { Search } from './discover/Search';
+import { StatusBarSpacer } from '@/ui/StatusBarSpacer';
+
+type Tab = 'home' | 'search' | 'notifications' | 'messages';
+
+export function Birdy({ onClose }: { onClose: () => void }) {
+    const [me,          setMe]          = useState<BirdyAuthor>(CURRENT_USER);
+    const { authed, setAuthed, authChecked, justAuthed, setJustAuthed, myNumber, myEmails, savedLogin, savedAccounts, refreshAccounts } = useAppAuth('birdy',
+        () => apiMe().then(s => { if (s.me) setMe(s.me); return s.loggedIn; }));
+    // null = not fetched yet (the feed shows skeletons instead of a false "no posts" flash).
+    const [posts,       setPosts]       = useState<BirdyPost[] | null>(null);
+    const [convos,      setConvos]      = useState<BirdyConversation[]>([]);
+    const [tab,         setTab]         = useSessionState<Tab>('birdy:tab', 'home');
+    const [feed,        setFeed]        = useSessionState<'all' | 'following'>('birdy:feed', 'all');
+    const [composing,   setComposing]   = useSessionState('birdy:composing', false);
+    const [openPostId,  setOpenPostId]  = useSessionState<string | null>('birdy:openPostId', null);
+    const [openPost,    setOpenPost]    = useState<BirdyPost | null>(null);
+    const [openConvoId, setOpenConvoId] = useSessionState<string | null>('birdy:openConvoId', null);
+    const [openConvo,   setOpenConvo]   = useState<BirdyConversation | null>(null);
+    const [openStub,    setOpenStub]    = useState<BirdyConversation | null>(null);
+    const [profileOpen,    setProfileOpen]    = useSessionState('birdy:profileOpen', false);
+    const [profileTarget,  setProfileTarget]  = useSessionState<string | null>('birdy:profileTarget', null);
+    const [postOverProfile, setPostOverProfile] = useSessionState('birdy:postOverProfile', false);
+    const [editingProfile, setEditingProfile] = useState(false);
+    const [switching,      setSwitching]      = useState(false);
+    const [adding,         setAdding]         = useState(false);
+    const [profile,        setProfile]        = useState<BirdyProfile | null>(null);
+    const [sendError,      setSendError]      = useState<string | null>(null);
+
+    // AppDeck retains this subtree, so refetching needs an explicit nonce.
+    const [feedNonce, setFeedNonce] = useState(0);
+    const refreshFeed = useCallback(() => setFeedNonce(n => n + 1), []);
+
+    const patchPoll = useCallback((postId: string, next: (current: BirdyPoll) => BirdyPoll) => {
+        const patch = (p: BirdyPost): BirdyPost => (p.id === postId && p.poll ? { ...p, poll: next(p.poll) } : p);
+        setPosts(prev => (prev ? prev.map(patch) : prev));
+        setOpenPost(prev => (prev ? { ...patch(prev), thread: prev.thread?.map(patch) } : prev));
+    }, []);
+
+    const pollVoted = useCallback(
+        (postId: string, poll: BirdyPoll) => patchPoll(postId, () => poll),
+        [patchPoll],
+    );
+
+    useNuiEvent('sd-phone:birdy:feedChanged', useCallback((data: { postId?: string; poll?: BirdyPollCounts }) => {
+        const postId = data?.postId;
+        const counts = data?.poll;
+        if (!postId || !counts) { refreshFeed(); return; }
+        patchPoll(postId, current => ({ ...counts, myVote: current.myVote }));
+    }, [patchPoll, refreshFeed]));
+
+    // Transition only; the mount fetch below already covers first open.
+    const deckActive = useDeckActive();
+    const wasActive = useRef(deckActive);
+    useEffect(() => {
+        if (deckActive && !wasActive.current) refreshFeed();
+        wasActive.current = deckActive;
+    }, [deckActive, refreshFeed]);
+
+    // The same refresh for someone who never left the screen while driving back into coverage.
+    useRefreshOnReconnect(refreshFeed);
+
+    // feedChanged reaches only the phones showing Birdy, so the subscription follows the
+    // foreground. The refresh above covers anything pushed while this one was not listening.
+    useEffect(() => {
+        if (!deckActive) return;
+        apiWatch(true);
+        return () => { apiWatch(false); };
+    }, [deckActive]);
+
+    useEffect(() => {
+        if (!authed) return;
+        let alive = true;
+        void apiFeed(feed === 'following').then(p => { if (alive) setPosts(p); });
+        return () => { alive = false; };
+    }, [authed, feed, feedNonce]);
+
+    useEffect(() => {
+        if (!authed) return;
+        let alive = true;
+        void apiDmList().then(c => { if (alive) setConvos(c); });
+        return () => { alive = false; };
+    }, [authed, tab]);
+
+    const [notifCount, setNotifCount] = useState(0);
+    useEffect(() => {
+        if (!authed) return;
+        // The Bell tab's own fetch marks everything seen server-side, so zero locally.
+        if (tab === 'notifications') { setNotifCount(0); return; }
+        let alive = true;
+        void apiNotificationCount().then(n => { if (alive) setNotifCount(n); });
+        return () => { alive = false; };
+    }, [authed, tab, feedNonce]);
+
+    useNuiEvent('sd-phone:birdy:notification', useCallback(() => {
+        setNotifCount(n => n + 1);
+    }, []));
+
+    useEffect(() => {
+        if (!openPostId) { setOpenPost(null); return; }
+        let alive = true;
+        void apiPostDetail(openPostId).then(p => { if (alive) setOpenPost(p); });
+        return () => { alive = false; };
+    }, [openPostId]);
+
+    const openConvoIdRef = useRef<string | null>(openConvoId);
+    useEffect(() => { openConvoIdRef.current = openConvoId; }, [openConvoId]);
+
+    const markConvoRead = useCallback((id: string) => {
+        setConvos(prev => prev.map(c => ((c.unread ?? 0) > 0 && c.id === id ? { ...c, unread: 0 } : c)));
+        void apiDmMarkRead(id);
+    }, []);
+
+    useEffect(() => {
+        if (!openConvoId) { setOpenConvo(null); return; }
+        let alive = true;
+        void apiDmThread(openConvoId).then(c => { if (alive) setOpenConvo(c); });
+        markConvoRead(openConvoId);
+        return () => { alive = false; };
+    }, [openConvoId, markConvoRead]);
+
+    useEffect(() => {
+        if (!profileOpen) return;
+        let alive = true;
+        void apiProfile(profileTarget ?? undefined).then(p => { if (alive) setProfile(p); });
+        return () => { alive = false; };
+    }, [profileOpen, profileTarget]);
+
+    useNuiEvent('sd-phone:birdy:dmReceived', useCallback(data => {
+        if (!data) return;
+        const forOpen = !!data.conversationId && data.conversationId === openConvoIdRef.current;
+        if (forOpen) void apiDmMarkRead(data.conversationId);
+        void apiDmList().then(list => setConvos(
+            forOpen ? list.map(c => (c.id === data.conversationId ? { ...c, unread: 0 } : c)) : list,
+        ));
+        setOpenConvo(prev =>
+            prev && prev.id === data.conversationId
+                ? (prev.messages.some(m => m.id === data.message.id)
+                    ? prev
+                    : { ...prev, messages: [...prev.messages, data.message] })
+                : prev);
+    }, []));
+
+    useNuiEvent('sd-phone:birdy:dmReaction', useCallback(data => {
+        if (!data) return;
+        setOpenConvo(prev =>
+            prev && prev.id === data.conversationId
+                ? { ...prev, messages: prev.messages.map(m => (m.id === data.id ? { ...m, reactions: data.reactions } : m)) }
+                : prev);
+    }, []));
+
+    async function openDmWith(targetHandle: string) {
+        const r = await apiDmResolve(targetHandle);
+        if (!r) return;
+        setProfileOpen(false); setProfileTarget(null);
+        setTab('messages');
+        setOpenStub({ id: r.id, user: r.user, updated: '', messages: [] });
+        setOpenConvoId(r.id);
+    }
+
+    // Optimistic: the row leaves at once and the post detail closes if it was the one removed.
+    // A server refusal (not yours, already gone) is repaired by the refresh.
+    function deletePost(id: string) {
+        setPosts(prev => (prev ? prev.filter(p => p.id !== id) : prev));
+        if (openPostId === id) setOpenPostId(null);
+        void apiDeletePost(id).then(okDone => { if (!okDone) refreshFeed(); });
+    }
+
+    function toggleLike(id: string) {
+        const flip = (p: BirdyPost): BirdyPost =>
+            p.id === id ? { ...p, liked: !p.liked, likes: p.likes + (p.liked ? -1 : 1) } : p;
+        setPosts(prev => (prev ? prev.map(flip) : prev));
+        setOpenPost(prev => prev ? { ...flip(prev), thread: prev.thread?.map(flip) } : prev);
+        void apiToggleLike(id);
+    }
+
+    function toggleRepost(id: string) {
+        const flip = (p: BirdyPost): BirdyPost =>
+            p.id === id ? { ...p, reposted: !p.reposted, reposts: p.reposts + (p.reposted ? -1 : 1) } : p;
+        setPosts(prev => (prev ? prev.map(flip) : prev));
+        setOpenPost(prev => prev ? { ...flip(prev), thread: prev.thread?.map(flip) } : prev);
+        void apiToggleRepost(id);
+    }
+
+    async function addPost(body: string, images: string[], poll?: PollDraft) {
+        const post = await apiCreate(body, images.length ? images : undefined, poll);
+        if (post) setPosts(prev => (prev ? [post, ...prev] : [post]));
+        setComposing(false);
+        setTab('home');
+        setFeed('all');
+    }
+
+    // Switching feeds drops back to skeletons; a same-tab tap changes nothing.
+    function switchFeed(f: 'all' | 'following') {
+        if (f !== feed) setPosts(null);
+        setFeed(f);
+    }
+
+    const refreshNow = useCallback(
+        () => apiFeed(feed === 'following').then(p => setPosts(p)),
+        [feed],
+    );
+
+    async function sendMessage(convoId: string, draft: MessageDraft) {
+        const optimistic: BirdyMessage = {
+            id: `tmp-${Date.now()}`, fromMe: true, body: draft.body, at: '', ts: Date.now(),
+            kind: draft.kind, gifUrl: draft.gifUrl, amount: draft.amount, requested: draft.requested,
+            duration: draft.duration, audioUrl: draft.audioUrl, waveform: draft.waveform,
+            wpCode: draft.wpCode, wpSub: draft.wpSub, replyTo: draft.replyTo,
+        };
+        setOpenConvo(prev => (prev && prev.id === convoId ? { ...prev, messages: [...prev.messages, optimistic] } : prev));
+
+        const res = await apiDmSend(convoId, draft);
+        if (res.message) {
+            const real = res.message;
+            setOpenConvo(prev => (prev && prev.id === convoId
+                ? { ...prev, messages: prev.messages.map(m => (m.id === optimistic.id ? { ...real, replyTo: draft.replyTo } : m)) }
+                : prev));
+            void apiDmList().then(setConvos);
+        } else {
+            setOpenConvo(prev => (prev && prev.id === convoId
+                ? { ...prev, messages: prev.messages.filter(m => m.id !== optimistic.id) }
+                : prev));
+            setSendError(res.error ?? t('squawk.messageNotSent', 'Message not sent'));
+        }
+    }
+
+    function reactToMessage(messageId: string, emoji: string) {
+        setOpenConvo(prev => (prev
+            ? { ...prev, messages: prev.messages.map(m => (m.id === messageId ? { ...m, reactions: toggleReactionLocal(m.reactions, emoji) } : m)) }
+            : prev));
+        void apiDmReact(messageId, emoji).then(rx => {
+            if (!rx) return;
+            setOpenConvo(prev => (prev
+                ? { ...prev, messages: prev.messages.map(m => (m.id === messageId ? { ...m, reactions: rx } : m)) }
+                : prev));
+        });
+    }
+
+    function payRequest(_messageId: string, amount: number) {
+        if (!openConvoId) return;
+        void sendMessage(openConvoId, { kind: 'money', body: `$${amount}`, amount });
+    }
+
+    function switchedAccount() {
+        clearSessionState('birdy:');
+        refreshAccounts();
+        setProfileOpen(false); setProfileTarget(null); setProfile(null);
+        setOpenPostId(null); setOpenConvoId(null); setOpenConvo(null);
+        setPosts(null); setConvos([]); setNotifCount(0); setTab('home'); setFeed('all');
+        setComposing(false); setEditingProfile(false);
+        void apiMe().then(s => { if (s.me) setMe(s.me); });
+        refreshFeed();
+    }
+
+    function selectTab(t: Tab) {
+        setTab(t);
+        setOpenPostId(null);
+        setOpenConvoId(null);
+        setProfileOpen(false);
+        setEditingProfile(false);
+    }
+
+    function openPostById(id: string) {
+        setPostOverProfile(profileOpen);
+        setOpenPostId(id);
+    }
+
+    function openProfile(handle?: string) {
+        const target = typeof handle === 'string' ? handle : undefined;
+        setProfile(null);
+        setProfileTarget(target ?? null);
+        setProfileOpen(true);
+        setPostOverProfile(false);
+    }
+
+    function closeProfile() {
+        setProfileOpen(false);
+        setProfileTarget(null);
+    }
+
+    function toggleFollow(handle: string) {
+        void apiToggleFollow(handle);
+    }
+
+    async function addReply(parentId: string, body: string, images: string[]) {
+        const reply = await apiReply(parentId, body, images.length > 0 ? images : undefined);
+        if (!reply) return;
+        setOpenPost(prev => prev && prev.id === parentId
+            ? { ...prev, replies: prev.replies + 1, thread: [...(prev.thread ?? []), reply] }
+            : prev);
+    }
+
+    const loadedConvo = openConvo && openConvo.id === openConvoId ? openConvo : null;
+    const shownConvo  = loadedConvo
+        ?? convos.find(c => c.id === openConvoId)
+        ?? (openStub && openStub.id === openConvoId ? openStub : null);
+
+    const animateNav = useDidEnter(authed && (!openConvoId || !!shownConvo));
+
+    let content: React.ReactNode;
+    if (tab === 'home') {
+        content = <Feed posts={posts} me={me} feed={feed} onFeedChange={switchFeed} onRefresh={refreshNow} onToggleLike={toggleLike} onToggleRepost={toggleRepost} onOpenPost={openPostById} onOpenProfile={openProfile} onOpenAuthor={openProfile} onPollVoted={pollVoted} />;
+    } else if (tab === 'search') {
+        content = <Search me={me} onOpenProfile={openProfile} onOpenPost={openPostById} onToggleLike={toggleLike} onToggleRepost={toggleRepost} />;
+    } else if (tab === 'notifications') {
+        content = <Notifications me={me} onOpenProfile={openProfile} onOpenPost={openPostById} />;
+    } else {
+        content = <MessagesList me={me} conversations={convos} onOpen={setOpenConvoId} onOpenProfile={openProfile} onCompose={openDmWith} />;
+    }
+
+    const postOverlay = openPostId ? (
+        <Push onClose={() => setOpenPostId(null)} z={postOverProfile ? 30 : 20} animateIn={animateNav}>
+            {close => (
+                <div className="flex h-full flex-col">
+                    <StatusBarSpacer />
+                    <div className="min-h-0 flex-1">
+                        {openPost
+                            ? (
+                                <PostDetail
+                                    post={openPost}
+                                    me={me}
+                                    onBack={close}
+                                    onToggleLike={() => toggleLike(openPost.id)}
+                                    onToggleRepost={() => toggleRepost(openPost.id)}
+                                    onToggleReplyLike={rid => toggleLike(rid)}
+                                    onOpenAuthor={openProfile}
+                                    onReply={(b, imgs) => addReply(openPost.id, b, imgs)}
+                                    onDelete={() => deletePost(openPost.id)}
+                                    onPollVoted={poll => pollVoted(openPost.id, poll)}
+                                />
+                            )
+                            : <LoadingPane onBack={close} />}
+                    </div>
+                </div>
+            )}
+        </Push>
+    ) : null;
+
+    const profileOverlay = profileOpen ? (
+        <Push onClose={closeProfile} z={postOverProfile ? 20 : 30} animateIn={animateNav}>
+            {close => (
+                <Profile
+                    profile={profile}
+                    me={me}
+                    handle={profileTarget ?? undefined}
+                    onBack={close}
+                    onEdit={() => setEditingProfile(true)}
+                    onOpenPost={openPostById}
+                    onToggleLike={toggleLike}
+                    onToggleRepost={toggleRepost}
+                    onToggleFollow={toggleFollow}
+                    onMessage={openDmWith}
+                    onOpenAuthor={openProfile}
+                />
+            )}
+        </Push>
+    ) : null;
+
+    const showComposeFab = tab === 'home' && !profileOpen;
+
+    if (!authChecked) {
+        return <div className="absolute inset-0 z-10" style={{ background: BG }} />;
+    }
+    const authScreen = (
+            <AppAuth
+                appId="birdy"
+                appName="Squawk"
+                tagline={t('squawk.tagline', 'Where the city starts conversations.')}
+                icon="birdy"
+                theme={{
+                    accent:      BLUE,
+                    welcomeBg:   CARD,
+                    welcomeText: 'dark',
+                }}
+                myNumber={myNumber}
+                myEmails={myEmails}
+                savedAccounts={savedAccounts}
+                onPickAccount={u => accountsSwitch('birdy', u)}
+                savedLogin={adding ? null : savedLogin}
+                onDismiss={adding ? () => setAdding(false) : undefined}
+                modal={adding}
+                fields={[
+                    { key: 'username', label: t('squawk.username', 'Username') },
+                    { key: 'name',     label: t('squawk.name', 'Name') },
+                    { key: 'password', label: t('squawk.password', 'Password'), type: 'password' },
+                    { key: 'email',    label: t('squawk.email', 'Email'), suffix: `@${MAIL_DOMAIN}`, createOnly: true },
+                    { key: 'phone',    label: t('squawk.phone', 'Phone'), type: 'tel',   createOnly: true },
+                    { key: 'bio',      label: t('squawk.bio', 'Bio'), createOnly: true, optional: true },
+                ]}
+                onSubmit={async (mode, vals) => {
+                    if (mode === 'create') {
+                        const r = await apiRegister({ name: vals.name ?? '', username: vals.username ?? '', password: vals.password ?? '', bio: vals.bio ?? '', email: vals.email ?? '', phone: vals.phone });
+                        return { ok: r.ok, message: r.message };
+                    }
+                    const r = await apiLogin({ username: vals.username ?? '', password: vals.password ?? '' });
+                    return { ok: r.ok, message: r.message };
+                }}
+                onAuthed={() => {
+                    setAuthed(true);
+                    setJustAuthed(true);
+                    if (adding) { setAdding(false); switchedAccount(); }
+                    else void apiMe().then(s => { if (s.me) setMe(s.me); });
+                }}
+                onRequestReset={(id) => accountsRequestReset('birdy', id)}
+                onConfirmReset={(id, code, pw) => accountsConfirmReset('birdy', id, code, pw)}
+                onSuggestCode={(id) => accountsSuggestCode('birdy', id)}
+                onSaveCredentials={(vals) => accountsSavePassword('birdy', vals)}
+            />
+    );
+
+    if (!authed) return authScreen;
+
+    return (
+        <div className={`absolute inset-0 z-10 flex flex-col text-label ${justAuthed ? 'animate-swipe-in-left' : ''}`} style={{ background: BG }}>
+            <div className="relative z-0 min-h-0 flex-1 overflow-hidden">
+                <div key={tab} className="absolute inset-0 pt-[54px] animate-swipe-in-left">
+                    {content}
+                    {showComposeFab && (
+                        <FabButton onClick={() => setComposing(true)} label={t('squawk.newPost', 'New post')} className="bottom-[9px] right-5 z-10">
+                            <Pen className="h-6 w-6 text-white" strokeWidth={2} />
+                        </FabButton>
+                    )}
+                </div>
+                {profileOverlay}
+                {postOverlay}
+            </div>
+
+            <nav className="shrink-0 border-t border-hairline/10 px-2 pb-12 pt-4" style={{ background: BG }}>
+                <div className="flex items-stretch justify-around">
+                    <NavButton active={tab === 'home'} onClick={() => selectTab('home')}>
+                        <House className="h-[34px] w-[34px]" strokeWidth={tab === 'home' ? 2.2 : 2} fill="none" />
+                    </NavButton>
+                    <NavButton active={tab === 'search'} onClick={() => selectTab('search')}>
+                        <SearchIcon className="h-[34px] w-[34px]" strokeWidth={tab === 'search' ? 2.7 : 2} />
+                    </NavButton>
+                    <NavButton active={tab === 'notifications'} onClick={() => selectTab('notifications')} badge={notifCount}>
+                        <Bell className="h-[34px] w-[34px]" strokeWidth={2} fill={tab === 'notifications' ? 'currentColor' : 'none'} />
+                    </NavButton>
+                    <NavButton
+                        active={tab === 'messages'}
+                        onClick={() => selectTab('messages')}
+                        badge={convos.reduce((n, c) => n + (c.unread ?? 0), 0)}
+                    >
+                        <Mail className="h-[34px] w-[34px]" strokeWidth={tab === 'messages' ? 2.7 : 2} />
+                    </NavButton>
+                </div>
+            </nav>
+
+            {tab === 'messages' && openConvoId && (
+                shownConvo ? (
+                    <ChatView
+                        convo={shownConvo}
+                        loading={!loadedConvo}
+                        onBack={() => setOpenConvoId(null)}
+                        onSend={d => sendMessage(shownConvo.id, d)}
+                        onReact={reactToMessage}
+                        onPayRequest={payRequest}
+                        animateIn={animateNav}
+                    />
+                ) : (
+                    <div className="absolute inset-0 z-20 flex flex-col" style={{ background: BG }}>
+                        <StatusBarSpacer />
+                        <div className="flex shrink-0 items-center px-2 pb-3">
+                            <button type="button" onClick={() => setOpenConvoId(null)} aria-label={t('squawk.back', 'Back')} className="active:opacity-60" style={{ color: BLUE }}>
+                                <ChevronLeft className="h-[38px] w-[38px]" strokeWidth={2.4} />
+                            </button>
+                        </div>
+                        <div className="flex flex-1 items-center justify-center text-[14px] text-label/40">{t('squawk.loading', 'Loading…')}</div>
+                    </div>
+                )
+            )}
+
+            {composing && <Composer me={me} onClose={() => setComposing(false)} onPost={addPost} />}
+
+            {editingProfile && profile && (
+                <EditProfile
+                    profile={profile}
+                    onCancel={() => setEditingProfile(false)}
+                    // Re-read the author rather than rebuilding it from the profile: a hand-built
+                    // object drops avatar and verifiedType, which blanks the header picture until
+                    // the app is killed in the switcher. refreshFeed repaints posts already loaded,
+                    // which still carry the old avatar on their author.
+                    onSaved={p => {
+                        setProfile(p);
+                        void apiMe().then(s => { if (s.me) setMe(s.me); });
+                        refreshFeed();
+                        setEditingProfile(false);
+                    }}
+                    switchTo={switchTargetLabel(savedAccounts[0])}
+                    onSignOut={() => {
+                        setEditingProfile(false);
+                        setProfileOpen(false);
+                        void logOutOrSwitch('birdy').then(switched => {
+                            if (switched) switchedAccount();
+                            else { clearSessionState('birdy:'); refreshAccounts(); setAuthed(false); }
+                        });
+                    }}
+                    onSignOutAll={() => {
+                        setEditingProfile(false);
+                        setProfileOpen(false);
+                        void signOutAllForApp('birdy').then(() => { refreshAccounts(); setAuthed(false); });
+                    }}
+                    onSwitchAccount={() => { setEditingProfile(false); setSwitching(true); }}
+                    onDeleted={() => { setEditingProfile(false); setProfileOpen(false); clearSessionState('birdy:'); setAuthed(false); }}
+                />
+            )}
+
+            {switching && (
+                <AccountSwitcher
+                    app="birdy"
+                    onClose={() => setSwitching(false)}
+                    onSwitched={switchedAccount}
+                    onAdd={() => setAdding(true)}
+                />
+            )}
+
+            {sendError && (
+                <AlertDialog
+                    title={t('squawk.couldntSend', "Couldn't send")}
+                    message={sendError}
+                    hideCancel
+                    confirmLabel={t('squawk.ok', 'OK')}
+                    onCancel={() => setSendError(null)}
+                    onConfirm={() => setSendError(null)}
+                />
+            )}
+
+            <button
+                type="button"
+                onClick={onClose}
+                aria-label={t('squawk.closeBirdy', 'Close Squawk')}
+                className="absolute inset-x-0 bottom-0 z-[5] h-5 cursor-default"
+            />
+
+            {adding && <div className="absolute inset-0 z-[70]">{authScreen}</div>}
+        </div>
+    );
+}
+
+function LoadingPane({ onBack }: { onBack: () => void }) {
+    return (
+        <div className="flex h-full flex-col" style={{ background: BG }}>
+            <header className="flex shrink-0 items-center border-b border-hairline/10 px-3 py-2.5">
+                <button type="button" onClick={onBack} aria-label={t('squawk.back', 'Back')} style={{ color: BLUE }} className="text-[15px]">{t('squawk.back', 'Back')}</button>
+            </header>
+            <div className="flex flex-1 items-center justify-center text-[13px]" style={{ color: META }}>{t('squawk.loading', 'Loading…')}</div>
+        </div>
+    );
+}
+
+function FabButton({ onClick, label, children, className }: { onClick: () => void; label: string; children: React.ReactNode; className?: string }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-label={label}
+            className={`absolute flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform active:scale-95 ${className ?? 'bottom-[124px] right-5 z-30'}`}
+            style={{ background: BLUE }}
+        >
+            {children}
+        </button>
+    );
+}
+
+function NavButton({ active, onClick, children, badge = 0 }: { active: boolean; onClick: () => void; children: React.ReactNode; badge?: number }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`flex flex-1 items-center justify-center py-2 ${active ? 'text-label' : ''}`}
+            style={active ? undefined : { color: META }}
+        >
+            <span className="relative inline-flex">
+                {children}
+                {badge > 0 && (
+                    <span
+                        className="absolute -right-2 -top-2 flex h-[22px] min-w-[22px] items-center justify-center rounded-full px-1.5 text-[13px] font-bold leading-none text-white"
+                        style={{ background: BLUE, boxShadow: `0 0 0 2px ${BG}` }}
+                    >
+                        {badge > 99 ? '99+' : badge}
+                    </span>
+                )}
+            </span>
+        </button>
+    );
+}
+
+function Push({ onClose, z, children, animateIn = true }: { onClose: () => void; z: number; children: (close: () => void) => React.ReactNode; animateIn?: boolean }) {
+    const { goBack, pageStyle } = useIosPush(onClose, animateIn);
+    return (
+        <div className="absolute inset-0" style={{ ...pageStyle, zIndex: z, background: BG }}>
+            {children(goBack)}
+        </div>
+    );
+}
+

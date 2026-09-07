@@ -22,3 +22,10 @@ proxyCallback('sd-phone:albums:photos',      'sd-phone:server:albums:photos')
 RegisterNetEvent('sd-phone:client:photos:added', function(photo)
     SendNUIMessage({ action = 'sd-phone:photos:added', data = photo })
 end)
+
+---Server push: a capture upload will not arrive. Carries a stable reason code the Camera turns
+---into a translated line, so the shutter overlay can say why instead of timing out in silence.
+---@param payload { code: string } reason token from server/photos/init.lua
+RegisterNetEvent('sd-phone:client:photos:uploadFailed', function(payload)
+    SendNUIMessage({ action = 'sd-phone:photos:uploadFailed', data = payload })
+end)

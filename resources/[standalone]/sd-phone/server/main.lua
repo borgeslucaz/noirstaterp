@@ -9,6 +9,23 @@ end
 local config    = require 'configs.config'
 ---@type table Inventory bridge (bridge.server.inventory): backend-agnostic item ops.
 local inv       = require 'bridge.server.inventory'
+---@type table Shared server helpers (server.util): the failure envelope a crashed handler answers with.
+local util      = require 'server.util'
+
+-- Every callback handler the app modules register below runs under pcall. A handler that throws
+-- (a schema mismatch, a nil field) would otherwise never resolve, and the phone would spin on
+-- the promise until ox_lib's timeout instead of showing an error.
+do
+    local register = lib.callback.register
+    lib.callback.register = function(name, handler)
+        return register(name, function(...)
+            local results = table.pack(pcall(handler, ...))
+            if results[1] then return table.unpack(results, 2, results.n) end
+            print(('^1[sd-phone] callback %s failed: %s^0'):format(tostring(name), tostring(results[2])))
+            return util.fail('common.serverError', 'Something went wrong')
+        end)
+    end
+end
 
 -- Loaded for side effects: each module self-registers its callbacks, events, commands and exports on require.
 -- SIM first: when unique phones are enabled it wraps player.getIdentifier before any app module
@@ -44,6 +61,7 @@ require 'server.banking.init'
 require 'server.services.init'
 require 'server.voicememos.init'
 require 'server.callrec.init'
+require 'server.voicemail.init'
 require 'server.music.init'
 require 'server.share.init'
 require 'server.devseed.init'
@@ -52,10 +70,12 @@ require 'server.devseed.init'
 pcall(require, 'server.devswap')
 require 'server.notifications.init'
 require 'server.notes.init'
+require 'server.calendar.init'
 require 'server.documents.init'
 require 'server.homes.init'
 require 'server.maps.init'
 require 'server.friends.init'
+require 'server.findmy.init'
 require 'server.cherry.init'
 -- Ahead of the three features that stream live video, so the relay's gate is resolved and its
 -- feature registry is there to be registered against before any of them takes a viewer.
@@ -65,9 +85,11 @@ require 'server.webhooks.init'
 require 'server.vibez.init'
 require 'server.voice.init'
 require 'server.streaks.init'
+require 'server.id.init'
 require 'server.mdt.init'
 require 'server.racing.init'
 require 'server.health.init'
+require 'server.medical.init'
 require 'server.gates'
 require 'server.appgate'
 require 'server.ryde.init'

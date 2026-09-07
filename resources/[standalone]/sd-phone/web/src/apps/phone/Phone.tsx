@@ -1,0 +1,193 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { ContactsTab } from './contacts/ContactsTab';
+import { RecentsTab } from './recents/RecentsTab';
+import { KeypadTab } from './keypad/KeypadTab';
+import { FavoritesTab } from './contacts/FavoritesTab';
+import { PhoneTabBar, type PhoneTab } from './PhoneTabBar';
+import { RecordingsTab } from './recordings/RecordingsTab';
+import { VoicemailTab } from './voicemail/VoicemailTab';
+import { recordingEnabled } from './callrecApi';
+import { AlertDialog } from '@/ui/AlertDialog';
+import { useNuiEvent } from '@/hooks/useNuiEvent';
+import { useSessionState } from '@/hooks/useSessionState';
+import { formatPhone, toCallEntry, type Contact } from './data';
+import {
+    updateContactApi, deleteContactApi,
+    setFavoriteApi, saveCardApi, type CardOverrides,
+} from './contactsApi';
+import { dialCall } from './callsApi';
+import { useContacts, useContactsStore, saveNewContact } from '@/stores/contactsStore';
+import { useCallStore } from '@/stores/callStore';
+import { t } from '@/i18n';
+import { failText } from '@/core/api';
+import { StatusBarSpacer } from '@/ui/StatusBarSpacer';
+
+interface CallTarget { number: string; name?: string; video?: boolean }
+
+export function Phone({ onClose: _onClose }: { onClose: () => void }) {
+    const [tab,        setTab]        = useSessionState<PhoneTab>('phone:tab', 'contacts');
+    const [recordingsOn, setRecordingsOn] = useState(false);
+
+    useEffect(() => {
+        void recordingEnabled().then(on => {
+            setRecordingsOn(on);
+            if (!on) setTab(prev => (prev === 'recordings' ? 'contacts' : prev));
+        });
+    }, [setTab]);
+
+    // Replays the pane slide on a real tab change only. The element never unmounts now, and a
+    // CSS animation will not restart on its own, so it is cleared and reassigned around a forced
+    // reflow. offsetHeight is what flushes it; rAF is starved in CEF so double-rAF is out.
+    const paneRef = useRef<HTMLDivElement>(null);
+    const firstPane = useRef(true);
+    useEffect(() => {
+        const el = paneRef.current;
+        if (!el) return;
+        if (firstPane.current) { firstPane.current = false; return; }
+        el.style.animation = 'none';
+        void el.offsetHeight;
+        el.style.animation = '';
+    }, [tab]);
+    const { contacts, recents: recentsRaw, myNumber, myName, card } =
+        useContacts('contacts', 'recents', 'myNumber', 'myName', 'card');
+    const [callTarget, setCallTarget] = useState<CallTarget | null>(null);
+    const [dialError,  setDialError]  = useState<string | null>(null);
+
+    useEffect(() => {
+        void useContactsStore.getState().load();
+    }, []);
+
+    const favorites = contacts.filter(c => c.favorite);
+    const recents   = recentsRaw.map(r => toCallEntry(r, contacts));
+
+    async function addContact(c: Contact): Promise<string | null> {
+        const res = await saveNewContact(c);
+        return res.error ?? null;
+    }
+    function updateContact(c: Contact) {
+        useContactsStore.getState().setContacts(prev => prev.map(x => (x.id === c.id ? c : x)));
+        updateContactApi(c);
+    }
+    function updateCard(c: Contact) {
+        const fields: CardOverrides = { name: c.name, avatar: c.avatar, email: c.email, address: c.address };
+        useContactsStore.getState().setCard(fields);
+        saveCardApi(fields);
+    }
+    function deleteContact(id: string) {
+        useContactsStore.getState().setContacts(prev => prev.filter(x => x.id !== id));
+        deleteContactApi(id);
+    }
+    function toggleFavorite(id: string, favorite: boolean) {
+        useContactsStore.getState().setContacts(prev => prev.map(x => (x.id === id ? { ...x, favorite } : x)));
+        setFavoriteApi(id, favorite);
+    }
+
+    useNuiEvent('sd-phone:contacts:shared', useCallback((c: Contact) => {
+        useContactsStore.getState().setContacts(prev => (prev.some(x => x.id === c.id) ? prev : [...prev, c]));
+    }, []));
+    useNuiEvent('sd-phone:contacts:removed', useCallback((data) => {
+        const digits = (data?.phone ?? '').replace(/\D/g, '');
+        if (!digits) return;
+        useContactsStore.getState().setContacts(prev => prev.filter(x => (x.phone ?? '').replace(/\D/g, '') !== digits));
+    }, []));
+    async function placeCall(target: CallTarget) {
+        if (!target.number) return;
+        const res = await dialCall(target.number, target.name, target.video === true);
+        if (res.success) return;
+        if (res.voicemail?.number) {
+            useCallStore.getState().offerVoicemail({
+                number: res.voicemail.number,
+                name:   res.voicemail.name ?? target.name,
+            });
+            return;
+        }
+        setDialError(failText(res, t('phone.unableToPlaceCall','Unable to place call')));
+    }
+
+    useNuiEvent('sd-phone:call:ended', useCallback(() => {
+        void useContactsStore.getState().refresh();
+    }, []));
+
+    return (
+        <div className="absolute inset-0 flex flex-col bg-base font-sf">
+            <StatusBarSpacer />
+
+            <div className="flex flex-1 flex-col overflow-hidden">
+                {/* No key={tab} and no permanent animation class. key= remounted the whole
+                    500-row ContactsTab on every tab switch, and a class-borne animation replays
+                    whenever the deck re-parents the app, so a 0.45s opacity+translate slide was
+                    starting on every open and outliving the shell's 0.38s scale. The slide is now
+                    triggered only on a real tab change, in the effect above. */}
+                <div ref={paneRef} className="flex min-h-0 flex-1 flex-col animate-swipe-in-left">
+                    {tab === 'contacts' ? (
+                        <ContactsTab
+                            contacts={contacts}
+                            myNumber={myNumber}
+                            myName={myName}
+                            card={card}
+                            onRequestCall={setCallTarget}
+                            onAddContact={addContact}
+                            onUpdateContact={updateContact}
+                            onSaveCard={updateCard}
+                            onDeleteContact={deleteContact}
+                            onToggleFavorite={toggleFavorite}
+                        />
+                    ) : tab === 'recents' ? (
+                        <RecentsTab
+                            recents={recents}
+                            onAddContact={addContact}
+                            onRequestCall={setCallTarget}
+                            onUpdateContact={updateContact}
+                            onDeleteContact={deleteContact}
+                            onToggleFavorite={toggleFavorite}
+                        />
+                    ) : tab === 'recordings' ? (
+                        <RecordingsTab />
+                    ) : tab === 'voicemail' ? (
+                        <VoicemailTab contacts={contacts} onRequestCall={setCallTarget} />
+                    ) : tab === 'keypad' ? (
+                        <KeypadTab onAddContact={addContact} onCall={placeCall} />
+                    ) : (
+                        <FavoritesTab
+                            favorites={favorites}
+                            onRemoveFavorite={id => toggleFavorite(id, false)}
+                            onRequestCall={setCallTarget}
+                            onUpdateContact={updateContact}
+                            onDeleteContact={deleteContact}
+                            onToggleFavorite={toggleFavorite}
+                        />
+                    )}
+                </div>
+            </div>
+
+            <PhoneTabBar tab={tab} onChange={setTab} showRecordings={recordingsOn} />
+
+            {callTarget !== null && (
+                <AlertDialog
+                    title={callTarget.video
+                        ? t('phone.videoCallName','Video call {name}',{ name: callTarget.name || formatPhone(callTarget.number) })
+                        : t('phone.callName','Call {name}',{ name: callTarget.name || formatPhone(callTarget.number) })}
+                    message={callTarget.video
+                        ? t('phone.videoCallConfirm','Start a video call with {name}?',{ name: callTarget.name || formatPhone(callTarget.number) })
+                        : t('phone.callConfirm','Call {name}?',{ name: callTarget.name || formatPhone(callTarget.number) })}
+                    cancelLabel={t('phone.cancel','Cancel')}
+                    confirmLabel={callTarget.video ? t('phone.videoCall','Video Call') : t('phone.call','Call')}
+                    onCancel={() => setCallTarget(null)}
+                    onConfirm={() => { void placeCall(callTarget); setCallTarget(null); }}
+                />
+            )}
+
+            {dialError !== null && (
+                <AlertDialog
+                    title={t('phone.callFailed','Call Failed')}
+                    message={dialError}
+                    confirmLabel={t('phone.ok','OK')}
+                    hideCancel
+                    onCancel={() => setDialError(null)}
+                    onConfirm={() => setDialError(null)}
+                />
+            )}
+        </div>
+    );
+}

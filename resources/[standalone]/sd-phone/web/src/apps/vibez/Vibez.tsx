@@ -1,0 +1,430 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ChevronLeft } from 'lucide-react';
+
+import { useStatusBarLight } from '@/shell/useStatusBarLight';
+import { useDeckActive } from '@/shell/deckActive';
+import { setLaunchIntent } from '@/shell/launchIntent';
+import { useRefreshOnReconnect } from '@/hooks/useRefreshOnReconnect';
+import { clearSessionState, useSessionState } from '@/hooks/useSessionState';
+import { fetchNui, isFiveM } from '@/core/nui';
+import { isVideoUrl } from '@/core/photosApi';
+import { useAsyncData } from '@/hooks/useAsyncData';
+import { useNuiEvent } from '@/hooks/useNuiEvent';
+import { useAppAuth } from '@/hooks/useAppAuth';
+import { AlertDialog } from '@/ui/AlertDialog';
+import { AppAuth } from '@/shared/AppAuth';
+import { AccountSwitcher } from '@/shared/AccountSwitcher';
+import { MAIL_DOMAIN, accountsConfirmReset, accountsLogin, accountsLogout, accountsMe, accountsRegister, accountsRequestReset, accountsSavePassword, accountsSuggestCode, accountsSwitch } from '@/core/accountsApi';
+import { signOutAllForApp } from '@/shared/signOutAll';
+import { t } from '@/i18n';
+import { SlideOver } from '@/ui/SlideOver';
+import { ACCENT, type VLive, type VPost, type VProfile } from './data';
+import {
+    apiAddView, apiCounts, apiDeletePost, apiFeed, apiLives, apiPost, apiProfile, apiToggleFollow,
+    apiToggleLike, apiToggleSave, apiWatch, type FeedTab,
+} from './vibezApi';
+import { Feed, type FeedHandlers } from './Feed';
+import { TAB_H, TabBar } from './TabBar';
+import { Discover } from './Discover';
+import { Inbox } from './Inbox';
+import { Profile } from './Profile';
+import { UploadOverlay } from './UploadOverlay';
+import { CommentsSheet } from './CommentsSheet';
+import { LiveHost } from './live/LiveHost';
+import { LiveViewer } from './live/LiveViewer';
+
+type Tab = 'home' | 'discover' | 'inbox' | 'profile';
+
+interface ViewerState { posts: VPost[]; index: number }
+
+export function Vibez({ onClose: _onClose }: { onClose: () => void }) {
+    const { authed, setAuthed, authChecked, justAuthed, setJustAuthed, myNumber, myEmails, savedLogin, savedAccounts, refreshAccounts } = useAppAuth('vibez',
+        () => accountsMe('vibez').then(s => s.loggedIn));
+
+    useStatusBarLight(authed ? true : null);
+
+    const [tab,     setTab]     = useSessionState<Tab>('vibez:tab', 'home');
+    const [feedTab, setFeedTab] = useSessionState<FeedTab>('vibez:feedTab', 'foryou');
+    const [upload,  setUpload]  = useSessionState('vibez:upload', false);
+    // Timestamp of a "Record with Camera" hand-off; the next video that lands in the
+    // gallery within the window pulls the player back here with the clip preloaded.
+    const [pendingRecord, setPendingRecord] = useSessionState<number>('vibez:pendingRecord', 0);
+    const [composeUrl,    setComposeUrl]    = useSessionState<string | null>('vibez:composeUrl', null);
+
+    const [posts,         setPosts]         = useState<VPost[]>([]);
+    const [viewer,        setViewer]        = useState<ViewerState | null>(null);
+    const [profileHandle, setProfileHandle] = useState<string | null>(null);
+    const [commentsPost,  setCommentsPost]  = useState<VPost | null>(null);
+    const [liveHost,      setLiveHost]      = useState(false);
+    const [liveJoin,      setLiveJoin]      = useState<VLive | null>(null);
+    const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+    const [unread,        setUnread]        = useState(0);
+    const [refreshKey,    setRefreshKey]    = useState(0);
+    const [switching,     setSwitching]     = useState(false);
+    const [adding,        setAdding]        = useState(false);
+    const [me,            setMe]            = useState<VProfile | null>(null);
+    const [liveEnabled,   setLiveEnabled]   = useState(!isFiveM);
+
+    useEffect(() => {
+        if (!isFiveM) return;
+        void fetchNui<{ enabled?: boolean }>('sd-phone:vibez:liveEnabled')
+            .then(r => setLiveEnabled(r?.enabled === true))
+            .catch(() => setLiveEnabled(false));
+    }, []);
+
+    const viewedRef = useRef(new Set<string>());
+
+    const { loading: feedLoading, refetch: refetchFeed } = useAsyncData<VPost[]>(
+        () => apiFeed(feedTab),
+        [feedTab, refreshKey],
+        { enabled: authed === true, onData: setPosts },
+    );
+    const { data: lives, refetch: refetchLives } = useAsyncData<VLive[]>(
+        () => apiLives(),
+        [refreshKey],
+        { enabled: authed === true },
+    );
+    useAsyncData<VProfile | null>(
+        () => apiProfile(),
+        [refreshKey],
+        { enabled: authed === true, onData: setMe },
+    );
+    useAsyncData<number>(
+        () => apiCounts(),
+        [],
+        { enabled: authed === true, onData: setUnread },
+    );
+
+    const bumpRefresh = useCallback(() => setRefreshKey(k => k + 1), []);
+
+    // bumpRefresh alone reloads the feeds but leaves the inbox count, the open viewer and the
+    // profile you had drilled into, all of which belong to the account being left.
+    const afterAccountChange = useCallback(() => {
+        clearSessionState('vibez:');
+        setTab('home');
+        setFeedTab('foryou');
+        setUpload(false);
+        setViewer(null);
+        setProfileHandle(null);
+        setCommentsPost(null);
+        setPosts([]);
+        setMe(null);
+        setUnread(0);
+        refreshAccounts();
+        bumpRefresh();
+        void apiCounts().then(setUnread);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [refreshAccounts, bumpRefresh]);
+
+    // Content pushes reach only the phones showing Vibez, so the subscription follows the
+    // foreground. AppDeck keeps this subtree alive, so returning to it is not a remount.
+    const deckActive = useDeckActive();
+    const wasActive  = useRef(deckActive);
+    useEffect(() => {
+        if (!deckActive) return;
+        apiWatch(true);
+        return () => { apiWatch(false); };
+    }, [deckActive]);
+
+    // Re-sync on the way back in: anything pushed while this phone was not listening is missed.
+    useEffect(() => {
+        const returning = deckActive && !wasActive.current;
+        wasActive.current = deckActive;
+        if (returning) bumpRefresh();
+    }, [deckActive, bumpRefresh]);
+
+    // The same refresh for someone who never left the screen while driving back into coverage.
+    useRefreshOnReconnect(bumpRefresh);
+
+    useNuiEvent('sd-phone:vibez:notification', useCallback(() => {
+        void apiCounts().then(setUnread);
+    }, []));
+    // A clip recorded via the camera hand-off just hit the gallery: jump back into
+    // Vibez with the compose step preloaded. The 10-minute window keeps unrelated
+    // recordings from yanking the player into the app later.
+    useNuiEvent('sd-phone:photos:added', useCallback((data) => {
+        if (!pendingRecord || Date.now() - pendingRecord > 10 * 60 * 1000) return;
+        if (!data?.url || !isVideoUrl(data.url)) return;
+        setPendingRecord(0);
+        setComposeUrl(data.url);
+        setUpload(true);
+        window.postMessage({ action: 'sd-phone:launchApp', data: { id: 'vibez' } }, '*');
+    }, [pendingRecord, setPendingRecord, setComposeUrl, setUpload]));
+    useNuiEvent('sd-phone:vibez:feedChanged', useCallback(() => { bumpRefresh(); }, [bumpRefresh]));
+    useNuiEvent('sd-phone:vibez:liveChanged', useCallback(() => { refetchLives(); }, [refetchLives]));
+    useNuiEvent('sd-phone:vibez:postChanged', useCallback((data) => {
+        if (!data?.postId) return;
+        const patch = (p: VPost) => p.id === data.postId
+            ? { ...p, ...(data.likes !== undefined ? { likes: data.likes } : {}), ...(data.comments !== undefined ? { comments: data.comments } : {}) }
+            : p;
+        setPosts(prev => prev.map(patch));
+        setViewer(prev => prev ? { ...prev, posts: prev.posts.map(patch) } : prev);
+    }, []));
+    useNuiEvent('sd-phone:vibez:postRemoved', useCallback((data) => {
+        if (!data?.postId) return;
+        setPosts(prev => prev.filter(p => p.id !== data.postId));
+        setViewer(prev => prev ? { ...prev, posts: prev.posts.filter(p => p.id !== data.postId) } : prev);
+    }, []));
+    useNuiEvent('sd-phone:vibez:followChanged', useCallback((data) => {
+        if (!data?.target) return;
+        const patch = (p: VPost) => p.user.handle === data.target ? { ...p, following: data.following } : p;
+        setPosts(prev => prev.map(patch));
+        setViewer(prev => prev ? { ...prev, posts: prev.posts.map(patch) } : prev);
+    }, []));
+
+    const patchEverywhere = useCallback((fn: (p: VPost) => VPost) => {
+        setPosts(prev => prev.map(fn));
+        setViewer(prev => prev ? { ...prev, posts: prev.posts.map(fn) } : prev);
+    }, []);
+
+    const handlers: FeedHandlers = {
+        onToggleLike: (id) => {
+            patchEverywhere(p => p.id === id
+                ? { ...p, liked: !p.liked, likes: p.likes + (p.liked ? -1 : 1) }
+                : p);
+            void apiToggleLike(id);
+        },
+        onLikeOn: (id) => {
+            let wasLiked = true;
+            patchEverywhere(p => {
+                if (p.id !== id) return p;
+                wasLiked = p.liked;
+                return p.liked ? p : { ...p, liked: true, likes: p.likes + 1 };
+            });
+            if (!wasLiked) void apiToggleLike(id);
+        },
+        onToggleSave: (id) => {
+            patchEverywhere(p => p.id === id
+                ? { ...p, saved: !p.saved, saves: p.saves + (p.saved ? -1 : 1) }
+                : p);
+            void apiToggleSave(id);
+        },
+        onOpenComments: (post) => setCommentsPost(post),
+        onOpenProfile:  (handle) => setProfileHandle(handle),
+        onToggleFollow: (handle) => {
+            patchEverywhere(p => p.user.handle === handle ? { ...p, following: !p.following } : p);
+            void apiToggleFollow(handle);
+        },
+        onView: (id) => {
+            if (viewedRef.current.has(id)) return;
+            viewedRef.current.add(id);
+            void apiAddView(id);
+        },
+        onDelete: (id) => setConfirmDelete(id),
+    };
+
+    const openPostList = useCallback((list: VPost[], index: number) => {
+        setViewer({ posts: list, index });
+    }, []);
+    const openPostId = useCallback((postId: string) => {
+        void apiPost(postId).then(r => { if (r) setViewer({ posts: [r.post], index: 0 }); });
+    }, []);
+
+    if (!authChecked) {
+        return <div className="absolute inset-0 z-10 bg-black" />;
+    }
+    const authScreen = (
+            <AppAuth
+                appId="vibez"
+                appName="Clout"
+                tagline={t('vibez.tagline', 'Catch the vibe. Share yours.')}
+                icon="vibez"
+                theme={{ accent: ACCENT, welcomeBg: '#0a0518', welcomeText: 'light' }}
+                myNumber={myNumber}
+                myEmails={myEmails}
+                savedAccounts={savedAccounts}
+                onPickAccount={u => accountsSwitch('vibez', u)}
+                savedLogin={adding ? null : savedLogin}
+                onDismiss={adding ? () => setAdding(false) : undefined}
+                modal={adding}
+                fields={[
+                    { key: 'username', label: t('vibez.username', 'Username') },
+                    { key: 'name',     label: t('vibez.name', 'Name') },
+                    { key: 'password', label: t('vibez.password', 'Password'), type: 'password' },
+                    { key: 'email',    label: t('vibez.email', 'Email'), suffix: `@${MAIL_DOMAIN}`, createOnly: true },
+                    { key: 'phone',    label: t('vibez.phone', 'Phone'), type: 'tel',   createOnly: true },
+                ]}
+                onSubmit={(mode, vals) => (mode === 'create' ? accountsRegister('vibez', vals) : accountsLogin('vibez', vals))}
+                onAuthed={() => {
+                    setAuthed(true);
+                    setJustAuthed(true);
+                    if (adding) { setAdding(false); afterAccountChange(); }
+                }}
+                onRequestReset={(id) => accountsRequestReset('vibez', id)}
+                onConfirmReset={(id, code, pw) => accountsConfirmReset('vibez', id, code, pw)}
+                onSuggestCode={(id) => accountsSuggestCode('vibez', id)}
+                onSaveCredentials={(vals) => accountsSavePassword('vibez', vals)}
+            />
+    );
+
+    if (!authed) return authScreen;
+
+    return (
+        <div className={`absolute inset-0 z-10 select-none overflow-hidden bg-black text-white ${justAuthed ? 'animate-swipe-in-left' : ''}`}>
+            <div
+                key={tab}
+                className="absolute inset-x-0 top-0 animate-swipe-in-left overflow-hidden"
+                style={{ bottom: TAB_H }}
+            >
+                {tab === 'home' && (
+                    <Feed
+                        posts={posts}
+                        tab={feedTab}
+                        onTab={setFeedTab}
+                        lives={lives ?? []}
+                        onOpenLive={setLiveJoin}
+                        myHandle={me?.username}
+                        loading={feedLoading}
+                        handlers={handlers}
+                    />
+                )}
+                {tab === 'discover' && (
+                    <Discover onOpenPost={openPostList} onOpenProfile={setProfileHandle} refreshKey={refreshKey} />
+                )}
+                {tab === 'inbox' && (
+                    <Inbox
+                        onOpenPostId={openPostId}
+                        onOpenProfile={setProfileHandle}
+                        onSeen={() => setUnread(0)}
+                        refreshKey={refreshKey}
+                    />
+                )}
+                {tab === 'profile' && (
+                    <Profile
+                        onOpenPost={openPostList}
+                        onSignOut={() => {
+                            void accountsLogout('vibez').then(() => {
+                                clearSessionState('vibez:'); refreshAccounts(); setAuthed(false);
+                            });
+                        }}
+                        onSignOutAll={() => {
+                            void signOutAllForApp('vibez').then(() => { refreshAccounts(); setAuthed(false); });
+                        }}
+                        onSwitchAccount={() => setSwitching(true)}
+                        refreshKey={refreshKey}
+                    />
+                )}
+            </div>
+
+            <TabBar
+                tab={tab}
+                onTab={next => { setViewer(null); setTab(next); }}
+                onCreate={() => { setViewer(null); setUpload(true); }}
+                unread={unread}
+                avatar={me?.avatar}
+            />
+
+            {switching && (
+                <AccountSwitcher
+                    app="vibez"
+                    forceDark
+                    onClose={() => setSwitching(false)}
+                    onSwitched={afterAccountChange}
+                    onAdd={() => setAdding(true)}
+                />
+            )}
+
+            {profileHandle && (
+                <SlideOver
+                    direction="soft"
+                    zIndex={20}
+                    className="bg-black"
+                    onClose={() => setProfileHandle(null)}
+                >
+                    {close => (
+                        <Profile
+                            handle={profileHandle}
+                            onBack={() => close()}
+                            onOpenPost={openPostList}
+                            refreshKey={refreshKey}
+                        />
+                    )}
+                </SlideOver>
+            )}
+
+            {viewer && (
+                <SlideOver
+                    direction="soft"
+                    zIndex={30}
+                    className="bg-black"
+                    style={{ bottom: TAB_H }}
+                    onClose={() => setViewer(null)}
+                >
+                    {close => (
+                        <>
+                            <Feed
+                                posts={viewer.posts}
+                                myHandle={me?.username}
+                                handlers={handlers}
+                                initialIndex={viewer.index}
+                            />
+                            <button
+                                type="button"
+                                aria-label={t('vibez.back', 'Back')}
+                                onClick={() => close()}
+                                className="absolute left-3 top-[58px] z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm active:opacity-70"
+                            >
+                                <ChevronLeft className="h-5 w-5 text-white" strokeWidth={2.6} />
+                            </button>
+                        </>
+                    )}
+                </SlideOver>
+            )}
+
+            {commentsPost && (
+                <CommentsSheet
+                    post={commentsPost}
+                    onClose={() => setCommentsPost(null)}
+                    onCountChange={(postId, count) => patchEverywhere(p => p.id === postId ? { ...p, comments: count } : p)}
+                />
+            )}
+
+            {upload && (
+                <UploadOverlay
+                    myHandle={me?.username}
+                    initialUrl={composeUrl}
+                    onRecord={() => {
+                        setPendingRecord(Date.now());
+                        setUpload(false);
+                        setLaunchIntent('camera', { mode: 'VIDEO' });
+                        window.postMessage({ action: 'sd-phone:launchApp', data: { id: 'camera' } }, '*');
+                    }}
+                    onClose={() => { setUpload(false); setComposeUrl(null); }}
+                    onPosted={(post) => {
+                        setUpload(false);
+                        setComposeUrl(null);
+                        setPosts(prev => [post, ...prev]);
+                        setTab('home');
+                        refetchFeed();
+                    }}
+                    onGoLive={() => { setUpload(false); setLiveHost(true); }}
+                    liveEnabled={liveEnabled}
+                />
+            )}
+
+            {confirmDelete && (
+                <AlertDialog
+                    title={t('vibez.deleteVibeTitle', 'Delete this vibe?')}
+                    message={t('vibez.deleteVibeMessage', 'The vibe, its comments, likes and saves are permanently removed.')}
+                    confirmLabel={t('vibez.delete', 'Delete')}
+                    cancelLabel={t('vibez.cancel', 'Cancel')}
+                    destructive
+                    forceDark
+                    onCancel={() => setConfirmDelete(null)}
+                    onConfirm={() => {
+                        const id = confirmDelete;
+                        setConfirmDelete(null);
+                        setPosts(prev => prev.filter(p => p.id !== id));
+                        setViewer(prev => prev ? { ...prev, posts: prev.posts.filter(p => p.id !== id) } : prev);
+                        void apiDeletePost(id);
+                    }}
+                />
+            )}
+
+            {liveHost && <LiveHost onClose={() => { setLiveHost(false); refetchLives(); }} />}
+            {liveJoin && <LiveViewer liveId={liveJoin.liveId} host={liveJoin.user} onClose={() => setLiveJoin(null)} />}
+
+            {adding && <div className="absolute inset-0 z-[70]">{authScreen}</div>}
+        </div>
+    );
+}

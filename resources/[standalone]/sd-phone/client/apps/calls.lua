@@ -91,8 +91,8 @@ RegisterNUICallback('sd-phone:call:speaker', function(data, cb)
     cb('ok')
 end)
 
----Applies the phone's call-volume setting when supported by the selected voice backend. Enhanced
----server-controlled pma-voice intentionally reports this capability as unavailable.
+---Applies the phone's call-volume setting (0-100) to pma-voice so it controls how loud the other
+---party sounds. pcall-guarded for non-pma-voice setups.
 ---@param data { volume: number } clamped 0-100
 ---@param cb fun(ok: string) NUI response
 RegisterNUICallback('sd-phone:call:setVolume', function(data, cb)

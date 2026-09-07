@@ -1,0 +1,76 @@
+import { t } from '@/i18n';
+
+export type IconName =
+    | 'Plane' | 'Wifi' | 'Bluetooth' | 'Antenna' | 'Key' | 'Bell'
+    | 'Volume2' | 'Moon' | 'Hourglass' | 'Settings2' | 'SlidersHorizontal'
+    | 'Sun' | 'LayoutGrid' | 'Accessibility' | 'Image' | 'Search'
+    | 'Sparkles' | 'Fingerprint' | 'Siren'
+    | 'ShoppingBag' | 'CreditCard' | 'Gamepad2' | 'Lock' | 'Mail'
+    | 'User' | 'Calendar' | 'StickyNote' | 'ListTodo' | 'Mic'
+    | 'Phone' | 'MessageCircle' | 'Video' | 'Compass' | 'Newspaper'
+    | 'Languages' | 'MapPin' | 'Zap' | 'PawPrint' | 'Grid2x2' | 'Radar';
+
+export interface SettingsRowDef {
+    id:        string;
+    icon:      IconName;
+    iconBg:    string;
+    label:     string;
+    subtitle?: string;
+    status?:   string;
+    badge?:    number;
+    disabled?: boolean;
+}
+
+export interface SettingsGroup {
+    id:      string;
+    title?:  string;
+    footer?: string;
+    rows:    SettingsRowDef[];
+}
+
+// Functions, not module-level constants: `t()` bakes in whatever locale is
+// active the moment it evaluates, and a plain `const` here would only ever
+// evaluate once (at first import), never picking up a later language change.
+// Call these fresh from inside a component's render body instead.
+export function getSettingsGroups(): SettingsGroup[] {
+    return [
+        {
+            id: 'toggles',
+            rows: [
+                { id: 'airplane', icon: 'Plane',  iconBg: '#ff9f0a', label: t('settings.airplaneMode', 'Airplane Mode'),  subtitle: t('settings.airplaneModeSub', 'Turn off calls, data and connectivity') },
+                { id: 'focus',    icon: 'Moon',   iconBg: '#5e5ce6', label: t('settings.focus', 'Focus'),                subtitle: t('settings.focusSub', 'Silence calls and alerts') },
+                { id: 'streamer', icon: 'Video',  iconBg: '#5e5ce6', label: t('settings.streamerMode', 'Streamer Mode'),  subtitle: t('settings.streamerModeSub', 'Hide details on stream') },
+                { id: 'wifi',     icon: 'Wifi',   iconBg: '#0a84ff', label: t('settings.wifi', 'Wi-Fi'),                subtitle: t('settings.wifiSub', 'Join nearby networks') },
+                { id: 'bluetooth', icon: 'Bluetooth', iconBg: '#0a84ff', label: t('settings.bluetooth', 'Bluetooth'),   subtitle: t('settings.bluetoothSub', 'Pair with nearby devices') },
+            ],
+        },
+        {
+            id: 'alerts',
+            rows: [
+                { id: 'notifications',  icon: 'Bell',    iconBg: '#ff453a', label: t('settings.notifications', 'Notifications'),  subtitle: t('settings.notificationsSub', 'Choose which apps can notify you') },
+                { id: 'sound-haptics',  icon: 'Volume2', iconBg: '#ff375f', label: t('settings.soundHaptics', 'Sound & Haptics'), subtitle: t('settings.soundHapticsSub', 'Ringtones, alerts and vibration') },
+            ],
+        },
+        {
+            id: 'general',
+            rows: [
+                { id: 'general',      icon: 'Settings2',   iconBg: '#8e8e93', label: t('settings.general', 'General'),              subtitle: t('settings.generalSub', 'Device info, storage and language') },
+                { id: 'accessibility', icon: 'Accessibility', iconBg: '#0a84ff', label: t('settings.accessibility', 'Accessibility'),   subtitle: t('settings.accessibilitySub', 'Motion and text options') },
+                { id: 'display',      icon: 'Sun',         iconBg: '#0a84ff', label: t('settings.displayBrightness', 'Display & Brightness'),  subtitle: t('settings.displayBrightnessSub', 'Wallpaper, theme and brightness') },
+                { id: 'island-pet',   icon: 'PawPrint',    iconBg: '#ff9f0a', label: t('settings.islandPet', 'Island Pets'),          subtitle: t('settings.islandPetSub', 'Pick a pixel pet for the Dynamic Island') },
+                { id: 'wallpaper',    icon: 'Image',       iconBg: '#64d2ff', label: t('settings.wallpaper', 'Wallpaper'),             subtitle: t('settings.wallpaperSub', 'Wallpaper & background') },
+                { id: 'app-icons',    icon: 'LayoutGrid',  iconBg: '#5e5ce6', label: t('settings.appIcons', 'App Icons'),              subtitle: t('settings.appIconsSub', 'Icon theme and Home Screen names') },
+                { id: 'home-density', icon: 'Grid2x2',     iconBg: '#ff375f', label: t('settings.homeDensity', 'Home Screen'),         subtitle: t('settings.homeDensitySub', 'How many apps fit and how big they are') },
+                { id: 'face-unlock',  icon: 'Fingerprint', iconBg: '#34c759', label: t('settings.faceScanPasscode', 'Face Scan & Passcode'), subtitle: t('settings.faceScanPasscodeSub', 'Lock and unlock options') },
+            ],
+        },
+        {
+            id: 'phone-section',
+            rows: [
+                { id: 'phone', icon: 'Phone', iconBg: '#34c759', label: t('settings.phone', 'Phone'), subtitle: t('settings.phoneSub', 'Caller ID, blocking and call privacy') },
+                { id: 'sim',   icon: 'Antenna', iconBg: '#0a84ff', label: t('settings.simBackup', 'SIM & Backup'), subtitle: t('settings.simBackupSub', 'SIM card, number and cloud backup') },
+                { id: 'find-my', icon: 'Radar', iconBg: '#30d158', label: t('settings.findMy', 'Find My'), subtitle: t('settings.findMySub', 'Locate your devices and turn on Lost Mode') },
+            ],
+        },
+    ];
+}

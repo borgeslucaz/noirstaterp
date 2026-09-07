@@ -103,8 +103,25 @@ lib.callback.register('qbx_garages:server:spawnVehicle', function (source, vehic
 
     playerVehicle.props.lockState = 1 -- Modify the veh props lock state here to avoid conflicts with the vehicleConfig.noLock system.
 
+    -- `props` is the persisted modifications JSON and can contain a stale or
+    -- corrupt `model` hash. The database vehicle name is the authoritative
+    -- model for a garage record; using props.model can make CreateVehicle try
+    -- to create a ped/object and repeatedly emit a native error.
+    local model = playerVehicle.modelName
+    if not model or not IsModelInCdimage(joaat(model)) or not IsModelAVehicle(joaat(model)) then
+        logger.log({
+            source = source,
+            message = string.format('Blocked garage spawn for vehicle id=%s: invalid model=%s', vehicleId, tostring(model)),
+            webhook = Config.logging.webhook.error,
+            event = 'error',
+            color = 'red'
+        })
+        exports.qbx_core:Notify(source, 'Este veículo possui um modelo inválido. Contate a administração.', 'error')
+        return
+    end
+
     local warpPed = Config.warpInVehicle and GetPlayerPed(source)
-    local netId, veh = qbx.spawnVehicle({ spawnSource = spawnCoords, model = playerVehicle.props.model, props = playerVehicle.props, warp = warpPed})
+    local netId, veh = qbx.spawnVehicle({ spawnSource = spawnCoords, model = model, props = playerVehicle.props, warp = warpPed})
 
     if Config.doorsLocked then
         if GetResourceState('qbx_vehiclekeys') == 'started' then

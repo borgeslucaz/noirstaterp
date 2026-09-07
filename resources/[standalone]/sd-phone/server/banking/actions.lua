@@ -92,7 +92,8 @@ end
 local function notifyBank(src, body)
     if not src then return end
     TriggerClientEvent('sd-phone:client:notify', src, {
-        app = 'bank', appId = 'bank', quietInApp = true, time = 'now', title = 'Bank', body = body,
+        app = 'bank', appId = 'bank', quietInApp = true, time = 'now',
+        titleKey = 'banking.bankTitle', title = 'Bank', body = body,
     })
 end
 
@@ -182,17 +183,17 @@ function actions.setCardStyle(src, payload)
     payload = type(payload) == 'table' and payload or {}
 
     if (BK.Card and BK.Card.Locked) == true then
-        return { success = false, message = 'Your bank card is set by the server' }
+        return { success = false, messageKey = 'banking.bankCardSetByServer', message = 'Your bank card is set by the server' }
     end
 
     local bankId, color, pattern = payload.bank, payload.color, payload.pattern
     if not CARD_BANKS[bankId] or not CARD_COLORS[color] or not CARD_PATTERNS[pattern] then
-        return { success = false, message = 'Unknown card design' }
+        return { success = false, messageKey = 'banking.unknownCardDesign', message = 'Unknown card design' }
     end
 
     local style = { bank = bankId, color = color, pattern = pattern }
     if not settings.setCardStyle(cid, style) then
-        return { success = false, message = 'Could not save that card design' }
+        return { success = false, messageKey = 'banking.couldNotSaveCardDesign', message = 'Could not save that card design' }
     end
 
     return { success = true, data = { cardStyle = style } }
@@ -222,6 +223,7 @@ function actions.overview(src)
             allowAnonymous = BK.AllowAnonymous ~= false,
             cardStyle      = cardStyleFor(cid),
             cardLocked     = (BK.Card and BK.Card.Locked) == true,
+            standingOrders = (BK.StandingOrders and BK.StandingOrders.Enabled) ~= false,
             transactions   = txs,
         },
     }
@@ -241,28 +243,33 @@ end
 
 ---Transfers money from the caller's bank to the character who owns `number`, or to the player
 ---on `serverId`; debits before crediting, refunds on failure, and logs both sides.
+---`opts` is server-only: the NUI callback never passes one, so a client cannot reach it.
 ---@param src integer player server id
 ---@param payload table { number?: string, serverId?: number, amount: number, note?: string, anonymous?: boolean }
+---@param opts? table { category?: string, skipLimits?: boolean } server-driven transfer overrides
 ---@return table result envelope { success, message?, data? }
-function actions.send(src, payload)
+function actions.send(src, payload, opts)
     local cid = cidOf(src)
     if not cid then return { success = false } end
     payload = type(payload) == 'table' and payload or {}
+    opts    = type(opts) == 'table' and opts or nil
+
+    local category = (opts and opts.category) or 'transfer'
 
     local amount = tonumber(payload.amount) or 0
     local note   = (tostring(payload.note or ''):gsub('^%s+', ''):gsub('%s+$', '')):sub(1, 80)
 
     local anonymous = payload.anonymous == true
     if anonymous and BK.AllowAnonymous == false then
-        return { success = false, message = 'Anonymous transfers are disabled' }
+        return { success = false, messageKey = 'banking.anonymousTransfersDisabled', message = 'Anonymous transfers are disabled' }
     end
 
     if amount ~= amount or amount == math.huge or amount == -math.huge then
-        return { success = false, message = 'Enter a valid amount' }
+        return { success = false, messageKey = 'banking.enterValidAmount', message = 'Enter a valid amount' }
     end
     amount = math.floor(amount)
-    if amount < (BK.MinSend or 1)         then return { success = false, message = 'Enter a valid amount' } end
-    if amount > (BK.MaxSend or math.huge) then return { success = false, message = 'Amount is too large' } end
+    if amount < (BK.MinSend or 1)         then return { success = false, messageKey = 'banking.enterValidAmount', message = 'Enter a valid amount' } end
+    if amount > (BK.MaxSend or math.huge) then return { success = false, messageKey = 'banking.amountTooLarge', message = 'Amount is too large' } end
 
     local myNumber = digits(settings.ensurePhoneNumber(cid))
 
@@ -270,38 +277,43 @@ function actions.send(src, payload)
     local serverId = tonumber(payload.serverId)
     if serverId and util.finite(serverId) then
         serverId = math.floor(serverId)
-        if serverId <= 0 or serverId > 65535 then return { success = false, message = 'No player with that server ID' } end
-        if serverId == src then return { success = false, message = "You can't send money to yourself" } end
+        if serverId <= 0 or serverId > 65535 then return { success = false, messageKey = 'banking.noPlayerWithServerId', message = 'No player with that server ID' } end
+        if serverId == src then return { success = false, messageKey = 'banking.canTSendMoneyYourself', message = "You can't send money to yourself" } end
         rcid = player.getIdentifier(serverId)
-        if not rcid then return { success = false, message = 'No player with that server ID' } end
-        if rcid == cid then return { success = false, message = "You can't send money to yourself" } end
+        if not rcid then return { success = false, messageKey = 'banking.noPlayerWithServerId', message = 'No player with that server ID' } end
+        if rcid == cid then return { success = false, messageKey = 'banking.canTSendMoneyYourself', message = "You can't send money to yourself" } end
         number = digits(settings.ensurePhoneNumber(rcid))
     else
         number = digits(payload.number)
-        if number == '' then return { success = false, message = 'Enter a recipient number' } end
-        if number == myNumber then return { success = false, message = "You can't send money to yourself" } end
+        if number == '' then return { success = false, messageKey = 'banking.enterRecipientNumber', message = 'Enter a recipient number' } end
+        if number == myNumber then return { success = false, messageKey = 'banking.canTSendMoneyYourself', message = "You can't send money to yourself" } end
         rcid = settings.getCitizenByNumber(number)
-        if not rcid then return { success = false, message = 'No one owns that number' } end
-        if rcid == cid then return { success = false, message = "You can't send money to yourself" } end
+        if not rcid then return { success = false, messageKey = 'banking.noOneOwnsNumber', message = 'No one owns that number' } end
+        if rcid == cid then return { success = false, messageKey = 'banking.canTSendMoneyYourself', message = "You can't send money to yourself" } end
     end
 
-    if not util.rateLimit(cid, 'bank:send', SEND_WINDOW, SEND_MAX)
-        or not util.rateLimit(cid, 'bank:send:' .. number, SEND_WINDOW, SEND_MAX_PEER) then
-        return { success = false, message = 'Too many transfers, try again in a minute' }
+    -- Server-driven transfers (a standing order firing) bypass the budgets: they are already
+    -- paced by their own schedule, and spending a player's manual allowance on them would make
+    -- their own next transfer fail for no reason they could see.
+    if not (opts and opts.skipLimits) then
+        if not util.rateLimit(cid, 'bank:send', SEND_WINDOW, SEND_MAX)
+            or not util.rateLimit(cid, 'bank:send:' .. number, SEND_WINDOW, SEND_MAX_PEER) then
+            return { success = false, messageKey = 'banking.tooManyTransfersTryAgain', message = 'Too many transfers, try again in a minute' }
+        end
     end
 
     local balance = bank.getBalance(src) or 0
-    if balance < amount then return { success = false, message = 'Insufficient funds' } end
+    if balance < amount then return { success = false, messageKey = 'banking.insufficientFunds', message = 'Insufficient funds' } end
 
     local rsrc = player.getSourceByIdentifier(rcid)
     if not rsrc then
         if not (BK.AllowOffline and bank.balanceIsFramework()) then
-            return { success = false, message = 'Recipient is offline' }
+            return { success = false, messageKey = 'banking.recipientOffline', message = 'Recipient is offline' }
         end
     end
 
     if not bank.removeMoney(src, amount, ('Transfer to %s'):format(number)) then
-        return { success = false, message = 'Could not take that from your account' }
+        return { success = false, messageKey = 'banking.couldNotTakeFromAccount', message = 'Could not take that from your account' }
     end
 
     local recvTitle, senderRef, senderPeer = shownSender(myNumber, anonymous)
@@ -315,13 +327,13 @@ function actions.send(src, payload)
 
     if not credited then
         bank.addMoney(src, amount, 'Transfer refund')
-        return { success = false, message = 'Could not reach the recipient' }
+        return { success = false, messageKey = 'banking.couldNotReachRecipient', message = 'Could not reach the recipient' }
     end
 
     local ts          = os.time()
     local senderLabel = note ~= '' and note or ('Sent to %s'):format(number)
-    store.insert(cid,  senderLabel,                           -amount, 'transfer', number,     ts)
-    store.insert(rcid, recvTitle,                              amount, 'transfer', senderPeer, ts)
+    store.insert(cid,  senderLabel,                           -amount, category, number,     ts)
+    store.insert(rcid, recvTitle,                              amount, category, senderPeer, ts)
     pruneLog(cid)
     pruneLog(rcid)
 
@@ -354,7 +366,7 @@ function actions.send(src, payload)
             balance = bank.getBalance(src) or (balance - amount),
             transaction = txOut({
                 id = 'new', label = senderLabel, amount = -amount,
-                category = 'transfer', counterparty = number, created_at = ts,
+                category = category, counterparty = number, created_at = ts,
             }, contactMapFor(cid)),
         },
     }
@@ -397,5 +409,9 @@ function actions.addExternal(identifier, data)
     end
     return true
 end
+
+---@type fun(amount: number): string "$1,234" formatter, shared with server.banking.standing so
+---both surfaces phrase money the same way.
+actions.formatMoney = formatMoney
 
 return actions

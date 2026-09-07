@@ -104,8 +104,12 @@ function BGRZ.SpawnVehicle(source, model, coords, warp, plate)
         spawnSource = coords,
         warp = warp and ped or nil,
     })
-    if not ok or not veh or veh == 0 then
+    if not ok or not netId or netId == 0 or not veh or veh == 0 then
         print(('[bgrz_core] SpawnVehicle falhou: %s'):format(tostring(netId)))
+        return nil
+    end
+    if not DoesEntityExist(veh) then
+        print(('[bgrz_core] SpawnVehicle não resolveu a entidade: %s'):format(tostring(netId)))
         return nil
     end
 

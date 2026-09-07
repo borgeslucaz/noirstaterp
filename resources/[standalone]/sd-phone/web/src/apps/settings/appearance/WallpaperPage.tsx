@@ -1,0 +1,300 @@
+import { useLayoutEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { Camera, ChevronRight, Flashlight } from 'lucide-react';
+
+import { device } from '@device';
+import { useGrid } from '@/device/grid';
+import { APP_LABEL_CLASS, appLabelStyle } from '@/shell/appLabel';
+import { appLabel, t } from '@/i18n';
+import { formatClockTime, formatLongDate, useDisplayClock } from '@/hooks/useClock';
+import { useIosPush } from '@/hooks/useIosPush';
+import { PushLayer } from '../SettingsSubPage';
+import { useTheme } from '@/stores/themeStore';
+import type { WallpaperTarget } from '@/stores/themeStore';
+import { resolveWallpaper } from '@/shell/wallpapers';
+import { Clockface } from '@/shell/lockClock';
+import { AppIconSVG } from '@/shell/AppIconSVG';
+import { Toggle } from '@/ui/Toggle';
+import { WallpaperPickerPage } from './WallpaperPickerPage';
+import { NavBar } from '@/ui/NavBar';
+
+// The previews are full-size replicas of the real Lockscreen/Homescreen render, scale-transformed
+// to thumbnail size - the geometry below is read from the device profile, the same source
+// shell/Homescreen.tsx reads, so the previews can't drift from the real screens.
+const { w: SW, h: SH } = device.screen;
+
+// Default first homescreen page: the first 12 non-dock apps in catalog order. Both lists are
+// filtered the way the real home grid is - a preview must never show an app the device lacks.
+const PAGE_APPS = [
+    { icon: 'mail',       label: 'Mail' },
+    { icon: 'maps',       label: 'Maps' },
+    { icon: 'compass',    label: 'Compass' },
+    { icon: 'music',      label: 'Music' },
+    { icon: 'weather',    label: 'Weather' },
+    { icon: 'clock',      label: 'Clock' },
+    { icon: 'calendar',   label: 'Calendar' },
+    { icon: 'notes',      label: 'Notes' },
+    { icon: 'voicememos', label: 'Voice Memos' },
+    { icon: 'bank',       label: 'Bank' },
+    { icon: 'health',     label: 'Health' },
+    { icon: 'documents',  label: 'Files' },
+].filter(a => !device.excludedApps.includes(a.icon));
+const DOCK_APPS = ['phone', 'messages', 'camera', 'photos'].filter(id => !device.excludedApps.includes(id));
+
+export function WallpaperPage({ onBack }: { onBack: () => void }) {
+    const { goBack, pageStyle, animating } = useIosPush(onBack);
+    const { wallpaperLock, wallpaperHome, blurLock, setBlurLock, blurHome, setBlurHome, lockClock, hour24 } =
+        useTheme('wallpaperLock', 'wallpaperHome', 'blurLock', 'setBlurLock', 'blurHome', 'setBlurHome', 'lockClock', 'hour24');
+    const [pickerTarget, setPickerTarget] = useState<WallpaperTarget | null>(null);
+
+    const now  = useDisplayClock();
+    const time = formatClockTime(now, hour24);
+    const date = formatLongDate(now);
+
+    const subNode = pickerTarget ? <WallpaperPickerPage target={pickerTarget} onBack={() => setPickerTarget(null)} /> : null;
+
+    return (
+        <PushLayer pageStyle={pageStyle} className="z-20" innerClassName="text-black dark:text-white" sub={subNode}>
+            <div className="h-11 shrink-0" aria-hidden />
+
+            <NavBar backLabel={t('settings.settings', 'Settings')} onBack={goBack} title={t('settings.wallpaper', 'Wallpaper')} hairline />
+
+            <div className="flex-1 overflow-y-auto no-scrollbar">
+                <div className="mt-6 flex flex-col gap-5 px-4 pb-10">
+
+                    <div className="overflow-hidden rounded-[10px] bg-surface">
+                        <button
+                            type="button"
+                            onClick={() => setPickerTarget('both')}
+                            className="relative flex w-full items-center px-4 py-3.5 active:bg-black/5 dark:active:bg-white/5"
+                        >
+                            <span className="flex-1 text-left text-[17px] text-black dark:text-white">
+                                {t('settings.pickAWallpaper', 'Pick a Wallpaper')}
+                            </span>
+                            <ChevronRight className="h-[17px] w-[17px] shrink-0 text-ios-gray3" strokeWidth={2.5} />
+                        </button>
+                    </div>
+
+                    <div className="overflow-hidden rounded-[10px] bg-surface">
+                        <div className="flex gap-3 p-4 pb-3">
+                            <PreviewThumb caption={t('settings.lockScreen', 'Lock Screen')} onPress={() => setPickerTarget('lock')}>
+                                <LockPreview wallpaper={wallpaperLock} blurred={blurLock} time={time} date={date} lockClock={lockClock} animating={animating} />
+                            </PreviewThumb>
+                            <PreviewThumb caption={t('settings.homeScreen', 'Home Screen')} onPress={() => setPickerTarget('home')}>
+                                <HomePreview wallpaper={wallpaperHome} blurred={blurHome} animating={animating} />
+                            </PreviewThumb>
+                        </div>
+                        <p className="pb-3 text-center text-[12px] text-ios-gray">
+                            {t('settings.tapPreviewHint', 'Tap a screen to change its wallpaper.')}
+                        </p>
+
+                        <div className="h-[0.5px] bg-ios-gray4 dark:bg-control" />
+
+                        <BlurRow label={t('settings.blurLockScreen', 'Blur Lock Screen')} on={blurLock} onToggle={() => setBlurLock(!blurLock)} />
+                        <div className="h-[0.5px] bg-ios-gray4 dark:bg-control" />
+                        <BlurRow label={t('settings.blurHomeScreen', 'Blur Home Screen')} on={blurHome} onToggle={() => setBlurHome(!blurHome)} />
+                    </div>
+
+                </div>
+            </div>
+        </PushLayer>
+    );
+}
+
+
+function BlurRow({ label, on, onToggle }: { label: string; on: boolean; onToggle: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onToggle}
+            className="flex w-full items-center px-4 py-3 active:bg-black/5 dark:active:bg-white/5"
+        >
+            <span className="flex-1 text-left text-[17px] font-normal text-black dark:text-white">{label}</span>
+            <div className="pointer-events-none">
+                <Toggle on={on} />
+            </div>
+        </button>
+    );
+}
+
+
+// Renders children on a full-size screen stage, scale-transformed to the thumb's measured
+// width - so every child uses the real screens' CSS values verbatim.
+function PreviewThumb({ caption, onPress, children }: { caption: string; onPress: () => void; children: ReactNode }) {
+    const ref = useRef<HTMLButtonElement>(null);
+    const [scale, setScale] = useState(0);
+    useLayoutEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        const measure = () => setScale(el.offsetWidth / SW);
+        measure();
+        const ro = new ResizeObserver(measure);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+    return (
+        <div className="flex flex-1 flex-col items-center gap-2">
+            <button
+                ref={ref}
+                type="button"
+                onClick={onPress}
+                aria-label={caption}
+                className="relative w-full select-none overflow-hidden rounded-[12px] shadow-md active:opacity-80"
+                style={{ aspectRatio: `${SW}/${SH}` }}
+            >
+                {scale > 0 && (
+                    <div className="pointer-events-none absolute left-0 top-0" style={{ width: SW, height: SH, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+                        {children}
+                    </div>
+                )}
+            </button>
+            <span className="text-[13px] text-ios-gray">{caption}</span>
+        </div>
+    );
+}
+
+
+function DynamicIsland() {
+    // A device with no cutout has none on its real screens either, so painting one here would
+    // be exactly the drift these previews exist to avoid.
+    if (!device.screen.island) return null;
+    return <div className="absolute left-1/2 top-[11px] -translate-x-1/2 rounded-full bg-black" style={{ width: 126, height: 37 }} />;
+}
+
+function HomeIndicatorBar() {
+    return (
+        <div className="absolute inset-x-0 bottom-0 flex justify-center pb-[5px]">
+            <div className="h-[5px] w-[134px] rounded-full bg-white/75" />
+        </div>
+    );
+}
+
+
+function LockPreview({ wallpaper, blurred, time, date, lockClock, animating }: {
+    wallpaper: string;
+    blurred:   boolean;
+    time:      string;
+    date:      string;
+    lockClock: Parameters<typeof Clockface>[0]['config'];
+    animating: boolean;
+}) {
+    return (
+        <div className="absolute inset-0 overflow-hidden">
+            <img
+                src={resolveWallpaper(wallpaper)}
+                className="absolute inset-0 h-full w-full object-cover"
+                style={{
+                    filter:     blurred ? 'blur(28px) saturate(0.85)' : undefined,
+                    transform:  blurred ? 'scale(1.08)'               : undefined,
+                    transition: 'filter 0.35s ease, transform 0.35s ease',
+                }}
+                alt=""
+                draggable={false}
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/5 to-black/55" />
+
+            <div className={`relative flex pt-28 ${lockClock.layout === 'left' ? 'justify-start pl-9' : lockClock.layout === 'right' ? 'justify-end pr-9' : 'justify-center'}`}>
+                <Clockface time={time} date={date} config={lockClock} size={94} />
+            </div>
+
+            <div className="absolute bottom-[46px] left-0 right-0 flex items-center justify-between px-10">
+                <QuickCircle animating={animating}><Flashlight className="h-[29px] w-[29px] text-white" strokeWidth={2.2} /></QuickCircle>
+                <QuickCircle animating={animating}><Camera className="h-[29px] w-[29px] text-white" strokeWidth={2.2} /></QuickCircle>
+            </div>
+
+            <DynamicIsland />
+            <HomeIndicatorBar />
+        </div>
+    );
+}
+
+function QuickCircle({ children, animating }: { children: ReactNode; animating: boolean }) {
+    return (
+        <div
+            className={`flex h-[70px] w-[70px] items-center justify-center rounded-full ring-1 ring-inset ring-white/[0.12] ${animating ? 'bg-black/55' : 'bg-black/30 backdrop-blur-2xl backdrop-saturate-150'}`}
+            style={{ boxShadow: '0 2px 10px rgba(0,0,0,0.28)' }}
+        >
+            {children}
+        </div>
+    );
+}
+
+
+function HomePreview({ wallpaper, blurred, animating }: { wallpaper: string; blurred: boolean; animating: boolean }) {
+    const { cols: COLS, padX: PAD_X, icon: ICON, colStride: COL_STRIDE, rowY0: ROW_Y0, rowStride: ROW_STRIDE, stripTop } = useGrid();
+    return (
+        <div className="absolute inset-0 overflow-hidden">
+            <div
+                className="absolute inset-0"
+                style={{
+                    backgroundImage:    `url(${resolveWallpaper(wallpaper)})`,
+                    backgroundSize:     'cover',
+                    backgroundPosition: 'center',
+                    filter:     blurred ? 'blur(28px) saturate(0.85)' : undefined,
+                    transform:  blurred ? 'scale(1.08)'               : undefined,
+                    transition: 'filter 0.35s ease, transform 0.35s ease',
+                }}
+            />
+            <div className="absolute inset-0 bg-black/20" />
+            <div className="absolute inset-x-0 bottom-0 h-52 bg-gradient-to-t from-black/40 to-transparent" />
+
+            {PAGE_APPS.map((app, i) => (
+                <div
+                    key={app.icon}
+                    className="absolute"
+                    style={{ left: PAD_X + (i % COLS) * COL_STRIDE, top: stripTop + ROW_Y0 + Math.floor(i / COLS) * ROW_STRIDE, width: ICON }}
+                >
+                    <PreviewIcon icon={app.icon} label={appLabel({ id: app.icon, label: app.label })} />
+                </div>
+            ))}
+
+            <div className="absolute bottom-[132px] left-0 right-0 flex justify-center">
+                <div className={`flex items-center gap-[7px] rounded-full px-2.5 py-[7px] shadow-sm ${animating ? 'bg-black/55' : 'bg-black/35 backdrop-blur-md'}`}>
+                    <div className="h-[7px] w-[7px] rounded-full bg-white" />
+                    <div className="h-[7px] w-[7px] rounded-full bg-white opacity-[0.38]" />
+                </div>
+            </div>
+
+            <div className="absolute bottom-5 left-4 right-4">
+                <div className={`flex items-center justify-around rounded-[28px] border border-white/20 px-4 py-3.5 ${animating ? 'bg-white/30' : 'bg-white/15 backdrop-blur-2xl'}`}>
+                    {DOCK_APPS.map(id => <PreviewIcon key={id} icon={id} />)}
+                </div>
+            </div>
+
+            <DynamicIsland />
+            <HomeIndicatorBar />
+        </div>
+    );
+}
+
+
+// Static replica of shell/AppIcon.tsx's resting look (tile, radius, shadow, label).
+function PreviewIcon({ icon, label }: { icon: string; label?: string }) {
+    const grid = useGrid();
+    const TILE = grid.icon;
+    return (
+        <div className="flex w-full flex-col items-center gap-[7px]">
+            <div
+                className="relative overflow-hidden"
+                style={{
+                    width:        TILE,
+                    height:       TILE,
+                    borderRadius: '27.6%',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.38), 0 0 0 0.5px rgba(0,0,0,0.12)',
+                }}
+            >
+                <div style={{ width: 60, height: 60, transform: `scale(${TILE / 60})`, transformOrigin: '0 0' }}>
+                    <AppIconSVG icon={icon} />
+                </div>
+            </div>
+            {label && (
+                <span
+                    className={APP_LABEL_CLASS}
+                    style={appLabelStyle(grid)}
+                >
+                    {label}
+                </span>
+            )}
+        </div>
+    );
+}
