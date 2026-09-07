@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import InventoryComponent from './components/inventory';
 import useNuiEvent from './hooks/useNuiEvent';
 import { Items } from './store/items';
@@ -201,9 +201,8 @@ debugData([
 ]);
 
 const App: React.FC = () => {
-  const dispatch = useAppDispatch();
-  const manager = useDragDropManager();
-  const [noBackdrop, setNoBackdrop] = useState(false);
+	const dispatch = useAppDispatch();
+	const manager = useDragDropManager();
 
   useNuiEvent<{
     locale: { [key: string]: string };
@@ -228,43 +227,12 @@ const App: React.FC = () => {
 
   fetchNui('uiLoaded', {});
 
-  useNuiEvent('closeInventory', () => {
-    manager.dispatch({ type: 'dnd-core/END_DRAG' });
-    setNoBackdrop(false); // Reset on close
-  });
+	useNuiEvent('closeInventory', () => {
+		manager.dispatch({ type: 'dnd-core/END_DRAG' });
+	});
 
-  useNuiEvent<boolean>('setNoBackdrop', setNoBackdrop);
-
-  // Apply no-backdrop-mode class to body and #root for proper pointer-events passthrough
-  useEffect(() => {
-    const root = document.getElementById('root');
-    if (noBackdrop) {
-      document.body.classList.add('no-backdrop-mode');
-      root?.classList.add('no-backdrop-mode');
-    } else {
-      document.body.classList.remove('no-backdrop-mode');
-      root?.classList.remove('no-backdrop-mode');
-    }
-  }, [noBackdrop]);
-
-  // When in no-backdrop mode, detect clicks on the right side and transfer focus to sd-crafting
-  useEffect(() => {
-    if (!noBackdrop) return;
-
-    const handleClick = (e: MouseEvent) => {
-      const screenMidpoint = window.innerWidth / 2;
-      if (e.clientX > screenMidpoint) {
-        // Click was on the right side - transfer focus to sd-crafting
-        fetchNui('transferFocusToCrafting', {});
-      }
-    };
-
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [noBackdrop]);
-
-  return (
-    <div className={`app-wrapper${noBackdrop ? ' no-backdrop-mode' : ''}`}>
+	return (
+		<div className="app-wrapper">
       <InventoryComponent />
       <DragPreview />
       <KeyPress />

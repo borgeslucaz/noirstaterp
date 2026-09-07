@@ -1,14 +1,11 @@
 if not lib then return end
 
-local Grid = require 'modules.grid.shared'
-
 local Inventory = {}
 
 ---@type table<any, OxInventory>
 local Inventories = {}
 
 ---@class OxInventory
----@field backpack? string
 local OxInventory = {}
 OxInventory.__index = OxInventory
 
@@ -17,15 +14,15 @@ OxInventory.__index = OxInventory
 function OxInventory:openInventory(inv)
 	if not self?.player then return end
 
-	inv = Inventory(inv)
+	inv = inv and inv ~= self and Inventory(inv) or nil --[[@as OxInventory? ]]
+	self.open = inv?.id or self.id
 
-	if not inv then return end
+    if inv then
+        inv:set('open', true)
+        inv.openedBy[self.id] = true
+    end
 
-	inv:set('open', true)
-	inv.openedBy[self.id] = true
-	self.open = inv.id
-
-	TriggerEvent('ox_inventory:openedInventory', self.id, inv.id)
+    TriggerEvent('ox_inventory:openedInventory', self.id, inv?.id)
 end
 
 ---Close a player's inventory.
@@ -33,25 +30,22 @@ end
 function OxInventory:closeInventory(noEvent)
 	if not self.player or not self.open then return end
 
-	local inv = Inventory(self.open)
+	local inv = self.open ~= self.id and Inventory(self.open)
 
-	if not inv then return end
+    if inv then
+        inv.openedBy[self.id] = nil
+        inv:set('open', false)
+    end
 
-	local container = Inventory.GetOpenContainer(self)
-
-	if container then container.openedBy[self.id] = nil end
-
-	inv.openedBy[self.id] = nil
-	inv:set('open', false)
-	self.open = false
-	self.currentShop = nil
-	self.containerSlot = nil
+    self.open = false
+    self.currentShop = nil
+    self.containerSlot = nil
 
 	if not noEvent then
 		TriggerClientEvent('ox_inventory:closeInventory', self.id, true)
 	end
 
-	TriggerEvent('ox_inventory:closedInventory', self.id, inv.id)
+	TriggerEvent('ox_inventory:closedInventory', self.id, inv?.id)
 end
 
 ---@alias updateSlot { item: SlotWithItem | { slot: number }, inventory: string|number }
@@ -94,16 +88,22 @@ for _, stash in pairs(lib.load('data.stashes') or {}) do
 		maxWeight = stash.weight,
 		groups = stash.groups or stash.jobs,
 		coords = shared.target and stash.target?.loc or stash.coords,
-        distance = stash.distance or 10,
-        gridRows = tonumber(stash.gridRows)
+        distance = stash.distance or 10
 	}
 end
 
 local GetVehicleNumberPlateText = GetVehicleNumberPlateText
 
+---@class OpenInventoryData
+---@field id string | number
+---@field owner? string | number | boolean
+---@field type? string
+---@field entityId? number
+---@field [string] unknown
+
 ---Atempts to lazily load inventory data from the database or create a new player-owned instance for "personal" stashes
----@param data table
----@param player table
+---@param data OpenInventoryData
+---@param player OxInventory
 ---@param ignoreSecurityChecks boolean
 ---@return OxInventory | false | nil
 local function loadInventoryData(data, player, ignoreSecurityChecks)
@@ -203,9 +203,10 @@ local function loadInventoryData(data, player, ignoreSecurityChecks)
 			inventory = Inventories[owner and ('%s:%s'):format(stash.name, owner) or stash.name]
 
 			if not inventory then
-				inventory = Inventory.Create(stash.name, stash.label or stash.name, 'stash', stash.slots, 0, stash.maxWeight, owner, nil, stash.groups, nil, stash.gridRows)
+				inventory = Inventory.Create(stash.name, stash.label or stash.name, 'stash', stash.slots, 0, stash.maxWeight, owner, nil, stash.groups)
                 inventory.coords = stash.coords
                 inventory.distance = stash.distance
+                inventory.instance = stash.instance
 			end
 		end
 	end
@@ -295,9 +296,9 @@ function Inventory.CloseAll(inv, ignoreId)
 		return TriggerClientEvent('ox_inventory:closeInventory', -1, true)
 	end
 
-	inv = Inventory(inv) --[[@as OxInventory?]]
+	local inventory = Inventory(inv) --[[@as OxInventory?]]
 
-	if not inv then return end
+	if not inventory then return end
 
 	for playerId in pairs(inv.openedBy) do
 		local playerInv = Inventory(playerId)
@@ -375,263 +376,30 @@ local function minimal(inv)
 	return inventory
 end
 
----@param inv OxInventory?
----@return table? bindings
-local function fastSlots(inv)
-	if type(inv) ~= 'table' or inv.type ~= 'player' then return end
-	if Grid.getFastSlotCount() == 0 then return end
-
-	local list = inv.fastSlots
-
-	if not list then
-		list = {}
-		inv.fastSlots = list
-	end
-
-	return list
-end
-
----@param list table
----@param slot number
----@return number? index
-local function fastSlotIndexOf(list, slot)
-	for index, bound in pairs(list) do
-		if bound == slot then return index end
-	end
-end
-
----@param inv OxInventory
-local function syncFastSlots(inv)
-	inv.fastSlotsChanged = true
-
-	TriggerClientEvent('ox_inventory:setFastSlots', inv.id, inv.fastSlots or {})
-end
-
----@param inv OxInventory?
----@param fromSlot number
----@param toSlot number?
-local function moveFastSlot(inv, fromSlot, toSlot)
-	local list = type(inv) == 'table' and inv.type == 'player' and inv.fastSlots or nil
-
-	if not list then return end
-
-	local index = fastSlotIndexOf(list, fromSlot)
-
-	if not index then return end
-
-	if toSlot and fastSlotIndexOf(list, toSlot) then toSlot = nil end
-
-	list[index] = toSlot
-
-	syncFastSlots(inv)
-end
-
----@param inv OxInventory?
----@param sync boolean?
----@return boolean changed
-local function pruneFastSlots(inv, sync)
-	local list = type(inv) == 'table' and inv.type == 'player' and inv.fastSlots or nil
-
-	if not list then return false end
-
-	local changed = false
-	local baseSlots = Grid.getBaseSlots(inv)
-
-	for index, slot in pairs(list) do
-		if not Grid.isFastSlot(index) or not Grid.isSlotId(slot, baseSlots) or not inv.items[slot] then
-			list[index] = nil
-			changed = true
-		end
-	end
-
-	if changed and sync then syncFastSlots(inv) end
-
-	return changed
-end
-
----@param fromInventory OxInventory
----@param toInventory OxInventory
----@param data SwapSlotData
----@param action string 'swap' | 'stack' | 'move'
----@param vacated boolean the source stack left the source slot entirely
-local function rebindAfterSwap(fromInventory, toInventory, data, action, vacated)
-	local fromList = fromInventory.type == 'player' and fromInventory.fastSlots or nil
-	local toList = toInventory.type == 'player' and toInventory.fastSlots or nil
-
-	if not fromList and not toList then return end
-
-	local sameInventory = fromInventory.id == toInventory.id
-	local fromIndex = fromList and fastSlotIndexOf(fromList, data.fromSlot) or nil
-	local toIndex = toList and fastSlotIndexOf(toList, data.toSlot) or nil
-
-	if not fromIndex and not toIndex then return end
-
-	if action == 'swap' then
-		if sameInventory then
-			if fromIndex then fromList[fromIndex] = data.toSlot end
-			if toIndex then toList[toIndex] = data.fromSlot end
-
-			return syncFastSlots(fromInventory)
-		end
-
-		if fromIndex then
-			fromList[fromIndex] = nil
-			syncFastSlots(fromInventory)
-		end
-
-		if toIndex then
-			toList[toIndex] = nil
-			syncFastSlots(toInventory)
-		end
-
-		return
-	end
-
-	if not fromIndex or not vacated then return end
-
-	moveFastSlot(fromInventory, data.fromSlot, sameInventory and data.toSlot or nil)
-end
-
----@param inv OxInventory
-local function reclaimStrandedSlots(inv)
-	local list = fastSlots(inv)
-
-	if not list then return end
-
-	local total = inv.slots
-	local stranded, count = {}, 0
-
-	for slot, item in pairs(inv.items) do
-		if slot > total then
-			count += 1
-			stranded[count] = { band = slot - total, slot = slot, item = item }
-		end
-	end
-
-	if count == 0 then return end
-
-	table.sort(stranded, function(a, b) return a.band < b.band end)
-
-	local gridLayout = Grid.isGridLayout()
-	local layout = gridLayout and Grid.getLayout(inv) or nil
-	local baseSlots = Grid.getBaseSlots(inv)
-
-	for i = 1, count do
-		local entry = stranded[i]
-		local item = entry.item
-		local width, height = Grid.getItemSize(Grid.getItem(item.name), item.metadata)
-
-		for target = 1, baseSlots do
-			if not inv.items[target] and (not layout or Grid.fits(layout, target, width, height)) then
-				inv.items[entry.slot] = nil
-				item.slot = target
-				inv.items[target] = item
-
-				if layout then Grid.mark(layout, target, width, height) end
-				if Grid.isFastSlot(entry.band) then list[entry.band] = target end
-
-				inv.changed = true
-				inv.fastSlotsChanged = true
-				break
-			end
-		end
-
-		if inv.items[entry.slot] then
-			warn(("no room to reclaim %sx %s from the removed hotbar band for '%s'; it stays hidden until a cell frees up"):format(item.count, item.name, tostring(inv.owner)))
-		end
-	end
-end
-
----@param inv OxInventory
-local function saveFastSlots(inv)
-	if not inv.fastSlotsChanged or inv.type ~= 'player' or not server.saveFastSlots then return end
-
-	inv.fastSlotsChanged = false
-
-	server.saveFastSlots(inv, inv.fastSlots or {})
-end
-
----@param inv OxInventory?
----@return table bindings a copy, safe to hand out
-function Inventory.GetFastSlots(inv)
-	local list = fastSlots(Inventory(inv))
-
-	return list and table.clone(list) or {}
-end
-
-exports('GetFastSlots', Inventory.GetFastSlots)
+local Items = require 'modules.items.server'
 
 ---@param inv inventory
----@param index number fast slot, 1-based
----@param slot number? grid slot holding the stack to bind
----@return boolean success
-function Inventory.SetFastSlot(inv, index, slot)
-	inv = Inventory(inv) --[[@as OxInventory]]
-
-	local list = fastSlots(inv)
-
-	if not list or not Grid.isFastSlot(index) then return false end
-
-	if slot ~= nil then
-		if not Grid.isSlotId(slot, Grid.getBaseSlots(inv)) or not inv.items[slot] then return false end
-
-		local existing = fastSlotIndexOf(list, slot)
-
-		if existing == index then return true end
-		if existing then list[existing] = nil end
-	elseif list[index] == nil then
-		return false
-	end
-
-	list[index] = slot
-
-	syncFastSlots(inv)
-
-	return true
-end
-
-exports('SetFastSlot', Inventory.SetFastSlot)
-
----@param inv OxInventory?
----@param list table?
-function Inventory.RestoreFastSlots(inv, list)
-	if not fastSlots(inv) then return end
-
-	local restored = type(list) == 'table' and next(list) ~= nil
-
-	if restored then inv.fastSlots = list end
-
-	local pruned = pruneFastSlots(inv, false)
-
-	if restored and not pruned then inv.fastSlotsChanged = false end
-end
-
-Inventory.ClearFastSlot = function(inv, slot) moveFastSlot(inv, slot, nil) end
-
----@param inv OxInventory?
-local function refreshBackpackDeferred(inv)
-	if not Inventory.RefreshBackpack(inv) then return end
-
-	CreateThread(function() Inventory.SyncBackpack(inv) end)
-end
-
----@param inv inventory
----@param item table
+---@param item table | string
 ---@param count number
 ---@param metadata any
----@param slot any
+---@param slot number
+---@return boolean, string | SlotWithItem | nil
 function Inventory.SetSlot(inv, item, count, metadata, slot)
 	inv = Inventory(inv) --[[@as OxInventory]]
 
-	if not inv then return end
+    if not inv?.slots then return false, 'invalid_inventory' end
+
+   	if type(count) ~= 'number' then return false, 'invalid_count' end
+
+    count = math.floor(count + 0.5)
+
+    if type(item) ~= 'table' then
+        item = Items(item)
+
+        if not item then return false, 'invalid_item' end
+    end
 
 	local currentSlot = inv.items[slot]
-
-	if not currentSlot then
-		if not Grid.isSlotId(slot, inv.slots) then return end
-		if Grid.isEquipSlot(inv, slot) and not Grid.canEquip(inv, slot, item) then return end
-	end
-
 	local newCount = currentSlot and currentSlot.count + count or count
 	local newWeight = currentSlot and inv.weight - currentSlot.weight or inv.weight
 
@@ -651,30 +419,23 @@ function Inventory.SetSlot(inv, item, count, metadata, slot)
 	inv.items[slot] = currentSlot
 	inv.changed = true
 
-	if not currentSlot then moveFastSlot(inv, slot, nil) end
-
-	Inventory.RefreshEquipment(inv, slot)
-
-	return currentSlot
+	return true, currentSlot
 end
-
-local Items = require 'modules.items.server'
-
-Grid.setItemResolver(function(name) return Items(name) end)
 
 CreateThread(function()
     Inventory.accounts = server.accounts
     TriggerEvent('ox_inventory:loadInventory', Inventory)
 end)
 
+---@param inv inventory
 function Inventory.GetAccountItemCounts(inv)
-    inv = Inventory(inv)
+    local inventory = Inventory(inv)
 
-    if not inv then return end
+    if not inventory then return end
 
     local accounts = table.clone(server.accounts)
 
-	for _, v in pairs(inv.items) do
+	for _, v in pairs(inventory.items) do
 		if accounts[v.name] then
 			accounts[v.name] += v.count
 		end
@@ -818,21 +579,14 @@ end, true)
 ---@param slots number
 ---@param weight number
 ---@param maxWeight number
----@param owner string | number | boolean
+---@param owner? string | number | boolean
 ---@param items? table
 ---@param dbId? string | number
----@param gridRows? number grid rows for this inventory alone, overriding `containerRows`
 ---@return OxInventory?
 --- This should only be utilised internally!
 --- To create a stash, please use `exports.ox_inventory:RegisterStash` instead.
-function Inventory.Create(id, label, invType, slots, weight, maxWeight, owner, items, groups, dbId, gridRows)
+function Inventory.Create(id, label, invType, slots, weight, maxWeight, owner, items, groups, dbId)
 	if invType == 'player' and hasActiveInventory(id, owner) then return end
-
-	if invType == 'player' then
-		slots = (slots or 0) + Grid.getReservedCount()
-	elseif invType ~= 'shop' and invType ~= 'crafting' then
-		slots = Grid.scaleContainerSlots(slots, gridRows)
-	end
 
 	local self = {
 		id = id,
@@ -869,24 +623,11 @@ function Inventory.Create(id, label, invType, slots, weight, maxWeight, owner, i
 
 	if not items then
 		self.items, self.weight = Inventory.Load(self.dbId, invType, owner)
-
-		if invType ~= 'player' and Inventories[self.id] then return Inventories[self.id] end
 	elseif weight == 0 and next(items) then
 		self.weight = Inventory.CalculateWeight(items)
 	end
 
 	Inventories[self.id] = setmetatable(self, OxInventory)
-
-	if invType == 'player' then
-		reclaimStrandedSlots(Inventories[self.id])
-		Inventory.RefreshWorn(Inventories[self.id])
-
-		-- The worn bag has to be resolved before the inventory is handed out; it is the only
-		-- source of truth for the `backpack` swap endpoint. No-op unless clothing is enabled.
-		Inventory.RefreshBackpack(Inventories[self.id])
-		Inventory.RefreshBelt(Inventories[self.id])
-	end
-
 	return Inventories[self.id]
 end
 
@@ -913,7 +654,7 @@ function Inventory.Remove(inv)
         end
     end
 
-    if not inv.datastore and inv.changed then
+    if not inv.datastore and (inv.changed or inv.player) then
         Inventory.Save(inv)
     end
 
@@ -981,8 +722,6 @@ function Inventory.Save(inv)
 
     local data = next(buffer) and json.encode(buffer) or nil
     inv.changed = false
-
-    saveFastSlots(inv)
 
     if inv.player then
         return shared.framework ~= 'esx' and db.savePlayer(inv.owner, data)
@@ -1067,8 +806,6 @@ local function generateItems(inv, invType, items)
 	end
 
 	local returnData, totalWeight = table.create(#items, 0), 0
-	local layout = Grid.isGridLayout() and Grid.newLayout(type(inv) == 'table' and inv.slots or nil) or nil
-
 	for i = 1, #items do
 		local v = items[i]
 		local item = Items(v[1])
@@ -1077,14 +814,8 @@ local function generateItems(inv, invType, items)
 		else
 			local metadata, count = Items.Metadata(inv, item, v[3] or {}, v[2])
 			local weight = Inventory.SlotWeight(item, {count=count, metadata=metadata})
-			local slot = i
 			totalWeight = totalWeight + weight
-
-			if layout then
-				slot = Grid.claim(layout, Grid.getItemSize(item, metadata))
-			end
-
-			returnData[slot] = {name = item.name, label = item.label, weight = weight, slot = slot, count = count, description = item.description, metadata = metadata, stack = item.stack, close = item.close}
+			returnData[i] = {name = item.name, label = item.label, weight = weight, slot = i, count = count, description = item.description, metadata = metadata, stack = item.stack, close = item.close}
 		end
 	end
 
@@ -1093,7 +824,7 @@ end
 
 ---@param id string|number
 ---@param invType string
----@param owner string | number | boolean
+---@param owner? string | number | boolean
 function Inventory.Load(id, invType, owner)
     if not invType then return end
 
@@ -1204,251 +935,6 @@ function Inventory.ContainerWeight(container, metaWeight, playerInventory)
 	container.weight += metaWeight
 	container.metadata.weight = metaWeight
 	playerInventory.weight += container.weight
-end
-
-local BACKPACK_CLOTHING_SLOT = 'backpack'
-local backpackSlotId
-local backpackSlotResolved = false
-
----@return number?
-function Inventory.GetBackpackSlot()
-	if backpackSlotResolved then return backpackSlotId end
-
-	local equipStart = Grid.getEquipStart()
-	local equipSlots = equipStart and Grid.getEquipSlots()
-
-	if equipSlots then
-		for i = 1, #equipSlots do
-			if equipSlots[i].name == BACKPACK_CLOTHING_SLOT then
-				-- `Grid.getEquipStart()` is the first equipment slot, so the i-th one is at
-				-- `start + i - 1`. The index is never spelled out from `shared.playerslots` here.
-				backpackSlotId = equipStart + i - 1
-				break
-			end
-		end
-	end
-
-	backpackSlotResolved = true
-
-	return backpackSlotId
-end
-
----@param inv OxInventory?
----@return boolean changed whether `inv.backpack` now names something else
-function Inventory.RefreshBackpack(inv)
-	-- `inv.player` is only attached after `Inventory.Create` returns, so the type is the test.
-	if not inv or inv.type ~= 'player' then return false end
-
-	local previous = inv.backpack
-	local slotId = Inventory.GetBackpackSlot()
-	local slotData = slotId and inv.items[slotId]
-	local metadata = slotData and slotData.metadata
-
-	inv.backpack = (
-		slotData
-		and Items.containers[slotData.name]
-		and type(metadata) == 'table'
-		and type(metadata.container) == 'string'
-		and type(metadata.size) == 'table'
-	) and metadata.container or nil
-
-	return inv.backpack ~= previous
-end
-
-local BELT_CLOTHING_SLOT = 'belt'
-local beltSlotId
-local beltSlotResolved = false
-
-local beltCapacity = {
-	police_duty_belt = 8000,
-	police_duty_belt_heavy = 14000,
-}
-
----@return number?
-function Inventory.GetBeltSlot()
-	if beltSlotResolved then return beltSlotId end
-
-	local equipStart = Grid.getEquipStart()
-	local equipSlots = equipStart and Grid.getEquipSlots()
-
-	if equipSlots then
-		for i = 1, #equipSlots do
-			if equipSlots[i].name == BELT_CLOTHING_SLOT then
-				beltSlotId = equipStart + i - 1
-				break
-			end
-		end
-	end
-
-	beltSlotResolved = true
-
-	return beltSlotId
-end
-
----@param inv OxInventory?
----@return boolean changed
-function Inventory.RefreshBelt(inv)
-	if not inv or inv.type ~= 'player' then return false end
-
-	local slotId = Inventory.GetBeltSlot()
-	local slotData = slotId and inv.items[slotId]
-	local bonus = slotData and beltCapacity[slotData.name] or 0
-	local applied = inv.beltWeightBonus or 0
-
-	if applied == bonus then return false end
-
-	inv.beltWeightBonus = bonus
-
-	Inventory.SetMaxWeight(inv, inv.maxWeight - applied + bonus)
-
-	return true
-end
-
----@param a table
----@param b table
----@return boolean
-local function sameWorn(a, b)
-	for name, item in pairs(a) do
-		if b[name] ~= item then return false end
-	end
-
-	for name in pairs(b) do
-		if a[name] == nil then return false end
-	end
-
-	return true
-end
-
----@param inv OxInventory?
----@return table worn map of clothing slot name to the item name occupying it
-function Inventory.GetWorn(inv)
-	inv = Inventory(inv) --[[@as OxInventory]]
-
-	local worn = {}
-
-	if type(inv) ~= 'table' or inv.type ~= 'player' then return worn end
-
-	local slots = Grid.getEquipSlots()
-	local start = Grid.getEquipStart()
-
-	if not slots or not start then return worn end
-
-	for i = 1, #slots do
-		local def = slots[i]
-
-		if def.wearable then
-			local item = inv.items[start + i - 1]
-
-			if item then worn[def.name] = item.name end
-		end
-	end
-
-	return worn
-end
-
-exports('GetWorn', Inventory.GetWorn)
-
----@param inv OxInventory?
----@param slot any
-function Inventory.RefreshEquipment(inv, slot)
-	if slot == Inventory.GetBackpackSlot() then refreshBackpackDeferred(inv) end
-	if slot == Inventory.GetBeltSlot() then Inventory.RefreshBelt(inv) end
-
-	Inventory.RefreshWorn(inv, slot)
-end
-
----@param inv OxInventory?
----@param slot any? when given, does nothing unless it is a wearable equipment slot
----@return boolean changed
-function Inventory.RefreshWorn(inv, slot)
-	if type(inv) ~= 'table' or inv.type ~= 'player' then return false end
-
-	if slot ~= nil then
-		local def = Grid.getEquipSlotDef(inv, slot)
-
-		if not def or not def.wearable then return false end
-	end
-
-	local worn = Inventory.GetWorn(inv)
-
-	if inv.worn and sameWorn(inv.worn, worn) then return false end
-
-	inv.worn = worn
-
-	TriggerClientEvent('ox_inventory:setWorn', inv.id, worn)
-
-	return true
-end
-
----@param inv OxInventory?
----@return OxInventory?
-function Inventory.GetBackpack(inv)
-	if not inv then return end
-
-	Inventory.RefreshBackpack(inv)
-
-	if not inv.backpack then return end
-
-	local backpack = Inventory(inv.backpack)
-
-	if backpack then return backpack end
-
-	return Inventory.GetContainerFromSlot(inv, Inventory.GetBackpackSlot()) or nil
-end
-
----The worn bag serialised for the NUI, or nil when none is worn. Same shape as
----`leftInventory`/`rightInventory`; `type` is the literal selector the client sends back.
----@param inv OxInventory?
----@return table?
-function Inventory.GetBackpackPayload(inv)
-	local backpack = Inventory.GetBackpack(inv)
-
-	if not backpack then return end
-
-	return {
-		id = backpack.id,
-		label = backpack.label,
-		type = BACKPACK_CLOTHING_SLOT,
-		slots = backpack.slots,
-		weight = backpack.weight,
-		maxWeight = backpack.maxWeight,
-		items = backpack.items,
-	}
-end
-
----Push the worn bag to its owner. Sending nothing is meaningful: the UI drops the third panel
----when the field is absent.
----@param inv OxInventory?
-function Inventory.SyncBackpack(inv)
-	if not inv or inv.type ~= 'player' then return end
-
-	TriggerClientEvent('ox_inventory:setBackpack', inv.id, Inventory.GetBackpackPayload(inv))
-end
-
----@param inv OxInventory?
----@return OxInventory?
-function Inventory.GetOpenContainer(inv)
-	if not inv or inv.type ~= 'player' or not inv.containerSlot then return end
-
-	return Inventory.GetContainerFromSlot(inv, inv.containerSlot)
-end
-
----@param inv OxInventory?
----@return table?
-function Inventory.GetContainerPayload(inv)
-	local container = Inventory.GetOpenContainer(inv)
-
-	if not container then return end
-
-	return {
-		id = container.id,
-		label = container.label,
-		type = 'container',
-		slots = container.slots,
-		weight = container.weight,
-		maxWeight = container.maxWeight,
-		items = container.items,
-	}
 end
 
 ---@param inv inventory
@@ -1652,25 +1138,16 @@ function Inventory.AddItem(inv, item, count, metadata, slot, cb)
 
 	local toSlot, slotMetadata, slotCount
 	local success, response = false
+	local invokingResource = server.loglevel > 1 and GetInvokingResource()
 
 	metadata = assertMetadata(metadata)
-
-	-- Equipment slots and grid geometry are never chosen automatically; an explicitly
-	-- requested slot has to satisfy both before it is accepted.
-	local baseSlots = Grid.getBaseSlots(inv)
-	local gridLayout = Grid.isGridLayout()
-	local width, height = Grid.getItemSize(item)
 
 	if slot then
 		local slotData = inv.items[slot]
 		slotMetadata, slotCount = Items.Metadata(inv.id, item, metadata and table.clone(metadata) or {}, count)
 
-		if Grid.isSlotId(slot, inv.slots) and (not slotData or (item.stack and slotData.name == item.name and table.matches(slotData.metadata, slotMetadata))) then
-			if Grid.isEquipSlot(inv, slot) then
-				if Grid.canEquip(inv, slot, item) then toSlot = slot end
-			elseif slotData or not gridLayout or Grid.canPlace(inv, slot, width, height, slot) then
-				toSlot = slot
-			end
+		if not slotData or (item.stack and slotData.name == item.name and table.matches(slotData.metadata, slotMetadata)) then
+			toSlot = slot
 		end
 	end
 
@@ -1678,21 +1155,16 @@ function Inventory.AddItem(inv, item, count, metadata, slot, cb)
 		local items = inv.items
 		slotMetadata, slotCount = Items.Metadata(inv.id, item, metadata and table.clone(metadata) or {}, count)
 
-		local layout = gridLayout and Grid.getLayout(inv) or nil
-
-		for i = 1, baseSlots do
+		for i = 1, inv.slots do
 			local slotData = items[i]
-			local canPlace = slotData ~= nil or not layout or Grid.fits(layout, i, width, height)
 
 			if item.stack and slotData ~= nil and slotData.name == item.name and table.matches(slotData.metadata, slotMetadata) then
 				toSlot = i
 				break
-			elseif not item.stack and not slotData and canPlace then
+			elseif not item.stack and not slotData then
 				if not toSlot then toSlot = {} end
 
 				toSlot[#toSlot + 1] = { slot = i, count = slotCount, metadata = slotMetadata }
-
-				if layout then Grid.mark(layout, i, width, height) end
 
 				if count == slotCount then
 					break
@@ -1700,7 +1172,7 @@ function Inventory.AddItem(inv, item, count, metadata, slot, cb)
 
 				count -= 1
 				slotMetadata, slotCount = Items.Metadata(inv.id, item, metadata and table.clone(metadata) or {}, count)
-			elseif not toSlot and not slotData and canPlace then
+			elseif not toSlot and not slotData then
 				toSlot = i
 			end
 		end
@@ -1710,7 +1182,6 @@ function Inventory.AddItem(inv, item, count, metadata, slot, cb)
 
 	inv.changed = true
 
-	local invokingResource = server.loglevel > 1 and GetInvokingResource()
 	local toSlotType = type(toSlot)
 
 	if toSlotType == 'number' then
@@ -1832,16 +1303,13 @@ function Inventory.GetItemSlots(inv, item, metadata, strict)
 	inv = Inventory(inv) --[[@as OxInventory]]
 	if not inv?.slots then return end
 
-	-- Equipment slots are not available for storage, so they never count as free space.
-	local baseSlots = Grid.getBaseSlots(inv)
-	local totalCount, slots, emptySlots = 0, {}, baseSlots
+	local totalCount, slots, emptySlots = 0, {}, inv.slots
 
 	if strict == nil then strict = true end
 	local tablematch = strict and table.matches or table.contains
 
 	for k, v in pairs(inv.items) do
-		if k <= baseSlots then emptySlots -= 1 end
-
+		emptySlots -= 1
 		if v.name == item.name then
 			if metadata and v.metadata == nil then
 				v.metadata = {}
@@ -1851,12 +1319,6 @@ function Inventory.GetItemSlots(inv, item, metadata, strict)
 				slots[k] = v.count
 			end
 		end
-	end
-
-	if Grid.isGridLayout() then
-		-- Free cells mean nothing on their own; what matters is how many copies of this
-		-- item's footprint could still be laid down.
-		emptySlots = Grid.countPlacements(inv, Grid.getItemSize(item))
 	end
 
 	return slots, totalCount, emptySlots
@@ -1882,7 +1344,21 @@ function Inventory.RemoveItem(inv, item, count, metadata, slot, ignoreTotal, str
 
 	inv = Inventory(inv) --[[@as OxInventory]]
 
-	if not inv?.slots then return false, 'invalid_inventory' end
+    if not inv?.slots then return false, 'invalid_inventory' end
+
+    if slot then
+        local slotItem = inv.items[slot]
+
+        if not slotItem then
+            return false, 'no_item_in_slot'
+        end
+
+        if count > slotItem.count then
+            if not ignoreTotal then return false, 'not_enough_items_in_slot' end
+
+            count = slotItem.count
+        end
+    end
 
 	metadata = assertMetadata(metadata)
 	if strict == nil then strict = true end
@@ -1900,7 +1376,12 @@ function Inventory.RemoveItem(inv, item, count, metadata, slot, ignoreTotal, str
 
 	if slot and itemSlots[slot] then
 		removed = count
-		Inventory.SetSlot(inv, item, -count, inv.items[slot].metadata, slot)
+		local ok, result = Inventory.SetSlot(inv, item, -count, inv.items[slot].metadata, slot)
+
+		if not ok then
+		    error(('Failed to remove %sx %s from inventory-%s:slot-%s (%s).'):format(count, item.name, inv.id, slot, result))
+		end
+
 		slots[#slots+1] = inv.items[slot] or slot
 	elseif itemSlots and totalCount > 0 then
 		for k, v in pairs(itemSlots) do
@@ -1911,10 +1392,14 @@ function Inventory.RemoveItem(inv, item, count, metadata, slot, ignoreTotal, str
 					removed = total
 					inv.weight -= inv.items[k].weight
 					inv.items[k] = nil
-					moveFastSlot(inv, k, nil)
 					slots[#slots+1] = inv.items[k] or k
 				elseif v > count then
-					Inventory.SetSlot(inv, item, -count, inv.items[k].metadata, k)
+					local ok, result = Inventory.SetSlot(inv, item, -count, inv.items[k].metadata, k)
+
+					if not ok then
+					    error(('Failed to remove %sx %s from inventory-%s:slot-%s (%s).'):format(count, item.name, inv.id, k, result))
+					end
+
 					slots[#slots+1] = inv.items[k] or k
 					removed = total
 					count = v - count
@@ -1925,7 +1410,6 @@ function Inventory.RemoveItem(inv, item, count, metadata, slot, ignoreTotal, str
 					count = count - v
 					inv.weight -= inv.items[k].weight
 					inv.items[k] = nil
-					moveFastSlot(inv, k, nil)
 					slots[#slots+1] = k
 				end
 			else break end
@@ -1934,8 +1418,6 @@ function Inventory.RemoveItem(inv, item, count, metadata, slot, ignoreTotal, str
 
 	if removed > 0 then
 		inv.changed = true
-
-		Inventory.RefreshWorn(inv)
 
 		if inv.player and server.syncInventory then
 			server.syncInventory(inv)
@@ -1948,10 +1430,6 @@ function Inventory.RemoveItem(inv, item, count, metadata, slot, ignoreTotal, str
 		end
 
 		inv:syncSlotsWithClients(array, true)
-
-		-- Any of the cleared slots could have been the equipment slot; the `inv.items[k] = nil`
-		-- branches above bypass `Inventory.SetSlot` entirely. No-op with clothing disabled.
-		refreshBackpackDeferred(inv)
 
 		local invokingResource = server.loglevel > 1 and GetInvokingResource()
 
@@ -2127,46 +1605,13 @@ local TriggerEventHooks = require 'modules.hooks.server'
 ---@field fromType string
 ---@field toType string
 ---@field coords? vector3
----@field rotated? boolean grid layout only, and only honoured for non-stackable items
-
----@param inventory OxInventory
----@param playerInventory OxInventory
----@return string|number
-local function syncAddress(inventory, playerInventory)
-	-- A bag can also be opened the old way, as the secondary inventory. It is then drawn by the
-	-- right panel and the third panel is suppressed, so its id is the correct address after all.
-	if playerInventory.backpack and inventory.id == playerInventory.backpack
-		and inventory.id ~= playerInventory.open then
-		return 'backpack'
-	end
-
-	return inventory.id
-end
 
 ---@param source number
 ---@param playerInventory OxInventory
----@param fromInventory OxInventory the endpoint the item actually leaves, not necessarily the player
 ---@param fromData SlotWithItem?
 ---@param data SwapSlotData
-local function dropItem(source, playerInventory, fromInventory, fromData, data)
+local function dropItem(source, playerInventory, fromData, data)
     if not fromData then return end
-
-	do
-		local emptyDrop = { type = 'drop', slots = shared.dropslots, items = {} }
-		local toSlot = Grid.isSlotId(data.toSlot, shared.dropslots) and data.toSlot or nil
-
-		if toSlot and Grid.isGridLayout() then
-			local width, height = Grid.getItemSize(Items(fromData.name), fromData.metadata)
-
-			if not Grid.canPlace(emptyDrop, toSlot, width, height) then
-				toSlot = Grid.findSlot(emptyDrop, width, height)
-			end
-		end
-
-		if not toSlot then return false end
-
-		data.toSlot = toSlot
-	end
 
 	local toData = table.clone(fromData)
 	toData.slot = data.toSlot
@@ -2177,20 +1622,21 @@ local function dropItem(source, playerInventory, fromInventory, fromData, data)
 
     local dropId = generateInvId('drop')
 
-	local ownSource = fromInventory == playerInventory
-
-	if not TriggerEventHooks('swapItems', {
+	local hooks <close> = TriggerEventHooks('swapItems', {
 		source = source,
-		fromInventory = fromInventory.id,
+		fromInventory = playerInventory.id,
 		fromSlot = fromData,
-		fromType = fromInventory.type,
+		fromType = playerInventory.type,
 		toInventory = 'newdrop',
 		toSlot = data.toSlot,
 		toType = 'drop',
 		count = data.count,
         action = 'move',
         dropId = dropId,
-	}) then return end
+	})
+
+	if not hooks.success then return end
+	if Inventories[playerInventory.id] ~= playerInventory then hooks.success = false return end
 
     fromData.count -= data.count
     fromData.weight = Inventory.SlotWeight(Items(fromData.name), fromData)
@@ -2202,176 +1648,80 @@ local function dropItem(source, playerInventory, fromInventory, fromData, data)
     end
 
 	local slot = data.fromSlot
-	fromInventory.weight -= toData.weight
-	fromInventory.items[slot] = fromData
+	playerInventory.weight -= toData.weight
+	playerInventory.items[slot] = fromData
 
-	if not fromData then moveFastSlot(fromInventory, slot, nil) end
-
-	Inventory.RefreshWorn(fromInventory, slot)
-
-	if ownSource and slot == playerInventory.weapon then
+	if slot == playerInventory.weapon then
 		playerInventory.weapon = nil
 	end
 
 	local inventory = Inventory.Create(dropId, ('Drop %s'):format(dropId:gsub('%D', '')), 'drop', shared.dropslots, toData.weight, shared.dropweight, false, {[data.toSlot] = toData})
 
-	if not inventory then return end
+	if not inventory then hooks.success = false return end
 
 	inventory.coords = data.coords
 	Inventory.Drops[dropId] = {coords = inventory.coords, instance = data.instance}
-	fromInventory.changed = true
+	playerInventory.changed = true
 
-	---@type updateSlot[]
-	local items = {
-		{
-			item = fromData or { slot = slot },
-			inventory = syncAddress(fromInventory, playerInventory)
-		}
-	}
-
-	if not ownSource then
-		local backpackItem = fromInventory.id == playerInventory.backpack
-			and playerInventory.items[Inventory.GetBackpackSlot()] or nil
-
-		if backpackItem then
-			Inventory.ContainerWeight(backpackItem, fromInventory.weight, playerInventory)
-			playerInventory.changed = true
-
-			items[#items + 1] = {
-				item = backpackItem,
-				inventory = playerInventory.id
-			}
-		end
-	end
-
-	-- `slot` is only meaningful to the client as a player slot (it disarms a dropped weapon), so
-	-- an index that belongs to some other inventory must not be sent.
-	TriggerClientEvent('ox_inventory:createDrop', -1, dropId, Inventory.Drops[dropId], playerInventory.open and source, ownSource and slot or nil)
+	TriggerClientEvent('ox_inventory:createDrop', -1, dropId, Inventory.Drops[dropId], playerInventory.open and source, slot)
 
 	if server.loglevel > 0 then
-		lib.logger(playerInventory.owner, 'swapSlots', ('%sx %s transferred from "%s" to "%s"'):format(data.count, toData.name, fromInventory.label, dropId))
+		lib.logger(playerInventory.owner, 'swapSlots', ('%sx %s transferred from "%s" to "%s"'):format(data.count, toData.name, playerInventory.label, dropId))
 	end
 
 	if server.syncInventory then server.syncInventory(playerInventory) end
 
 	return true, {
 		weight = playerInventory.weight,
-		items = items
+		items = {
+			{
+				item = fromData or { slot = data.fromSlot },
+				inventory = playerInventory.id
+			}
+		}
 	}
 end
 
-local activeSlots = {}
-
----@param fromInventory OxInventory
----@param toInventory OxInventory
----@param fromData SlotWithItem
----@param toData SlotWithItem?
----@param data SwapSlotData
----@param width number footprint of the moved item, rotation already applied
----@param height number
----@return boolean
-local function canSwapSlots(fromInventory, toInventory, fromData, toData, data, width, height)
-	local toEquip = Grid.isEquipSlot(toInventory, data.toSlot)
-	local fromEquip = Grid.isEquipSlot(fromInventory, data.fromSlot)
-
-	if toEquip and not Grid.canEquip(toInventory, data.toSlot, Items(fromData.name)) then return false end
-	if fromEquip and toData and not Grid.canEquip(fromInventory, data.fromSlot, Items(toData.name)) then return false end
-
-	if not Grid.isGridLayout() then return true end
-
-	local toReserved = toEquip
-	local fromReserved = fromEquip
-
-	local sameInventory = fromInventory.id == toInventory.id
-
-	local vacatesSource = toData ~= nil or data.count >= fromData.count
-
-	if not toReserved then
-		local ignore = { [data.toSlot] = true }
-
-		if sameInventory and vacatesSource then ignore[data.fromSlot] = true end
-
-		if not Grid.canPlace(toInventory, data.toSlot, width, height, ignore) then return false end
-	end
-
-	if toData and not fromReserved then
-		-- A displaced item lands in the slot being vacated, so its footprint has to fit there.
-		local toWidth, toHeight = Grid.getItemSize(Items(toData.name), toData.metadata)
-		local ignore = { [data.fromSlot] = true }
-
-		if sameInventory then
-			ignore[data.toSlot] = true
-
-			local layout = Grid.getLayout(fromInventory, ignore)
-
-			if not toReserved then Grid.mark(layout, data.toSlot, width, height) end
-
-			-- `Grid.fits` repeats the bounds guard `Grid.canPlace` would have applied:
-			-- `layout.slots` is `Grid.getBaseSlots(fromInventory)` by construction.
-			if not Grid.fits(layout, data.fromSlot, toWidth, toHeight) then return false end
-		elseif not Grid.canPlace(fromInventory, data.fromSlot, toWidth, toHeight, ignore) then
-			return false
-		end
-	end
-
-	return true
-end
-
----@param playerInventory OxInventory
----@param invType string
----@return OxInventory?
-local function resolveSwapEndpoint(playerInventory, invType)
-	if invType == 'player' then return playerInventory end
-	if invType == 'backpack' then return Inventory.GetBackpack(playerInventory) end
-
-	if invType == 'container' and playerInventory.containerSlot then
-		return Inventory.GetOpenContainer(playerInventory)
-	end
-
-	return Inventory(playerInventory.open)
-end
+local GetLocks = require 'modules.locks'
 
 ---@param source number
 ---@param data SwapSlotData
 lib.callback.register('ox_inventory:swapItems', function(source, data)
-	if data.count < 1 then return end
+	if data.fromType ~= data.toType and data.toType ~= 'player' and data.fromType ~= 'player' then
+        Utils.LogExploit(source, 'swapItems', 'Triggered event with invalid data', true)
+        return
+    end
+
+	data.count = math.max(1, math.floor(data.count or 1))
 
 	local playerInventory = Inventory(source)
 
-	if not playerInventory then return end
+	if not playerInventory or not playerInventory.open then return end
 
-	local toInventory = resolveSwapEndpoint(playerInventory, data.toType)
-	local fromInventory = resolveSwapEndpoint(playerInventory, data.fromType)
+	local toInventory = (data.toType == 'player' and playerInventory) or Inventory(playerInventory.open)
+	local fromInventory = (data.fromType == 'player' and playerInventory) or Inventory(playerInventory.open)
 
 	if not fromInventory or not toInventory then
-		if data.fromType == 'backpack' or data.toType == 'backpack' then return false end
-
 		playerInventory:closeInventory()
 		return
 	end
 
     if data.toType == 'inspect' or data.fromType == 'inspect' then return end
 
-	-- Neither slot id was ever checked against the owning inventory's slot count. Malformed
-	-- ids are rejected outright; the client rolls back on a falsy response.
-	if not Grid.isSlotId(data.fromSlot, fromInventory.slots) then return false end
-	if not Grid.isSlotId(data.toSlot, data.toType == 'newdrop' and shared.dropslots or toInventory.slots) then return false end
+    local activeSlots <close> = GetLocks({
+       	('inventory-%s:slot-%s'):format(fromInventory.id, data.fromSlot),
+        ('inventory-%s:slot-%s'):format(toInventory.id, data.toSlot)
+    })
 
-	local fromRef = ('%s:%s'):format(fromInventory.id, data.fromSlot)
-	local toRef = ('%s:%s'):format(toInventory.id, data.toSlot)
-
-	local fromAddress = syncAddress(fromInventory, playerInventory)
-	local toAddress = syncAddress(toInventory, playerInventory)
-
-	if activeSlots[fromRef] or activeSlots[toRef] then
+	if not activeSlots then
 		return false, {
 			{
 				item = toInventory.items[data.toSlot] or { slot = data.toSlot },
-				inventory = toAddress
+				inventory = toInventory.id
 			},
 			{
 				item = fromInventory.items[data.fromSlot] or { slot = data.fromSlot },
-				inventory = fromAddress
+				inventory = fromInventory.id
 			}
 		}
 	end
@@ -2381,6 +1731,13 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 	local toOtherPlayer = toInventory.player and toInventory ~= playerInventory
 	local toData = toInventory.items[data.toSlot]
 
+	---@return boolean
+	local function partiesPresent()
+		return Inventories[playerInventory.id] == playerInventory
+			and Inventories[fromInventory.id] == fromInventory
+			and Inventories[toInventory.id] == toInventory
+	end
+
 	if not sameInventory and (fromInventory.type == 'policeevidence' or (toInventory.type == 'policeevidence' and toData)) then
 		local group, rank = server.hasGroup(playerInventory, shared.police)
 
@@ -2389,14 +1746,6 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 		end
 	end
 
-	activeSlots[fromRef] = true
-	activeSlots[toRef] = true
-
-	local _ <close> = defer(function()
-		activeSlots[fromRef] = nil
-		activeSlots[toRef] = nil
-	end)
-
 	if toInventory and (data.toType == 'newdrop' or fromInventory ~= toInventory or data.fromSlot ~= data.toSlot) then
 		local fromData = fromInventory.items[data.fromSlot]
 
@@ -2404,11 +1753,11 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 			return false, {
 				{
 					item = { slot = data.fromSlot },
-					inventory = fromAddress
+					inventory = fromInventory.id
 				},
 				{
 					item = toData or { slot = data.toSlot },
-					inventory = toAddress
+					inventory = toInventory.id
 				}
 			}
 		end
@@ -2418,77 +1767,17 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
         end
 
         if data.toType == 'newdrop' then
-            local dropped, response = dropItem(source, playerInventory, fromInventory, fromData, data)
-
-            if dropped and fromInventory == playerInventory and data.fromSlot == Inventory.GetBackpackSlot()
-                and Inventory.RefreshBackpack(playerInventory) then
-                Inventory.SyncBackpack(playerInventory)
-            end
-
-            return dropped, response
+            return dropItem(source, fromInventory, fromData, data)
         end
-
-		local fromItem = Items(fromData.name)
-
-		-- Rotation is only ever honoured for non-stackable items: a rotated and an unrotated
-		-- instance of a stackable item would compare unequal and refuse to merge.
-		local applyRotation = data.rotated ~= nil and Grid.allowRotate() and fromItem ~= nil and not fromItem.stack
-		local rotated = applyRotation and data.rotated == true
-
-		local width, height = Grid.getItemSize(fromItem, applyRotation and { rotated = rotated } or fromData.metadata)
-
-		if not canSwapSlots(fromInventory, toInventory, fromData, toData, data, width, height) then
-			return false, {
-				{
-					item = fromData,
-					inventory = fromAddress
-				},
-				{
-					item = toData or { slot = data.toSlot },
-					inventory = toAddress
-				}
-			}
-		end
-
 
 		if fromData then
             if fromData.metadata.container and toInventory.type == 'container' then return false end
             if toData and toData.metadata.container and fromInventory.type == 'container' then return false end
 
-			if fromData.metadata.container and fromData.metadata.container == toInventory.id then return false end
-			if toData and toData.metadata.container and toData.metadata.container == fromInventory.id then return false end
+			local container, containerItem = (not sameInventory and playerInventory.containerSlot) and (fromInventory.type == 'container' and fromInventory or toInventory)
 
-			local container, containerItem
-
-			if not sameInventory and playerInventory.containerSlot then
-				container = (fromInventory.id == playerInventory.open and fromInventory)
-					or (toInventory.id == playerInventory.open and toInventory)
-					or nil
-
-				if container then
-					containerItem = playerInventory.items[playerInventory.containerSlot]
-				end
-			end
-
-			---Is the opened container the destination? Was `toInventory.type == 'container'`, which
-			---is now also true for the worn bag and would point the rollup at the wrong endpoint.
-			local containerIsTarget = container ~= nil and container == toInventory
-
-			local backpackId = playerInventory.backpack
-			local backpackItem
-
-			if backpackId and not sameInventory and (fromInventory.id == backpackId or toInventory.id == backpackId) then
-				backpackItem = playerInventory.items[Inventory.GetBackpackSlot()]
-			end
-
-			if backpackItem and toInventory.id == backpackId then
-				local rules = Items.containers[backpackItem.name]
-				local whitelist = rules and rules.whitelist
-				local blacklist = rules and rules.blacklist
-
-				if (whitelist and not whitelist[fromData.name]) or (blacklist and blacklist[fromData.name]) then
-					return false
-				end
+			if container then
+				containerItem = playerInventory.items[playerInventory.containerSlot]
 			end
 
 			local hookPayload = {
@@ -2510,18 +1799,23 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 
 				if not sameInventory then
 					if (toWeight <= toInventory.maxWeight and fromWeight <= fromInventory.maxWeight) then
-						if not TriggerEventHooks('swapItems', hookPayload) then return end
+						local hooks <close> = TriggerEventHooks('swapItems', hookPayload)
+
+						if not hooks.success then return end
+						if not partiesPresent() then hooks.success = false return end
 
 						if containerItem then
+							local toContainer = toInventory.type == 'container'
 							local whitelist = Items.containers[containerItem.name]?.whitelist
 							local blacklist = Items.containers[containerItem.name]?.blacklist
-							local checkItem = containerIsTarget and fromData.name or toData.name
+							local checkItem = toContainer and fromData.name or toData.name
 
 							if (whitelist and not whitelist[checkItem]) or (blacklist and blacklist[checkItem]) then
+								hooks.success = false
 								return
 							end
 
-							Inventory.ContainerWeight(containerItem, containerIsTarget and toWeight or fromWeight, playerInventory)
+							Inventory.ContainerWeight(containerItem, toContainer and toWeight or fromWeight, playerInventory)
 						end
 
 						if fromOtherPlayer then
@@ -2541,36 +1835,43 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 						end
 					else return false, 'cannot_carry' end
 				else
-					if not TriggerEventHooks('swapItems', hookPayload) then return end
+					local hooks <close> = TriggerEventHooks('swapItems', hookPayload)
+
+					if not hooks.success then return end
+					if not partiesPresent() then hooks.success = false return end
 
 					toData, fromData = Inventory.SwapSlots(fromInventory, toInventory, data.fromSlot, data.toSlot)
 				end
 
 			elseif toData and toData.name == fromData.name and table.matches(toData.metadata, fromData.metadata) then
-				-- Stack items
-				toData.count += data.count
-				fromData.count -= data.count
+				local originalFromCount, originalToCount = fromData.count, toData.count
+				local fromCount, toCount = originalFromCount - data.count, originalToCount + data.count
+				local originalFromWeight = fromData.weight
+
+				fromData.count, toData.count = fromCount, toCount
+				local fromSlotWeight = Inventory.SlotWeight(Items(fromData.name), fromData)
 				local toSlotWeight = Inventory.SlotWeight(Items(toData.name), toData)
+				fromData.count, toData.count = originalFromCount, originalToCount
+
 				local totalWeight = toInventory.weight - toData.weight + toSlotWeight
 
 				if fromInventory.type == 'container' or sameInventory or totalWeight <= toInventory.maxWeight then
 					hookPayload.action = 'stack'
 
-					if not TriggerEventHooks('swapItems', hookPayload) then
-						toData.count -= data.count
-						fromData.count += data.count
-						return
-					end
+					local hooks <close> = TriggerEventHooks('swapItems', hookPayload)
 
-					local fromSlotWeight = Inventory.SlotWeight(Items(fromData.name), fromData)
+					if not hooks.success then return end
+					if not partiesPresent() then hooks.success = false return end
+
+					fromData.count, toData.count = fromCount, toCount
 					toData.weight = toSlotWeight
 
 					if not sameInventory then
-						fromInventory.weight = fromInventory.weight - fromData.weight + fromSlotWeight
+						fromInventory.weight = fromInventory.weight - originalFromWeight + fromSlotWeight
 						toInventory.weight = totalWeight
 
 						if container then
-							Inventory.ContainerWeight(containerItem, container.weight, playerInventory)
+							Inventory.ContainerWeight(containerItem, toInventory.type == 'container' and toInventory.weight or fromInventory.weight, playerInventory)
 						end
 
 						if fromOtherPlayer then
@@ -2586,8 +1887,6 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 
 					fromData.weight = fromSlotWeight
 				else
-					toData.count -= data.count
-					fromData.count += data.count
 					return false, 'cannot_carry'
 				end
 			elseif data.count <= fromData.count then
@@ -2600,15 +1899,21 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 				if fromInventory.type == 'container' or sameInventory or (toInventory.weight + toData.weight <= toInventory.maxWeight) then
 					hookPayload.action = 'move'
 
-					if not TriggerEventHooks('swapItems', hookPayload) then return end
+					local hooks <close> = TriggerEventHooks('swapItems', hookPayload)
+
+					if not hooks.success then return end
+					if not partiesPresent() then hooks.success = false return end
 
 					if not sameInventory then
+						local toContainer = toInventory.type == 'container'
+
 						if container then
-							if containerIsTarget and containerItem then
+							if toContainer and containerItem then
 								local whitelist = Items.containers[containerItem.name]?.whitelist
 								local blacklist = Items.containers[containerItem.name]?.blacklist
 
 								if (whitelist and not whitelist[fromData.name]) or (blacklist and blacklist[fromData.name]) then
+									hooks.success = false
 									return
 								end
 							end
@@ -2618,7 +1923,7 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 						toInventory.weight += toData.weight
 
 						if container then
-							Inventory.ContainerWeight(containerItem, container.weight, playerInventory)
+							Inventory.ContainerWeight(containerItem, toContainer and toInventory.weight or fromInventory.weight, playerInventory)
 						end
 
 						if fromOtherPlayer then
@@ -2643,16 +1948,6 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 
 			if fromData and fromData.count < 1 then fromData = nil end
 
-			-- Every branch has finished adjusting both inventories' weights by now, so the bag
-			-- item's weight can be rebuilt from what its container actually holds.
-			if backpackItem then
-				local backpack = Inventory(backpackId)
-
-				if backpack then
-					Inventory.ContainerWeight(backpackItem, backpack.weight, playerInventory)
-				end
-			end
-
 			---@type updateSlot[]
 			local items = {}
 
@@ -2674,46 +1969,11 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 				end
 			end
 
-			if backpackItem then
-				items[#items + 1] = {
-					item = backpackItem,
-					inventory = playerInventory.id
-				}
-			end
-
-			if applyRotation and toData then
-				toData.metadata.rotated = rotated or nil
-			end
-
 			fromInventory.items[data.fromSlot] = fromData
 			toInventory.items[data.toSlot] = toData
 
-			rebindAfterSwap(fromInventory, toInventory, data, hookPayload.action or 'move', fromData == nil)
-
 			if fromInventory.changed ~= nil then fromInventory.changed = true end
 			if toInventory.changed ~= nil then toInventory.changed = true end
-
-			local backpackSlot = Inventory.GetBackpackSlot()
-
-			if backpackSlot then
-				if data.fromSlot == backpackSlot and Inventory.RefreshBackpack(fromInventory) then
-					Inventory.SyncBackpack(fromInventory)
-				end
-
-				if data.toSlot == backpackSlot and Inventory.RefreshBackpack(toInventory) then
-					Inventory.SyncBackpack(toInventory)
-				end
-			end
-
-			local beltSlot = Inventory.GetBeltSlot()
-
-			if beltSlot then
-				if data.fromSlot == beltSlot then Inventory.RefreshBelt(fromInventory) end
-				if data.toSlot == beltSlot then Inventory.RefreshBelt(toInventory) end
-			end
-
-			Inventory.RefreshWorn(fromInventory, data.fromSlot)
-			Inventory.RefreshWorn(toInventory, data.toSlot)
 
             CreateThread(function()
                 if sameInventory then
@@ -2742,35 +2002,7 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
                         }
                     }, true)
                 end
-
-                if backpackId then
-                    local backpackSlots = {}
-
-                    if fromInventory.id == backpackId then
-                        backpackSlots[#backpackSlots + 1] = {
-                            item = fromInventory.items[data.fromSlot] or { slot = data.fromSlot },
-                            inventory = 'backpack'
-                        }
-                    end
-
-                    if toInventory.id == backpackId then
-                        backpackSlots[#backpackSlots + 1] = {
-                            item = toInventory.items[data.toSlot] or { slot = data.toSlot },
-                            inventory = 'backpack'
-                        }
-                    end
-
-                    if next(backpackSlots) then
-                        playerInventory:syncSlotsWithPlayer(backpackSlots, playerInventory.weight)
-                    end
-                end
             end)
-
-			local resp
-
-			if next(items) then
-				resp = { weight = playerInventory.weight, items = items }
-			end
 
 			if server.syncInventory then
 				if fromInventory.player then
@@ -2804,7 +2036,7 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 				end
 			end
 
-			return containerItem and containerItem.weight or true, resp, weaponSlot
+			return containerItem and containerItem.weight or true, nil, weaponSlot
 		end
 	end
 end)
@@ -2812,26 +2044,23 @@ end)
 function Inventory.Confiscate(source)
 	local inv = Inventory(source)
 
-	if inv?.player then
-		db.saveStash(inv.owner, inv.owner, json.encode(minimal(inv)))
-		table.wipe(inv.items)
-		inv.weight = 0
-		inv.changed = true
+	if not inv or not inv.player then return end
 
-		TriggerClientEvent('ox_inventory:inventoryConfiscated', inv.id)
+	db.saveStash(inv.owner, inv.owner, json.encode(minimal(inv)))
+	table.wipe(inv.items)
+	inv.weight = 0
+	inv.changed = true
 
-		-- The equipment slot went with everything else, so the endpoint must not outlive it.
-		if Inventory.RefreshBackpack(inv) then Inventory.SyncBackpack(inv) end
+	TriggerClientEvent('ox_inventory:inventoryConfiscated', inv.id)
 
-		if server.syncInventory then server.syncInventory(inv) end
-	end
+	if server.syncInventory then server.syncInventory(inv) end
 end
 exports('ConfiscateInventory', Inventory.Confiscate)
 
 function Inventory.Return(source)
 	local inv = Inventory(source)
 
-	if not inv?.player then return end
+	if not inv or not inv.player then return end
 
 	local items = MySQL.scalar.await('SELECT data FROM ox_inventory WHERE name = ?', { inv.owner })
 
@@ -2862,9 +2091,6 @@ function Inventory.Return(source)
     inv.items = inventory
 
     TriggerClientEvent('ox_inventory:inventoryReturned', source, { inventory, totalWeight })
-
-    -- `inv.items` was replaced wholesale, so the equipment slot may now hold a different bag.
-    if Inventory.RefreshBackpack(inv) then Inventory.SyncBackpack(inv) end
 
     if server.syncInventory then server.syncInventory(inv) end
 end
@@ -2931,9 +2157,6 @@ function Inventory.Clear(inv, keep)
 	inv.weight = newWeight
 	inv.changed = true
 
-	pruneFastSlots(inv, true)
-	Inventory.RefreshWorn(inv)
-
 	inv:syncSlotsWithClients(updateSlots, true)
 
 	if not inv.player then
@@ -2945,13 +2168,10 @@ function Inventory.Clear(inv, keep)
 			playerInv:closeInventory()
 		end
 
-		inv:openInventory(inv)
+		inv:openInventory()
 
 		return
 	end
-
-	-- Clearing a player inventory can take the worn bag with it.
-	if Inventory.RefreshBackpack(inv) then Inventory.SyncBackpack(inv) end
 
 	if server.syncInventory then server.syncInventory(inv) end
 
@@ -2961,23 +2181,15 @@ end
 exports('ClearInventory', Inventory.Clear)
 
 ---@param inv inventory
----@param item? table | string item the slot is intended for; sizes the search in grid layout
 ---@return integer?
-function Inventory.GetEmptySlot(inv, item)
+function Inventory.GetEmptySlot(inv)
 	local inventory = Inventory(inv)
 
 	if not inventory then return end
 
-	if Grid.isGridLayout() then
-		if type(item) ~= 'table' then item = item and Items(item) or nil end
-
-		return Grid.findSlot(inventory, Grid.getItemSize(item))
-	end
-
 	local items = inventory.items
 
-	-- Equipment slots are never chosen automatically.
-	for i = 1, Grid.getBaseSlots(inventory) do
+	for i = 1, inventory.slots do
 		if not items[i] then
 			return i
 		end
@@ -2998,17 +2210,16 @@ function Inventory.GetSlotForItem(inv, itemName, metadata)
 	metadata = assertMetadata(metadata)
 	local items = inventory.items
 	local emptySlot
-	local layout = Grid.isGridLayout() and Grid.getLayout(inventory) or nil
-	local width, height = Grid.getItemSize(item)
 
-	-- Equipment slots are never chosen automatically.
-	for i = 1, Grid.getBaseSlots(inventory) do
+	for i = 1, inventory.slots do
 		local slotData = items[i]
+
+		if not slotData and not emptySlot then
+			emptySlot = i
+		end
 
 		if item.stack and slotData and slotData.name == item.name and table.matches(slotData.metadata, metadata) then
 			return i
-		elseif not item.stack and not slotData and not emptySlot and (not layout or Grid.fits(layout, i, width, height)) then
-			emptySlot = i
 		end
 	end
 
@@ -3137,8 +2348,6 @@ exports('GetItemCount', Inventory.GetItemCount)
 ---@return integer?
 ---@return InventorySaveData?
 local function prepareInventorySave(inv, buffer, time)
-    saveFastSlots(inv)
-
     local shouldSave = not inv.datastore and inv.changed
     local n = 0
 
@@ -3285,7 +2494,7 @@ local function giveItem(playerId, slot, target, count)
 
 	if not fromInventory or not toInventory then return end
 
-	if type(count) ~= 'number' or count <= 0 then count = 1 end
+	count = math.max(1, math.floor(count or 1))
 
 	if toInventory.player then
 		local data = fromInventory.items[slot]
@@ -3305,22 +2514,19 @@ local function giveItem(playerId, slot, target, count)
 		end
 
 		local toSlot = Inventory.GetSlotForItem(toInventory, data.name, data.metadata)
-		local fromRef = ('%s:%s'):format(fromInventory.id, slot)
-		local toRef = ('%s:%s'):format(toInventory.id, toSlot)
 
-		if activeSlots[fromRef] or activeSlots[toRef] then
+		if not toSlot then return { 'cannot_give', count, data.label } end
+
+        local activeSlots <close> = GetLocks({
+            ('inventory-%s:slot-%s'):format(fromInventory.id, slot),
+            ('inventory-%s:slot-%s'):format(toInventory.id, toSlot)
+        })
+
+		if not activeSlots then
 			return { 'cannot_give', count, data.label }
 		end
 
-		activeSlots[fromRef] = true
-		activeSlots[toRef] = true
-
-		local _ <close> = defer(function()
-			activeSlots[fromRef] = nil
-			activeSlots[toRef] = nil
-		end)
-
-		if TriggerEventHooks('swapItems', {
+		local hooks <close> = TriggerEventHooks('swapItems', {
 			source = fromInventory.id,
 			fromInventory = fromInventory.id,
 			fromType = fromInventory.type,
@@ -3329,8 +2535,9 @@ local function giveItem(playerId, slot, target, count)
 			count = count,
 			action = 'give',
 			fromSlot = data,
-		}) then
-			---@todo manually call swapItems or something?
+		})
+
+		if hooks.success then
 			if Inventory.AddItem(toInventory, item, count, data.metadata, toSlot) then
 				if Inventory.RemoveItem(fromInventory, item, count, data.metadata, slot) then
 					if server.loglevel > 0 then
@@ -3339,6 +2546,8 @@ local function giveItem(playerId, slot, target, count)
 
 					return
 				else
+					hooks.success = false
+
 					Inventory.RemoveItem(toInventory, item, count, data.metadata, toSlot)
 				end
 			end
@@ -3361,9 +2570,9 @@ local function updateWeapon(source, action, value, slot, specialAmmo)
 		return
 	end
 
-	local type = type(value)
+	local vtype = type(value)
 
-	if type == 'table' and action == 'component' then
+	if vtype == 'table' and action == 'component' then
 		local item = inventory.items[value.slot]
 
 		if item then
@@ -3386,6 +2595,7 @@ local function updateWeapon(source, action, value, slot, specialAmmo)
 		end
 	else
 		if not slot then slot = inventory.weapon end
+
 		local weapon = inventory.items[slot]
 
 		if weapon and weapon.metadata then
@@ -3394,6 +2604,10 @@ local function updateWeapon(source, action, value, slot, specialAmmo)
 			if not item.weapon then
 				inventory.weapon = nil
 				return
+			end
+
+			if vtype == 'number' and value < 0 then
+				value = 0
 			end
 
 			if action == 'load' and weapon.metadata.durability > 0 then
@@ -3408,12 +2622,12 @@ local function updateWeapon(source, action, value, slot, specialAmmo)
 			elseif action == 'throw' then
 				if not Inventory.RemoveItem(inventory, weapon.name, 1, weapon.metadata, weapon.slot) then return end
 			elseif action == 'component' then
-				if type == 'number' then
+				if vtype == 'number' then
 					if not Inventory.AddItem(inventory, weapon.metadata.components[value], 1) then return false end
 
 					table.remove(weapon.metadata.components, value)
 					weapon.weight = Inventory.SlotWeight(item, weapon)
-				elseif type == 'string' then
+				elseif vtype == 'string' then
 					local component = inventory.items[tonumber(value)]
 
 					if not Inventory.RemoveItem(inventory, component.name, 1) then return false end
@@ -3423,15 +2637,16 @@ local function updateWeapon(source, action, value, slot, specialAmmo)
 				end
 			elseif action == 'ammo' then
 				if item.hash == `WEAPON_FIREEXTINGUISHER` or item.hash == `WEAPON_PETROLCAN` or item.hash == `WEAPON_HAZARDCAN` or item.hash == `WEAPON_FERTILIZERCAN` then
-					weapon.metadata.durability = math.floor(value)
-					weapon.metadata.ammo = weapon.metadata.durability
+                    local safeValue = math.max(0, math.min(100, math.floor(value)))
+                    weapon.metadata.durability = safeValue
+                    weapon.metadata.ammo = safeValue
 				elseif value < weapon.metadata.ammo then
 					local durability = Items(weapon.name).durability * math.abs((weapon.metadata.ammo or 0.1) - value)
 					weapon.metadata.ammo = value
 					weapon.metadata.durability = weapon.metadata.durability - durability
 					weapon.weight = Inventory.SlotWeight(item, weapon)
 				end
-			elseif action == 'melee' and value > 0 then
+			elseif action == 'melee' then
 				weapon.metadata.durability = weapon.metadata.durability - ((Items(weapon.name).durability or 1) * value)
 			end
 
@@ -3537,7 +2752,7 @@ end
 ---@param owner? string|number|boolean
 ---@param groups? table<string, number>
 ---@param coords? vector3|table<vector3>
----@param properties? { gridRows?: number } grid rows for this stash alone, overriding `containerRows`
+---@param instance? string|number
 --- For simple integration with other resources that want to create valid stashes.
 --- This needs to be triggered before a player can open a stash.
 --- ```
@@ -3548,21 +2763,13 @@ end
 ---
 --- groups: { ['police'] = 0 }
 --- ```
-local function registerStash(name, label, slots, maxWeight, owner, groups, coords, properties)
+local function registerStash(name, label, slots, maxWeight, owner, groups, coords, instance)
 	name, slots, maxWeight, coords = checkStashProperties({
 		name = name,
 		slots = slots,
 		maxWeight = maxWeight,
 		coords = coords,
 	})
-
-	local gridRows = type(properties) == 'table' and tonumber(properties.gridRows) or nil
-
-	if gridRows then
-		gridRows = math.floor(gridRows)
-
-		if gridRows < 1 then gridRows = 1 end
-	end
 
 	local curStash = RegisteredStashes[name]
 
@@ -3574,10 +2781,11 @@ local function registerStash(name, label, slots, maxWeight, owner, groups, coord
 			if stash.type == 'stash' and stash.dbId == name then
 				stash.label = label or stash.label
 				stash.owner = (owner and owner ~= true) and stash.owner or owner
-				stash.slots = slots and Grid.scaleContainerSlots(slots, gridRows) or stash.slots
+				stash.slots = slots or stash.slots
 				stash.maxWeight = maxWeight or stash.maxWeight
 				stash.groups = groups or stash.groups
 				stash.coords = coords or stash.coords
+				stash.instance = instance or stash.instance
 			end
 		end
 	end
@@ -3590,7 +2798,7 @@ local function registerStash(name, label, slots, maxWeight, owner, groups, coord
 		maxWeight = maxWeight,
 		groups = groups,
 		coords = coords,
-		gridRows = gridRows
+		instance = instance
 	}
 end
 
@@ -3607,6 +2815,7 @@ function Inventory.CreateTemporaryStash(properties)
 
 	inventory.items, inventory.weight = generateItems(inventory, 'drop', properties.items)
 	inventory.coords = coords
+	inventory.instance = properties.instance
 
 	return inventory.id
 end

@@ -41,7 +41,6 @@ return {
     ['paper_map'] = {
         label = 'Map',
         rarity = 'uncommon',
-        grid = { 2, 1 },
         weight = 200,
         stack = false,
         close = true,
@@ -66,7 +65,6 @@ return {
     ['map_board'] = {
         label = 'Community Board',
         rarity = 'uncommon',
-        grid = { 2, 2 },
         weight = 3500,
         stack = true,
         close = true,
@@ -80,7 +78,6 @@ return {
     ['racing_tablet'] = {
         label = 'Racing Tablet',
         rarity = 'rare',
-        grid = { 2, 2 },
         weight = 500,
         stack = false,
         close = true,
@@ -178,7 +175,6 @@ return {
     ["megaphone"] = {
         label = "Megaphone",
         rarity = 'uncommon',
-        grid = { 1, 2 },
         weight = 500,
         stack = false,
         close = true,
@@ -220,7 +216,6 @@ return {
     ["ttt_health_station"] = {
         label = "Health Station",
         rarity = 'rare',
-        grid = { 2, 2 },
         weight = 1000,
         stack = false,
         close = true,
@@ -317,7 +312,6 @@ return {
 ['powersaw'] = {
     label = 'Power Saw',
     rarity = 'uncommon',
-    grid = { 2, 2 },
     weight = 4000,
     stack = true,
     close = true,
@@ -326,7 +320,6 @@ return {
 ['anglegrinder'] = {
     label = 'Angle Grinder',
     rarity = 'uncommon',
-    grid = { 2, 2 },
     weight = 3500,
     stack = true,
     close = true,
@@ -335,7 +328,6 @@ return {
 ['bolt_cutter'] = {
     label = 'Bolt Cutters',
     rarity = 'uncommon',
-    grid = { 2, 1 },
     weight = 2500,
     stack = true,
     close = true,
@@ -344,7 +336,6 @@ return {
 ['oxycutter'] = {
     label = 'Oxy Cutter',
     rarity = 'rare',
-    grid = { 2, 2 },
     weight = 4000,
     stack = true,
     close = true,
@@ -361,7 +352,6 @@ return {
 ['porch_package'] = {
     label = 'Porch Package',
     rarity = 'uncommon',
-    grid = { 2, 2 },
     weight = 1000,
     stack = false,
     close = true,
@@ -372,7 +362,6 @@ return {
 ['mail_package'] = {
     label = 'Mail Bundle',
     rarity = 'common',
-    grid = { 2, 1 },
     weight = 300,
     stack = false,
     close = true,
@@ -399,7 +388,6 @@ return {
 ['speed_bomb'] = {
     label = 'Speedbomb',
     rarity = 'epic',
-    grid = { 2, 1 },
     weight = 1500,
     stack = true,
     close = true,
@@ -408,7 +396,6 @@ return {
 ['catalytic_converter'] = {
     label = 'Catalytic Converter',
     rarity = 'rare',
-    grid = { 2, 2 },
     weight = 2500,
     stack = true,
     close = true,
@@ -434,7 +421,6 @@ return {
     ["ttt_flare_gun"] = {
         label = "Flare Gun",
         rarity = 'rare',
-        grid = { 2, 2 },
         weight = 400,
         stack = false,
         close = true,
@@ -467,7 +453,6 @@ return {
     ["ttt_dna_scanner"] = {
         label = "DNA Scanner",
         rarity = 'rare',
-        grid = { 2, 1 },
         weight = 200,
         stack = false,
         close = true,
@@ -497,8 +482,6 @@ return {
     ['parachute'] = {
         label = 'Parachute',
         rarity = 'rare',
-        grid = { 2, 2 },
-        clothing = 'backpack',
         weight = 8000,
         stack = false,
         client = {
@@ -541,7 +524,6 @@ return {
     ["fleeca_case"] = {
         label = "Fleeca Bank Case",
         rarity = 'epic',
-        grid = { 2, 2 },
         weight = 2000,
         stack = true,
         close = true,
@@ -558,7 +540,6 @@ return {
     ["house_case"] = {
         label = "House Robbery Case",
         rarity = 'rare',
-        grid = { 2, 2 },
         weight = 2000,
         stack = true,
         close = true,
@@ -575,7 +556,6 @@ return {
     ["chopshop_case"] = {
         label = "Chop Shop Case",
         rarity = 'rare',
-        grid = { 2, 2 },
         weight = 2500,
         stack = true,
         close = true,
@@ -592,7 +572,6 @@ return {
     ["jewelry_case"] = {
         label = "Jewelry Store Case",
         rarity = 'epic',
-        grid = { 2, 2 },
         weight = 1500,
         stack = true,
         close = true,
@@ -609,7 +588,6 @@ return {
     ["pacific_case"] = {
         label = "Pacific Bank Case",
         rarity = 'legendary',
-        grid = { 2, 2 },
         weight = 3000,
         stack = true,
         close = true,
@@ -626,7 +604,6 @@ return {
     ["casino_case"] = {
         label = "Casino Heist Case",
         rarity = 'legendary',
-        grid = { 2, 2 },
         weight = 2500,
         stack = true,
         close = true,
@@ -643,7 +620,6 @@ return {
     ["package"] = {
         label = "Suspicious Package",
         rarity = 'rare',
-        grid = { 2, 2 },
         weight = 10000,
         stack = false,
         close = false,
@@ -733,7 +709,6 @@ return {
     ['carcass_1'] = {
         label = 'Poor Deer Carcass',
         rarity = 'common',
-        grid = { 2, 2 },
         weight = 2000,
         stack = true,
         close = true,
@@ -746,7 +721,6 @@ return {
     ['carcass_2'] = {
         label = 'Good Deer Carcass',
         rarity = 'uncommon',
-        grid = { 2, 2 },
         weight = 2500,
         stack = true,
         close = true,
@@ -759,7 +733,6 @@ return {
     ['carcass_3'] = {
         label = 'Perfect Deer Carcass',
         rarity = 'rare',
-        grid = { 2, 2 },
         weight = 3000,
         stack = true,
         close = true,
@@ -773,7 +746,6 @@ return {
     ['redcarcass_1'] = {
         label = 'Poor Mountain Lion Carcass',
         rarity = 'uncommon',
-        grid = { 2, 2 },
         weight = 3000,
         stack = true,
         close = true,
@@ -786,7 +758,6 @@ return {
     ['redcarcass_2'] = {
         label = 'Good Mountain Lion Carcass',
         rarity = 'rare',
-        grid = { 2, 2 },
         weight = 3500,
         stack = true,
         close = true,
@@ -799,7 +770,6 @@ return {
     ['redcarcass_3'] = {
         label = 'Perfect Mountain Lion Carcass',
         rarity = 'epic',
-        grid = { 2, 2 },
         weight = 4000,
         stack = true,
         close = true,
@@ -813,7 +783,6 @@ return {
     ['deerhide'] = {
         label = 'Deer Hide',
         rarity = 'uncommon',
-        grid = { 2, 1 },
         weight = 800,
         stack = true,
         close = true,
@@ -826,7 +795,6 @@ return {
     ['antlers'] = {
         label = 'Deer Antlers',
         rarity = 'rare',
-        grid = { 2, 2 },
         weight = 600,
         stack = true,
         close = true,
@@ -839,7 +807,6 @@ return {
     ['mtlionpelt'] = {
         label = 'Mountain Lion Pelt',
         rarity = 'rare',
-        grid = { 2, 1 },
         weight = 1200,
         stack = true,
         close = true,
@@ -864,7 +831,6 @@ return {
     ['coyotepelt'] = {
         label = 'Coyote Pelt',
         rarity = 'uncommon',
-        grid = { 2, 1 },
         weight = 600,
         stack = true,
         close = true,
@@ -877,7 +843,6 @@ return {
     ['boarmeat'] = {
         label = 'Wild Boar Meat',
         rarity = 'uncommon',
-        grid = { 2, 1 },
         weight = 1800,
         stack = true,
         close = true,
@@ -926,7 +891,6 @@ return {
     ['phone'] = {
         label = 'Phone',
         rarity = 'uncommon',
-        grid = { 1, 2 },
         weight = 190,
         stack = false,
         consume = 0, -- never consumed on use; opens sd-phone (black frame)
@@ -938,7 +902,6 @@ return {
     ['phone_black'] = {
         label = 'Phone',
         rarity = 'uncommon',
-        grid = { 1, 2 },
         weight = 190,
         stack = false,
         consume = 0, -- never consumed on use; opens sd-phone (black frame). Named phone_black
@@ -953,7 +916,6 @@ return {
     ['burner_phone'] = {
         label = 'Burner Phone',
         rarity = 'rare',
-        grid = { 1, 2 },
         weight = 190,
         stack = false,
         close = true,
@@ -968,7 +930,6 @@ return {
     ['phone_blue'] = {
         label = 'Blue Phone',
         rarity = 'uncommon',
-        grid = { 1, 2 },
         weight = 190,
         stack = false,
         consume = 0,
@@ -981,7 +942,6 @@ return {
     ['phone_green'] = {
         label = 'Green Phone',
         rarity = 'uncommon',
-        grid = { 1, 2 },
         weight = 190,
         stack = false,
         consume = 0,
@@ -994,7 +954,6 @@ return {
     ['phone_orange'] = {
         label = 'Orange Phone',
         rarity = 'uncommon',
-        grid = { 1, 2 },
         weight = 190,
         stack = false,
         consume = 0,
@@ -1007,7 +966,6 @@ return {
     ['phone_pink'] = {
         label = 'Pink Phone',
         rarity = 'uncommon',
-        grid = { 1, 2 },
         weight = 190,
         stack = false,
         consume = 0,
@@ -1020,7 +978,6 @@ return {
     ['phone_purple'] = {
         label = 'Purple Phone',
         rarity = 'uncommon',
-        grid = { 1, 2 },
         weight = 190,
         stack = false,
         consume = 0,
@@ -1033,7 +990,6 @@ return {
     ['phone_red'] = {
         label = 'Red Phone',
         rarity = 'uncommon',
-        grid = { 1, 2 },
         weight = 190,
         stack = false,
         consume = 0,
@@ -1046,7 +1002,6 @@ return {
     ['phone_yellow'] = {
         label = 'Yellow Phone',
         rarity = 'uncommon',
-        grid = { 1, 2 },
         weight = 190,
         stack = false,
         consume = 0,
@@ -1059,7 +1014,6 @@ return {
     ['tablet'] = {
         label       = 'Tablet',
         rarity = 'rare',
-        grid = { 2, 2 },
         weight      = 700,
         stack       = false,
         close       = true,
@@ -1072,7 +1026,6 @@ return {
     ['tablet_black'] = {
         label       = 'Tablet',
         rarity = 'rare',
-        grid = { 2, 2 },
         weight      = 700,
         stack       = false,
         close       = true,
@@ -1085,7 +1038,6 @@ return {
     ['tablet_blue'] = {
         label       = 'Blue Tablet',
         rarity = 'rare',
-        grid = { 2, 2 },
         weight      = 700,
         stack       = false,
         close       = true,
@@ -1098,7 +1050,6 @@ return {
     ['tablet_green'] = {
         label       = 'Green Tablet',
         rarity = 'rare',
-        grid = { 2, 2 },
         weight      = 700,
         stack       = false,
         close       = true,
@@ -1111,7 +1062,6 @@ return {
     ['tablet_orange'] = {
         label       = 'Orange Tablet',
         rarity = 'rare',
-        grid = { 2, 2 },
         weight      = 700,
         stack       = false,
         close       = true,
@@ -1124,7 +1074,6 @@ return {
     ['tablet_pink'] = {
         label       = 'Pink Tablet',
         rarity = 'rare',
-        grid = { 2, 2 },
         weight      = 700,
         stack       = false,
         close       = true,
@@ -1137,7 +1086,6 @@ return {
     ['tablet_purple'] = {
         label       = 'Purple Tablet',
         rarity = 'rare',
-        grid = { 2, 2 },
         weight      = 700,
         stack       = false,
         close       = true,
@@ -1150,7 +1098,6 @@ return {
     ['tablet_red'] = {
         label       = 'Red Tablet',
         rarity = 'rare',
-        grid = { 2, 2 },
         weight      = 700,
         stack       = false,
         close       = true,
@@ -1163,7 +1110,6 @@ return {
     ['tablet_yellow'] = {
         label       = 'Yellow Tablet',
         rarity = 'rare',
-        grid = { 2, 2 },
         weight      = 700,
         stack       = false,
         close       = true,
@@ -1224,8 +1170,6 @@ return {
     ['armour'] = {
         label = 'Bulletproof Vest',
         rarity = 'rare',
-        grid = { 2, 2 },
-        clothing = 'armour',
         weight = 3000,
         stack = false,
         client = {
@@ -1258,7 +1202,6 @@ return {
     ["metaldetector_1"] = {
         label = "Basic Metal Detector",
         rarity = 'common',
-        grid = { 2, 2 },
         weight = 2500,
         stack = false,
         close = true,
@@ -1275,7 +1218,6 @@ return {
     ["metaldetector_2"] = {
         label = "Amateur Metal Detector",
         rarity = 'uncommon',
-        grid = { 2, 2 },
         weight = 2300,
         stack = false,
         close = true,
@@ -1292,7 +1234,6 @@ return {
     ["metaldetector_3"] = {
         label = "Professional Metal Detector",
         rarity = 'rare',
-        grid = { 2, 2 },
         weight = 2100,
         stack = false,
         close = true,
@@ -1309,7 +1250,6 @@ return {
     ["metaldetector_4"] = {
         label = "Advanced Metal Detector",
         rarity = 'epic',
-        grid = { 2, 2 },
         weight = 2000,
         stack = false,
         close = true,
@@ -1326,7 +1266,6 @@ return {
     ["metaldetector_5"] = {
         label = "Elite Metal Detector",
         rarity = 'legendary',
-        grid = { 2, 2 },
         weight = 1800,
         stack = false,
         close = true,
@@ -1343,7 +1282,6 @@ return {
     ["detecting_shovel"] = {
         label = "Shovel",
         rarity = 'common',
-        grid = { 1, 3 },
         weight = 1500,
         stack = false,
         close = true,
@@ -1642,7 +1580,6 @@ return {
     ["bee-smoker"] = {
         label       = "Bee Smoker",
         rarity = 'uncommon',
-        grid = { 2, 2 },
         weight      = 1500,
         stack       = false,
         description = "A handheld smoker used to calm bees, making bee management safer and easier.",
@@ -1655,7 +1592,6 @@ return {
     ["bee-hive"] = {
         label = "Bee Hive",
         rarity = 'uncommon',
-        grid = { 2, 2 },
         weight = 1000,
         stack = false,
         close = true,
@@ -1742,7 +1678,6 @@ return {
     ["bee-house"] = {
         label = "Bee House",
         rarity = 'uncommon',
-        grid = { 2, 2 },
         weight = 1000,
         stack = false,
         close = true,
@@ -1830,7 +1765,6 @@ return {
     ["secured_safe"] = {
         label = "Safe",
         rarity = 'rare',
-        grid = { 2, 2 },
         weight = 200,
         stack = false,
         close = true,
@@ -1844,7 +1778,6 @@ return {
     ["expensive_champagne"] = {
         label = "Champagne",
         rarity = 'rare',
-        grid = { 1, 2 },
         weight = 200,
         stack = true,
         close = true,
@@ -1888,7 +1821,6 @@ return {
     ["revivekit"] = {
         label = "Revival Kit",
         rarity = 'epic',
-        grid = { 2, 2 },
         weight = 3000,
         stack = false,
         close = false,
@@ -1906,7 +1838,6 @@ return {
     ['radio'] = {
         label = 'Radio',
         rarity = 'uncommon',
-        grid = { 1, 2 },
         weight = 1000,
         allowArmed = true,
         consume = 0,
@@ -1918,7 +1849,6 @@ return {
     ['jammer'] = {
         label = 'Radio Jammer',
         rarity = 'epic',
-        grid = { 2, 2 },
         weight = 10000,
         allowArmed = true,
         client = {
@@ -1971,14 +1901,12 @@ return {
     ['repairkit'] = {
         label = 'Repair Kit',
         rarity = 'uncommon',
-        grid = { 2, 1 },
         weight = 2500,
     },
 
     ['advancedrepairkit'] = {
         label = 'Advanced Repair Kit',
         rarity = 'rare',
-        grid = { 2, 1 },
         weight = 4000,
     },
 
@@ -1997,7 +1925,6 @@ return {
     ['goldbar'] = {
         label = 'Gold Bar',
         rarity = 'legendary',
-        grid = { 2, 1 },
         weight = 1500,
     },
 
@@ -2022,7 +1949,6 @@ return {
     ['coke_brick'] = {
         label = 'Coke Brick',
         rarity = 'rare',
-        grid = { 2, 1 },
         weight = 2000,
     },
 
@@ -2125,14 +2051,12 @@ return {
     ['weed_brick'] = {
         label = 'Weed Brick',
         rarity = 'rare',
-        grid = { 2, 1 },
         weight = 2000,
     },
 
     ["wood"] = {
         label = "Wood",
         rarity = 'common',
-        grid = { 2, 1 },
         weight = 500,
         stack = true,
         close = false,
@@ -2146,7 +2070,6 @@ return {
     ["powersaw"] = {
         label = "Power Saw",
         rarity = 'uncommon',
-        grid = { 2, 2 },
         weight = 2000,
         stack = false,
         close = false,
@@ -2160,7 +2083,6 @@ return {
     ['wood_planks'] = {
         label = 'Wood Planks',
         rarity = 'common',
-        grid = { 2, 1 },
         weight = 90,
         stack = true,
         close = false,
@@ -2198,7 +2120,6 @@ return {
     ['firstaid'] = {
         label = 'First Aid',
         rarity = 'uncommon',
-        grid = { 2, 1 },
         weight = 2500,
     },
 
@@ -2307,14 +2228,12 @@ return {
     ['toaster'] = {
         label = 'Toaster',
         rarity = 'common',
-        grid = { 2, 2 },
         weight = 5000,
     },
 
     ['small_tv'] = {
         label = 'Small TV',
         rarity = 'uncommon',
-        grid = { 2, 2 },
         weight = 100,
     },
 
@@ -2333,7 +2252,6 @@ return {
     ['drill'] = {
         label = 'Drill',
         rarity = 'rare',
-        grid = { 2, 2 },
         weight = 5000,
     },
 
@@ -2360,8 +2278,6 @@ return {
 ["diving_gear_1"] = {
     label = "Basic Scuba Gear",
     rarity = 'common',
-    grid = { 2, 2 },
-    clothing = 'backpack',
     weight = 1000,
     stack = false,
     close = true,
@@ -2378,8 +2294,6 @@ return {
 ["diving_gear_2"] = {
     label = "Improved Scuba Gear",
     rarity = 'uncommon',
-    grid = { 2, 2 },
-    clothing = 'backpack',
     weight = 1000,
     stack = false,
     close = true,
@@ -2396,8 +2310,6 @@ return {
 ["diving_gear_3"] = {
     label = "Advanced Scuba Gear",
     rarity = 'rare',
-    grid = { 2, 2 },
-    clothing = 'backpack',
     weight = 1000,
     stack = false,
     close = true,
@@ -2414,8 +2326,6 @@ return {
 ["diving_gear_4"] = {
     label = "Professional Scuba Gear",
     rarity = 'epic',
-    grid = { 2, 2 },
-    clothing = 'backpack',
     weight = 1000,
     stack = false,
     close = true,
@@ -2432,8 +2342,6 @@ return {
 ["diving_gear_5"] = {
     label = "Elite Scuba Gear",
     rarity = 'legendary',
-    grid = { 2, 2 },
-    clothing = 'backpack',
     weight = 1000,
     stack = false,
     close = true,
@@ -2450,7 +2358,6 @@ return {
     ["diving_fill"] = {
         label = "Diving Tube",
         rarity = 'common',
-        grid = { 1, 2 },
         weight = 1000,
         stack = false,
         close = true,
@@ -2467,7 +2374,6 @@ return {
     ["welding_torch"] = {
         label = "Welding Torch",
         rarity = 'uncommon',
-        grid = { 2, 1 },
         weight = 2000,
         stack = false,
         close = true,
@@ -2484,7 +2390,6 @@ return {
     ["diving_crate"] = {
         label = "Diving Crate",
         rarity = 'rare',
-        grid = { 2, 2 },
         weight = 500,
         stack = true,
         close = true,
@@ -2500,7 +2405,6 @@ return {
     ["garden_shovel"] = {
         label = "Garden Shovel",
         rarity = 'common',
-        grid = { 1, 3 },
         weight = 500,
         stack = true,
         close = true,
@@ -2591,21 +2495,18 @@ return {
     ['jerry_can'] = {
         label = 'Jerrycan',
         rarity = 'common',
-        grid = { 2, 2 },
         weight = 3000,
     },
 
     ['nitrous'] = {
         label = 'Nitrous',
         rarity = 'uncommon',
-        grid = { 1, 2 },
         weight = 1000,
     },
 
     ['wine'] = {
         label = 'Wine',
         rarity = 'uncommon',
-        grid = { 1, 2 },
         weight = 500,
     },
 
@@ -2630,14 +2531,12 @@ return {
     ['vodka'] = {
         label = 'Vodka',
         rarity = 'common',
-        grid = { 1, 2 },
         weight = 500,
     },
 
     ['whiskey'] = {
         label = 'Whiskey',
         rarity = 'common',
-        grid = { 1, 2 },
         weight = 200,
     },
 
@@ -2656,7 +2555,6 @@ return {
     ['walking_stick'] = {
         label = 'Walking Stick',
         rarity = 'common',
-        grid = { 1, 3 },
         weight = 1000,
     },
 
@@ -2669,7 +2567,6 @@ return {
     ['binoculars'] = {
         label = 'Binoculars',
         rarity = 'uncommon',
-        grid = { 2, 1 },
         weight = 800,
     },
 
@@ -2694,14 +2591,12 @@ return {
     ['harness'] = {
         label = 'Harness',
         rarity = 'uncommon',
-        clothing = 'torso',
         weight = 200,
     },
 
     ['flat_cap'] = {
         label = 'Flat Cap',
         rarity = 'common',
-        clothing = 'hat',
         weight = 150,
         stack = false,
         close = false,
@@ -2715,7 +2610,6 @@ return {
     ['ski_mask'] = {
         label = 'Ski Mask',
         rarity = 'uncommon',
-        clothing = 'mask',
         weight = 120,
         stack = false,
         close = false,
@@ -2729,7 +2623,6 @@ return {
     ['work_gloves'] = {
         label = 'Work Gloves',
         rarity = 'common',
-        clothing = 'gloves',
         weight = 100,
         stack = false,
         close = false,
@@ -2743,14 +2636,12 @@ return {
     ['handcuffs'] = {
         label = 'Handcuffs',
         rarity = 'uncommon',
-        grid = { 2, 1 },
         weight = 200,
     },
 
 ["workbench"] = {
     label = "Basic Workbench",
     rarity = 'rare',
-    grid = { 3, 2 },
     weight = 5000,
     stack = false,
     close = true,
@@ -2767,7 +2658,6 @@ return {
 ["advanced_workbench"] = {
     label = "Advanced Workbench",
     rarity = 'epic',
-    grid = { 3, 2 },
     weight = 10000,
     stack = false,
     close = true,
@@ -2894,7 +2784,6 @@ return {
     ['merryweather_tablet'] = {
         label = 'Merryweather Tablet',
         rarity = 'legendary',
-        grid = { 2, 2 },
         weight = 2000,
         stack = false,
         consume = 0,
@@ -2963,7 +2852,6 @@ return {
     ['traffic_cone'] = {
         label = 'Traffic Cone',
         rarity = 'common',
-        grid = { 1, 2 },
         weight = 500,
         stack = true,
         close = false,
@@ -2974,7 +2862,6 @@ return {
     ['racing_traffic_cone'] = {
         label = 'Racing Traffic Cone',
         rarity = 'uncommon',
-        grid = { 1, 2 },
         weight = 250,
         stack = true,
         close = false,
@@ -2985,7 +2872,6 @@ return {
     ['road_map'] = {
         label = 'Road Map',
         rarity = 'uncommon',
-        grid = { 2, 1 },
         weight = 200,
         stack = false,
         close = true,
@@ -3021,8 +2907,6 @@ return {
     ['backpack_fashion'] = {
         label = 'Mini Backpack',
         rarity = 'common',
-        grid = { 2, 2 },
-        clothing = 'backpack',
         weight = 600,
         stack = false,
         close = false,
@@ -3033,8 +2917,6 @@ return {
     ['backpack_small'] = {
         label = 'Small Backpack',
         rarity = 'common',
-        grid = { 2, 2 },
-        clothing = 'backpack',
         weight = 800,
         stack = false,
         close = false,
@@ -3045,8 +2927,6 @@ return {
     ['backpack_urban'] = {
         label = 'Street Backpack',
         rarity = 'uncommon',
-        grid = { 2, 2 },
-        clothing = 'backpack',
         weight = 1100,
         stack = false,
         close = false,
@@ -3057,8 +2937,6 @@ return {
     ['backpack_gamer'] = {
         label = 'Tech Backpack',
         rarity = 'uncommon',
-        grid = { 2, 2 },
-        clothing = 'backpack',
         weight = 1300,
         stack = false,
         close = false,
@@ -3069,8 +2947,6 @@ return {
     ['backpack_medium'] = {
         label = 'Backpack',
         rarity = 'uncommon',
-        grid = { 2, 2 },
-        clothing = 'backpack',
         weight = 1400,
         stack = false,
         close = false,
@@ -3081,8 +2957,6 @@ return {
     ['backpack_hiking'] = {
         label = 'Trail Backpack',
         rarity = 'rare',
-        grid = { 2, 3 },
-        clothing = 'backpack',
         weight = 2000,
         stack = false,
         close = false,
@@ -3093,8 +2967,6 @@ return {
     ['backpack_large'] = {
         label = 'Large Backpack',
         rarity = 'rare',
-        grid = { 2, 3 },
-        clothing = 'backpack',
         weight = 2200,
         stack = false,
         close = false,
@@ -3105,8 +2977,6 @@ return {
     ['duffel_bag_sport'] = {
         label = 'Sports Duffel',
         rarity = 'epic',
-        grid = { 3, 2 },
-        clothing = 'backpack',
         weight = 2700,
         stack = false,
         close = false,
@@ -3117,8 +2987,6 @@ return {
     ['duffel_bag'] = {
         label = 'Duffel Bag',
         rarity = 'epic',
-        grid = { 3, 2 },
-        clothing = 'backpack',
         weight = 3000,
         stack = false,
         close = false,
@@ -3129,7 +2997,6 @@ return {
     ['briefcase'] = {
         label = 'Briefcase',
         rarity = 'rare',
-        grid = { 2, 2 },
         weight = 1500,
         stack = false,
         close = false,
@@ -3140,7 +3007,6 @@ return {
     ['medic_bag'] = {
         label = 'Medical Bag',
         rarity = 'rare',
-        grid = { 3, 2 },
         weight = 2500,
         stack = false,
         close = false,
@@ -3151,8 +3017,6 @@ return {
     ['police_duty_belt'] = {
         label = 'Duty Belt',
         rarity = 'rare',
-        grid = { 2, 1 },
-        clothing = 'belt',
         weight = 1200,
         stack = false,
         close = false,
@@ -3163,8 +3027,6 @@ return {
     ['police_duty_belt_heavy'] = {
         label = 'Tactical Duty Belt',
         rarity = 'epic',
-        grid = { 2, 1 },
-        clothing = 'belt',
         weight = 1500,
         stack = false,
         close = false,
@@ -3176,7 +3038,6 @@ return {
     ['salvage_tablet'] = {
         label = 'Salvage Tablet',
         rarity = 'rare',
-        grid = { 2, 2 },
         weight = 700,
         stack = false,
         close = true,

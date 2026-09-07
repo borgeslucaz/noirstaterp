@@ -1,11 +1,5 @@
 local containers = {}
 
----@class ItemContainerProperties
----@field slots number
----@field maxWeight number
----@field whitelist? table<string, true> | string[]
----@field blacklist? table<string, true> | string[]
-
 local function arrayToSet(tbl)
 	local size = #tbl
 	local set = table.create(0, size)
@@ -65,35 +59,34 @@ setContainerProperties('pizzabox', {
 	whitelist = { 'pizza' }
 })
 
-local containerItems = {
-	'paperbag', 'pizzabox',
-	'backpack_fashion', 'backpack_small', 'backpack_urban', 'backpack_gamer', 'backpack_medium',
-	'backpack_hiking', 'backpack_large',
-	'duffel_bag_sport', 'duffel_bag',
-	'briefcase', 'medic_bag',
+-- Server-specific bags deliberately use ox_inventory's native container
+-- mechanism. They are regular usable items; they do not reserve equipment
+-- slots or change the inventory grid/transfer algorithms.
+local backpacks = {
+	{ 'backpack_fashion', 8, 12000 },
+	{ 'backpack_small', 10, 15000 },
+	{ 'backpack_urban', 16, 25000 },
+	{ 'backpack_gamer', 18, 28000 },
+	{ 'backpack_medium', 20, 30000 },
+	{ 'backpack_hiking', 26, 45000 },
+	{ 'backpack_large', 30, 50000 },
+	{ 'duffel_bag_sport', 36, 65000 },
+	{ 'duffel_bag', 40, 70000 },
 }
 
-local bags = {
-	{ 'backpack_fashion',        8,  12000 },
-	{ 'backpack_small',          10, 15000 },
-	{ 'backpack_urban',          16, 25000 },
-	{ 'backpack_gamer',          18, 28000 },
-	{ 'backpack_medium',         20, 30000 },
-	{ 'backpack_hiking',         26, 45000 },
-	{ 'backpack_large',          30, 50000 },
-	{ 'duffel_bag_sport',        36, 65000 },
-	{ 'duffel_bag',              40, 70000 },
-	{ 'briefcase',               12, 20000 },
-	{ 'medic_bag',               20, 30000 },
-}
+local backpackItems = {}
 
-for i = 1, #bags do
-	local bag = bags[i]
+for i = 1, #backpacks do
+	backpackItems[i] = backpacks[i][1]
+end
 
-	setContainerProperties(bag[1], {
-		slots = bag[2],
-		maxWeight = bag[3],
-		blacklist = containerItems
+for i = 1, #backpacks do
+	local backpack = backpacks[i]
+
+	setContainerProperties(backpack[1], {
+		slots = backpack[2],
+		maxWeight = backpack[3],
+		blacklist = backpackItems,
 	})
 end
 
