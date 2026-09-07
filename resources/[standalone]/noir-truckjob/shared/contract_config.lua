@@ -62,7 +62,7 @@ Config.ContractBoard = {
     illegalAllowedTiers = { low = true, medium = true, high = true },
 
     -- Sal do gerador determinístico (troque para mudar a sequência de ofertas).
-    seedSalt = 7919,
+    seedSalt = 104729,
 
     -- Janela de recuperação após desconexão. Expirada → failed.
     -- Dentro da janela a sessão é encerrada como failed_system (sem penalidade);

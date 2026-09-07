@@ -4,7 +4,7 @@
 >
 > Resource atual: resources/[standalone]/peak-trucking.
 >
-> Nome final do resource: resources/[standalone]/NOIR-TRUCKJOB.
+> Nome final do resource: resources/[standalone]/noir-truckjob.
 >
 > Este documento substitui as decisões conflitantes do NOIR_TRUCK_V1.md. O V1 continua sendo referência apenas para fluxos não alterados explicitamente aqui.
 >
@@ -56,15 +56,15 @@ entrega concluída → XP global → nível global
 15. O app-shell terá largura e altura reduzidas linearmente em 25%.
 16. O ranking será ordenado por nível, XP e quantidade de rotas concluídas.
 17. O banco será reinstalado do zero durante o desenvolvimento; não haverá compatibilidade com dados legados.
-18. O resource peak-trucking será renomeado para NOIR-TRUCKJOB em todos os pontos públicos e internos da V2.
+18. O resource peak-trucking será renomeado para noir-truckjob em todos os pontos públicos e internos da V2.
 
 ## 3. Renomeação do resource
 
-O nome final será **NOIR-TRUCKJOB**. A renomeação deve ser completa e não apenas visual.
+O nome final será **noir-truckjob**. A renomeação deve ser completa e não apenas visual.
 
 Alterar:
 
-- pasta resources/[standalone]/peak-trucking para resources/[standalone]/NOIR-TRUCKJOB;
+- pasta resources/[standalone]/peak-trucking para resources/[standalone]/noir-truckjob;
 - nome e descrição no fxmanifest.lua;
 - marca “Peak Trucking” no header, títulos e textos da NUI;
 - nomes de eventos e callbacks com prefixo peak-trucking para noir-truckjob;
@@ -549,7 +549,7 @@ O servidor valida:
 | ui/src/types/trucking.ts | tipos baseados em RouteOffer |
 | ui/src/styles.css | shell 75% nas duas dimensões e layouts compactos |
 | locales e mockData | remover empresas/reputação e atualizar rotas |
-| pasta do resource e fxmanifest.lua | renomear peak-trucking para NOIR-TRUCKJOB |
+| pasta do resource e fxmanifest.lua | renomear peak-trucking para noir-truckjob |
 | eventos, callbacks e exports | substituir namespace peak-trucking por noir-truckjob |
 | server.cfg e integrações externas | atualizar ensure, eventos e exports para o novo resource |
 
@@ -584,7 +584,7 @@ O servidor valida:
 
 ### Dados e segurança
 
-- o resource inicia com o nome NOIR-TRUCKJOB;
+- o resource inicia com o nome noir-truckjob;
 - nenhum texto, evento, export, log ou referência funcional usa peak-trucking;
 - server.cfg e integrações externas usam o novo nome;
 - somente as tabelas noir_truckjob_players, noir_truckjob_offers e noir_truckjob_deliveries são criadas;
@@ -613,5 +613,5 @@ O servidor valida:
 13. Executar busca por resíduos de empresa/reputação no código final.
 14. Instalar banco vazio e confirmar ausência das colunas legadas.
 15. Executar as 37 rotas e validar preservação de coordenadas e fluxos especiais.
-16. Iniciar o resource por ensure NOIR-TRUCKJOB e validar eventos, exports e callbacks renomeados.
+16. Iniciar o resource por ensure noir-truckjob e validar eventos, exports e callbacks renomeados.
 17. Buscar resíduos de peak-trucking no resource final e confirmar que não há referências funcionais.

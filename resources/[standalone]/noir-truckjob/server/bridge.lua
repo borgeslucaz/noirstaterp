@@ -81,7 +81,7 @@ end
 --- @return table
 function ExecuteSql(query, params)
     params = params or {}
-    local driver = exports['noir-truckjob']:GetSQLDriver()
+    local driver = GetSQLDriver()
 
     if driver == 'oxmysql' then
         if MySQL and MySQL.query and MySQL.query.await then
@@ -119,7 +119,7 @@ end
 --- @return table|nil
 function ExecuteSqlSafe(query, params)
     params = params or {}
-    local driver = exports['noir-truckjob']:GetSQLDriver()
+    local driver = GetSQLDriver()
 
     if driver == 'oxmysql' then
         if MySQL and MySQL.query and MySQL.query.await then
@@ -147,7 +147,7 @@ end
 --- @return number|nil affectedRows
 function ExecuteSqlUpdate(query, params)
     params = params or {}
-    local driver = exports['noir-truckjob']:GetSQLDriver()
+    local driver = GetSQLDriver()
 
     if driver == 'oxmysql' then
         if MySQL and MySQL.update and MySQL.update.await then
@@ -184,7 +184,7 @@ end
 --- @param params? table
 function ExecuteSqlAsync(query, params)
     params = params or {}
-    local driver = exports['noir-truckjob']:GetSQLDriver()
+    local driver = GetSQLDriver()
 
     if driver == 'oxmysql' then
         if MySQL and MySQL.query then

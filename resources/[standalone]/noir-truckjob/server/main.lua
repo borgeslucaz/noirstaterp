@@ -455,6 +455,20 @@ RegisterCommand('trucking_rotation', function(src, args)
         local allowed = IsPlayerAceAllowed(src, Config.AdminAce or 'admin')
         if not allowed then return end
     end
+
+    if (args[1] or '') == 'refresh' then
+        local refreshed, err = Rotation.Refresh()
+        local who = src == 0 and 'console' or (GetPlayerName(src) .. ' (' .. src .. ')')
+        if not refreshed then
+            print('[noir-truckjob] Refresh da rotação falhou: ' .. tostring(err))
+            Peak.Utils.print(('AUDIT rotation refresh DENIED by %s — %s'):format(who, tostring(err)))
+            return
+        end
+        print(('[noir-truckjob] Rotação %s regenerada com %d novas ofertas.'):format(refreshed.id, #refreshed.order))
+        Peak.Utils.print(('AUDIT rotation refresh by %s'):format(who))
+        return
+    end
+
     local current = Rotation.Ensure()
     if not current then
         print('[noir-truckjob] Rotação indisponível (banco?).')

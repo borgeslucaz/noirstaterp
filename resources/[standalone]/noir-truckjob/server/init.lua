@@ -137,6 +137,12 @@ end
 -- EXPORTS
 -- ============================================================
 
+--- In-resource accessor; avoids case-sensitive export lookups on the
+--- resource name (e.g. noir-truckjob vs noir-truckjob).
+function GetSQLDriver()
+    return sqlDriver
+end
+
 exports('GetSQLDriver',      function() return sqlDriver                   end)
 exports('GetFramework',      function() return Peak.Server.FrameworkObject end)
 exports('GetFrameworkName',  function() return Peak.Server.FrameworkName   end)

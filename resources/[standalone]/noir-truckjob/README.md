@@ -64,7 +64,7 @@ If you are using an AI coding assistant (like Claude, ChatGPT, or Cursor), you c
 
 ```cfg
 ensure oxmysql
-ensure NOIR-TRUCKJOB
+ensure noir-truckjob
 ```
 
 ## UI Development

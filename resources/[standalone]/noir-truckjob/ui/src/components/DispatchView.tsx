@@ -61,8 +61,9 @@ export function DispatchView({
   notify,
 }: Props) {
   const t = useMemo(() => makeT(language), [language])
-  // A aba Missões só apresenta ofertas globais disponíveis e elegíveis.
-  const offers = (snapshot?.offers ?? []).filter((offer) => offer.status === 'available' && offer.eligible)
+  // A aba Missões apresenta todas as ofertas globalmente disponíveis;
+  // as inelegíveis para o jogador aparecem como bloqueadas (não iniciáveis).
+  const offers = (snapshot?.offers ?? []).filter((offer) => offer.status === 'available' || offer.status === 'locked')
   const remaining = useCountdown(snapshot?.rotation?.expiresAt, serverOffset)
   const level = playerData.level ?? snapshot?.player.level ?? 1
 
@@ -346,7 +347,7 @@ function ContractRow({
 
 function FleetPanel({
   t,
-  trucks,
+  trucks: trucksProp,
   activeTruck,
   onSelect,
 }: {
@@ -355,6 +356,7 @@ function FleetPanel({
   activeTruck?: TruckProjection
   onSelect: (truck: TruckProjection) => void
 }) {
+  const trucks = [...trucksProp].sort((a, b) => (a.level ?? 1) - (b.level ?? 1) || a.name.localeCompare(b.name))
   return (
     <section className="fleet-panel">
       <div className="panel-head">

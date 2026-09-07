@@ -6,6 +6,7 @@ Rotation = Rotation or {}
 
 Rotation.current = nil          -- { number, id, startsAt, expiresAt, offers = {}, order = {} }
 Rotation.startsByRotation = {}  -- [rotationId][identifier] = true
+Rotation.refreshSalt = 0        -- sal extra aplicado apenas em regenerações admin
 Rotation.ready = false
 
 local TIERS = { 'low', 'medium', 'high' }
@@ -129,7 +130,7 @@ function Rotation.Generate(rotationNumber)
     local pools = Rotation.BuildPools()
     local cfg = Config.ContractBoard.global
     local seedSalt = tonumber(Config.ContractBoard.seedSalt) or 7919
-    local rng = NewRng(rotationNumber + seedSalt)
+    local rng = NewRng(rotationNumber + seedSalt + (Rotation.refreshSalt or 0))
     local recent = LoadRecentRouteKeys(rotationNumber)
 
     local used = {}
@@ -297,6 +298,39 @@ function Rotation.GetOffer(rotationId, offerId)
     return current.offers[offerId]
 end
 
+--- Regeneração excepcional da rotação atual (admin, auditada).
+--- Recusa quando há contratos em andamento; o histórico de entregas
+--- (noir_truckjob_deliveries) permanece intacto. Reinicia o limite de
+--- uma oferta por jogador nesta rotação.
+--- @return table|nil rotation, string|nil err
+function Rotation.Refresh()
+    local current = Rotation.Ensure()
+    if not current then return nil, 'banco indisponível' end
+
+    for _, off in pairs(current.offers) do
+        if off.status == 'starting' or off.status == 'in_progress' then
+            return nil, ('oferta %s está em andamento — conclua ou cancele antes de regenerar'):format(off.offerId)
+        end
+    end
+
+    -- Sal temporal garante ofertas diferentes dentro da mesma janela.
+    Rotation.refreshSalt = Rotation.Now()
+
+    local affected = ExecuteSqlUpdate('DELETE FROM noir_truckjob_offers WHERE rotation_id = ?', { current.id })
+    if affected == nil then return nil, 'falha ao limpar as ofertas da rotação' end
+
+    Rotation.current = nil
+    local loaded = Rotation.Ensure()
+    if not loaded then return nil, 'falha ao recarregar a rotação' end
+
+    TriggerClientEvent('noir-truckjob:rotationChanged', -1, {
+        rotationId = loaded.id,
+        expiresAt = loaded.expiresAt,
+        serverNow = Rotation.Now(),
+    })
+    return loaded
+end
+
 --- Atualiza o status em memória e publica para todos os viewers
 --- (payload mínimo, sem identifier).
 function Rotation.PublishStatus(rotationId, offerId, status)
@@ -384,6 +418,10 @@ function Rotation.ProjectOffer(offer, profile, identifier, activeSession)
             }
         end
     end
+    table.sort(compatible, function(a, b)
+        if a.level ~= b.level then return (tonumber(a.level) or 1) < (tonumber(b.level) or 1) end
+        return a.name < b.name
+    end)
 
     local eligible, reasons, _ = Contracts.CheckEligibility(profile, identifier, offer, activeSession)
 

@@ -29,7 +29,7 @@ local trailerAttached = false
 local isAcceptedIllegal = false
 local isPendingCall = false
 local activeJobToken = 0
-local activeSession = nil      -- { sessionId, missionId, routeIndex, tier, truckModel, trailerSpawnIndex }
+local activeSession = nil      -- { sessionId, routeId, tier, truckModel, trailerSpawnIndex }
 local isMenuOpen = false
 local isEditingHud = false
 
@@ -698,7 +698,7 @@ RegisterNUICallback("startContract", function(data, cb)
   end
 
   -- Sessão confirmada pelo servidor: resolve o catálogo canônico localmente.
-  local mission, route = ResolveCatalogRoute(res.missionId, res.routeIndex)
+  local mission, route = ResolveCatalogRoute(res.routeId)
   if not mission or not route then
     isProcessingJob = false
     TriggerServerEvent("noir-truckjob:session:cancel", res.sessionId, "spawn_catalog_missing")
@@ -708,8 +708,7 @@ RegisterNUICallback("startContract", function(data, cb)
 
   activeSession = {
     sessionId = res.sessionId,
-    missionId = res.missionId,
-    routeIndex = res.routeIndex,
+    routeId = res.routeId,
     tier = res.tier,
     truckModel = res.truckModel,
     trailerSpawnIndex = res.trailerSpawnIndex,
@@ -731,6 +730,8 @@ function RunContract(mission, route, session)
   activeJobToken = activeJobToken + 1
   local jobToken = activeJobToken
   local sessionId = session.sessionId
+  -- Chaves legadas para hooks customizados, derivadas do catálogo local.
+  local canonical = GetRoute(session.routeId)
 
   isAcceptedIllegal = false
   trailerAttached = false
@@ -838,7 +839,7 @@ function RunContract(mission, route, session)
   end
 
   if OnMissionStarted then
-    pcall(OnMissionStarted, mission.id, session.routeIndex)
+    pcall(OnMissionStarted, canonical and canonical.sourceId, canonical and canonical.sourceIndex)
   end
 
   -- Monitor de destruição
@@ -907,7 +908,7 @@ function RunContract(mission, route, session)
       if IsControlJustPressed(0, Config.KeyPressed.mark_location.key) then
         if not isIllegalMissionActive then
           if currentPhase == 1 then
-            if mission.id == 16 then
+            if canonical and canonical.sourceId == 16 then
               SetRouteBlip(route.board.x, route.board.y, route.board.z)
             elseif trailerSpawnLocation then
               SetRouteBlip(trailerSpawnLocation.x, trailerSpawnLocation.y, trailerSpawnLocation.z)
@@ -935,7 +936,7 @@ function RunContract(mission, route, session)
 
   -- Lógica principal
   CreateThread(function()
-    if mission.id == 16 then
+    if canonical and canonical.sourceId == 16 then
       -- Missão 16: carregamento manual de 10 caixas (fluxo preservado)
       local boxCount = 0
       local hasBox = false
@@ -1035,7 +1036,7 @@ function RunContract(mission, route, session)
     end
 
     -- Coleta confirmada (para missões sem carreta o servidor já avançou)
-    if trailerSpawnLocation or mission.id == 16 then
+    if trailerSpawnLocation or (canonical and canonical.sourceId == 16) then
       TriggerServerEvent("noir-truckjob:session:pickup", sessionId)
     end
 
@@ -1179,7 +1180,7 @@ function RunContract(mission, route, session)
             end)
 
             if OnMissionCompleted and res.result then
-              pcall(OnMissionCompleted, mission.id, res.result.total)
+              pcall(OnMissionCompleted, canonical and canonical.sourceId, res.result.total)
             end
 
             break
