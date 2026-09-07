@@ -51,6 +51,14 @@ return {
         -- lengths, and both keep working everywhere.
         Length = 10,
 
+        -- Area code for new numbers, blank by default. It is part of Length
+        -- rather than added to it: '555' with Length 10 gives 555 plus 7 random
+        -- digits, so 5551234567. Formats below are unaffected.
+        --
+        -- It cannot start with 0 or 1 and must leave 4 digits random; break
+        -- either rule and it is ignored, with the reason printed on boot.
+        Prefix = '',
+
         -- How a number is displayed, keyed by how many digits it has. Each X is
         -- replaced by the next digit and every other character is printed
         -- literally, so '+44 XXXX XXXXXX', 'XXX-XXXX' and '(XXX) XXX-XXXX' all
@@ -79,6 +87,19 @@ return {
     -- exploits.
     BlockWhileDead     = true,
     BlockWhileSwimming = true,
+
+    -- Take the phone away while the player is restrained or incapacitated. These read the
+    -- FRAMEWORK's state rather than the ped's: someone bleeding out or in last stand is still a
+    -- live ped, so BlockWhileDead above (an engine-level IsEntityDead check) misses the window
+    -- they actually spend on the floor waiting for EMS.
+    --
+    -- Cuffs have no agreed source, so the check reads the common state bags, the framework
+    -- metadata and the native, which covers cuff scripts that only write one of them.
+    --
+    -- Both close a phone that is ALREADY open too, since gating only the open would be sidestepped
+    -- by opening the phone first and being cuffed after.
+    BlockWhileCuffed   = true,
+    BlockWhileDowned   = true,
 
     -- Whether an incoming call throws the whole phone onto the screen. Off, a
     -- ringing phone shows the same closed-shell banner an alarm does, naming
@@ -120,7 +141,10 @@ return {
     -- Without one they get a connected call with a black picture, while their own self-view
     -- still looks fine, because the self-view never leaves their machine.
     --
-    -- One TURN setup serves everything (video calls, nearby-voice capture, Live, bodycams).
+    -- TURN is only for video calls and nearby-voice capture, the two things that talk browser to
+    -- browser. Live broadcasts and MDT bodycams do NOT need it: Live sends its picture through the
+    -- game server, and a bodycam is drawn on the watching terminal itself.
+    --
     -- Configure it once in configs/voice.lua; the free Cloudflare path is two convars:
     --     set sd_cf_turn_token_id  "your-cloudflare-turn-token-id"
     --     set sd_cf_turn_api_token "your-cloudflare-turn-api-token"

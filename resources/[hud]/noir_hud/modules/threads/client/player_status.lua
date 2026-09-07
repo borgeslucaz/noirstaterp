@@ -67,7 +67,13 @@ function PlayerStatusThread:setIsVehicleThreadRunning(value)
 end
 
 function PlayerStatusThread:setRadarVisible(state)
-    if self.radarVisible == state then return end
+    state = state == true
+
+    -- Other resources (notably qbx_spawn after character selection) can change
+    -- the radar directly. Do not trust only our cached value, otherwise a
+    -- DisplayRadar(true) made after spawn leaves the minimap visible on foot.
+    if self.radarVisible == state and IsRadarHidden() == (not state) then return end
+
     self.radarVisible = state
     DisplayRadar(state)
 end

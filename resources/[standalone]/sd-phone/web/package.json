@@ -1,0 +1,45 @@
+{
+    "name": "sd-phone-ui",
+    "private": true,
+    "version": "0.9.11",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc --noEmit && vite build",
+        "build:demo": "tsc --noEmit && vite build --mode demo",
+        "preview": "vite preview",
+        "lint": "oxlint src",
+        "test": "vitest run --passWithNoTests",
+        "knip": "knip",
+        "i18n:check": "node scripts/i18n.mjs check",
+        "i18n:gen": "node scripts/i18n.mjs gen",
+        "i18n:status": "node scripts/i18n.mjs status",
+        "i18n:prune": "node scripts/i18n.mjs prune"
+    },
+    "dependencies": {
+        "@fontsource/great-vibes": "^5.3.0",
+        "@fontsource/inter": "^5.3.0",
+        "class-variance-authority": "^0.7.1",
+        "clsx": "^2.1.1",
+        "html2canvas": "^1.4.1",
+        "lucide-react": "^1.37.0",
+        "react": "^19.2.8",
+        "react-dom": "^19.2.8",
+        "zustand": "^5.0.15"
+    },
+    "devDependencies": {
+        "@types/react": "^19.2.17",
+        "@types/react-dom": "^19.2.5",
+        "@vitejs/plugin-react": "^6.1.1",
+        "autoprefixer": "^10.5.4",
+        "knip": "^6.33.0",
+        "oxlint": "^1.80.0",
+        "playwright": "^1.62.1",
+        "postcss": "^8.5.26",
+        "tailwindcss": "^3.4.19",
+        "typescript": "^7.0.2",
+        "vite": "^8.2.2",
+        "vitest": "^4.1.11"
+    },
+    "license": "GPL-3.0-or-later"
+}

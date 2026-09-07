@@ -3,6 +3,8 @@ local config  = require 'configs.config'
 
 ---@type table Race running state, so a board never shows while the player is mid-run.
 local race    = require 'client.racing.race'
+---@type table Locale bridge (bridge.shared.locale): t(key, english, vars) for in-world text.
+local locale  = require 'bridge.shared.locale'
 
 local RACING  = type(config.Racing) == 'table' and config.Racing or {}
 local RACE    = type(RACING.Race) == 'table' and RACING.Race or {}
@@ -10,7 +12,8 @@ local RACE    = type(RACING.Race) == 'table' and RACING.Race or {}
 ---@type boolean Whether the racing app runs at all. Nothing here touches the world when it is off.
 local ENABLED = RACING.Enabled ~= false
 
----@type number Metres from a start point at which its blip and world marker appear.
+---@type number Metres from a start point at which its map blip appears. The blip is created on
+---the way in and removed on the way out, so a lobby across the map never shows on the pause map.
 local MARKER_DIST = 60.0
 
 ---@type number Metres from a start point at which the sign-up board opens on screen.
@@ -65,13 +68,15 @@ local function clearBlips()
     end
 end
 
----Paints one short-range blip per board and drops any whose lobby has gone.
-local function syncBlips()
+---Paints a short-range blip for each board within MARKER_DIST of the player and drops the rest,
+---whether they fell out of range or their lobby has gone.
+---@param coords vector3 player position
+local function syncBlips(coords)
     local seen = {}
     for i = 1, #Boards do
         local entry = Boards[i]
         local start = entry.start
-        if start then
+        if start and #(coords - vec3(start.x + 0.0, start.y + 0.0, (start.z or 0.0) + 0.0)) <= MARKER_DIST then
             seen[entry.id] = true
             if not Blips[entry.id] then
                 local handle = AddBlipForCoord(start.x + 0.0, start.y + 0.0, (start.z or 0.0) + 0.0)
@@ -80,7 +85,7 @@ local function syncBlips()
                 SetBlipScale(handle, 0.9)
                 SetBlipAsShortRange(handle, true)
                 BeginTextCommandSetBlipName('STRING')
-                AddTextComponentSubstringPlayerName(entry.name or 'Race')
+                AddTextComponentSubstringPlayerName(entry.name or locale.t('racing.modeRace', 'Race'))
                 EndTextCommandSetBlipName(handle)
                 Blips[entry.id] = handle
             end
@@ -110,7 +115,7 @@ function board.refresh()
     if type(res) ~= 'table' or res.success ~= true or type(res.data) ~= 'table' then return end
 
     Boards = type(res.data.boards) == 'table' and res.data.boards or {}
-    syncBlips()
+    syncBlips(GetEntityCoords(cache.ped))
 
     if Shown then
         local still = nil
@@ -215,16 +220,17 @@ local function toggle(entry)
         if entry.joined then
             local res = lib.callback.await('sd-phone:server:racing:leave', false, { raceId = entry.id })
             if type(res) == 'table' and res.message then
-                lib.notify({ title = 'Racing', description = res.message, type = res.success and 'info' or 'error' })
+                lib.notify({ title = locale.t('apps.racing', 'Racing'), description = res.message, type = res.success and 'info' or 'error' })
             end
         else
             local fee = math.max(0, math.floor(tonumber(entry.entryFee) or 0))
             local go  = true
             if fee > 0 then
                 go = lib.alertDialog({
-                    header   = 'Race buy-in',
-                    content  = ('Joining **%s** costs **$%s**. The money comes back if you leave before the start.')
-                        :format(entry.name or 'this race', fee),
+                    header   = locale.t('racing.buyInHeader', 'Race buy-in'),
+                    content  = locale.t('racing.buyInConfirm',
+                        'Joining **{race}** costs **${amount}**. The money comes back if you leave before the start.',
+                        { race = entry.name or locale.t('racing.thisRace', 'this race'), amount = fee }),
                     centered = true,
                     cancel   = true,
                 }) == 'confirm'
@@ -236,7 +242,7 @@ local function toggle(entry)
                     modelHash = currentModel(),
                 })
                 if type(res) == 'table' and res.message then
-                    lib.notify({ title = 'Racing', description = res.message, type = res.success and 'success' or 'error' })
+                    lib.notify({ title = locale.t('apps.racing', 'Racing'), description = res.message, type = res.success and 'success' or 'error' })
                 end
             end
         end
@@ -252,13 +258,15 @@ local function drawLoop()
         while ENABLED do
             local wait = 500
 
+            local here = GetEntityCoords(cache.ped)
+            syncBlips(here)
+
             if race.active() or #Boards == 0 then
                 if Shown then
                     Shown, ShownSig = nil, nil
                     SendNUIMessage({ action = 'sd-phone:racing:board:hide' })
                 end
             else
-                local here = GetEntityCoords(cache.ped)
                 local entry, distance = nearest(here)
 
                 if entry and distance <= SHOW_DIST then

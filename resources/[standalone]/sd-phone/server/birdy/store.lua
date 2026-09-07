@@ -285,6 +285,11 @@ function store.ensureSchema()
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ]])
 
+    -- The inbox reads each side of the mailbox newest-first, so the handle indexes carry the
+    -- timestamp: a range scan off the index instead of an index merge plus a filesort.
+    util.ensureIndex('phone_birdy_dms', 'idx_birdy_dms_from_created', '(from_handle, created_at)')
+    util.ensureIndex('phone_birdy_dms', 'idx_birdy_dms_to_created',   '(to_handle, created_at)')
+
     MySQL.query.await([[
         CREATE TABLE IF NOT EXISTS phone_birdy_notifications (
             id         VARCHAR(16) NOT NULL,
@@ -330,12 +335,57 @@ function store.ensureSchema()
     util.ensureIndex('phone_birdy_notifications', 'idx_birdy_notifs_unseen', '(recipient, seen)')
     util.ensureIndex('phone_birdy_notifications', 'idx_birdy_notifs_dedupe', '(recipient, kind, actor, post_id)')
 
+    -- New posts stopped being alerts: the tab answers "what happened to me", so follows, likes,
+    -- reposts and replies belong there and a post does not. Rows written by older versions are
+    -- cleared out here, which also drops the unread badge they were still inflating. Runs every
+    -- boot and deletes nothing once done.
+    MySQL.update.await("DELETE FROM phone_birdy_notifications WHERE kind = 'post'")
+
+    -- A post either carries a poll or it does not, so the poll row is keyed by the post itself
+    -- rather than by an id of its own. The question is the post body; only the deadline lives here.
+    MySQL.query.await([[
+        CREATE TABLE IF NOT EXISTS phone_birdy_polls (
+            post_id    VARCHAR(16) NOT NULL,
+            ends_at    TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (post_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ]])
+
+    MySQL.query.await([[
+        CREATE TABLE IF NOT EXISTS phone_birdy_poll_options (
+            post_id VARCHAR(16) NOT NULL,
+            idx     TINYINT     NOT NULL,
+            label   VARCHAR(40) NOT NULL,
+            PRIMARY KEY (post_id, idx)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ]])
+
+    -- The composite primary key is what enforces one vote per account per poll; a replayed or
+    -- crafted second vote collides with it instead of being counted.
+    MySQL.query.await([[
+        CREATE TABLE IF NOT EXISTS phone_birdy_poll_votes (
+            post_id    VARCHAR(16) NOT NULL,
+            handle     VARCHAR(32) NOT NULL,
+            idx        TINYINT     NOT NULL,
+            created_at TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (post_id, handle)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ]])
+
+    -- Per-option tallies are the hot read (once per page of posts) and the primary key leads with
+    -- the handle's half of the pair, so they need their own covering index.
+    util.ensureIndex('phone_birdy_poll_votes', 'idx_birdy_poll_votes_option', '(post_id, idx)')
+
     -- Referential integrity, added on boot so existing installs migrate with no manual SQL.
     -- Each is a no-op once present; orphaned children are cleared first (they point at a
     -- parent that is already gone) and a type or collation mismatch is skipped, never fatal.
     util.ensureForeignKey('phone_birdy_likes', 'post_id', 'phone_birdy_posts', 'id', 'fk_birdy_likes_post')
     util.ensureForeignKey('phone_birdy_reposts', 'post_id', 'phone_birdy_posts', 'id', 'fk_birdy_reposts_post')
     util.ensureForeignKey('phone_birdy_notifications', 'post_id', 'phone_birdy_posts', 'id', 'fk_birdy_notifications_post')
+    util.ensureForeignKey('phone_birdy_polls', 'post_id', 'phone_birdy_posts', 'id', 'fk_birdy_polls_post')
+    util.ensureForeignKey('phone_birdy_poll_options', 'post_id', 'phone_birdy_posts', 'id', 'fk_birdy_poll_options_post')
+    util.ensureForeignKey('phone_birdy_poll_votes', 'post_id', 'phone_birdy_posts', 'id', 'fk_birdy_poll_votes_post')
 end
 
 ---Decodes a JSON column into a Lua table, tolerating nil / empty / corrupt values (always
@@ -512,6 +562,86 @@ local function hydratePost(row)
     }
 end
 
+---@type string One row per poll option, for every requested post that has a poll. The tally and
+---the viewer's own choice ride along as correlated subqueries so a whole page of posts costs one
+---query rather than one per post. Params: viewer handle, then the post ids.
+local POLL_SELECT = [[
+    SELECT o.post_id, o.idx, o.label,
+        UNIX_TIMESTAMP(pl.ends_at) AS ends_s,
+        (SELECT COUNT(*) FROM phone_birdy_poll_votes v
+          WHERE v.post_id = o.post_id AND v.idx = o.idx) AS votes,
+        (SELECT mv.idx FROM phone_birdy_poll_votes mv
+          WHERE mv.post_id = o.post_id AND mv.handle = ?) AS my_vote
+    FROM phone_birdy_poll_options o
+    JOIN phone_birdy_polls pl ON pl.post_id = o.post_id
+]]
+
+---Loads the polls belonging to a set of post ids in one query, shaped for the client.
+---@param ids string[] post ids (duplicates and empties tolerated)
+---@param viewerHandle string viewer handle, for the `myVote` field
+---@return table<string, table> postId -> poll
+local function loadPolls(ids, viewerHandle)
+    local out = {}
+    if type(ids) ~= 'table' or #ids == 0 then return out end
+    local seen, list = {}, {}
+    for i = 1, #ids do
+        local id = ids[i]
+        if id and id ~= '' and not seen[id] then seen[id] = true; list[#list + 1] = id end
+    end
+    if #list == 0 then return out end
+
+    local marks, params = {}, { viewerHandle }
+    for i = 1, #list do marks[i] = '?'; params[#params + 1] = list[i] end
+    local rows = MySQL.query.await(
+        POLL_SELECT .. (' WHERE o.post_id IN (%s) ORDER BY o.post_id, o.idx'):format(table.concat(marks, ',')),
+        params
+    ) or {}
+
+    local now = os.time()
+    for i = 1, #rows do
+        local row = rows[i]
+        local poll = out[row.post_id]
+        if not poll then
+            local endsSecs = tonumber(row.ends_s) or 0
+            poll = {
+                options = {},
+                total   = 0,
+                endsAt  = endsSecs * 1000,
+                ended   = endsSecs <= now,
+                myVote  = tonumber(row.my_vote),
+            }
+            out[row.post_id] = poll
+        end
+        local votes = tonumber(row.votes) or 0
+        poll.options[#poll.options + 1] = { idx = tonumber(row.idx) or 0, label = row.label, votes = votes }
+        poll.total = poll.total + votes
+    end
+    return out
+end
+
+---Attaches `poll` to every hydrated post in a page that has one. Mutates and returns the same
+---list, so a caller can wrap its existing return value.
+---@param posts table[] hydrated posts
+---@param viewerHandle string
+---@return table[] posts
+local function attachPolls(posts, viewerHandle)
+    if type(posts) ~= 'table' or #posts == 0 then return posts end
+    local ids = {}
+    for i = 1, #posts do ids[i] = posts[i].id end
+    local polls = loadPolls(ids, viewerHandle)
+    if next(polls) == nil then return posts end
+    for i = 1, #posts do posts[i].poll = polls[posts[i].id] end
+    return posts
+end
+
+---One post's poll, or nil when it does not have one.
+---@param postId string
+---@param viewerHandle string
+---@return table|nil poll
+function store.pollOf(postId, viewerHandle)
+    return loadPolls({ postId }, viewerHandle)[postId]
+end
+
 ---@type string Columns shared by the authored and reposted halves of a timeline. Both halves
 ---project the same shape so their rows can be merged and sorted together. The viewer handle is
 ---params #1 AND #2 (the `liked` and `reposted` flags) in either half.
@@ -596,7 +726,7 @@ function store.listPostsBy(author, kind, viewerHandle, limit)
     if kind == 'replies' or kind == 'media' then
         local out = {}
         for i = 1, #authored do out[i] = hydratePost(authored[i]) end
-        return out
+        return attachPolls(out, viewerHandle)
     end
 
     local reposted = MySQL.query.await(REPOST_SELECT .. [[
@@ -606,7 +736,7 @@ function store.listPostsBy(author, kind, viewerHandle, limit)
         ORDER BY rp2.created_at DESC LIMIT ?
     ]], { viewerHandle, viewerHandle, author, limit }) or {}
 
-    return mergeTimeline(authored, reposted, limit)
+    return attachPolls(mergeTimeline(authored, reposted, limit), viewerHandle)
 end
 
 ---List posts an account has liked, most-recently-liked first.
@@ -623,7 +753,7 @@ function store.listLikedBy(likerHandle, viewerHandle, limit)
         { viewerHandle, viewerHandle, likerHandle, limit }
     ) or {}
     for i = 1, #rows do rows[i] = hydratePost(rows[i]) end
-    return rows
+    return attachPolls(rows, viewerHandle)
 end
 
 ---Deletes an account and every row it owns or references: likes and reposts (its own, and
@@ -634,6 +764,10 @@ function store.deleteAccount(handle)
     MySQL.update.await('DELETE FROM phone_birdy_likes WHERE post_id IN (SELECT id FROM phone_birdy_posts WHERE author = ?)', { handle })
     MySQL.update.await('DELETE FROM phone_birdy_reposts WHERE handle = ?', { handle })
     MySQL.update.await('DELETE FROM phone_birdy_reposts WHERE post_id IN (SELECT id FROM phone_birdy_posts WHERE author = ?)', { handle })
+    MySQL.update.await('DELETE FROM phone_birdy_poll_votes WHERE handle = ?', { handle })
+    MySQL.update.await('DELETE FROM phone_birdy_poll_votes WHERE post_id IN (SELECT id FROM phone_birdy_posts WHERE author = ?)', { handle })
+    MySQL.update.await('DELETE FROM phone_birdy_poll_options WHERE post_id IN (SELECT id FROM phone_birdy_posts WHERE author = ?)', { handle })
+    MySQL.update.await('DELETE FROM phone_birdy_polls WHERE post_id IN (SELECT id FROM phone_birdy_posts WHERE author = ?)', { handle })
     MySQL.update.await('DELETE FROM phone_birdy_posts WHERE author = ?', { handle })
     MySQL.update.await('DELETE FROM phone_birdy_follows WHERE follower = ? OR target = ?', { handle, handle })
     MySQL.update.await('DELETE FROM phone_birdy_dms WHERE from_handle = ? OR to_handle = ?', { handle, handle })
@@ -677,9 +811,11 @@ end
 ---@param viewerHandle string
 ---@return table|nil
 function store.getPost(id, viewerHandle)
-    return hydratePost(MySQL.single.await(
+    local post = hydratePost(MySQL.single.await(
         POST_SELECT .. ' WHERE p.id = ? LIMIT 1', { viewerHandle, viewerHandle, id }
     ))
+    if post then post.poll = store.pollOf(post.id, viewerHandle) end
+    return post
 end
 
 ---Hydrated posts for many ids in one query. Returns an id -> hydrated post map (missing ids
@@ -702,10 +838,15 @@ function store.postsByIds(ids, viewerHandle)
     for i = 1, #list do params[#params + 1] = list[i] end
     local rows = MySQL.query.await(
         POST_SELECT .. (' WHERE p.id IN (%s)'):format(table.concat(marks, ',')), params) or {}
+    local page = {}
     for i = 1, #rows do
         local post = hydratePost(rows[i])
-        if post then out[rows[i].id] = post end
+        if post then
+            out[rows[i].id] = post
+            page[#page + 1] = post
+        end
     end
+    attachPolls(page, viewerHandle)
     return out
 end
 
@@ -750,7 +891,7 @@ function store.listFeed(viewerHandle, limit, onlyFollowing)
             ORDER BY rp2.created_at DESC LIMIT ?
         ]], { viewerHandle, viewerHandle, viewerHandle, viewerHandle, viewerHandle, viewerHandle, limit }) or {}
     end
-    return mergeTimeline(authored, reposted, limit)
+    return attachPolls(mergeTimeline(authored, reposted, limit), viewerHandle)
 end
 
 ---@param parentId string
@@ -758,11 +899,11 @@ end
 ---@return table[] replies oldest-first
 function store.listReplies(parentId, viewerHandle)
     local rows = MySQL.query.await(
-        POST_SELECT .. ' WHERE p.parent_id = ? ORDER BY p.created_at ASC',
+        POST_SELECT .. ' WHERE p.parent_id = ? ORDER BY p.created_at ASC LIMIT 500',
         { viewerHandle, viewerHandle, parentId }
     ) or {}
     for i = 1, #rows do rows[i] = hydratePost(rows[i]) end
-    return rows
+    return attachPolls(rows, viewerHandle)
 end
 
 ---@type { at: number, data: table[]|nil } Cached trending list; dropped on every new post.
@@ -864,7 +1005,7 @@ function store.postsByHashtag(tagLower, viewerHandle, limit)
             out[#out + 1] = hydratePost(rows[i])
         end
     end
-    return out
+    return attachPolls(out, viewerHandle)
 end
 
 ---Inserts a post row.
@@ -879,6 +1020,41 @@ function store.insertPost(id, author, body, parentId, images)
     return MySQL.insert.await([[
         INSERT INTO phone_birdy_posts (id, author, body, parent_id, images) VALUES (?, ?, ?, ?, ?)
     ]], { id, author, body, parentId, imagesJson }) ~= nil
+end
+
+---Attaches a poll to a post that has just been inserted: the deadline row plus one row per
+---option. Labels arrive already trimmed and capped by the caller.
+---@param postId string
+---@param options string[] validated option labels, in display order
+---@param durationSecs integer seconds from now until the poll closes
+function store.insertPoll(postId, options, durationSecs)
+    MySQL.insert.await(
+        'INSERT INTO phone_birdy_polls (post_id, ends_at) VALUES (?, FROM_UNIXTIME(?))',
+        { postId, os.time() + durationSecs }
+    )
+    local marks, params = {}, {}
+    for i = 1, #options do
+        marks[i] = '(?, ?, ?)'
+        params[#params + 1] = postId
+        params[#params + 1] = i - 1
+        params[#params + 1] = options[i]
+    end
+    MySQL.insert.await(
+        ('INSERT INTO phone_birdy_poll_options (post_id, idx, label) VALUES %s'):format(table.concat(marks, ',')),
+        params
+    )
+end
+
+---Records one vote. INSERT IGNORE against the (post_id, handle) primary key is what makes a
+---second vote from the same account a no-op rather than a recount.
+---@param postId string
+---@param handle string
+---@param idx integer zero-based option index
+function store.addVote(postId, handle, idx)
+    MySQL.insert.await(
+        'INSERT IGNORE INTO phone_birdy_poll_votes (post_id, handle, idx) VALUES (?, ?, ?)',
+        { postId, handle, idx }
+    )
 end
 
 ---Increments a post's view count, but never for the author's own views.
@@ -913,6 +1089,9 @@ function store.deletePost(id)
     MySQL.query.await(('DELETE FROM phone_birdy_likes WHERE post_id IN (%s)'):format(marks), ids)
     MySQL.query.await(('DELETE FROM phone_birdy_reposts WHERE post_id IN (%s)'):format(marks), ids)
     MySQL.query.await(('DELETE FROM phone_birdy_notifications WHERE post_id IN (%s)'):format(marks), ids)
+    MySQL.query.await(('DELETE FROM phone_birdy_poll_votes WHERE post_id IN (%s)'):format(marks), ids)
+    MySQL.query.await(('DELETE FROM phone_birdy_poll_options WHERE post_id IN (%s)'):format(marks), ids)
+    MySQL.query.await(('DELETE FROM phone_birdy_polls WHERE post_id IN (%s)'):format(marks), ids)
     return MySQL.update.await(('DELETE FROM phone_birdy_posts WHERE id IN (%s)'):format(marks), ids) or 0
 end
 
@@ -960,9 +1139,20 @@ function store.isLiked(postId, handle)
     ) ~= nil
 end
 
----Handles of every account following `target`, for notification fan-out. Read-only.
+---Every registered handle except one, for a server-wide post notification fan-out. Read-only.
+---@param except string|nil handle to leave out, normally the posting author
+---@return string[] handles
+function store.allHandles(except)
+    local rows = MySQL.query.await(
+        'SELECT handle FROM phone_birdy_profiles WHERE handle <> ?', { except or '' }) or {}
+    local out = {}
+    for i = 1, #rows do out[#out + 1] = rows[i].handle end
+    return out
+end
+
+---Every handle following a given account. Read-only.
 ---@param target string
----@return string[]
+---@return string[] handles
 function store.followerHandles(target)
     local rows = MySQL.query.await('SELECT follower FROM phone_birdy_follows WHERE target = ?', { target }) or {}
     local out = {}
@@ -1038,14 +1228,27 @@ end
 ---@param handle string
 ---@return table[]
 function store.listMessagesFor(handle)
+    -- The two halves stay parenthesised so each keeps its own ORDER BY + LIMIT and rides its own
+    -- covering index (idx_birdy_dms_from_created / _to_created) with no filesort. What is NOT here
+    -- is a `SELECT * FROM ( ... ) recent` wrapper around them: a derived table whose first UNION
+    -- operand is parenthesised is a syntax error before MariaDB 10.4 / MySQL 8, which is a version
+    -- plenty of live servers are still on. The ascending order the caller wants is applied below
+    -- instead, over at most 5000 rows.
     local rows = MySQL.query.await([[
-        SELECT * FROM (
-            SELECT id, from_handle, to_handle, body, kind, meta, reactions, read_flag,
-                   created_at, UNIX_TIMESTAMP(created_at) AS created_s
-            FROM phone_birdy_dms WHERE from_handle = ? OR to_handle = ? ORDER BY created_at DESC LIMIT 5000
-        ) recent ORDER BY created_at ASC
+        (SELECT id, from_handle, to_handle, body, kind, meta, reactions, read_flag,
+                created_at, UNIX_TIMESTAMP(created_at) AS created_s
+         FROM phone_birdy_dms WHERE from_handle = ? ORDER BY created_at DESC LIMIT 2500)
+        UNION ALL
+        (SELECT id, from_handle, to_handle, body, kind, meta, reactions, read_flag,
+                created_at, UNIX_TIMESTAMP(created_at) AS created_s
+         FROM phone_birdy_dms WHERE to_handle = ? ORDER BY created_at DESC LIMIT 2500)
     ]], { handle, handle }) or {}
     for i = 1, #rows do rows[i].created_ms = (tonumber(rows[i].created_s) or 0) * 1000 end
+    -- Oldest first, id breaking ties so two messages sharing a second keep a stable order.
+    table.sort(rows, function(a, b)
+        if a.created_ms ~= b.created_ms then return a.created_ms < b.created_ms end
+        return tostring(a.id) < tostring(b.id)
+    end)
     return rows
 end
 
@@ -1131,29 +1334,6 @@ function store.insertNotification(id, recipient, kind, actor, postId)
         INSERT INTO phone_birdy_notifications (id, recipient, kind, actor, post_id)
         VALUES (?, ?, ?, ?, ?)
     ]], { id, recipient, kind, actor, postId })
-end
-
----Inserts many notifications in one statement. The post fan-out wrote one row per follower, so
----a 100-follower post cost 100 sequential round trips. A nil/empty list is a no-op.
----Every field must be non-nil: the args are positional, and a nil would shift every following
----row's values. Notification kinds with no post (follow) use insertNotification instead.
----@param rows { id: string, recipient: string, kind: string, actor: string, postId: string }[]
-function store.insertNotifications(rows)
-    if type(rows) ~= 'table' or #rows == 0 then return end
-    local ph, args, n = {}, {}, 0
-    for i = 1, #rows do
-        local r = rows[i]
-        if r.id and r.recipient and r.kind and r.actor and r.postId then
-            ph[#ph + 1] = '(?, ?, ?, ?, ?)'
-            args[n + 1], args[n + 2], args[n + 3], args[n + 4], args[n + 5] =
-                r.id, r.recipient, r.kind, r.actor, r.postId
-            n = n + 5
-        end
-    end
-    if n == 0 then return end
-    MySQL.insert.await((
-        'INSERT INTO phone_birdy_notifications (id, recipient, kind, actor, post_id) VALUES %s'
-    ):format(table.concat(ph, ',')), args)
 end
 
 ---@param recipient string

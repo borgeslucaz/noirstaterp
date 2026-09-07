@@ -10,6 +10,8 @@ local config   = require 'configs.config'
 local badges   = require 'server.badges.init'
 ---@type table Admin mute registry (server.admin.moderation): scope guard for dialing out.
 local moderation = require 'server.admin.moderation'
+---@type table Find My handlers (server.findmy.actions): the Lost Mode flag an outgoing call reads.
+local findmy   = require 'server.findmy.actions'
 ---@type table Payphone persistence (server.payphone.store): booth number -> location lookups.
 local payphones = require 'server.payphone.store'
 ---@type table Cell service (server.service): authoritative signal level per player.
@@ -246,26 +248,29 @@ end
 ---newcomers and drops leavers. Bystanders in their own call or pending ring are never pulled in.
 local function sweepSpeakers()
     local want = {}
+    ---@type table<number, vector3> One coords read per player per sweep, shared by every speaker circle.
+    local coords = {}
+    for _, pidStr in ipairs(GetPlayers()) do
+        local psrc = tonumber(pidStr)
+        local pped = psrc and GetPlayerPed(psrc)
+        if pped and pped ~= 0 then coords[psrc] = GetEntityCoords(pped) end
+    end
     for hsrc, channel in pairs(speakerOn) do
         local s = sessions[channel]
         if not s or s.state ~= 'active' then
             speakerOn[hsrc] = nil
         else
-            local ped = GetPlayerPed(hsrc)
-            if ped and ped ~= 0 then
-                local at = GetEntityCoords(ped)
+            local at = coords[hsrc]
+            if at then
                 want[channel] = want[channel] or {}
-                for _, pidStr in ipairs(GetPlayers()) do
-                    local psrc = tonumber(pidStr)
+                for psrc, pat in pairs(coords) do
                     -- isMember rather than the two legs by hand: a merged third party is already
                     -- on the channel, and re-adding them as a speaker guest would drop them out
                     -- of voice the moment they stepped away from the speaker holder.
-                    if psrc and not isMember(s, psrc)
-                        and not sessionForSource(psrc) and not ringForSource(psrc) then
-                        local pped = GetPlayerPed(psrc)
-                        if pped and pped ~= 0 and #(GetEntityCoords(pped) - at) <= SPEAKER_RANGE then
-                            want[channel][psrc] = true
-                        end
+                    if psrc ~= hsrc and not isMember(s, psrc)
+                        and not sessionForSource(psrc) and not ringForSource(psrc)
+                        and #(pat - at) <= SPEAKER_RANGE then
+                        want[channel][psrc] = true
                     end
                 end
             end
@@ -298,14 +303,14 @@ end
 ---@param on boolean
 function actions.setSpeaker(source, on)
     if voice.nativeSpeaker() then
-        local s = sessionForSource(source)
+        local _, s = sessionForSource(source)
         if on and (not s or s.state ~= 'active') then return end
         voice.setPhoneSpeaker(source, on == true)
         return
     end
 
     if not on then dropSpeaker(source) return end
-    local s = sessionForSource(source)
+    local _, s = sessionForSource(source)
     if not s or s.state ~= 'active' then return end
     speakerOn[source] = s.channel
     if speakerThreadRunning then return end
@@ -384,6 +389,11 @@ local function eventRing(ring)
     }
 end
 
+---@type table<string, boolean> Teardown reasons that leave the caller free to record a message.
+---Anything else was either the caller's own doing (hangup) or the network's (coverage loss), and
+---neither is a line that "went to voicemail".
+local VOICEMAIL_REASONS <const> = { declined = true, ['no-answer'] = true, busy = true }
+
 ---Tears a call down: drops both sides from voice, persists both recents rows, notifies both
 ---clients, and fires the 'sd-phone:server:call:ended' lifecycle event. Idempotent.
 ---@param channel number
@@ -441,7 +451,18 @@ local function endCall(channel, reason, endedBy)
     -- Only the missed-call count can have moved, and a full snapshot is seven store reads.
     if not answered then badges.pushApp(s.callee.src, 'phone') end
 
-    TriggerClientEvent('sd-phone:client:call:ended', s.caller.src, { channel = channel, reason = reason })
+    -- A call the callee never picked up is the one the caller may leave a message on. The offer
+    -- rides the caller's teardown rather than being worked out on the phone, because only the
+    -- server knows the number reached a real mailbox and not a payphone or a company line.
+    local mailbox = (not answered)
+        and VOICEMAIL_REASONS[reason]
+        and s.payphoneSide ~= 'caller'
+        and s.callee.cid ~= nil
+        and s.callee.number ~= ''
+        and { number = s.callee.number, name = contactNameFor(s.caller.cid, s.callee.number) }
+        or nil
+
+    TriggerClientEvent('sd-phone:client:call:ended', s.caller.src, { channel = channel, reason = reason, voicemail = mailbox })
     TriggerClientEvent('sd-phone:client:call:ended', s.callee.src, { channel = channel, reason = reason })
 
     -- Server-local lifecycle event: the call ended.
@@ -542,30 +563,40 @@ local DIAL_WINDOW = 30000
 local DIAL_PER_WINDOW = 10
 
 ---Starts a call to a dialed number. Rejects when the caller is mid-call/ring or in airplane
----mode, the number is unassigned, or the callee is unreachable, blocked, or busy.
+---mode, the number is unassigned, or the callee is unreachable, silenced by Focus, blocked, or
+---busy.
 ---@param source number caller server id
 ---@param payload { number?: string, video?: boolean } video places it as a video call rather than a voice call
 ---@return table
 function actions.dial(source, payload)
     if type(payload) ~= 'table' then payload = {} end
     local cid = player.getIdentifier(source)
-    if not cid then return fail('Player not found') end
+    if not cid then return fail('calls.playerNotFound', 'Player not found') end
 
     local dialed = digits(payload.number)
-    if dialed == '' then return fail('No number dialed') end
-    if sessionForSource(source) or ringForSource(source) or boothRingForSource(source) then return fail('You are already on a call') end
-    if not util.rateLimit(cid, 'call:dial', DIAL_WINDOW, DIAL_PER_WINDOW) then return fail('Slow down') end
-    if settings.isAirplane(cid) then return fail('Airplane Mode is on') end
-    if not service.allows(source, 'call') then return fail('No Service') end
+    if dialed == '' then return fail('calls.noNumberDialed', 'No number dialed') end
+    if sessionForSource(source) or ringForSource(source) or boothRingForSource(source) then return fail('calls.alreadyCall', 'You are already on a call') end
+    if not util.rateLimit(cid, 'call:dial', DIAL_WINDOW, DIAL_PER_WINDOW) then return fail('calls.slowDown', 'Slow down') end
+    if settings.isAirplane(cid) then return fail('calls.airplaneMode', 'Airplane Mode is on') end
+    if findmy.isLost(cid) then return fail('calls.lostMode', 'This phone is in Lost Mode') end
+    if not service.allows(source, 'call') then return fail('calls.noService', 'No Service') end
     local muted = moderation.guard(cid, 'calls'); if muted then return muted end
 
     local myNumber = settings.ensurePhoneNumber(cid)
     -- Number-dependent: no number in service (device mode with the SIM out) can't place a call.
     -- In legacy/stock a resolvable caller always has a number, so this never trips.
     if not myNumber or digits(myNumber) == '' then
-        return fail('No service. Install a SIM card to place calls.')
+        return fail('calls.noServiceInstallSimCard', 'No service. Install a SIM card to place calls.')
     end
-    if digits(myNumber) == dialed then return fail('You can\'t call yourself') end
+    if digits(myNumber) == dialed then return fail('calls.canTCallYourself', 'You can\'t call yourself') end
+
+    -- Emergency and company lines resolve ahead of the player-number lookup, so a citizen who
+    -- happens to hold a short number can never shadow 911. Required lazily because
+    -- server.services.actions requires this module at load: a top-level require here would
+    -- close the cycle. Lua caches the module, so this costs a table lookup per dial.
+    local services = require 'server.services.actions'
+    local lineJob  = services.jobForCallNumber(dialed)
+    if lineJob then return services.callCompany(source, { job = lineJob }) end
 
     local targetCid = settings.getCitizenByNumber(dialed)
     if not targetCid then
@@ -599,18 +630,33 @@ function actions.dial(source, payload)
                 return ok({ channel = channel })
             end
         end
-        return fail('Number not in service')
+        return fail('calls.numberNotService', 'Number not in service')
+    end
+
+    -- The number resolved to a real character, so every refusal from here down is the callee
+    -- being unavailable rather than the number being wrong: each one carries the mailbox the
+    -- phone may offer to record onto. A blocked caller is told the same thing as an offline one
+    -- and may still record, because the refusal is the only place a block could be read from.
+    -- The contact lookup is a query, so it is paid on the refusal path only.
+    ---@param key string catalogue key for the refusal
+    ---@param message string English refusal text
+    ---@return table refusal envelope carrying data.voicemail
+    local function unavailable(key, message)
+        local res = fail(key, message)
+        res.data = { voicemail = { number = dialed, name = contactNameFor(cid, dialed) } }
+        return res
     end
 
     -- Any-phone resolver: a call rings the target even when the dialed number sits on the
     -- OTHER phone in their pocket (unlike UI pushes, which only land on the active phone).
     local targetSrc = player.getAnySourceByIdentifier(targetCid)
-    if not targetSrc then return fail('This number is currently unavailable') end
-    if not reachable(targetSrc) then return fail('This number is currently unavailable') end
-    if settings.isAirplane(targetCid) then return fail('This number is currently unavailable') end
-    if not service.allows(targetSrc, 'call') then return fail('This number is currently unavailable') end
-    if contacts.isBlocked(targetCid, digits(myNumber)) then return fail('This number is currently unavailable') end
-    if sessionForSource(targetSrc) or ringForSource(targetSrc) then return fail('Line busy') end
+    if not targetSrc then return unavailable('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if not reachable(targetSrc) then return unavailable('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if settings.isAirplane(targetCid) then return unavailable('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if settings.isDnd(targetCid) then return unavailable('calls.unavailable', 'Unavailable') end
+    if not service.allows(targetSrc, 'call') then return unavailable('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if contacts.isBlocked(targetCid, digits(myNumber)) then return unavailable('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if sessionForSource(targetSrc) or ringForSource(targetSrc) then return unavailable('calls.lineBusy', 'Line busy') end
 
     local channel = nextChannel
     nextChannel = nextChannel + 1
@@ -706,42 +752,44 @@ local MAX_CONFERENCE <const> = 3
 function actions.addCall(source, payload)
     if type(payload) ~= 'table' then payload = {} end
     local cid = player.getIdentifier(source)
-    if not cid then return fail('Player not found') end
+    if not cid then return fail('calls.playerNotFound', 'Player not found') end
 
     local channel, s = sessionForSource(source)
-    if not s or not channel then return fail('You are not on a call') end
-    if not isMember(s, source) then return fail('You are not on a call') end
-    if s.state ~= 'active' then return fail('Wait for the call to connect') end
-    if s.pending then return fail('Already adding someone') end
-    if #membersOf(s) >= MAX_CONFERENCE then return fail('This call is full') end
+    if not s or not channel then return fail('calls.notCall', 'You are not on a call') end
+    if not isMember(s, source) then return fail('calls.notCall', 'You are not on a call') end
+    if s.state ~= 'active' then return fail('calls.waitCallConnect', 'Wait for the call to connect') end
+    if s.pending then return fail('calls.alreadyAddingSomeone', 'Already adding someone') end
+    if #membersOf(s) >= MAX_CONFERENCE then return fail('calls.callFull', 'This call is full') end
 
     local dialed = digits(payload.number)
-    if dialed == '' then return fail('No number dialed') end
-    if not util.rateLimit(cid, 'call:dial', DIAL_WINDOW, DIAL_PER_WINDOW) then return fail('Slow down') end
-    if settings.isAirplane(cid) then return fail('Airplane Mode is on') end
-    if not service.allows(source, 'call') then return fail('No Service') end
+    if dialed == '' then return fail('calls.noNumberDialed', 'No number dialed') end
+    if not util.rateLimit(cid, 'call:dial', DIAL_WINDOW, DIAL_PER_WINDOW) then return fail('calls.slowDown', 'Slow down') end
+    if settings.isAirplane(cid) then return fail('calls.airplaneMode', 'Airplane Mode is on') end
+    if findmy.isLost(cid) then return fail('calls.lostMode', 'This phone is in Lost Mode') end
+    if not service.allows(source, 'call') then return fail('calls.noService', 'No Service') end
     local muted = moderation.guard(cid, 'calls'); if muted then return muted end
 
     local myNumber = digits(settings.ensurePhoneNumber(cid) or '')
-    if myNumber == '' then return fail('No service. Install a SIM card to place calls.') end
-    if myNumber == dialed then return fail('You can\'t add yourself') end
+    if myNumber == '' then return fail('calls.noServiceInstallSimCard', 'No service. Install a SIM card to place calls.') end
+    if myNumber == dialed then return fail('calls.canTAddYourself', 'You can\'t add yourself') end
 
     -- Anyone already on this call, dialed by their own number, is the commonest mis-add and
     -- reads as "line busy" through the generic guard below, which is the wrong explanation.
     for _, p in ipairs(membersOf(s)) do
-        if p.number ~= '' and p.number == dialed then return fail('They are already on this call') end
+        if p.number ~= '' and p.number == dialed then return fail('calls.theyAlreadyCall', 'They are already on this call') end
     end
 
     local targetCid = settings.getCitizenByNumber(dialed)
-    if not targetCid then return fail('Number not in service') end
+    if not targetCid then return fail('calls.numberNotService', 'Number not in service') end
 
     local targetSrc = player.getAnySourceByIdentifier(targetCid)
-    if not targetSrc then return fail('This number is currently unavailable') end
-    if not reachable(targetSrc) then return fail('This number is currently unavailable') end
-    if settings.isAirplane(targetCid) then return fail('This number is currently unavailable') end
-    if not service.allows(targetSrc, 'call') then return fail('This number is currently unavailable') end
-    if contacts.isBlocked(targetCid, myNumber) then return fail('This number is currently unavailable') end
-    if sessionForSource(targetSrc) or ringForSource(targetSrc) or boothRingForSource(targetSrc) then return fail('Line busy') end
+    if not targetSrc then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if not reachable(targetSrc) then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if settings.isAirplane(targetCid) then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if settings.isDnd(targetCid) then return fail('calls.unavailable', 'Unavailable') end
+    if not service.allows(targetSrc, 'call') then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if contacts.isBlocked(targetCid, myNumber) then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if sessionForSource(targetSrc) or ringForSource(targetSrc) or boothRingForSource(targetSrc) then return fail('calls.lineBusy', 'Line busy') end
 
     s.pending = {
         src    = targetSrc,
@@ -770,29 +818,30 @@ end
 function actions.dialPayphone(source, payload)
     if type(payload) ~= 'table' then payload = {} end
     local cid = player.getIdentifier(source)
-    if not cid then return fail('Player not found') end
+    if not cid then return fail('calls.playerNotFound', 'Player not found') end
 
     local dialed = digits(payload.number)
-    if dialed == '' then return fail('No number dialed') end
-    if sessionForSource(source) or ringForSource(source) then return fail('You are already on a call') end
+    if dialed == '' then return fail('calls.noNumberDialed', 'No number dialed') end
+    if sessionForSource(source) or ringForSource(source) then return fail('calls.alreadyCall', 'You are already on a call') end
     -- Shares the dial budget: a booth is just another way to place the same call.
-    if not util.rateLimit(cid, 'call:dial', DIAL_WINDOW, DIAL_PER_WINDOW) then return fail('Slow down') end
+    if not util.rateLimit(cid, 'call:dial', DIAL_WINDOW, DIAL_PER_WINDOW) then return fail('calls.slowDown', 'Slow down') end
     local muted = moderation.guard(cid, 'calls'); if muted then return muted end
 
     local callerNumber = digits(payload.callerNumber)
     local callerName   = tostring(payload.callerName or 'Payphone'):sub(1, 32)
-    if callerNumber ~= '' and callerNumber == dialed then return fail("You can't call this payphone") end
+    if callerNumber ~= '' and callerNumber == dialed then return fail('calls.canTCallPayphone', "You can't call this payphone") end
 
     local targetCid = settings.getCitizenByNumber(dialed)
-    if not targetCid then return fail('Number not in service') end
+    if not targetCid then return fail('calls.numberNotService', 'Number not in service') end
 
     local targetSrc = player.getAnySourceByIdentifier(targetCid)
-    if not targetSrc then return fail('This number is currently unavailable') end
-    if not reachable(targetSrc) then return fail('This number is currently unavailable') end
-    if settings.isAirplane(targetCid) then return fail('This number is currently unavailable') end
-    if not service.allows(targetSrc, 'call') then return fail('This number is currently unavailable') end
-    if callerNumber ~= '' and contacts.isBlocked(targetCid, callerNumber) then return fail('This number is currently unavailable') end
-    if sessionForSource(targetSrc) or ringForSource(targetSrc) then return fail('Line busy') end
+    if not targetSrc then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if not reachable(targetSrc) then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if settings.isAirplane(targetCid) then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if settings.isDnd(targetCid) then return fail('calls.unavailable', 'Unavailable') end
+    if not service.allows(targetSrc, 'call') then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if callerNumber ~= '' and contacts.isBlocked(targetCid, callerNumber) then return fail('calls.numberCurrentlyUnavailable', 'This number is currently unavailable') end
+    if sessionForSource(targetSrc) or ringForSource(targetSrc) then return fail('calls.lineBusy', 'Line busy') end
 
     local channel = nextChannel
     nextChannel = nextChannel + 1
@@ -825,12 +874,12 @@ end
 ---@return table result { success, data = { channel, number, callerName } }
 function actions.answerBoothRing(source, channel)
     local ring = boothRings[tonumber(channel) or -1]
-    if not ring then return fail('This phone has stopped ringing') end
-    if ring.caller.src == source then return fail("You can't answer your own call") end
-    if sessionForSource(source) or ringForSource(source) then return fail('You are already on a call') end
+    if not ring then return fail('calls.phoneHasStoppedRinging', 'This phone has stopped ringing') end
+    if ring.caller.src == source then return fail('calls.canTAnswerOwnCall', "You can't answer your own call") end
+    if sessionForSource(source) or ringForSource(source) then return fail('calls.alreadyCall', 'You are already on a call') end
 
     local cid = player.getIdentifier(source)
-    if not cid then return fail('Player not found') end
+    if not cid then return fail('calls.playerNotFound', 'Player not found') end
 
     boothRings[ring.channel] = nil
     stopBoothRing(ring)
@@ -862,10 +911,11 @@ end
 ---@return table
 function actions.callGroup(source, targets, displayName, displayNumber)
     local cid = player.getIdentifier(source)
-    if not cid then return fail('Player not found') end
-    if sessionForSource(source) or ringForSource(source) then return fail('You are already on a call') end
-    if settings.isAirplane(cid) then return fail('Airplane Mode is on') end
-    if not service.allows(source, 'call') then return fail('No Service') end
+    if not cid then return fail('calls.playerNotFound', 'Player not found') end
+    if sessionForSource(source) or ringForSource(source) then return fail('calls.alreadyCall', 'You are already on a call') end
+    if settings.isAirplane(cid) then return fail('calls.airplaneMode', 'Airplane Mode is on') end
+    if findmy.isLost(cid) then return fail('calls.lostMode', 'This phone is in Lost Mode') end
+    if not service.allows(source, 'call') then return fail('calls.noService', 'No Service') end
 
     local myNumber = digits(settings.ensurePhoneNumber(cid))
 
@@ -873,7 +923,7 @@ function actions.callGroup(source, targets, displayName, displayNumber)
     for _, t in ipairs(targets) do
         if t.src and t.src ~= source
             and not sessionForSource(t.src) and not ringForSource(t.src)
-            and not settings.isAirplane(t.cid) and reachable(t.src)
+            and not settings.isAirplane(t.cid) and not settings.isDnd(t.cid) and reachable(t.src)
             and service.allows(t.src, 'call') then
             ringTargets[t.src] = {
                 src    = t.src,
@@ -883,7 +933,7 @@ function actions.callGroup(source, targets, displayName, displayNumber)
             }
         end
     end
-    if next(ringTargets) == nil then return fail('No one is available right now') end
+    if next(ringTargets) == nil then return fail('calls.noOneAvailableRightNow', 'No one is available right now') end
 
     local channel = nextChannel
     nextChannel = nextChannel + 1
@@ -923,7 +973,7 @@ function actions.accept(source, payload)
     local ring = channel and groupRings[channel]
     if ring then
         local t = ring.targets[source]
-        if not t then return fail('Call no longer active') end
+        if not t then return fail('calls.callNoLongerActive', 'Call no longer active') end
         groupRings[channel] = nil
         for other in pairs(ring.targets) do
             if other ~= source then
@@ -955,7 +1005,7 @@ function actions.accept(source, payload)
     end
 
     local s = channel and sessions[channel]
-    if not s then return fail('Call no longer active') end
+    if not s then return fail('calls.callNoLongerActive', 'Call no longer active') end
 
     -- Conference join: the call is already up and this is the third party being added to it, so
     -- there is no state change to make - they simply come onto the channel everyone else is on.
@@ -990,8 +1040,8 @@ function actions.accept(source, payload)
         return ok({ channel = channel })
     end
 
-    if s.callee.src ~= source then return fail('Not your call') end
-    if s.state ~= 'ringing' then return fail('Call not ringing') end
+    if s.callee.src ~= source then return fail('calls.notCall2', 'Not your call') end
+    if s.state ~= 'ringing' then return fail('calls.callNotRinging', 'Call not ringing') end
 
     s.state = 'active'
     s.startedAt = os.time()
@@ -1066,7 +1116,7 @@ function actions.decline(source, payload)
         return ok()
     end
 
-    if s.callee.src ~= source then return fail('Not your call') end
+    if s.callee.src ~= source then return fail('calls.notCall2', 'Not your call') end
 
     endCall(channel, 'declined', source)
     return ok()
@@ -1160,7 +1210,7 @@ function actions.hangup(source, payload)
     if s.caller.src ~= source and s.callee.src ~= source then
         -- The channel is real but not theirs, so whatever their phone is showing is wrong.
         TriggerClientEvent('sd-phone:client:call:ended', source, { channel = channel, reason = 'hangup' })
-        return fail('Not your call')
+        return fail('calls.notCall2', 'Not your call')
     end
 
     endCall(channel, 'hangup', source)

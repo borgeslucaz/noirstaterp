@@ -4,7 +4,7 @@
 -- recording).
 --
 -- Provider/Resources pick which voice script carries CALLS and the RADIO. The two supported
--- dialects are not interchangeable: pma-voice takes numeric server-controlled call channels,
+-- dialects are not interchangeable: pma-voice takes numeric call channels and Mumble natives,
 -- SaltyChat takes string call identifiers and has no mic-mute API at all, so the phone hides its
 -- in-call Mute button there rather than offering one that does nothing.
 return {
@@ -34,17 +34,18 @@ return {
     MaxNearbyVoices    = 6,
 
     -- Only capture a nearby player while they're actually transmitting in-game
-    -- (pma-voice / Enhanced voice push-to-talk or open mic), so silent/muted players
+    -- (pma-voice / Mumble push-to-talk or open mic), so silent/muted players
     -- aren't recorded and you capture what you'd actually hear. Set false to
-    -- stream their mic the whole time (or for non-native voice like SaltyChat,
+    -- stream their mic the whole time (or for non-Mumble voice like SaltyChat,
     -- where the talking state can't be read).
     TransmitGated      = true,
 
     -- 'cloudflare' provisions TURN relays (needed for players on different networks) from
     -- Cloudflare Realtime; 'none' uses STUN only (works on LAN / permissive NATs only).
-    -- This one setting serves EVERY WebRTC feature: video calls, nearby-voice capture,
-    -- Photogram Live and bodycams. Without it, video calls between players on different
-    -- home connections show a black picture.
+    -- This one setting serves every WebRTC feature: video calls and nearby-voice capture.
+    -- Without it, video calls between players on different home connections show a black
+    -- picture. (MDT bodycams need none of this: the watching terminal renders the officer's
+    -- view in-engine, so no video is streamed.)
     -- TURN secrets are read from server convars (NOT committed to the repo):
     --     set sd_cf_turn_token_id   "your-cloudflare-turn-token-id"
     --     set sd_cf_turn_api_token  "your-cloudflare-turn-api-token"

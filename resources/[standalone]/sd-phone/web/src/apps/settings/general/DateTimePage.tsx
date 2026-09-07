@@ -1,0 +1,30 @@
+import { t } from '@/i18n';
+import { GroupCard, ListGroup, ListRow, ToggleRow } from '@/ui/ListGroup';
+import { SubPage } from '../SettingsSubPage';
+import { useTheme } from '@/stores/themeStore';
+import { formatClockTime, formatLongDate, useDisplayClock } from '@/hooks/useClock';
+
+export function DateTimePage({ onBack }: { onBack: () => void }) {
+    const { hour24, setHour24, gameTime, setGameTime } = useTheme('hour24', 'setHour24', 'gameTime', 'setGameTime');
+    const now = useDisplayClock();
+
+    return (
+        <SubPage title={t('settings.dateTime', 'Date & Time')} onBack={onBack}>
+            <ListGroup>
+                <ToggleRow label={t('settings.dateTime24Hour', '24-Hour Time')} on={hour24} onToggle={() => setHour24(!hour24)} divider />
+                <ToggleRow label={t('settings.dateTimeGameTime', 'Use Game Time')} on={gameTime} onToggle={() => setGameTime(!gameTime)} />
+            </ListGroup>
+
+            <ListGroup>
+                <ListRow label={t('settings.dateTimeZone', 'Time Zone')} value="Los Santos (UTC−8)" />
+            </ListGroup>
+
+            <GroupCard className="mx-4 px-4 py-5 text-center">
+                <div className="text-[42px] font-thin tracking-tight text-black dark:text-white">{formatClockTime(now, hour24)}</div>
+                <div className="mt-1 text-[15px] font-normal text-ios-gray">
+                    {formatLongDate(now)}
+                </div>
+            </GroupCard>
+        </SubPage>
+    );
+}

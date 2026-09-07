@@ -3,6 +3,10 @@ local config = require 'configs.config'
 ---@type table Framework detection (bridge.shared.framework): name ('qb'|'esx') + live core handle.
 local framework = require 'bridge.shared.framework'
 ---@type table Player bridge (bridge.server.player): identifier/name lookups from a trusted source.
+---
+---Identity here is ALWAYS read with getRealIdentifier, never getIdentifier: under unique phones
+---(configs/uniqueandsim.lua) that one is rewrapped to return the acting SIM identity, and the
+---resources called below key their records by citizenid.
 local player = require 'bridge.server.player'
 
 ---@type table Housing bridge module; the table returned at end of file. Abstracts the supported
@@ -199,7 +203,8 @@ end
 
 -- Per-system adapters, keyed by resource name: (source, id) -> Home[]. Sources per system:
 --   ps-housing   DB `properties` (owner_citizenid, street, region, apartment, price, door_data) - open source
---   qs-housing   DB `player_houses` joined to `houselocations` (owner, rented, label, price, coords, keyholders)
+--   qs-housing   DB `player_houses` joined to `houselocations` (owner, rented, label, price, coords,
+--       keyholders); exports GetPlayerHouses / GiveMetaKey / RemoveMetaKey / CheckHasMetaKey
 --   vms_housing  export GetProperty(id).metadata.enter | DB `houses`; keys via vms_housing:sv:giveKey/removeKey
 --   rtx_housing  export GetPlayerOwnedProperties / GetPropertyData(.enter.coords) / Get|SetPropertyLockStatus
 --   bcs_housing  export GetOwnedHomes / GetHome(.properties.entry) / LockHome / isLocked / Add|RemoveKeyHolder / GetKeyHolders
@@ -234,12 +239,51 @@ ADAPTERS['ps-housing'] = function(_source, id)
     return out
 end
 
+---qs-housing addresses the phone-facing property by `player_houses`.`id`, but every one of its
+---own APIs keys on the house NAME, so each write resolves the name before it calls out.
+---@param id any property id as the app echoes it back
+---@return string|nil house qs house name, nil when the row is gone
+local function qsHouseName(id)
+    local rows = dbQuery('SELECT `house` FROM `player_houses` WHERE `id` = ? OR `house` = ? LIMIT 1', { id, id })
+    return rows and rows[1] and s(rows[1].house)
+end
+
+---Whether a player currently holds the physical key item for a house. Tri-state on purpose: nil
+---means qs exposes no CheckHasMetaKey to ask, which must never be read as 'no key'.
+---@param target number holder server id
+---@param house string qs house name
+---@return boolean|nil has nil when the question cannot be asked
+local function qsHasKey(target, house)
+    local ok, has = pcall(function() return exports['qs-housing']:CheckHasMetaKey(target, house) end)
+    if not ok then return nil end
+    return has == true
+end
+
+---Live lock state per house name for the caller's own properties. Read from the server export
+---only: the client export getHouseData carries the same field, but housing.list runs behind every
+---ownership check, so a client round trip here would land on each key give and remove as well.
+---@param source number caller server id
+---@return table<string, boolean> states name -> locked, empty when qs reports none
+local function qsLockStates(source)
+    local out = {}
+    local ok, rows = pcall(function() return exports['qs-housing']:GetPlayerHouses(source) end)
+    if not ok or type(rows) ~= 'table' then return out end
+    for _, r in pairs(rows) do
+        if type(r) == 'table' then
+            local name = s(r.house) or s(r.name)
+            if name and type(r.locked) == 'boolean' then out[name] = r.locked end
+        end
+    end
+    return out
+end
+
 ---qs-housing: ownership/rental in `player_houses`, label/price/coords/keyholders from the joined
----`houselocations`; falls back to the ownership table alone when the join fails.
----@param _source number caller server id (unused - the table keys by owner identifier)
+---`houselocations`; falls back to the ownership table alone when the join fails. Lock state is
+---additive - it shows when qs reports it, and the badge is simply absent when it does not.
+---@param source number caller server id
 ---@param id string caller identifier
 ---@return table[] homes
-ADAPTERS['qs-housing'] = function(_source, id)
+ADAPTERS['qs-housing'] = function(source, id)
     local rows = dbQuery([[
         SELECT ph.*, hl.label AS hl_label, hl.name AS hl_name, hl.price AS hl_price, hl.coords AS hl_coords
         FROM `player_houses` ph
@@ -247,6 +291,7 @@ ADAPTERS['qs-housing'] = function(_source, id)
         WHERE ph.owner = ?
     ]], { id }) or dbQuery('SELECT * FROM `player_houses` WHERE `owner` = ?', { id })
     if not rows then return {} end
+    local locks = qsLockStates(source)
     local out = {}
     for _, r in ipairs(rows) do
         out[#out + 1] = home{
@@ -257,13 +302,27 @@ ADAPTERS['qs-housing'] = function(_source, id)
             value   = r.hl_price or r.price,
             status  = truthy(r.rented) and 'rented' or 'owned',
             coords  = coordsFrom(r, 'hl_coords', 'coords'),
+            locked  = locks[s(r.house) or ''],
         }
     end
     return out
 end
 
+---Resolves a vms_housing property to a readable home type via its GetProperty export.
+---@param objectId any property id from the `houses` row, nil when the row carries none
+---@return string label 'Motel Room', 'Apartment' or 'House'
+local function vmsHomeType(objectId)
+    if not objectId then return 'House' end
+    local ok, prop = pcall(function() return exports['vms_housing']:GetProperty(objectId) end)
+    if not ok or type(prop) ~= 'table' then return 'House' end
+    if prop.type == 'motel' then return 'Motel Room' end
+    if prop.type then return 'Apartment' end
+    return 'House'
+end
+
 ---vms_housing: single `houses` table; `owner` owns, `renter` rents, with an owner-only fallback
----query. Entrance coords from `metadata.enter`.
+---query. Type comes from the GetProperty export, price from the `sale` column, and entrance
+---coords from `metadata.enter` then `metadata.menu` so MLO interiors land on the right door.
 ---@param _source number caller server id (unused - the table keys by identifier)
 ---@param id string caller identifier
 ---@return table[] homes
@@ -274,14 +333,16 @@ ADAPTERS['vms_housing'] = function(_source, id)
     local out = {}
     for _, r in ipairs(rows) do
         local meta = decodeJson(r.metadata)
+        local sale = decodeJson(r.sale)
         out[#out + 1] = home{
             id      = r.id,
             address = s(r.address) or s(r.name),
-            type    = s(r.type),
+            type    = vmsHomeType(r.object_id),
             area    = s(r.region),
-            value   = r.price or (meta and (meta.price or meta.value)),
+            value   = (sale and sale.price) or r.price or (meta and (meta.price or meta.value)),
             status  = (s(r.renter) == id) and 'rented' or 'owned',
-            coords  = (meta and (asXY(meta.enter) or asXY(meta.coords))) or coordsFrom(r, 'enter', 'coords'),
+            coords  = (meta and (asXY(meta.enter) or asXY(meta.menu) or asXY(meta.coords)))
+                      or coordsFrom(r, 'enter', 'menu', 'coords'),
         }
     end
     return out
@@ -584,7 +645,7 @@ local CAPS = {
     ['tk_housing']     = { lock = false, keyList = false, keyManage = false },
     ['origen_housing'] = { lock = true,  keyList = false, keyManage = true  },
     ['RxHousing']      = { lock = false, keyList = true,  keyManage = true  },
-    ['qs-housing']     = { lock = false, keyList = true,  keyManage = false },
+    ['qs-housing']     = { lock = false, keyList = true,  keyManage = true  },
     ['vms_housing']    = { lock = false, keyList = false, keyManage = true  },
     ['loaf_housing']   = { lock = false, keyList = false, keyManage = false },
     ['LNS_Housing']    = { lock = true,  keyList = true,  keyManage = true  },
@@ -642,7 +703,7 @@ end
 ---@return table[] homes (empty when disabled / no character / unsupported system / adapter failure)
 function housing.list(source)
     if not H.Enabled then return {} end
-    local id = player.getIdentifier(source)
+    local id = player.getRealIdentifier(source)
     if not id then return {} end
 
     local adapter = ADAPTERS[ACTIVE or '']
@@ -763,7 +824,7 @@ function housing.keyHolders(src, id)
         local okProp, prop = pcall(function() return exports.LNS_Housing:GetProperty(p) end)
         if not okProp or type(prop) ~= 'table' then return {} end
 
-        local callerCid = player.getIdentifier(src)
+        local callerCid = player.getRealIdentifier(src)
         if not callerCid then return {} end
 
         local isOwner  = (prop.owner == callerCid)
@@ -840,7 +901,7 @@ function housing.giveKey(src, id, targetSrc)
         if ok then refreshHomes(src, targetSrc) end
         return ok
     elseif ACTIVE == 'RxHousing' then
-        local cid = player.getIdentifier(targetSrc)
+        local cid = player.getRealIdentifier(targetSrc)
         if not cid then return false end
         local ok, res = pcall(function() return exports['RxHousing']:AddKeyholder(p, cid) end)
         if ok and res ~= false then refreshHomes(src, targetSrc) end
@@ -849,6 +910,26 @@ function housing.giveKey(src, id, targetSrc)
         local res = clientExec(src, 'give', p, targetSrc)
         if res then refreshHomes(src, targetSrc) end
         return res and true or false
+    elseif ACTIVE == 'qs-housing' then
+        local house = qsHouseName(p)
+        if not house then return false end
+        -- The documented server export first. Its third argument names the key, which qs labels
+        -- from the house when nothing better is offered. The outcome is verified rather than
+        -- trusted: a silent no-op would otherwise reach the app as a success toast and no key.
+        local gave = pcall(function() exports['qs-housing']:GiveMetaKey(targetSrc, house, house) end)
+        local has  = qsHasKey(targetSrc, house)
+        if has ~= true and (has == false or not gave) then
+            -- Older builds expose only the net event its own key menu fires, and that handler
+            -- reads the owner from `source`, so it has to leave from the owner's client.
+            gave = clientExec(src, 'give', house, targetSrc) and true or false
+            has  = qsHasKey(targetSrc, house)
+        end
+        -- nil means qs offers no CheckHasMetaKey to ask with, so the call above is taken at its word.
+        if has == true or (has == nil and gave) then
+            refreshHomes(src, targetSrc)
+            return true
+        end
+        return false
     elseif ACTIVE == 'LNS_Housing' then
         local okPerm, allowed = pcall(function()
             return exports.LNS_Housing:CheckPermission(src, 'house', p, 'manage')
@@ -861,7 +942,7 @@ function housing.giveKey(src, id, targetSrc)
             return true
         end
     elseif ACTIVE == 'nolag_properties' then
-        local cid = player.getIdentifier(targetSrc)
+        local cid = player.getRealIdentifier(targetSrc)
         if not cid then return false end
         local ok, res = pcall(function() return exports.nolag_properties:AddKey(src, p, cid) end)
         if ok and res then
@@ -869,8 +950,8 @@ function housing.giveKey(src, id, targetSrc)
             return true
         end
     elseif ACTIVE == 'kartik-properties' then
-        local cid = player.getIdentifier(targetSrc)
-        local ownerCid = player.getIdentifier(src)
+        local cid = player.getRealIdentifier(targetSrc)
+        local ownerCid = player.getRealIdentifier(src)
         if not cid then return false end
         local ok, res = pcall(function() return exports['kartik-properties']:GrantHousingKey(p, cid, ownerCid) end)
         if ok and res and res.success then
@@ -904,6 +985,21 @@ function housing.removeKey(src, id, holderId)
         local res = clientExec(src, 'remove', p, holderId) and true or false
         if res then refreshHomes(src, holderId) end
         return res
+    elseif ACTIVE == 'qs-housing' then
+        local house = qsHouseName(p)
+        if not house then return false end
+        -- RemoveMetaKey takes the holder's server id, not their citizenid: the key is an
+        -- inventory item, so it can only be taken back off someone online to take it from.
+        local holderSrc = tonumber(holderId)
+        if not holderSrc or holderSrc < 1 or holderSrc % 1 ~= 0 then
+            holderSrc = player.getSourceByIdentifier(tostring(holderId))
+        end
+        if not holderSrc then return false end
+        local ok = pcall(function() exports['qs-housing']:RemoveMetaKey(holderSrc, house) end)
+        if not ok then return false end
+        if qsHasKey(holderSrc, house) == true then return false end
+        refreshHomes(src, holderId)
+        return true
     elseif ACTIVE == 'LNS_Housing' then
         local okPerm, allowed = pcall(function()
             return exports.LNS_Housing:CheckPermission(src, 'house', p, 'manage')
@@ -928,7 +1024,7 @@ function housing.removeKey(src, id, holderId)
             return true
         end
     elseif ACTIVE == 'kartik-properties' then
-        local ownerCid = player.getIdentifier(src)
+        local ownerCid = player.getRealIdentifier(src)
         local ok, res = pcall(function() return exports['kartik-properties']:RevokeHousingKey(p, tostring(holderId), ownerCid) end)
         if ok and res and res.success then
             refreshHomes(src, holderId)

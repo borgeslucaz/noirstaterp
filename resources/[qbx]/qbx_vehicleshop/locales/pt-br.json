@@ -70,7 +70,7 @@
         "managed_finance_txt": "Financiar veículo para Jogador",
         "submit_ID": "ID do Servidor (#)",
         "keypress_showFinanceMenu": "[E] Abrir Menu de Financiamento",
-        "keypress_vehicleViewMenu": "[E] Ver Veículo",
+        "keypress_vehicleViewMenu": "Ver Veículo",
         "target_showFinanceMenu": "Abrir Menu de Financiamento"
     },
     "general": {
