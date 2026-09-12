@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Exchange</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <div id="root">
+        <div class="shell" id="shell" hidden data-anim="idle">
+            <section class="window" role="dialog" aria-modal="true" aria-labelledby="outpost-name">
+                <header class="window__header stagger" style="--i: 0">
+                    <div class="brand">
+                        <svg class="brand__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M3 21h18M5 21V8l7-4 7 4v13" />
+                            <path d="M9 21v-6h6v6M9 11h.01M15 11h.01" />
+                        </svg>
+                        <span class="brand__stack">
+                            <span class="brand__name" id="outpost-name">OUTPOST</span>
+                            <span class="brand__sub" id="outpost-status">INATIVO</span>
+                        </span>
+                    </div>
+
+                    <nav class="nav" role="tablist" aria-label="Seções do terminal">
+                        <button class="nav__item" id="nav-market" type="button" role="tab" data-tab="market" aria-selected="true" aria-controls="tab-market">MERCADO</button>
+                        <button class="nav__item" id="nav-runners" type="button" role="tab" data-tab="runners" aria-selected="false" aria-controls="tab-runners" tabindex="-1">RUNNERS</button>
+                        <button class="nav__item" id="nav-control" type="button" role="tab" data-tab="control" aria-selected="false" aria-controls="tab-control" tabindex="-1">CONTROLE</button>
+                    </nav>
+
+                    <div class="header__right">
+                        <span class="owner">
+                            <span class="data-label" id="owner-label">ORGANIZAÇÃO</span>
+                            <span class="owner__value" id="owner-value">—</span>
+                        </span>
+                        <span class="header__sep" aria-hidden="true"></span>
+                        <button class="close" id="close" type="button" aria-label="Fechar o terminal"><kbd>ESC</kbd> FECHAR</button>
+                    </div>
+                </header>
+
+                <main class="window__main stagger" style="--i: 1">
+                    <p class="message" id="message" role="status" hidden></p>
+
+                    <section class="tab" id="tab-market" role="tabpanel" aria-labelledby="nav-market">
+                        <header class="tab-head">
+                            <p class="data-label data-label--bare">CATÁLOGO DE RUNNERS</p>
+                            <h1>MERCADO</h1>
+                            <p class="note" id="market-note">Contrate corredores para vender o estoque enquanto a organização controla o local.</p>
+                        </header>
+
+                        <div class="status-row" id="market-stats"></div>
+
+                        <div class="rows rows--market" id="market-rows"></div>
+                        <p class="empty" id="market-empty" hidden>Nenhum perfil disponível.</p>
+                    </section>
+
+                    <section class="tab" id="tab-runners" role="tabpanel" aria-labelledby="nav-runners" hidden>
+                        <header class="tab-head">
+                            <p class="data-label data-label--bare">OPERAÇÃO EM CAMPO</p>
+                            <h1>RUNNERS</h1>
+                            <p class="note" id="runners-note">Estoque, agenda de vendas e carteira acumulada.</p>
+                        </header>
+
+                        <div class="status-row" id="runners-stats"></div>
+
+                        <section class="section">
+                            <header class="section__head">
+                                <div>
+                                    <p class="data-label data-label--bare">EM CAMPO</p>
+                                    <h2>CORREDORES</h2>
+                                </div>
+                            </header>
+                            <div class="rows rows--dealers" id="dealer-rows"></div>
+                            <p class="empty" id="dealers-empty" hidden>Nenhum corredor contratado.</p>
+                        </section>
+
+                        <section class="section">
+                            <header class="section__head">
+                                <div>
+                                    <p class="data-label data-label--bare">ABASTECIMENTO</p>
+                                    <h2>ESTOQUE</h2>
+                                </div>
+                                <p class="data-label data-label--bare" id="stock-total">0 / 0</p>
+                            </header>
+                            <div class="rows rows--stock" id="stock-rows"></div>
+                        </section>
+
+                        <section class="section" id="purse-section">
+                            <header class="section__head">
+                                <div>
+                                    <p class="data-label data-label--bare">CARTEIRA</p>
+                                    <h2>COLETA</h2>
+                                </div>
+                            </header>
+                            <div class="rows">
+                                <div class="row" style="grid-template-columns: minmax(0, 1fr) auto">
+                                    <div>
+                                        <span class="row__title tabular" id="purse-value">0</span>
+                                        <p class="row__sub" id="purse-note">Dinheiro sujo acumulado pelas vendas.</p>
+                                    </div>
+                                    <div class="row__actions">
+                                        <button class="btn btn--primary" id="collect" type="button">COLETAR</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="section">
+                            <header class="section__head">
+                                <div>
+                                    <p class="data-label data-label--bare">REGISTRO</p>
+                                    <h2>HISTÓRICO</h2>
+                                </div>
+                            </header>
+                            <div class="rows rows--history" id="history-rows"></div>
+                            <p class="empty" id="history-empty" hidden>Sem movimentações registradas.</p>
+                        </section>
+                    </section>
+
+                    <section class="tab" id="tab-control" role="tabpanel" aria-labelledby="nav-control" hidden>
+                        <header class="tab-head">
+                            <p class="data-label data-label--bare">POSSE DO LOCAL</p>
+                            <h1>CONTROLE</h1>
+                            <p class="note" id="control-note">A tomada exige presença no terminal e movimento na cidade.</p>
+                        </header>
+
+                        <div class="requirements" id="claim-requirements"></div>
+
+                        <div class="rows">
+                            <div class="row" style="grid-template-columns: minmax(0, 1fr) auto">
+                                <div>
+                                    <span class="row__title" id="control-state">DISPONÍVEL</span>
+                                    <p class="row__sub" id="control-detail">Nenhuma organização controla este local.</p>
+                                </div>
+                                <div class="row__actions">
+                                    <button class="btn btn--primary" id="claim" type="button">INICIAR TOMADA</button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </main>
+            </section>
+        </div>
+
+        <div class="backdrop" id="confirm-backdrop" hidden>
+            <div class="confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+                <h3 id="confirm-title">CONFIRMAR</h3>
+                <p id="confirm-text"></p>
+                <div class="confirm__actions">
+                    <button class="btn" id="confirm-cancel" type="button">CANCELAR</button>
+                    <button class="btn btn--danger" id="confirm-accept" type="button">CONFIRMAR</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

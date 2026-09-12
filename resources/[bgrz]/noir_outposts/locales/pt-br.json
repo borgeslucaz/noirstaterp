@@ -1,0 +1,102 @@
+{
+    "target": {
+        "open_computer": "Terminal do outpost",
+        "inspect_dealer": "Observar corredor",
+        "rob_dealer": "Roubar corredor"
+    },
+    "progress": {
+        "claim": "Assumindo o controle do outpost...",
+        "deposit": "Abastecendo o estoque...",
+        "collect": "Recolhendo a carteira...",
+        "robbery": "Revistando o corredor..."
+    },
+    "dealer": {
+        "status_deployed": "em campo",
+        "status_recovering": "se recuperando",
+        "stock_line": "Estoque no local: %s",
+        "sales_line": "Vendas concluídas: %s"
+    },
+    "claim": {
+        "success": "Sua organização controla %s.",
+        "cancelled": "Tomada cancelada."
+    },
+    "robbery": {
+        "purse_taken": "Você levou %s em dinheiro sujo.",
+        "stock_taken": "Você levou %s unidades do produto."
+    },
+    "phone": {
+        "sales_title": "Vendas concluídas",
+        "sales_body": "%s vendas em %s renderam $%s.",
+        "stock_low_title": "Estoque baixo",
+        "stock_low_body": "%s está com apenas %s unidades.",
+        "stock_empty_title": "Estoque zerado",
+        "stock_empty_body": "Os corredores de %s pararam de vender.",
+        "dealer_down_title": "Corredor derrubado",
+        "dealer_down_body": "%s foi morto em %s e saiu de operação.",
+        "robbery_title": "Corredor roubado",
+        "robbery_body": "%s foi assaltado em %s.",
+        "claim_title": "Outpost assumido",
+        "claim_body": "Sua organização agora controla %s.",
+        "expiring_title": "Controle expirando",
+        "expiring_body": "O controle de %s termina em %s minutos.",
+        "expired_title": "Controle perdido",
+        "expired_body": "Sua organização não controla mais %s."
+    },
+    "dispatch": {
+        "sale_title": "Tráfico de entorpecentes",
+        "robbery_title": "Assalto em andamento"
+    },
+    "error": {
+        "rate_limited": "Aguarde um instante antes de tentar de novo.",
+        "invalid_payload": "Requisição inválida.",
+        "invalid_player": "Personagem indisponível.",
+        "player_unavailable": "Você não pode fazer isso agora.",
+        "invalid_state": "Esta ação não está disponível agora.",
+        "invalid_session": "A sessão expirou.",
+        "session_expired": "A sessão expirou.",
+        "request_in_progress": "Já existe uma ação em andamento.",
+        "already_processed": "Esta ação já foi processada.",
+        "unknown_outpost": "Local desconhecido.",
+        "unknown_dealer": "Corredor desconhecido.",
+        "unknown_profile": "Perfil desconhecido.",
+        "unknown_product": "Produto desconhecido.",
+        "outpost_inactive": "Este local não está ativo.",
+        "outpost_rotated": "O local mudou de ciclo.",
+        "no_organization": "Você precisa pertencer a uma organização.",
+        "insufficient_grade": "Seu cargo não permite esta ação.",
+        "not_owner": "Sua organização não controla este local.",
+        "own_outpost": "Você não pode roubar o próprio corredor.",
+        "too_far": "Aproxime-se para continuar.",
+        "not_enough_players": "Não há movimento suficiente na cidade.",
+        "not_enough_police": "Não há policiamento suficiente na cidade.",
+        "organization_cooldown": "Sua organização precisa esperar antes de tomar outro local.",
+        "claim_in_progress": "Outra tomada já está em andamento.",
+        "organization_changed": "Sua organização mudou.",
+        "dealer_limit": "O limite de corredores foi atingido.",
+        "already_hired": "Este corredor já está em campo.",
+        "no_corner": "Não há posição livre para este corredor.",
+        "insufficient_funds": "Dinheiro insuficiente.",
+        "dealer_busy": "Este corredor está ocupado.",
+        "dealer_unavailable": "Este corredor não está disponível.",
+        "dealer_cooldown": "Este corredor já foi roubado há pouco tempo.",
+        "invalid_entity": "Não foi possível confirmar o alvo.",
+        "amount_too_large": "Quantidade acima do permitido.",
+        "stock_full": "O estoque do local está cheio.",
+        "not_enough_items": "Você não tem essa quantidade.",
+        "empty_purse": "A carteira está vazia.",
+        "nothing_to_steal": "Não havia nada para levar.",
+        "cannot_carry": "Você não tem espaço para carregar isso.",
+        "purse_changed": "A carteira mudou. Tente novamente.",
+        "cancelled": "Ação cancelada.",
+        "too_fast": "A ação foi interrompida.",
+        "timeout": "O tempo da ação acabou.",
+        "conflict": "Outra ação alterou o estado. Tente novamente.",
+        "owner_expired": "O controle do local expirou.",
+        "player_unloaded": "Personagem descarregado.",
+        "player_dropped": "Conexão encerrada.",
+        "unauthorized": "Você não tem mais acesso a este painel.",
+        "resource_stop": "O serviço foi reiniciado.",
+        "provider_unavailable": "Serviço indisponível no momento.",
+        "internal_error": "Não foi possível concluir. Tente novamente."
+    }
+}

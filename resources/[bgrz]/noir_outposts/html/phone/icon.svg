@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="The Exchange">
+    <rect width="64" height="64" rx="14" fill="#0a0a0c" />
+    <g fill="none" stroke="#c9a86a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 46h36" />
+        <path d="M18 46V26l14-8 14 8v20" />
+        <path d="M26 46v-11h12v11" />
+    </g>
+    <g fill="#c9a86a">
+        <circle cx="26" cy="28" r="1.8" />
+        <circle cx="38" cy="28" r="1.8" />
+    </g>
+</svg>

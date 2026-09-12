@@ -3,6 +3,7 @@ NoirIllegal.Permissions = {
     -- activity caller list before enabling an activity.
     publicRecorders = {
         noir_illegal_core = true,
+        noir_outposts = true,
     },
     privileged = {
         -- noir_admin = {

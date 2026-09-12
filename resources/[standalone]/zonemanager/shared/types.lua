@@ -1,0 +1,96 @@
+---@meta
+
+-- Zone Manager type surface: public API plus the zone/point structs crossing the
+-- NUI bridge and zones.json persistence boundary.
+
+-- One zone-polygon vertex (or a circle's center), raw game coords. z is
+-- resolved ground height; nil until the editor resolves it. Map-pixel coords
+-- are derived by the UI at load and never persisted.
+---@class ZonePoint
+---@field x number
+---@field y number
+---@field z? number
+
+-- A persisted zone. `name` is the unique registry key after normalization;
+-- `height` extrudes the detection ceiling above ground-Z. `kind`: 'poly' reads
+-- `points` as a ring, 'circle' reads `points[1]` as center + `radius` (meters).
+---@class ZoneData
+---@field name string
+---@field kind string 'poly' | 'circle'
+---@field color string
+---@field visible boolean
+---@field height number
+---@field points ZonePoint[]
+---@field radius? number circle kind, footprint radius in meters
+
+-- Public surface other resources reach via exports.zonemanager:FetchModule().
+-- Client side: Enable/Disable/IsEnabled/IsInside/GetCurrentZones gate + read
+-- the live registry; OnEnter/OnExit subscribe to crossings (cb(name, coords));
+-- AttachZoneToEntity/DetachZone manage runtime entity-following zones.
+-- Server side: GetZones/IsPointInZone/GetZonesAt query the canonical list.
+---@class ZoneManagerAPI
+---@field Enable fun(self: ZoneManagerAPI, name: string): boolean, string?
+---@field Disable fun(self: ZoneManagerAPI, name: string): boolean, string?
+---@field IsEnabled fun(self: ZoneManagerAPI, name: string): boolean
+---@field IsInside fun(self: ZoneManagerAPI, name: string): boolean
+---@field GetCurrentZones fun(self: ZoneManagerAPI): string[]
+---@field OnEnter fun(self: ZoneManagerAPI, cb: fun(name: string, point?: vector3))
+---@field OnExit fun(self: ZoneManagerAPI, cb: fun(name: string, point?: vector3))
+---@field AttachZoneToEntity fun(self: ZoneManagerAPI, name: string, entity: integer, opts?: ZoneAttachOpts): boolean, string?
+---@field DetachZone fun(self: ZoneManagerAPI, name: string): boolean, string?
+---@field SetZoneDebug fun(self: ZoneManagerAPI, name: string, on: boolean): boolean, string?
+---@field GetZones fun(self: ZoneManagerAPI): ZoneData[]
+---@field IsPointInZone fun(self: ZoneManagerAPI, name: string, x: number, y: number, z?: number): boolean, string?
+---@field GetZonesAt fun(self: ZoneManagerAPI, x: number, y: number, z?: number): string[]
+
+-- Polygon zone-engine build opts. maxZ is set at build as groundZ + height.
+---@class ZoneCreateOpts
+---@field name? string
+---@field minZ? number
+---@field maxZ? number
+---@field debug? boolean
+
+-- zoneEngine.createCircle opts. minZ/maxZ are an optional cylinder band; omit
+-- both for an infinite-height column.
+---@class ZoneCircleOpts
+---@field name? string
+---@field minZ? number
+---@field maxZ? number
+---@field debug? boolean
+
+-- zoneEngine.createEntity opts. useZ defaults true (3D model box); false tests
+-- the footprint only. padding grows the model box by N meters on every side.
+---@class ZoneEntityOpts
+---@field name? string
+---@field useZ? boolean
+---@field padding? number
+---@field debug? boolean
+
+-- Public opts for ZoneManager:AttachZoneToEntity. useZ defaults true (3D model
+-- box); false tests the flat footprint only. padding grows the model box by N
+-- meters on every side (negative shrinks).
+---@class ZoneAttachOpts
+---@field useZ? boolean
+---@field padding? number
+---@field debug? boolean
+
+-- A live zone built by zoneEngine.create / createCircle / createEntity.
+-- Resource-internal. Fields past the methods are per-kind runtime state.
+---@class ZoneInstance
+---@field onTransition fun(self: ZoneInstance, cb: fun(isInside: boolean, point: vector3), waitMs?: integer)
+---@field isPointInside fun(self: ZoneInstance, point: vector3): boolean
+---@field setPaused fun(self: ZoneInstance, paused: boolean)
+---@field setDebug fun(self: ZoneInstance, on: boolean)
+---@field destroy fun(self: ZoneInstance)
+---@field kind? string 'poly' (default, nil) | 'circle' | 'entity'
+---@field name? string
+---@field debug? boolean
+---@field inside? boolean current inside-ness, flipped by the poll loop
+---@field minZ? number poly + circle kinds, vertical band floor
+---@field maxZ? number poly + circle kinds, vertical band ceiling
+---@field useZ? boolean entity kind
+---@field center? vector3 circle kind
+---@field radiusSq? number circle kind
+---@field entity? integer entity kind
+---@field boxMin? vector3 entity kind, model dimensions min
+---@field boxMax? vector3 entity kind, model dimensions max

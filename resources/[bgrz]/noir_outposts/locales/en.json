@@ -1,0 +1,102 @@
+{
+    "target": {
+        "open_computer": "Outpost terminal",
+        "inspect_dealer": "Observe runner",
+        "rob_dealer": "Rob runner"
+    },
+    "progress": {
+        "claim": "Taking control of the outpost...",
+        "deposit": "Stocking the outpost...",
+        "collect": "Collecting the purse...",
+        "robbery": "Searching the runner..."
+    },
+    "dealer": {
+        "status_deployed": "deployed",
+        "status_recovering": "recovering",
+        "stock_line": "Stock on site: %s",
+        "sales_line": "Completed sales: %s"
+    },
+    "claim": {
+        "success": "Your organization controls %s.",
+        "cancelled": "Claim cancelled."
+    },
+    "robbery": {
+        "purse_taken": "You took %s in dirty money.",
+        "stock_taken": "You took %s units of product."
+    },
+    "phone": {
+        "sales_title": "Sales completed",
+        "sales_body": "%s sales at %s earned $%s.",
+        "stock_low_title": "Low stock",
+        "stock_low_body": "%s is down to %s units.",
+        "stock_empty_title": "Out of stock",
+        "stock_empty_body": "Runners at %s stopped selling.",
+        "dealer_down_title": "Runner down",
+        "dealer_down_body": "%s was killed at %s and is out of action.",
+        "robbery_title": "Runner robbed",
+        "robbery_body": "%s was robbed at %s.",
+        "claim_title": "Outpost claimed",
+        "claim_body": "Your organization now controls %s.",
+        "expiring_title": "Control expiring",
+        "expiring_body": "Control of %s ends in %s minutes.",
+        "expired_title": "Control lost",
+        "expired_body": "Your organization no longer controls %s."
+    },
+    "dispatch": {
+        "sale_title": "Narcotics trafficking",
+        "robbery_title": "Robbery in progress"
+    },
+    "error": {
+        "rate_limited": "Wait a moment before trying again.",
+        "invalid_payload": "Invalid request.",
+        "invalid_player": "Character unavailable.",
+        "player_unavailable": "You cannot do that right now.",
+        "invalid_state": "This action is not available right now.",
+        "invalid_session": "The session expired.",
+        "session_expired": "The session expired.",
+        "request_in_progress": "An action is already in progress.",
+        "already_processed": "This action was already processed.",
+        "unknown_outpost": "Unknown location.",
+        "unknown_dealer": "Unknown runner.",
+        "unknown_profile": "Unknown profile.",
+        "unknown_product": "Unknown product.",
+        "outpost_inactive": "This location is not active.",
+        "outpost_rotated": "The location changed cycle.",
+        "no_organization": "You need to belong to an organization.",
+        "insufficient_grade": "Your rank does not allow this action.",
+        "not_owner": "Your organization does not control this location.",
+        "own_outpost": "You cannot rob your own runner.",
+        "too_far": "Get closer to continue.",
+        "not_enough_players": "There is not enough activity in the city.",
+        "not_enough_police": "There is not enough police coverage.",
+        "organization_cooldown": "Your organization must wait before claiming again.",
+        "claim_in_progress": "Another claim is already in progress.",
+        "organization_changed": "Your organization changed.",
+        "dealer_limit": "The runner limit was reached.",
+        "already_hired": "This runner is already deployed.",
+        "no_corner": "There is no free spot for this runner.",
+        "insufficient_funds": "Not enough money.",
+        "dealer_busy": "This runner is busy.",
+        "dealer_unavailable": "This runner is not available.",
+        "dealer_cooldown": "This runner was robbed recently.",
+        "invalid_entity": "The target could not be confirmed.",
+        "amount_too_large": "Amount above the allowed limit.",
+        "stock_full": "The location stock is full.",
+        "not_enough_items": "You do not have that amount.",
+        "empty_purse": "The purse is empty.",
+        "nothing_to_steal": "There was nothing to take.",
+        "cannot_carry": "You have no room to carry that.",
+        "purse_changed": "The purse changed. Try again.",
+        "cancelled": "Action cancelled.",
+        "too_fast": "The action was interrupted.",
+        "timeout": "The action timed out.",
+        "conflict": "Another action changed the state. Try again.",
+        "owner_expired": "Control of the location expired.",
+        "player_unloaded": "Character unloaded.",
+        "player_dropped": "Connection closed.",
+        "unauthorized": "You no longer have access to this panel.",
+        "resource_stop": "The service was restarted.",
+        "provider_unavailable": "Service unavailable right now.",
+        "internal_error": "Could not complete. Try again."
+    }
+}

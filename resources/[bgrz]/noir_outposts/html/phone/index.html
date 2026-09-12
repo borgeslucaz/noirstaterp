@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Exchange</title>
+    <link rel="stylesheet" href="phone.css" />
+</head>
+<body>
+    <div id="root">
+        <header class="app-head">
+            <p class="eyebrow">REDE CLANDESTINA</p>
+            <h1>THE EXCHANGE</h1>
+            <p class="org" id="org">Sem organização</p>
+        </header>
+
+        <nav class="tabs" role="tablist" aria-label="Seções">
+            <button class="tab" id="tab-network" type="button" role="tab" data-tab="network" aria-selected="true">REDE</button>
+            <button class="tab" id="tab-operation" type="button" role="tab" data-tab="operation" aria-selected="false" tabindex="-1">OPERAÇÃO</button>
+        </nav>
+
+        <main class="content">
+            <section class="panel" id="panel-network" role="tabpanel" aria-labelledby="tab-network">
+                <ul class="list" id="network-list"></ul>
+                <p class="empty" id="network-empty" hidden>Nenhum ponto conhecido.</p>
+            </section>
+
+            <section class="panel" id="panel-operation" role="tabpanel" aria-labelledby="tab-operation" hidden>
+                <div class="summary" id="operation-summary"></div>
+                <ul class="list" id="operation-list"></ul>
+                <p class="empty" id="operation-empty" hidden>Sua organização não controla nenhum ponto.</p>
+            </section>
+        </main>
+
+        <p class="status" id="status" role="status">Carregando…</p>
+    </div>
+    <script src="phone.js"></script>
+</body>
+</html>

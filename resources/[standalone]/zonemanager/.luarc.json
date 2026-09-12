@@ -1,0 +1,27 @@
+{
+	"$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+	"runtime": {
+		"version": "Lua 5.4",
+		"nonstandardSymbol": ["/**/", "`", "+=", "-=", "*=", "/=", "<<=", ">>=", "&=", "|=", "^="],
+		"special": {
+			"lib.load": "require"
+		},
+		"pathStrict": true
+	},
+	"diagnostics": {
+		"severity": {
+			"cast-local-type": "Error",
+			"need-check-nil": "Error",
+			"undefined-field": "Error",
+			"inject-field": "Error"
+		},
+		"disable": ["lowercase-global"]
+	},
+	"workspace": {
+		"ignoreDir": [".vscode", ".git", ".github", "node_modules", "ui"],
+		"checkThirdParty": false
+	},
+	"telemetry": {
+		"enable": false
+	}
+}

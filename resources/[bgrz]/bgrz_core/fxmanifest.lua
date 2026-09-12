@@ -4,23 +4,30 @@ lua54 'yes'
 
 author 'BGRZ'
 description 'BGRZ Core - abstraction layer over Qbox'
-version '0.2.0'
+version '0.5.0'
 
 shared_scripts {
     '@ox_lib/init.lua',
     '@qbx_core/modules/lib.lua',
-    'shared/config.lua'
+    'shared/config.lua',
+    'shared/provider.lua',
+    'shared/capabilities.lua'
 }
 
 client_scripts {
     '@qbx_core/modules/playerdata.lua',
     'client/main.lua',
-    'client/qbox_bridge.lua'
+    'client/qbox_bridge.lua',
+    'client/target.lua',
+    'client/phone.lua'
 }
 
 server_scripts {
     'server/character.lua',
     'server/vehicle_keys.lua',
+    'server/inventory.lua',
+    'server/phone_notifications.lua',
+    'server/dispatch.lua',
     'server/qbox_bridge.lua',
     'server/main.lua'
 }
@@ -28,5 +35,7 @@ server_scripts {
 dependencies {
     'ox_lib',
     'qbx_core',
-    'qbx_vehiclekeys'
+    'qbx_vehiclekeys',
+    'ox_inventory',
+    'ox_target'
 }

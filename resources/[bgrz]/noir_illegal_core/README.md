@@ -29,6 +29,14 @@ local ok, result = exports.noir_illegal_core:RecordActivity(
 The caller must be present in shared/permissions.lua and in the activity callers
 list. The transaction UUID must remain stable across retries.
 
+`noir_outposts` is authorized as a public recorder for these server-validated activities:
+
+- `outpost_claim`: claim progression and heat; metadata `outpostId`, `previousOwnerId`;
+- `outpost_sale`: organization drug progression with hourly diminishing returns; metadata `outpostId`, `dealerId`, `product`, `quantity`;
+- `outpost_robbery`: robbery progression, cooldown, and heat; metadata `outpostId`, `dealerId`, `lootValue`.
+
+The metadata lists are allowlists: undeclared keys are discarded, and invalid declared values reject the request.
+
 ## Database
 
 At startup, the resource executes migrations/001_initial.sql statement by

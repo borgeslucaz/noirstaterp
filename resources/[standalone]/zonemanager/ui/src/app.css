@@ -1,0 +1,219 @@
+@import "leaflet/dist/leaflet.css";
+@import "tailwindcss";
+@import "./lib/ui/tokens.css";
+
+/* Tailwind v4 needs an explicit @source over the vendored component slice -
+ * utility classes in those components + tv.ts would otherwise be purged. */
+@source "./lib/ui/**/*.{svelte,ts}";
+
+@theme {
+	--font-sans:
+		ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+	--font-mono:
+		ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, Consolas,
+		monospace;
+}
+
+/* Map-specific palette, tuned for the black map letterbox. These vars are read
+ * by MapCanvas at runtime -- both inside Leaflet divIcon HTML strings and via
+ * getComputedStyle for the canvas grid -- so they must live as CSS custom
+ * props, not Tailwind utilities. The panel chrome uses the design tokens. */
+:root {
+	--map-bg: #000000;
+	--map-surface: #0d0f12;
+	--map-border: rgba(255, 255, 255, 0.08);
+	--map-border-strong: rgba(255, 255, 255, 0.15);
+	--map-fg: #e7eaee;
+	--map-muted: #7e8694;
+	--map-accent: #10b981;
+	--map-accent-2: #34d399;
+}
+
+html,
+body,
+#app {
+	height: 100%;
+	margin: 0;
+	overflow: hidden;
+}
+
+body {
+	background: transparent;
+	color: var(--color-text);
+	font-family: var(--font-sans);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.scroll {
+	scrollbar-width: thin;
+	scrollbar-color: var(--map-border-strong) transparent;
+}
+
+/* hide the native number spinner; the panel uses custom stepper buttons */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+input[type="number"] {
+	-moz-appearance: textfield;
+	appearance: textfield;
+}
+.scroll::-webkit-scrollbar {
+	width: 7px;
+}
+.scroll::-webkit-scrollbar-thumb {
+	background: var(--map-border-strong);
+	border-radius: 999px;
+}
+
+.scroll-primary {
+	scrollbar-color: var(--color-primary) transparent;
+}
+.scroll-primary::-webkit-scrollbar {
+	width: 7px;
+}
+.scroll-primary::-webkit-scrollbar-thumb {
+	background: var(--color-primary);
+	border-radius: 999px;
+}
+
+/* ---- leaflet skinning ---- */
+.leaflet-container {
+	/* biome-ignore lint/complexity/noImportantStyles: leaflet ships its own
+	   .leaflet-container background; the override only wins with !important */
+	background: var(--map-bg) !important;
+	font-family: var(--font-sans);
+	outline: none;
+}
+
+.point-dot {
+	border-radius: 999px;
+	border: 2px solid var(--map-fg);
+	color: #fff;
+	font-size: 11px;
+	font-weight: 700;
+	display: grid;
+	place-items: center;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+	transition: transform 0.12s ease;
+}
+.point-dot.active {
+	cursor: grab;
+}
+.point-dot.active:hover {
+	transform: scale(1.15);
+}
+
+.player-dot {
+	position: relative;
+	width: 100%;
+	height: 100%;
+}
+.player-dot::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: 999px;
+	background: var(--color-error-500);
+	opacity: 0.3;
+	animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.player-dot::after {
+	content: "";
+	position: absolute;
+	inset: 35%;
+	border-radius: 999px;
+	background: var(--color-error-500);
+	box-shadow: 0 0 12px var(--color-error-500);
+}
+@keyframes ping {
+	75%,
+	100% {
+		transform: scale(2);
+		opacity: 0;
+	}
+}
+
+.dist-label {
+	background: var(--map-surface);
+	border: 1px solid var(--map-border);
+	color: var(--map-muted);
+	font-size: 10px;
+	font-weight: 600;
+	padding: 1px 6px;
+	border-radius: 999px;
+	white-space: nowrap;
+}
+
+.leaflet-tooltip.player-label {
+	position: relative;
+	background: var(--map-surface);
+	border: 1px solid var(--map-border-strong);
+	color: var(--map-fg);
+	font-size: 11px;
+	font-weight: 600;
+	padding: 3px 8px;
+	border-radius: 8px;
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+	white-space: nowrap;
+	/* pin to own content width so a hovered zone tooltip can't resize it */
+	width: max-content;
+}
+/* downward bubble tail centered on the box bottom, pointing at the dot */
+.leaflet-tooltip.player-label::before {
+	content: "";
+	position: absolute;
+	top: 100%;
+	left: 50%;
+	margin-left: -10px;
+	margin-top: -1px;
+	border: 10px solid transparent;
+	border-top-color: var(--map-border-strong);
+}
+.leaflet-tooltip.player-label::after {
+	content: "";
+	position: absolute;
+	top: 100%;
+	left: 50%;
+	margin-left: -9px;
+	margin-top: -1px;
+	border: 9px solid transparent;
+	border-top-color: var(--map-surface);
+}
+
+.leaflet-tooltip.zone-tip {
+	position: relative;
+	background: var(--map-surface);
+	border: 1px solid var(--map-border-strong);
+	color: var(--map-fg);
+	border-radius: 8px;
+	box-shadow: 0 18px 44px rgba(0, 0, 0, 0.6);
+	font-size: 11px;
+	/* deterministic height on first measure so the top-direction tooltip doesn't
+	   reposition (bounce) after Leaflet reads its offsetHeight */
+	white-space: nowrap;
+}
+/* downward bubble tail centered on the box bottom, pointing at the point -
+   same two-triangle carrot the player label uses */
+.leaflet-tooltip.zone-tip::before {
+	content: "";
+	position: absolute;
+	top: 100%;
+	left: 50%;
+	margin-left: -10px;
+	margin-top: -1px;
+	border: 10px solid transparent;
+	border-top-color: var(--map-border-strong);
+}
+.leaflet-tooltip.zone-tip::after {
+	content: "";
+	position: absolute;
+	top: 100%;
+	left: 50%;
+	margin-left: -9px;
+	margin-top: -1px;
+	border: 9px solid transparent;
+	border-top-color: var(--map-surface);
+}

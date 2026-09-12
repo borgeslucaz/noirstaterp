@@ -1,73 +1,86 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getItemUrl, isSlotWithItem } from '../../helpers';
 import useNuiEvent from '../../hooks/useNuiEvent';
 import { Items } from '../../store/items';
 import WeightBar from '../utils/WeightBar';
+import ItemImage from '../utils/ItemImage';
 import { useAppSelector } from '../../store';
 import { selectLeftInventory } from '../../store/inventory';
-import { SlotWithItem } from '../../typings';
-import SlideUp from '../utils/transitions/SlideUp';
+import { Slot, SlotWithItem } from '../../typings';
 
-const InventoryHotbar: React.FC = () => {
+const HOTBAR_SLOT_COUNT = 5;
+const HOTBAR_TIMEOUT = 3000;
+
+/**
+ * Presentation layer for ox_inventory's native hotkeys (inventory slots 1–5).
+ * Keep the slot mapping in the upstream client; this component intentionally
+ * has no custom binding or persistence contract with the Lua core.
+ */
+interface InventoryHotbarProps {
+  inventoryOpen: boolean;
+}
+
+const InventoryHotbar: React.FC<InventoryHotbarProps> = ({ inventoryOpen }) => {
   const [hotbarVisible, setHotbarVisible] = useState(false);
-  const items = useAppSelector(selectLeftInventory).items.slice(0, 5);
+  const inventoryItems = useAppSelector(selectLeftInventory).items;
+  const items: Slot[] = Array.from({ length: HOTBAR_SLOT_COUNT }, (_, index) =>
+    inventoryItems[index] || { slot: index + 1 }
+  );
+  const hideTimer = useRef<number | null>(null);
 
-  //stupid fix for timeout
-  const [handle, setHandle] = useState<ReturnType<typeof setTimeout>>();
+  const clearHideTimer = useCallback(() => {
+    if (hideTimer.current === null) return;
+
+    clearTimeout(hideTimer.current);
+    hideTimer.current = null;
+  }, []);
+
+  useEffect(() => clearHideTimer, [clearHideTimer]);
+
   useNuiEvent('toggleHotbar', () => {
-    if (hotbarVisible) {
+    clearHideTimer();
+    setHotbarVisible(true);
+
+    hideTimer.current = window.setTimeout(() => {
+      hideTimer.current = null;
       setHotbarVisible(false);
-    } else {
-      if (handle) clearTimeout(handle);
-      setHotbarVisible(true);
-      setHandle(setTimeout(() => setHotbarVisible(false), 3000));
-    }
+    }, HOTBAR_TIMEOUT);
   });
 
   return (
-    <SlideUp in={hotbarVisible}>
+    <div className={`hotbar-wrapper ${hotbarVisible || inventoryOpen ? 'hotbar-visible' : ''}`}>
       <div className="hotbar-container">
         {items.map((item) => (
           <div
-            className="hotbar-item-slot"
-            style={{
-              backgroundImage: `url(${item?.name ? getItemUrl(item as SlotWithItem) : 'none'}`,
-            }}
+            className={`hotbar-item-slot ${isSlotWithItem(item) ? '' : 'hotbar-slot-empty'}`}
             key={`hotbar-${item.slot}`}
           >
+            <div className="hotbar-slot-noise" />
+            <div className="hotbar-slot-number">{item.slot}</div>
+
             {isSlotWithItem(item) && (
-              <div className="item-slot-wrapper">
-                <div className="hotbar-slot-header-wrapper">
-                  <div className="inventory-slot-number">{item.slot}</div>
-                  <div className="item-slot-info-wrapper">
-                    <p>
-                      {item.weight > 0
-                        ? item.weight >= 1000
-                          ? `${(item.weight / 1000).toLocaleString('en-us', {
-                              minimumFractionDigits: 2,
-                            })}kg `
-                          : `${item.weight.toLocaleString('en-us', {
-                              minimumFractionDigits: 0,
-                            })}g `
-                        : ''}
-                    </p>
-                    <p>{item.count ? item.count.toLocaleString('en-us') + `x` : ''}</p>
-                  </div>
+              <div className="hotbar-item-wrapper">
+                {item.count !== undefined && item.count > 0 && (
+                  <div className="hotbar-slot-count">{item.count}</div>
+                )}
+
+                <ItemImage src={getItemUrl(item as SlotWithItem)} className="hotbar-slot-image" />
+
+                <div className="hotbar-slot-label">
+                  {item.metadata?.label ? item.metadata.label : Items[item.name]?.label || item.name}
                 </div>
-                <div>
-                  {item?.durability !== undefined && <WeightBar percent={item.durability} durability />}
-                  <div className="inventory-slot-label-box">
-                    <div className="inventory-slot-label-text">
-                      {item.metadata?.label ? item.metadata.label : Items[item.name]?.label || item.name}
-                    </div>
+
+                {item.durability !== undefined && (
+                  <div className="hotbar-slot-durability">
+                    <WeightBar percent={item.durability} durability />
                   </div>
-                </div>
+                )}
               </div>
             )}
           </div>
         ))}
       </div>
-    </SlideUp>
+    </div>
   );
 };
 

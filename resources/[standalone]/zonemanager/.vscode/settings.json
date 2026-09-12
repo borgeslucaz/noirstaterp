@@ -1,0 +1,217 @@
+{
+	// ----------------------------------------- //
+	// ----------- Project Specific ------------ //
+	// ----------------------------------------- //
+	"DockerRun.DisableAutoGenerateConfig": true,
+	"window.commandCenter": false,
+	// ~ Makes the NPM Scripts view able to use bun.
+	"npm.scriptRunner": "bun",
+	// ----------------------------------------- //
+	// -------------- Terminal ----------------- //
+	// ----------------------------------------- //
+	"terminal.integrated.defaultProfile.windows": "Git Bash",
+	"terminal.integrated.profiles.windows": {
+		"Git Bash": {
+			"source": "Git Bash",
+			"args": ["-l", "-i"]
+		}
+	},
+	// ----------------------------------------- //
+	// ---------------- NixOS ----------------- //
+	// ----------------------------------------- //
+	// "nixEnvSelector.nixFile": "${workspaceFolder}/shell.nix",
+	// "nix.serverPath": "nixd",
+	// "nix.enableLanguageServer": true,
+	// "nix.serverSettings": {
+	// 	"nixd": {
+	// 		"formatting": {
+	// 			"command": ["alejandra"] // or nixfmt or nixpkgs-fmt
+	// 		},
+	// 		"options": {
+	// 			"nixos": {
+	// 				"expr": "(builtins.getFlake \"/Users/scrubz/nix-config\").nixosConfigurations.minioptions"
+	// 			},
+	// 			"home-manager": {
+	// 				"expr": "(builtins.getFlake \"/Users/scrubz/nix-config\").homeConfigurations.mini.options"
+	// 			},
+	// 			"nix-darwin": {
+	// 				"expr": "(builtins.getFlake \"/Users/scrubz/nix-config\").darwinConfigurations.mini.options"
+	// 			}
+	// 		}
+	// 	}
+	// },
+	// ----------------------------------------- //
+	// -------------- Formatters --------------- //
+	// ----------------------------------------- //
+	"[javascript]": {
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[typescript]": {
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[svelte]": {
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[prisma]": {
+		"editor.defaultFormatter": "Prisma.prisma"
+	},
+	"[json]": {
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[jsonc]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	// ----------------------------------------- //
+	// ------------ Editor Options ------------- //
+	// ----------------------------------------- //
+	"editor.formatOnSave": true,
+	"editor.minimap.enabled": true,
+	"editor.renderWhitespace": "none",
+	"editor.renderControlCharacters": false,
+	"editor.snippetSuggestions": "top",
+	"editor.codeActionsOnSave": {
+		"source.organizeImports.biome": "explicit",
+		"source.fixAll.biome": "explicit"
+		// "source.fixAll": "always"
+		// "source.sortImports": "always" // biomejs conflict.
+	},
+	// ----------------------------------------- //
+	// -------------- Markdown ----------------- //
+	// ----------------------------------------- //
+	"markdown.styles": [".vscode/markdown-styles.css"],
+	// ----------------------------------------- //
+	// -------- Miscellaneous Settings --------- //
+	// ----------------------------------------- //
+	"liveServer.settings.port": 4690,
+	// ----------------------------------------- //
+	// --------------- Excludes ---------------- //
+	// ----------------------------------------- //
+	"npm.exclude": [],
+	"files.exclude": {
+		"**/node_modules": true,
+		"**/pnpm-lock.yaml": true,
+		"**/.yarn": true,
+		"**/.pnp.cjs": true,
+		"**/.pnp.loader.mjs": true,
+		"**/yarn.lock": true,
+		"**/package-lock.json": true,
+		"**/.turbo": true,
+		"**/.eslintcache": true,
+		// Project Specific.
+		"cache": true,
+		".replxx_history": true,
+		".fxserver": true,
+		"db/": true
+	},
+	"search.exclude": {
+		"**/node_modules": true,
+		"**/pnpm-lock.yaml": true,
+		"**/.yarn": true,
+		"**/.pnp.cjs": true,
+		"**/.pnp.loader.mjs": true,
+		"**/yarn.lock": true,
+		"**/package-lock.json": true,
+		"**/bin": true,
+		"**/lib": true,
+		"**/dist": true,
+		"**/build": true,
+		"**/.vscode": true,
+		"**/.turbo": true,
+		"**/.next": true,
+		"**/.eslintcache": true,
+		// Project Specific.
+		"db/": true
+	},
+	// ----------------------------------------- //
+	// ------------ Personalization ------------ //
+	// ----------------------------------------- //
+	// https://www.peacockcode.dev/guide/#settings
+	"peacock.color": "#832561",
+	// https://code.visualstudio.com/api/references/theme-color
+	"workbench.colorCustomizations": {
+		"activityBar.activeBackground": "#ab307e",
+		"activityBar.background": "#ab307e",
+		"activityBar.foreground": "#e7e7e7",
+		"activityBar.inactiveForeground": "#e7e7e799",
+		"activityBarBadge.background": "#25320e",
+		"activityBarBadge.foreground": "#e7e7e7",
+		"commandCenter.border": "#e7e7e799",
+		"sash.hoverBorder": "#ab307e",
+		"statusBar.background": "#832561",
+		"statusBar.foreground": "#e7e7e7",
+		"statusBarItem.hoverBackground": "#ab307e",
+		"statusBarItem.remoteBackground": "#832561",
+		"statusBarItem.remoteForeground": "#e7e7e7",
+		"titleBar.activeBackground": "#832561",
+		"titleBar.activeForeground": "#e7e7e7",
+		"titleBar.inactiveBackground": "#83256199",
+		"titleBar.inactiveForeground": "#e7e7e799"
+	},
+	"better-comments.tags": [
+		// [Green] General highlight.
+		{
+			"tag": "*",
+			"color": "#98C379",
+			"strikethrough": false,
+			"underline": false,
+			"backgroundColor": "transparent",
+			"bold": false,
+			"italic": false
+		},
+		// [Blue] Queries/Questions.
+		{
+			"tag": "?",
+			"color": "#0051FF",
+			"strikethrough": false,
+			"underline": false,
+			"backgroundColor": "transparent",
+			"bold": false,
+			"italic": false
+		},
+		// [Red] Important alerts.
+		{
+			"tag": "!",
+			"color": "#FF2D00",
+			"strikethrough": false,
+			"underline": false,
+			"backgroundColor": "transparent",
+			"bold": false,
+			"italic": false
+		},
+		// [Orange] TODO's.
+		{
+			"tag": "todo",
+			"color": "#FF8C00",
+			"strikethrough": false,
+			"underline": false,
+			"backgroundColor": "transparent",
+			"bold": false,
+			"italic": false
+		},
+		// [Cyan] Important information.
+		{
+			"tag": "~",
+			"color": "#27F2F5",
+			"strikethrough": false,
+			"underline": false,
+			"backgroundColor": "transparent",
+			"bold": false,
+			"italic": false
+		}
+	],
+	"claudeCode.preferredLocation": "panel",
+	// ----------------------------------------- //
+	// --------------- Tailwind ---------------- //
+	// ----------------------------------------- //
+	"tailwindCSS.lint.suggestCanonicalClasses": "error",
+	"files.associations": {
+		"*.css": "tailwindcss"
+	},
+	// Tailwind v4 at-rules (@theme, @apply, @reference) are unknown to VS Code's
+	// built-in CSS parser -- it throws "{ expected" on token partials that don't
+	// themselves @import "tailwindcss". The Tailwind IntelliSense extension owns
+	// CSS validation here instead, so silence the built-in to kill false errors.
+	"css.validate": false,
+	"scss.validate": false,
+	"less.validate": false
+}

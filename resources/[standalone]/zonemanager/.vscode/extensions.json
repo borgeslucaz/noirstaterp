@@ -1,0 +1,66 @@
+{
+	"recommendations": [
+		// ----------------------------------------- //
+		// ------------ Project Specific ----------- //
+		// ----------------------------------------- //
+		// ----------------------------------------- //
+		// CfxLua (FiveM) types come from overextended/fivem-lls-addon, synced
+		// into tools/cfx-lua/natives/lls-addon by the lua:sync-types task and
+		// consumed by sumneko.lua via .luarc.json. The cfxlua-vscode extension
+		// is discontinued - see unwantedRecommendations below.
+		// ----------------- NixOS ----------------- //
+		// ----------------------------------------- //
+		// "jnoortheen.nix-ide", // Nix language support.
+		// "arrterian.nix-env-selector", // Nix environment selection.
+		// "pinage404.nix-extension-pack", // Nix extension pack.
+		// ----------------------------------------- //
+		// ---------------- Default ---------------- //
+		// ----------------------------------------- //
+		"EditorConfig.EditorConfig", // .editorconfig
+		"aaron-bond.better-comments", // Enhanced comments.
+		// ----------------------------------------- //
+		// ---------- Formatting & Linting --------- //
+		// ----------------------------------------- //
+		"foxundermoon.shell-format", // Shell, Dockerfile, etc.
+		// "esbenp.prettier-vscode", // Prettier.
+		"biomejs.biome", // BiomeJS (ESLint alternative).
+		// ----------------------------------------- //
+		// -------------- Project Tools ------------ //
+		// ----------------------------------------- //
+		// "ms-azuretools.vscode-containers", // Docker (core extension).
+		// "docker.docker", // Docker (developer tools).
+		// "george3447.docker-run", // Docker container auto start.
+		// ----------------------------------------- //
+		// ----------- Language Specific ----------- //
+		// ----------------------------------------- //
+		// "mads-hartmann.bash-ide-vscode", // Bash.
+		// "bmalehorn.vscode-fish", // Fish.
+		// "ms-vscode.PowerShell", // Powershell.
+		// "ms-python.vscode-pylance", // Python.
+		"sumneko.lua", // LUA.
+		// "bbenoist.QML", // QML.
+		// "redhat.vscode-yaml", // YAML.
+		"ecmel.vscode-html-css", // HTML & CSS.
+		"yzhang.markdown-all-in-one", // Markdown.
+		// "Prisma.prisma", // Prisma.
+		// ----------------------------------------- //
+		// ---------- Language Libraries ----------- //
+		// ----------------------------------------- //
+		"svelte.svelte-vscode", // Svelte.
+		"bradlc.vscode-tailwindcss", // Tailwind.
+		"mrmlnc.vscode-scss", // SCSS.
+		// "Syler.sass-indented", // SASS.
+		// ----------------------------------------- //
+		// ----------------- Misc ------------------ //
+		// ----------------------------------------- //
+		"eamodio.gitlens", // GitLens
+		"oderwat.indent-rainbow", // Rainbow indentations.
+		"albert.TabOut", // Easily tab out of brackets, quotes, etc...
+		"kamikillerto.vscode-colorize" // Visualize css colors (hex,rgb,etc...).
+		// "adpyke.codesnap", // Pretty code shareable screenshots.
+		// "ritwickdey.LiveServer", // HTML live server.
+	],
+	"unwantedRecommendations": [
+		"overextended.cfxlua-vscode" // Discontinued; replaced by fivem-lls-addon + sumneko.lua.
+	]
+}

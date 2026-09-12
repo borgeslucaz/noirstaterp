@@ -1,5 +1,6 @@
 if not lib then return end
 
+local Clothing = require 'modules.clothing.shared'
 local Inventory = {}
 
 ---@type table<any, OxInventory>
@@ -400,6 +401,9 @@ function Inventory.SetSlot(inv, item, count, metadata, slot)
     end
 
 	local currentSlot = inv.items[slot]
+	if not currentSlot and Clothing.isEquipmentSlot(inv, slot) and not Clothing.canEquip(inv, slot, item) then
+		return false, 'invalid_clothing_slot'
+	end
 	local newCount = currentSlot and currentSlot.count + count or count
 	local newWeight = currentSlot and inv.weight - currentSlot.weight or inv.weight
 
@@ -587,6 +591,7 @@ end, true)
 --- To create a stash, please use `exports.ox_inventory:RegisterStash` instead.
 function Inventory.Create(id, label, invType, slots, weight, maxWeight, owner, items, groups, dbId)
 	if invType == 'player' and hasActiveInventory(id, owner) then return end
+	if invType == 'player' then slots = Clothing.getPlayerSlots() end
 
 	local self = {
 		id = id,
@@ -1146,7 +1151,7 @@ function Inventory.AddItem(inv, item, count, metadata, slot, cb)
 		local slotData = inv.items[slot]
 		slotMetadata, slotCount = Items.Metadata(inv.id, item, metadata and table.clone(metadata) or {}, count)
 
-		if not slotData or (item.stack and slotData.name == item.name and table.matches(slotData.metadata, slotMetadata)) then
+		if (not Clothing.isEquipmentSlot(inv, slot) or Clothing.canEquip(inv, slot, item)) and (not slotData or (item.stack and slotData.name == item.name and table.matches(slotData.metadata, slotMetadata))) then
 			toSlot = slot
 		end
 	end
@@ -1155,7 +1160,8 @@ function Inventory.AddItem(inv, item, count, metadata, slot, cb)
 		local items = inv.items
 		slotMetadata, slotCount = Items.Metadata(inv.id, item, metadata and table.clone(metadata) or {}, count)
 
-		for i = 1, inv.slots do
+		local maxSlots = inv.type == 'player' and shared.playerslots or inv.slots
+		for i = 1, maxSlots do
 			local slotData = items[i]
 
 			if item.stack and slotData ~= nil and slotData.name == item.name and table.matches(slotData.metadata, slotMetadata) then
@@ -1766,9 +1772,18 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
             data.count = fromData.count
         end
 
-        if data.toType == 'newdrop' then
-            return dropItem(source, fromInventory, fromData, data)
-        end
+		if data.toType == 'newdrop' then
+			return dropItem(source, fromInventory, fromData, data)
+		end
+
+		-- Equipment slots are server-authoritative: only their matching dynamic
+		-- clothingmenu item can be moved into them, including during a swap.
+		if Clothing.isEquipmentSlot(toInventory, data.toSlot) and not Clothing.canEquip(toInventory, data.toSlot, Items(fromData.name)) then
+			return false, 'invalid_clothing_slot'
+		end
+		if toData and Clothing.isEquipmentSlot(fromInventory, data.fromSlot) and not Clothing.canEquip(fromInventory, data.fromSlot, Items(toData.name)) then
+			return false, 'invalid_clothing_slot'
+		end
 
 		if fromData then
             if fromData.metadata.container and toInventory.type == 'container' then return false end
@@ -2189,7 +2204,8 @@ function Inventory.GetEmptySlot(inv)
 
 	local items = inventory.items
 
-	for i = 1, inventory.slots do
+	local maxSlots = inventory.type == 'player' and shared.playerslots or inventory.slots
+	for i = 1, maxSlots do
 		if not items[i] then
 			return i
 		end
@@ -2211,7 +2227,8 @@ function Inventory.GetSlotForItem(inv, itemName, metadata)
 	local items = inventory.items
 	local emptySlot
 
-	for i = 1, inventory.slots do
+	local maxSlots = inventory.type == 'player' and shared.playerslots or inventory.slots
+	for i = 1, maxSlots do
 		local slotData = items[i]
 
 		if not slotData and not emptySlot then

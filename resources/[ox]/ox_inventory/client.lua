@@ -1342,11 +1342,24 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 			items = ItemData,
 			leftInventory = {
 				id = cache.playerId,
-				slots = shared.playerslots,
+				slots = shared.playerslots + 10,
 				items = PlayerData.inventory,
 				maxWeight = shared.playerweight,
 			},
-			imagepath = client.imagepath
+			imagepath = client.imagepath,
+			uiConfig = {
+				layout = 'slots',
+				clothing = {
+					enabled = true,
+					slots = {
+						{ index = 21, name = 'mask', label = 'Máscara', side = 'left' }, { index = 22, name = 'hat', label = 'Chapéu', side = 'left' },
+						{ index = 23, name = 'glasses', label = 'Óculos', side = 'left' }, { index = 24, name = 'jacket', label = 'Jaqueta', side = 'left' },
+						{ index = 25, name = 'pants', label = 'Calça', side = 'left' }, { index = 26, name = 'shoes', label = 'Sapatos', side = 'right' },
+						{ index = 27, name = 'bag', label = 'Mochila', side = 'right' }, { index = 28, name = 'vest', label = 'Colete', side = 'right' },
+						{ index = 29, name = 'watch', label = 'Relógio', side = 'right' }, { index = 30, name = 'necklace', label = 'Colar', side = 'right' },
+					},
+				},
+			},
 		}
 	})
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import useNuiEvent from '../../hooks/useNuiEvent';
 import InventoryControl from './InventoryControl';
-import InventoryHotbar from './InventoryHotbar';
+import ClothingPanel from './ClothingPanel';
 import { useAppDispatch } from '../../store';
 import {
 	refreshSlots,
@@ -20,6 +20,7 @@ import { closeContextMenu } from '../../store/contextMenu';
 import Fade from '../utils/transitions/Fade';
 import { Locale } from '../../store/locale';
 import { fetchNui } from '../../utils/fetchNui';
+import { UiConfig } from '../../store/uiConfig';
 
 const Inventory: React.FC = () => {
 	const [inventoryVisible, setInventoryVisible] = useState(false);
@@ -51,13 +52,14 @@ const Inventory: React.FC = () => {
 	return (
 		<>
 			<Fade in={inventoryVisible}>
-				<div className="inventory-wrapper">
+				<div className={`inventory-wrapper${UiConfig.clothing.enabled ? ' ped-focus' : ''}`}>
 					<div className="inventory-stage layout-slots">
 						<div className="inventory-side left">
 							<LeftInventory />
 						</div>
 
 						<div className="inventory-centre">
+							{UiConfig.clothing.enabled && <ClothingPanel />}
 							<InventoryControl />
 						</div>
 
@@ -77,7 +79,6 @@ const Inventory: React.FC = () => {
 					<InventoryContext />
 				</div>
 			</Fade>
-			<InventoryHotbar />
     </>
   );
 };

@@ -1,0 +1,126 @@
+/* Design tokens - the default color scheme.
+ *
+ * All values are hex/rgb: cfx's CEF build does not resolve oklch() reliably, so
+ * Tailwind's default oklch palette is unusable here. Declared inside @theme so
+ * Tailwind emits utilities (bg-primary-500, text-success-300, border-strong).
+ * Each token is also a :root custom property, so runtime theming can override
+ * any single token without a rebuild. Imported by app.css after its
+ * `@import "tailwindcss"`. */
+@theme {
+	--radius: 1.6rem;
+
+	/* primary - main brand / interactive (base #1A5EFF at 500) */
+	--color-primary-50: #f3f6fc;
+	--color-primary-100: #dae2f6;
+	--color-primary-200: #b4c7f4;
+	--color-primary-300: #7fa2f5;
+	--color-primary-400: #4c80fa;
+	--color-primary-500: #1a5eff;
+	--color-primary-600: #0046eb;
+	--color-primary-700: #0239bb;
+	--color-primary-800: #042e8f;
+	--color-primary-900: #06246b;
+	--color-primary-950: #061947;
+
+	/* accent - secondary highlight (base #9D57FF at 500) */
+	--color-accent-50: #f9f7fd;
+	--color-accent-100: #f9f7fd;
+	--color-accent-200: #f1e9fc;
+	--color-accent-300: #d3b8fa;
+	--color-accent-400: #b888fc;
+	--color-accent-500: #9d57ff;
+	--color-accent-600: #8229ff;
+	--color-accent-700: #6902f7;
+	--color-accent-800: #5806cb;
+	--color-accent-900: #4a09a5;
+	--color-accent-950: #3b0a7f;
+
+	/* surface - neutral scale, OLED-black anchored (#000000 at 950) */
+	--color-surface-50: #ebedef;
+	--color-surface-100: #d6dae0;
+	--color-surface-200: #b5bdc9;
+	--color-surface-300: #8794ab;
+	--color-surface-400: #5a6a87;
+	--color-surface-500: #3c485d;
+	--color-surface-600: #27303f;
+	--color-surface-700: #191f2a;
+	--color-surface-800: #0f131a;
+	--color-surface-900: #080a0d;
+	--color-surface-950: #000000;
+
+	/* success - positive / confirm (base #28E285 at 500) */
+	--color-success-50: #e9f6f0;
+	--color-success-100: #d2efe0;
+	--color-success-200: #afe9cc;
+	--color-success-300: #80e5b3;
+	--color-success-400: #54e39c;
+	--color-success-500: #28e285;
+	--color-success-600: #1ac16e;
+	--color-success-700: #169757;
+	--color-success-800: #137242;
+	--color-success-900: #0f5230;
+	--color-success-950: #0b321f;
+
+	/* warning - caution (base #E2AB4B at 500) */
+	--color-warning-50: #fcfaf8;
+	--color-warning-100: #f8f4ed;
+	--color-warning-200: #f0e3cc;
+	--color-warning-300: #e9cea0;
+	--color-warning-400: #e5bc76;
+	--color-warning-500: #e2ab4b;
+	--color-warning-600: #db9824;
+	--color-warning-700: #b27c1f;
+	--color-warning-800: #8d631b;
+	--color-warning-900: #6d4e17;
+	--color-warning-950: #4e3813;
+
+	/* error - failure / danger (base #F50000 at 500) */
+	--color-error-50: #f4d7d7;
+	--color-error-100: #efbdbd;
+	--color-error-200: #ef9595;
+	--color-error-300: #f35e5e;
+	--color-error-400: #fa2929;
+	--color-error-500: #f50000;
+	--color-error-600: #c70000;
+	--color-error-700: #970202;
+	--color-error-800: #6d0303;
+	--color-error-900: #490404;
+	--color-error-950: #260303;
+
+	/* info - neutral notice (base #57CAFF at 500) */
+	--color-info-50: #f7fbfd;
+	--color-info-100: #f7fbfd;
+	--color-info-200: #e9f6fc;
+	--color-info-300: #b8e5fa;
+	--color-info-400: #88d7fc;
+	--color-info-500: #57caff;
+	--color-info-600: #29bbff;
+	--color-info-700: #02aaf7;
+	--color-info-800: #068dcb;
+	--color-info-900: #0973a5;
+	--color-info-950: #0a5a7f;
+
+	/* derived roles - semantic aliases the components reference by intent */
+	--color-bg: #000000;
+	--color-surface: #080a0d;
+	--color-surface-raised: #0f131a;
+	--color-surface-overlay: #191f2a;
+	--color-border-subtle: #0f131a;
+	--color-border: #191f2a;
+	--color-border-strong: #27303f;
+	--color-text: #e8eaee;
+	--color-text-muted: #8794ab;
+	--color-text-subtle: #5a6a87;
+	--color-text-disabled: #27303f;
+	--color-primary: #1a5eff;
+	--color-primary-hover: #4c80fa;
+	--color-accent: #9d57ff;
+	--color-ring: #1a5eff;
+	--color-on-primary: #ffffff;
+	--color-on-accent: #ffffff;
+	--color-on-success: #0b1018;
+	--color-on-warning: #0b1018;
+	--color-on-error: #ffffff;
+	--color-on-info: #0b1018;
+	--color-scrim: rgba(0, 0, 0, 0.6);
+}

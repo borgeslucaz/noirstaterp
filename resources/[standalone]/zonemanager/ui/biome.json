@@ -1,0 +1,96 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
+	"files": {
+		"ignoreUnknown": false,
+		"includes": ["**", "!**/node_modules", "!**/dist", "!**/build"]
+	},
+	"formatter": {
+		"enabled": true,
+		"formatWithErrors": false,
+		"indentStyle": "tab",
+		"indentWidth": 4,
+		"lineEnding": "lf",
+		"lineWidth": 80,
+		"bracketSameLine": false,
+		"bracketSpacing": true,
+		"useEditorconfig": true
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended",
+			"correctness": {
+				"noUnusedVariables": "error",
+				"noUnusedImports": "error",
+				"useExhaustiveDependencies": "warn"
+			},
+			"style": {
+				"useImportType": "error",
+				"useExportType": "error",
+				"noNonNullAssertion": "warn"
+			},
+			"suspicious": {
+				"noExplicitAny": "error",
+				"noConsole": "off"
+			},
+			"complexity": {
+				"noUselessTypeConstraint": "error"
+			}
+		}
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "single",
+			"jsxQuoteStyle": "single",
+			"quoteProperties": "asNeeded",
+			"trailingCommas": "all",
+			"semicolons": "always",
+			"arrowParentheses": "asNeeded",
+			"bracketSameLine": false,
+			"bracketSpacing": true
+		}
+	},
+	"css": {
+		"parser": {
+			"tailwindDirectives": true
+		}
+	},
+	"json": {
+		"formatter": {
+			"trailingCommas": "none"
+		}
+	},
+	"html": {
+		"formatter": {
+			"indentScriptAndStyle": false,
+			"selfCloseVoidElements": "always"
+		}
+	},
+	"assist": {
+		"enabled": true,
+		"actions": { "source": { "organizeImports": "on" } }
+	},
+	"overrides": [
+		{
+			"includes": ["**/*.svelte"],
+			"linter": {
+				"rules": {
+					"correctness": {
+						"noUnusedVariables": "off",
+						"noUnusedImports": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["**/*.d.ts"],
+			"linter": {
+				"rules": {
+					"correctness": {
+						"noUnusedVariables": "off"
+					}
+				}
+			}
+		}
+	]
+}

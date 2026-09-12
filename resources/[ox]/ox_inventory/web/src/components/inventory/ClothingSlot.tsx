@@ -15,7 +15,6 @@ import { openContextMenu } from '../../store/contextMenu';
 import { getClothingIcon } from '../utils/icons/ClothingIcons';
 import ItemImage from '../utils/ItemImage';
 import { getBooleanPref } from '../../store/preferences';
-import { fetchNui } from '../../utils/fetchNui';
 
 interface ClothingSlotProps {
   def: ClothingSlotDef;
@@ -114,10 +113,8 @@ const ClothingSlot: React.FC<ClothingSlotProps> = ({ def }) => {
 
     if (isSlotWithItem(item) && event.ctrlKey) {
       onDrop({ item, inventory: InventoryType.PLAYER });
-    } else if (isSlotWithItem(item) && event.altKey) {
+    } else if (isSlotWithItem(item)) {
       onUse(item);
-    } else {
-      fetchNui('toggleClothing', { slot: def.name });
     }
   };
 

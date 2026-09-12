@@ -1,12 +1,12 @@
 return {
-    ['cipher_tablet'] = {
-        label = 'Cipher Tablet',
+    ['xs_tablet'] = {
+        label = 'XS Criminal Tablet',
         weight = 750,
         stack = false,
         close = true,
         consume = 0,
-        description = 'Tablet criptografado para operacoes de gangue.',
-        client = { export = 'cipher.useDevice' },
+        description = 'Tablet criptografado para operacoes criminosas.',
+        client = { export = 'XS-CriminalTablet.useDevice' },
     },
 
     ['spraycan'] = {
@@ -3144,4 +3144,16 @@ return {
     ['radioscanner'] = { label = 'Radio Scanner', weight = 1000, stack = true, close = true },
     ['pinger'] = { label = 'Pinger', weight = 1000, stack = true, close = true },
     ['laptop'] = { label = 'Laptop', weight = 2500, stack = false, close = false, client = { image = 'laptop.png' } },
+
+    -- clothingmenu: each item preserves the drawable/texture in metadata and is consumed when worn.
+    ['clothing_mask'] = { label = 'Máscara', clothing = 'mask', weight = 50, stack = false, close = true, consume = 0, client = { export = 'clothingmenu.UseClothingItem' } },
+    ['clothing_hat'] = { label = 'Chapéu', clothing = 'hat', weight = 100, stack = false, close = true, consume = 0, client = { export = 'clothingmenu.UseClothingItem' } },
+    ['clothing_glasses'] = { label = 'Óculos', clothing = 'glasses', weight = 30, stack = false, close = true, consume = 0, client = { export = 'clothingmenu.UseClothingItem' } },
+    ['clothing_jacket'] = { label = 'Jaqueta', clothing = 'jacket', weight = 500, stack = false, close = true, consume = 0, client = { export = 'clothingmenu.UseClothingItem' } },
+    ['clothing_pants'] = { label = 'Calça', clothing = 'pants', weight = 400, stack = false, close = true, consume = 0, client = { export = 'clothingmenu.UseClothingItem' } },
+    ['clothing_shoes'] = { label = 'Sapatos', clothing = 'shoes', weight = 300, stack = false, close = true, consume = 0, client = { export = 'clothingmenu.UseClothingItem' } },
+    ['clothing_bag'] = { label = 'Mochila', clothing = 'bag', weight = 600, stack = false, close = true, consume = 0, client = { export = 'clothingmenu.UseClothingItem' } },
+    ['clothing_vest'] = { label = 'Colete', clothing = 'vest', weight = 450, stack = false, close = true, consume = 0, client = { export = 'clothingmenu.UseClothingItem' } },
+    ['clothing_watch'] = { label = 'Relógio', clothing = 'watch', weight = 80, stack = false, close = true, consume = 0, client = { export = 'clothingmenu.UseClothingItem' } },
+    ['clothing_necklace'] = { label = 'Colar', clothing = 'necklace', weight = 50, stack = false, close = true, consume = 0, client = { export = 'clothingmenu.UseClothingItem' } },
 }

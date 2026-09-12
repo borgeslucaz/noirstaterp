@@ -162,6 +162,7 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
   return (
     <div ref={refs} onContextMenu={handleContext} onClick={handleClick} className={className} style={style}>
       {hasRarityAccent && <div className="inventory-slot-rarity-glow" />}
+      {inventoryType === 'player' && item.slot <= 5 && <div className="inventory-slot-number">{item.slot}</div>}
       {isSlotWithItem(item) && (
         <div
           className="item-slot-wrapper"
@@ -184,11 +185,6 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
           <div className="inventory-slot-noise" />
 
           <ItemImage src={getItemUrl(item as SlotWithItem)} className="inventory-slot-image" />
-
-          {/* Fast slot number - top left. The slots layout binds keys 1-5 to the first five slots. */}
-          {inventoryType === 'player' && item.slot <= 5 && (
-            <div className="inventory-slot-number">{item.slot}</div>
-          )}
 
           <div className="inventory-slot-count">
             <span className="inventory-slot-weight">{formatSlotWeight(item.weight)}</span>

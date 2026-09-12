@@ -1,14 +1,4 @@
 return {
-    ['cipher_tablet'] = {
-        label = 'Cipher Tablet',
-        weight = 750,
-        stack = false,
-        close = true,
-        consume = 0,
-        description = 'Tablet criptografado para operacoes de gangue.',
-        client = { export = 'cipher.useDevice' },
-    },
-
     ['spraycan'] = {
         label = 'Lata de spray',
         weight = 500,
