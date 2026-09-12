@@ -50,6 +50,41 @@ function Repo.recent(outpostId, limit)
     ]], { outpostId, limit }) or {}
 end
 
+---Página do feed de uma organização, mais recente primeiro.
+---Paginação por keyset: o cursor é a última linha vista, então inserções concorrentes
+---não deslocam a janela como o OFFSET faria.
+---@param organizationId string
+---@param limit integer
+---@param cursor table? { at: integer, id: string }
+---@param since integer? só entrega o que veio depois de o jogador limpar o feed
+---@return table[] rows (até limit + 1, para saber se há próxima página)
+function Repo.feed(organizationId, limit, cursor, since)
+    local sql = [[
+        SELECT operation_id, operation_type, outpost_id, dealer_id, item_name, quantity,
+               gross_amount, net_amount, payload, created_at
+        FROM noir_outpost_operations
+        WHERE organization_id = ? AND status IN ('committed', 'paid')
+    ]]
+    local parameters = { organizationId }
+
+    if since and since > 0 then
+        sql = sql .. ' AND created_at > ?'
+        parameters[#parameters + 1] = since
+    end
+
+    if cursor then
+        sql = sql .. ' AND (created_at < ? OR (created_at = ? AND operation_id < ?))'
+        parameters[#parameters + 1] = cursor.at
+        parameters[#parameters + 1] = cursor.at
+        parameters[#parameters + 1] = cursor.id
+    end
+
+    sql = sql .. ' ORDER BY created_at DESC, operation_id DESC LIMIT ?'
+    parameters[#parameters + 1] = limit + 1
+
+    return Db.rows(sql, parameters) or {}
+end
+
 ---@param citizenId string
 ---@param requestId string
 ---@return table?
@@ -65,6 +100,9 @@ end
 ---Operações mais antigas que `olderThan` (retenção).
 ---@param olderThan integer epoch
 ---@param limit integer
+---@return integer? affectedRows, string? error
 function Repo.prune(olderThan, limit)
-    return Db.update('DELETE FROM noir_outpost_operations WHERE created_at < ? LIMIT ?', { olderThan, limit })
+    return Db.update(
+        'DELETE FROM noir_outpost_operations WHERE created_at < ? ORDER BY created_at ASC LIMIT ?',
+        { olderThan, limit })
 end

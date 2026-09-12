@@ -24,6 +24,10 @@
         "purse_taken": "Você levou %s em dinheiro sujo.",
         "stock_taken": "Você levou %s unidades do produto."
     },
+    "holdup": {
+        "reacted": "Ele reagiu e está armado.",
+        "surrendered": "Ele se rendeu. Reviste antes que se recupere."
+    },
     "phone": {
         "sales_title": "Vendas concluídas",
         "sales_body": "%s vendas em %s renderam $%s.",
@@ -31,6 +35,8 @@
         "stock_low_body": "%s está com apenas %s unidades.",
         "stock_empty_title": "Estoque zerado",
         "stock_empty_body": "Os corredores de %s pararam de vender.",
+        "holdup_title": "Corredor abordado",
+        "holdup_body": "%s foi abordado à mão armada em %s.",
         "dealer_down_title": "Corredor derrubado",
         "dealer_down_body": "%s foi morto em %s e saiu de operação.",
         "robbery_title": "Corredor roubado",
@@ -78,6 +84,8 @@
         "insufficient_funds": "Dinheiro insuficiente.",
         "dealer_busy": "Este corredor está ocupado.",
         "dealer_unavailable": "Este corredor não está disponível.",
+        "holdup_in_progress": "Este corredor já está sendo abordado.",
+        "not_surrendered": "Renda o corredor antes de revistar.",
         "dealer_cooldown": "Este corredor já foi roubado há pouco tempo.",
         "invalid_entity": "Não foi possível confirmar o alvo.",
         "amount_too_large": "Quantidade acima do permitido.",

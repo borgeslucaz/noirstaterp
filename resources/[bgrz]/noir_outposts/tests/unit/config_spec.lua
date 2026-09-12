@@ -112,7 +112,19 @@ assert(server.sales.baseIntervalSeconds >= server.sales.minimumIntervalSeconds, 
 assert(server.sales.maxStartupCatchupSalesPerDealer <= 1, 'startup catch-up must stay bounded')
 assert(server.sales.dispatchChance >= 0 and server.sales.dispatchChance <= 100, 'invalid dispatch chance')
 assert(server.sales.dispatchCooldownSeconds > 0, 'dispatch needs a cooldown')
+assert(server.operationRetention.days == 15, 'operation retention must be 15 days')
+assert(server.operationRetention.intervalSeconds == 12 * 60 * 60, 'operation prune must run every 12 hours')
+assert(server.operationRetention.batchSize > 0, 'operation prune batch must be positive')
+assert(server.operationRetention.maxBatchesPerRun > 0, 'operation prune run must be bounded')
 assert(server.robbery.cooldownSeconds > 0, 'robbery needs a cooldown')
+assert(server.dealers.downCooldownSeconds > 0, 'a kill needs a cooldown')
+assert(server.dealers.robbedGraceSeconds > 0, 'the post-robbery window must be positive')
+assert(server.dealers.robbedDownCooldownSeconds > 0, 'the shortened cooldown must be positive')
+-- O castigo encurtado precisa ser mesmo menor, senão a regra não tira incentivo nenhum.
+assert(server.dealers.robbedDownCooldownSeconds < server.dealers.downCooldownSeconds,
+    'killing a just-robbed runner must cost less, not more')
+assert(server.dealers.robbedGraceSeconds < server.robbery.cooldownSeconds,
+    'the grace window must sit inside the robbery recovery')
 assert(server.robbery.pursePercent.max <= 100 and server.robbery.stockPercent.max <= 100,
     'robbery percentages must stay within 0-100')
 assert(server.robbery.pursePercent.min <= server.robbery.pursePercent.max, 'invalid purse percent range')
@@ -135,6 +147,69 @@ for id, definition in pairs(shared.outposts) do
     assert(definition.terminalNpc == nil or definition.terminalNpc == false,
         id .. ' may only disable terminalNpc, never redefine it')
 end
+
+-- Caminhada do corredor: precisa ser desligável e caber na área da esquina.
+local wander = shared.dealerWander
+assert(type(wander) == 'table', 'dealerWander block missing')
+assert(type(wander.enabled) == 'boolean', 'dealerWander.enabled must be a boolean')
+assert(type(wander.radius) == 'number' and wander.radius > 0 and wander.radius <= 30,
+    'dealerWander.radius must stay within a plausible corner')
+assert(wander.minimalLength > 0 and wander.minimalLength < wander.radius,
+    'a wander leg must be shorter than the radius')
+assert(wander.timeBetweenWalks >= 0, 'invalid pause between walks')
+
+-- Parar perto de jogador é o que mantém a posição estável para o servidor validar.
+assert(type(wander.pauseNearPlayers) == 'number' and wander.pauseNearPlayers > 0,
+    'pauseNearPlayers must be a positive distance')
+assert(wander.pauseNearPlayers > server.robbery.interactionDistance,
+    'the runner must stop well before a player can reach robbery range')
+assert(wander.pauseNearPlayers >= server.holdup.maxDistance * 0.75,
+    'stopping range should cover most of the holdup range')
+
+-- Identidade sorteada. Com menos nomes que corredores por posto, dois dividiriam o mesmo nome
+-- na mesma esquina, que é exatamente o que o sorteio existe para evitar.
+local identities = shared.dealerIdentities
+assert(type(identities) == 'table', 'dealer identities must exist')
+for _, field in ipairs({ 'names', 'models' }) do
+    local list = identities[field]
+    assert(type(list) == 'table' and #list >= server.limits.maxDealersPerOutpost,
+        ('identity list %s must cover a full outpost'):format(field))
+    local seen = {}
+    for index = 1, #list do
+        local value = list[index]
+        assert(type(value) == 'string' and value ~= '', ('identity %s entry must be a string'):format(field))
+        assert(not seen[value], ('identity %s must not repeat %s'):format(field, value))
+        seen[value] = true
+    end
+end
+
+-- A reação chega por evento e por state bag, e o bag costuma atrasar. A janela precisa cobrir
+-- esse atraso sem chegar perto da duração da rendição, senão uma reação velha se arrastaria.
+assert(type(client.holdup.reactionGraceMs) == 'number' and client.holdup.reactionGraceMs > 0,
+    'the reaction grace window must be a positive number')
+assert(client.holdup.reactionGraceMs < server.holdup.surrenderSeconds * 1000,
+    'the grace window must be far shorter than a surrender')
+
+local idle = wander.idle
+assert(type(idle) == 'table', 'wander idle block missing')
+assert(type(idle.chance) == 'number' and idle.chance >= 0 and idle.chance <= 100,
+    'idle chance must be a percentage')
+assert(idle.durationSeconds.min > 0 and idle.durationSeconds.max >= idle.durationSeconds.min,
+    'invalid idle duration range')
+assert(#idle.scenarios > 0, 'at least one idle scenario')
+local seenScenario = {}
+for index = 1, #idle.scenarios do
+    local scenario = idle.scenarios[index]
+    assert(type(scenario) == 'string' and scenario:match('^WORLD_HUMAN_[A-Z_]+$'),
+        'idle scenarios must be plain WORLD_HUMAN names: ' .. tostring(scenario))
+    assert(not seenScenario[scenario], 'duplicate idle scenario ' .. scenario)
+    seenScenario[scenario] = true
+end
+-- Parar mais tempo do que se anda deixaria o posto estático.
+assert(idle.durationSeconds.max <= 60, 'an idle break should not outlast the patrol itself')
+-- Caminhar não pode levar o corredor para fora do alcance do próprio assalto.
+assert(wander.radius >= server.robbery.interactionDistance,
+    'a radius below the robbery distance would make the walk pointless')
 
 assert(type(shared.phone.identifier) == 'string' and shared.phone.identifier:match('^[%w_-]+$'),
     'phone identifier must be a plain slug')

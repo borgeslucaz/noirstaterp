@@ -62,6 +62,8 @@ function Service.process(dealer)
         local allowed, blockReason = canSell(entry, now)
         if not allowed then reason = blockReason return end
 
+        if NoirOutposts.Services.Holdup.isBusy(dealer.id) then reason = 'holdup' return end
+
         local products = availableProducts(entry)
         if #products == 0 then reason = 'no_stock' return end
 
@@ -117,6 +119,7 @@ function Service.process(dealer)
                 unitPrice = amounts.unitPrice,
                 commission = amounts.commission,
                 profileKey = dealer.profile_key,
+                dealerName = State.dealerName(dealer),
             },
         })
 

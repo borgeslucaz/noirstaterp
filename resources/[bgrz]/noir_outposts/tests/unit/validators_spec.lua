@@ -101,6 +101,24 @@ T.equal(V.shouldClosePanel({ dead = false, inVehicle = false, distance = 4.1 }, 
 T.equal(V.shouldClosePanel({ dead = false, inVehicle = false, distance = nil }, 4.0), false,
     'an unknown distance never closes on its own')
 
+-- Castigo por matar corredor recém-assaltado -------------------------------------------------
+
+T.equal(V.downCooldown(nil, 1200, 60, 120), 1200, 'a plain kill serves the full cooldown')
+T.equal(V.downCooldown(5, 1200, 60, 120), 120, 'killing right after a robbery is cheap')
+T.equal(V.downCooldown(60, 1200, 60, 120), 120, 'the window edge still counts as recent')
+T.equal(V.downCooldown(61, 1200, 60, 120), 1200, 'past the window it is a normal kill')
+T.equal(V.downCooldown(-1, 1200, 60, 120), 1200, 'a broken timestamp falls back to the full cooldown')
+
+-- Abordagem ------------------------------------------------------------------------------------
+
+T.equal(V.holdupReacts(1, 60), true, 'lowest roll reacts')
+T.equal(V.holdupReacts(60, 60), true, 'the chance itself reacts')
+T.equal(V.holdupReacts(61, 60), false, 'above the chance he surrenders')
+T.equal(V.holdupReacts(100, 60), false, 'highest roll surrenders')
+T.equal(V.holdupReacts(1, 0), false, 'zero chance never reacts')
+T.equal(V.holdupReacts(100, 100), true, 'full chance always reacts')
+T.equal(V.holdupReacts(nil, 60), false, 'a broken roll never reacts')
+
 -- Morte de corredor ----------------------------------------------------------------------------
 
 -- Regressão: sem dono de rede o servidor lê vida 0 num ped vivo, e isso derrubava todos
@@ -127,5 +145,31 @@ T.equal(map.stock, true, 'grade 2 can stock')
 T.equal(map.hire, true, 'grade 2 can hire')
 T.equal(map.collect, false, 'grade 2 cannot collect')
 T.equal(map.claim, false, 'grade 2 cannot claim')
+
+-- Identidade sorteada ---------------------------------------------------------------------
+
+local pool = { 'Bagre', 'Bala', 'Corvo' }
+T.equal(#V.freeIdentityPool(pool, nil), 3, 'nothing taken leaves the whole pool')
+T.equal(#V.freeIdentityPool(pool, { Bala = true }), 2, 'a taken name leaves the pool')
+T.equal(V.freeIdentityPool(pool, { Bagre = true, Corvo = true })[1], 'Bala',
+    'only the free name is offered')
+T.equal(#V.freeIdentityPool(pool, { Bagre = true, Bala = true, Corvo = true }), 3,
+    'with everything taken the whole pool comes back rather than nothing')
+T.equal(#V.freeIdentityPool({ 'Bagre', '', 42 }, nil), 1, 'broken entries are dropped')
+T.equal(#V.freeIdentityPool(nil, nil), 0, 'a missing pool offers nothing')
+
+-- Posição do corredor ---------------------------------------------------------------------
+
+T.equal(V.provesPositionSync(4.0, 0.75), true, 'a reading away from spawn proves the sync works')
+T.equal(V.provesPositionSync(0.75, 0.75), false, 'the epsilon edge proves nothing')
+T.equal(V.provesPositionSync(0.0, 0.75), false, 'a reading on the spawn corner proves nothing')
+T.equal(V.provesPositionSync(nil, 0.75), false, 'a missing reading proves nothing')
+T.equal(V.provesPositionSync(4.0, nil), false, 'a broken epsilon proves nothing')
+
+T.equal(V.dealerReach(true, 2.5, 25.0), 2.5, 'a trusted position needs no wander slack')
+T.equal(V.dealerReach(false, 2.5, 25.0), 27.5, 'an untrusted position pays the wander radius')
+T.equal(V.dealerReach(false, 2.5, 0.0), 2.5, 'no wandering means no slack either way')
+T.equal(V.dealerReach(false, 2.5, nil), 2.5, 'a broken radius never widens the reach')
+T.equal(V.dealerReach(false, nil, 25.0), 0, 'a broken distance authorises nothing')
 
 print('validators_spec: ok')

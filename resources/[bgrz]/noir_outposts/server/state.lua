@@ -173,14 +173,36 @@ function State.intervalFor(profileKey)
     return V.saleInterval(config.sales.baseIntervalSeconds, config.sales.minimumIntervalSeconds, speed)
 end
 
+---Nome de rua do corredor. Sorteado na contratação e gravado com ele, então não muda se o
+---config mudar. Linhas anteriores ao sorteio caem no nome do arquétipo.
+---@param dealer table?
+---@return string?
+function State.dealerName(dealer)
+    if type(dealer) ~= 'table' then return nil end
+    if type(dealer.display_name) == 'string' and dealer.display_name ~= '' then
+        return dealer.display_name
+    end
+    local profile = State.profiles[dealer.profile_key]
+    return profile and profile.name or dealer.profile_key
+end
+
+---Modelo de ped do corredor, com a mesma regra de herança do nome.
+---@param dealer table?
+---@return string?
+function State.dealerModel(dealer)
+    if type(dealer) ~= 'table' then return nil end
+    if type(dealer.ped_model) == 'string' and dealer.ped_model ~= '' then return dealer.ped_model end
+    local profile = State.profiles[dealer.profile_key]
+    return profile and profile.model or nil
+end
+
 -- Snapshots ------------------------------------------------------------------------
 
 local function dealerPublic(dealer)
-    local profile = State.profiles[dealer.profile_key]
     return {
         id = dealer.id,
         profileKey = dealer.profile_key,
-        name = profile and profile.name or dealer.profile_key,
+        name = State.dealerName(dealer),
         status = dealer.status,
         cornerIndex = dealer.corner_index,
     }
@@ -309,7 +331,8 @@ function State.panelSnapshot(entry, actor, permissions, extra)
             dealers[index] = {
                 id = dealer.id,
                 profileKey = dealer.profile_key,
-                name = profile and profile.name or dealer.profile_key,
+                name = State.dealerName(dealer),
+                profileName = profile and profile.name or dealer.profile_key,
                 status = dealer.status,
                 cornerIndex = dealer.corner_index,
                 nextSaleAt = dealer.next_sale_at,

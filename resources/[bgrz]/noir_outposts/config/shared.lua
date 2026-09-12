@@ -104,12 +104,87 @@ return {
         },
     },
 
+    -- Identidade pessoal do corredor, sorteada na contratação e gravada com ele.
+    -- O perfil acima continua sendo o arquétipo: preço, ritmo, comissão. Nome e ped são de
+    -- quem foi contratado para o papel, então dois postos com o mesmo perfil não trazem o
+    -- mesmo sujeito. O sorteio evita repetir nome ou ped já em uso no mesmo posto.
+    dealerIdentities = {
+        names = {
+            'Bagre', 'Bala', 'Bicudo', 'Boneco', 'Cabeça', 'Canela', 'Careca', 'Cascavel',
+            'Charuto', 'Chumbo', 'Coringa', 'Corvo', 'Dentinho', 'Fumaça', 'Grilo', 'Jacaré',
+            'Lobo', 'Mosquito', 'Pardal', 'Relâmpago', 'Sapo', 'Sereno', 'Tampinha', 'Trovão',
+            'Tubarão', 'Zóio',
+        },
+        -- Ambientes do jogo base: não dependem de stream e existem em qualquer client.
+        -- Gente de rua em vez de uniforme de facção, para o corredor não se anunciar de longe.
+        models = {
+            'a_m_y_genstreet_01', 'a_m_y_genstreet_02',
+
+            'a_m_y_eastsa_01', 'a_m_y_eastsa_02',
+            'a_m_m_eastsa_01', 'a_m_m_eastsa_02',
+
+            'a_m_y_soucent_01', 'a_m_y_soucent_02', 'a_m_y_soucent_03', 'a_m_y_soucent_04',
+            'a_m_m_soucent_01', 'a_m_m_soucent_02', 'a_m_m_soucent_03', 'a_m_m_soucent_04',
+
+            'a_m_y_latino_01',
+
+            'a_m_y_ktown_01', 'a_m_y_ktown_02',
+
+            'a_m_y_downtown_01',
+
+            'a_m_m_afriamer_01',
+
+            'a_m_y_stwhi_01', 'a_m_y_stwhi_02',
+            'a_m_y_vinewood_04',
+            'a_m_y_hipster_01', 'a_m_y_hipster_02',
+
+            'a_m_y_methhead_01',
+        },
+    },
+
     -- Catálogo público (labels). Preço e quantidade real ficam server-side.
     products = {
         { id = 'weed_brick', label = 'Tijolo de maconha' },
         { id = 'meth', label = 'Metanfetamina' },
         { id = 'cokebaggy', label = 'Pacote de cocaína' },
     },
+
+    -- Caminhada do corredor pela esquina. O raio é ancorado na posição cadastrada,
+    -- não na posição atual do ped, senão ele iria derivando a cada novo stream.
+    dealerWander = {
+        enabled = true,
+        radius = 25.0,
+        -- Distância mínima de cada trecho e pausa entre eles, em segundos.
+        minimalLength = 5.0,
+        timeBetweenWalks = 2.0,
+
+        -- O corredor para de andar quando há jogador por perto. Duas razões: ele reage à
+        -- aproximação, e a posição que o servidor enxerga de um ped em movimento fica
+        -- defasada em dezenas de metros, o que quebraria a checagem de distância do assalto.
+        -- Parado, a posição converge e a validação volta a ser confiável.
+        pauseNearPlayers = 18.0,
+
+        -- De vez em quando o corredor para para fazer alguma coisa, em vez de só aguardar.
+        -- É o que devolve a naturalidade que a perambulação ambiente dava de graça.
+        idle = {
+            -- Chance de parar ao chegar num destino.
+            chance = 45,
+            durationSeconds = { min = 8, max = 20 },
+            scenarios = {
+                'WORLD_HUMAN_DRUG_DEALER',
+                'WORLD_HUMAN_DRUG_DEALER_HARD',
+                'WORLD_HUMAN_SMOKING',
+                'WORLD_HUMAN_SMOKING_POT',
+                'WORLD_HUMAN_STAND_MOBILE',
+                'WORLD_HUMAN_STAND_IMPATIENT',
+                'WORLD_HUMAN_HANG_OUT_STREET',
+                'WORLD_HUMAN_GUARD_STAND',
+            },
+        },
+    },
+
+    -- Arma que o corredor saca ao reagir a uma abordagem.
+    dealerWeapon = 'WEAPON_PISTOL',
 
     payoutItem = 'black_money',
 

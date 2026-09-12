@@ -167,6 +167,76 @@ function V.shouldClosePanel(facts, maxDistance)
     return facts.distance > maxDistance
 end
 
+---Resultado da abordagem. A rolagem vem do servidor; isolar aqui mantém o teste possível.
+---@param roll integer 1..100
+---@param reactionChance number 0..100
+---@return boolean reacted true = reage armado, false = se rende
+function V.holdupReacts(roll, reactionChance)
+    if not V.isFinite(roll) or not V.isFinite(reactionChance) then return false end
+    return roll <= V.clamp(reactionChance, 0, 100)
+end
+
+---Candidatos de uma lista de identidade que ainda não estão em uso.
+---Se tudo já estiver tomado devolve a lista inteira: repetir é melhor que não contratar.
+---@param pool string[]
+---@param taken table<string, boolean>?
+---@return string[]
+function V.freeIdentityPool(pool, taken)
+    if type(pool) ~= 'table' then return {} end
+
+    local free, all = {}, {}
+    for index = 1, #pool do
+        local value = pool[index]
+        if type(value) == 'string' and value ~= '' then
+            all[#all + 1] = value
+            if not (taken and taken[value]) then free[#free + 1] = value end
+        end
+    end
+
+    if #free > 0 then return free end
+    return all
+end
+
+---O servidor só enxerga o ped se o dono de rede estiver sincronizando a posição. Uma leitura
+---que saiu da esquina de spawn é prova disso: ninguém moveu aquele ped no servidor, então o
+---deslocamento só pode ter chegado pela sincronização.
+---Uma leitura em cima da esquina não prova nada, porque pode ser um ped realmente parado lá.
+---@param distanceFromSpawn number? leitura do servidor até a esquina de spawn
+---@param epsilon number
+---@return boolean
+function V.provesPositionSync(distanceFromSpawn, epsilon)
+    if not V.isFinite(distanceFromSpawn) or not V.isFinite(epsilon) then return false end
+    return distanceFromSpawn > epsilon
+end
+
+---Alcance aceito para uma ação de rival.
+---Com posição confiável a medida é a real. Sem ela sobra a esquina cadastrada, e aí é preciso
+---somar o raio de caminhada, senão o corredor que andou fica inalcançável.
+---@param trusted boolean a posição medida é a do ped, não um palpite
+---@param maxDistance number
+---@param wanderRadius number
+---@return number
+function V.dealerReach(trusted, maxDistance, wanderRadius)
+    if not V.isFinite(maxDistance) then return 0 end
+    if trusted == true then return maxDistance end
+    if not V.isFinite(wanderRadius) or wanderRadius < 0 then return maxDistance end
+    return maxDistance + wanderRadius
+end
+
+---Quanto tempo um corredor morto fica fora de operação.
+---Matar logo depois de assaltar custa pouco de propósito: o objetivo é tirar o ganho de
+---executar o rendido, não somar duas punições.
+---@param secondsSinceRobbery number? nil quando não houve assalto recente
+---@param normal number
+---@param graceWindow number
+---@param shortened number
+---@return number seconds
+function V.downCooldown(secondsSinceRobbery, normal, graceWindow, shortened)
+    if not V.isFinite(secondsSinceRobbery) or secondsSinceRobbery < 0 then return normal end
+    if secondsSinceRobbery <= graceWindow then return shortened end
+    return normal
+end
+
 ---Decide se um corredor deve ser considerado derrubado.
 ---A vida de um ped só é confiável enquanto algum client o transmite: sem dono de rede o
 ---servidor devolve 0 para um ped perfeitamente vivo, o que derrubaria todo mundo que

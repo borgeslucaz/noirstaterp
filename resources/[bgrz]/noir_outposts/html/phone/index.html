@@ -8,31 +8,62 @@
 </head>
 <body>
     <div id="root">
-        <header class="app-head">
-            <p class="eyebrow">REDE CLANDESTINA</p>
-            <h1>THE EXCHANGE</h1>
-            <p class="org" id="org">Sem organização</p>
-        </header>
+        <div class="status-spacer" aria-hidden="true"></div>
 
-        <nav class="tabs" role="tablist" aria-label="Seções">
-            <button class="tab" id="tab-network" type="button" role="tab" data-tab="network" aria-selected="true">REDE</button>
-            <button class="tab" id="tab-operation" type="button" role="tab" data-tab="operation" aria-selected="false" tabindex="-1">OPERAÇÃO</button>
-        </nav>
+        <div class="titlebar">
+            <h1 class="titlebar__title" id="title">Rede</h1>
+            <div class="titlebar__actions">
+                <button class="titlebar__action" id="clear" type="button" aria-label="Limpar notificações" hidden></button>
+                <button class="titlebar__action" id="settings" type="button" aria-label="Configurações" hidden></button>
+                <button class="titlebar__action" id="refresh" type="button" aria-label="Atualizar"></button>
+            </div>
+        </div>
 
         <main class="content">
-            <section class="panel" id="panel-network" role="tabpanel" aria-labelledby="tab-network">
-                <ul class="list" id="network-list"></ul>
-                <p class="empty" id="network-empty" hidden>Nenhum ponto conhecido.</p>
+            <section id="panel-network" role="tabpanel" aria-labelledby="tab-network">
+                <div class="stack" id="network-stack"></div>
             </section>
 
-            <section class="panel" id="panel-operation" role="tabpanel" aria-labelledby="tab-operation" hidden>
-                <div class="summary" id="operation-summary"></div>
-                <ul class="list" id="operation-list"></ul>
-                <p class="empty" id="operation-empty" hidden>Sua organização não controla nenhum ponto.</p>
+            <section id="panel-operation" role="tabpanel" aria-labelledby="tab-operation" hidden>
+                <div class="stack" id="operation-stack"></div>
+            </section>
+
+            <section id="panel-feed" role="tabpanel" aria-labelledby="tab-feed" hidden>
+                <div class="stack" id="feed-stack"></div>
+                <div class="feed-sentinel" id="feed-sentinel" aria-hidden="true"></div>
+                <p class="feed-end" id="feed-end" hidden>Fim do histórico</p>
             </section>
         </main>
 
-        <p class="status" id="status" role="status">Carregando…</p>
+        <p class="notice" id="notice" role="status" hidden></p>
+
+        <section class="sheet" id="settings-sheet" hidden aria-labelledby="settings-title">
+            <header class="sheet__bar">
+                <button class="sheet__back" id="settings-back" type="button">Voltar</button>
+                <h2 class="sheet__title" id="settings-title">Alertas</h2>
+            </header>
+            <div class="sheet__body">
+                <p class="sheet__note">
+                    Escolha o que chega como alerta no telefone. O histórico dentro do app continua
+                    mostrando tudo.
+                </p>
+                <div class="stack" id="settings-list"></div>
+            </div>
+        </section>
+
+        <nav class="tabbar">
+            <div class="tabbar__list" role="tablist" aria-label="Seções">
+                <button class="tabbar__item" id="tab-network" type="button" role="tab" data-tab="network" aria-selected="true">
+                    <span class="tabbar__label">Rede</span>
+                </button>
+                <button class="tabbar__item" id="tab-operation" type="button" role="tab" data-tab="operation" aria-selected="false" tabindex="-1">
+                    <span class="tabbar__label">Operação</span>
+                </button>
+                <button class="tabbar__item" id="tab-feed" type="button" role="tab" data-tab="feed" aria-selected="false" tabindex="-1">
+                    <span class="tabbar__label">Notificações</span>
+                </button>
+            </div>
+        </nav>
     </div>
     <script src="phone.js"></script>
 </body>

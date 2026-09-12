@@ -219,10 +219,27 @@ function Security.sessionId(value)
     return value
 end
 
+---Cursor do feed: só aceita o par que nós mesmos emitimos.
+---@param value any
+---@return table? cursor { at, id }
+function Security.feedCursor(value)
+    if value == nil then return nil end
+    if type(value) ~= 'table' then return nil end
+    local at = value.at
+    local id = value.id
+    if not V.isPositiveInteger(at, 2 ^ 40) then return nil end
+    if type(id) ~= 'string' or #id == 0 or #id > 64 or not id:match('^[%w%-]+$') then return nil end
+    return { at = math.floor(at), id = id }
+end
+
+---Administrador do resource. Aceita o ACE próprio ou o `command`, que é o que os
+---administradores do servidor já possuem e o que os outros resources Noir usam.
 ---@param source number
 ---@return boolean
 function Security.isAdmin(source)
-    return source > 0 and IsPlayerAceAllowed(source, config.adminAce)
+    if source <= 0 then return false end
+    if IsPlayerAceAllowed(source, config.adminAce) then return true end
+    return IsPlayerAceAllowed(source, 'command')
 end
 
 function Security.cleanupSource(source)

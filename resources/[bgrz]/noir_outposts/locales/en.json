@@ -24,6 +24,10 @@
         "purse_taken": "You took %s in dirty money.",
         "stock_taken": "You took %s units of product."
     },
+    "holdup": {
+        "reacted": "He fought back and is armed.",
+        "surrendered": "He gave up. Search him before he recovers."
+    },
     "phone": {
         "sales_title": "Sales completed",
         "sales_body": "%s sales at %s earned $%s.",
@@ -31,6 +35,8 @@
         "stock_low_body": "%s is down to %s units.",
         "stock_empty_title": "Out of stock",
         "stock_empty_body": "Runners at %s stopped selling.",
+        "holdup_title": "Runner held up",
+        "holdup_body": "%s was held at gunpoint at %s.",
         "dealer_down_title": "Runner down",
         "dealer_down_body": "%s was killed at %s and is out of action.",
         "robbery_title": "Runner robbed",
@@ -78,6 +84,8 @@
         "insufficient_funds": "Not enough money.",
         "dealer_busy": "This runner is busy.",
         "dealer_unavailable": "This runner is not available.",
+        "holdup_in_progress": "This runner is already being held up.",
+        "not_surrendered": "Make the runner surrender before searching him.",
         "dealer_cooldown": "This runner was robbed recently.",
         "invalid_entity": "The target could not be confirmed.",
         "amount_too_large": "Amount above the allowed limit.",

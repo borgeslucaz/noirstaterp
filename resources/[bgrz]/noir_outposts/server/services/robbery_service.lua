@@ -19,33 +19,23 @@ local Repositories = NoirOutposts.Repositories
 local Notification = NoirOutposts.Services.Notification
 local Rotation = NoirOutposts.Services.Rotation
 
+---Revistar só é possível com o corredor rendido, e a rendição vem da abordagem armada.
 ---@param actor OutpostActor
 ---@param dealerId integer
 ---@param netId integer
 ---@return table? context { dealer, entry, entity }, string? code
 local function validate(actor, dealerId, netId)
-    if not Security.isActorAble(actor) then return nil, 'player_unavailable' end
-
-    local dealer = State.dealer(dealerId)
-    if not dealer then return nil, 'unknown_dealer' end
-    if dealer.status ~= C.DealerStatus.DEPLOYED then return nil, 'dealer_unavailable' end
-
-    local now = os.time()
-    if dealer.robbed_until and dealer.robbed_until > now then return nil, 'dealer_cooldown' end
-
-    local entry = State.get(dealer.outpost_id)
-    if not entry then return nil, 'unknown_outpost' end
-    if entry.row.status ~= C.OutpostStatus.CONTROLLED then return nil, 'invalid_state' end
-    if Security.isOwner(actor, entry.row) then return nil, 'own_outpost' end
-
-    local entity = Entities.validate(dealerId, netId)
-    if not entity then return nil, 'invalid_entity' end
-    if not Security.sameBucket(actor.source, entity) then return nil, 'invalid_entity' end
-    if not Security.isNearEntity(actor.source, entity, config.robbery.interactionDistance) then
-        return nil, 'too_far'
+    -- Mede contra a posição gravada na rendição, não contra uma leitura nova. Sem rendição o
+    -- âncora é nulo e `rivalTarget` cai na leitura do momento, o que preserva os códigos de
+    -- recusa mais específicos (posto próprio, entidade inválida) antes do `not_surrendered`.
+    local anchor = NoirOutposts.Services.Holdup.surrenderAnchor(dealerId)
+    local context, code = NoirOutposts.Services.Dealer.rivalTarget(
+        actor, dealerId, netId, config.robbery.interactionDistance, anchor)
+    if not context then return nil, code end
+    if not NoirOutposts.Services.Holdup.isSurrendered(dealerId) then
+        return nil, 'not_surrendered'
     end
-
-    return { dealer = dealer, entry = entry, entity = entity }
+    return context
 end
 
 ---@param actor OutpostActor
@@ -216,18 +206,21 @@ function Service.complete(actor, sessionId)
         purse = deliveredPurse,
         stock = deliveredStock,
         item = productId,
+        profileKey = dealer.profile_key,
+        dealerName = State.dealerName(dealer),
     })
 
     local ownerOrganizationId = entry.row.owner_organization_id
+    -- Marca a janela em que executar o rendido vale pouco.
+    NoirOutposts.Services.Dealer.markRobbed(dealer.id)
     Sessions.close(session)
     Entities.setState(dealer.id, C.DealerStatus.RECOVERING)
     State.reload(dealer.outpost_id)
 
     local definition = shared.outposts[dealer.outpost_id]
-    local profile = State.profiles[dealer.profile_key]
-    Notification.notifyOrganization(ownerOrganizationId, {
+    Notification.notifyOrganization(ownerOrganizationId, 'security', {
         title = locale('phone.robbery_title'),
-        body = locale('phone.robbery_body', profile and profile.name or dealer.profile_key, definition.label),
+        body = locale('phone.robbery_body', State.dealerName(dealer), definition.label),
     })
     Notification.broadcastPublicSnapshot()
     Notification.refreshPanels(dealer.outpost_id)

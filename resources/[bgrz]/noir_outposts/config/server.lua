@@ -17,6 +17,7 @@ return {
         maxStockTotal = 400,
         maxStockPerDeposit = 100,
         maxHistoryEntries = 25,
+        feedPageSize = 20,
     },
 
     sales = {
@@ -65,13 +66,34 @@ return {
     dealers = {
         -- Corredor morto sai de operação e volta depois deste tempo.
         downCooldownSeconds = 1200,
+        -- Matar um corredor recém-assaltado rende um castigo bem menor. Sem isso, roubar e
+        -- executar o rendido em seguida tiraria o corredor por 20 minutos de graça, o que
+        -- transforma o assalto em sabotagem barata em vez de escolha entre levar ou punir.
+        robbedGraceSeconds = 60,
+        robbedDownCooldownSeconds = 120,
         -- Varredura que detecta ped morto e recria ped ausente.
         auditSeconds = 10,
     },
 
+    -- Abordagem à mão armada, antes do assalto em si.
+    holdup = {
+        -- Chance de o corredor reagir em vez de se render. A rolagem é server-side.
+        reactionChance = 60,
+        -- Quanto tempo ele fica de mãos para o alto, janela para revistar.
+        surrenderSeconds = 30,
+        -- Quanto tempo ele fica hostil depois de reagir.
+        hostileSeconds = 60,
+        -- Impede ficar mirando de novo até tirar a rendição na sorte.
+        cooldownSeconds = 120,
+        -- Distância máxima entre quem mira e o corredor.
+        maxDistance = 12.0,
+    },
+
     robbery = {
         durationMs = 12500,
-        cooldownSeconds = 1200,
+        -- Depois de assaltado o corredor sai de operação por este tempo, e nesse período
+        -- também não pode ser assaltado de novo. As duas coisas são a mesma janela.
+        cooldownSeconds = 600,
         pursePercent = { min = 10, max = 25 },
         stockPercent = { min = 5, max = 15 },
         maxStockUnits = 10,
@@ -86,10 +108,10 @@ return {
         interactionDistance = 2.0,
         -- TESTE: zerados para permitir tomada solo no servidor de desenvolvimento.
         -- Restaurar para 8 e 2 antes de abrir para os jogadores.
-        minOnlinePlayers = 0,
-        minPolice = 0,
+        minOnlinePlayers = 0, --TODO: NÃO SUBIR PRA PRODUÇÃO ASSIM
+        minPolice = 0, --TODO: NÃO SUBIR PRA PRODUÇÃO ASSIM
         requiresOrganization = true,
-        ownerDurationHours = 24,
+        ownerDurationHours = 12,
         -- Cooldown da organização depois de assumir um outpost (evita monopólio imediato).
         organizationCooldownMinutes = 30,
         -- Cooldown curto após cancelar/falhar um claim.
@@ -125,6 +147,12 @@ return {
         robberyCode = '10-31',
     },
 
+    -- Categorias de alerta que o jogador pode desligar no telefone.
+    -- Vale só para o alerta empurrado: o feed dentro do app mostra tudo sempre.
+    alerts = {
+        categories = { 'sales', 'stock', 'security', 'control' },
+    },
+
     notifications = {
         aggregateWindowSeconds = 45,
         lowStockThreshold = 20,
@@ -136,6 +164,13 @@ return {
         expiryCheckSeconds = 60,
     },
 
+    operationRetention = {
+        days = 15,
+        intervalSeconds = 12 * 60 * 60,
+        batchSize = 1000,
+        maxBatchesPerRun = 10,
+    },
+
     sessions = {
         panelTtlSeconds = 900,
         requestIdTtlSeconds = 300,
@@ -143,6 +178,7 @@ return {
 
     rateLimits = {
         openPanel = 1000,
+        holdup = 1500,
         refresh = 1000,
         claim = 3000,
         hire = 2000,
@@ -152,9 +188,15 @@ return {
         inspect = 1000,
         robbery = 3000,
         phone = 1500,
+        feed = 700,
+        settings = 1000,
+        debug = 1000,
     },
 
     validation = {
         maxDistanceTolerance = 1.0,
+        -- A partir de quantos metros uma leitura fora da esquina de spawn conta como prova de
+        -- que o servidor recebe a posição do ped. Abaixo disso pode ser só ruído de sincronia.
+        positionSyncEpsilon = 0.75,
     },
 }

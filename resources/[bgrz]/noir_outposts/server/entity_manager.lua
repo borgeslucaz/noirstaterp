@@ -36,13 +36,13 @@ function Entities.spawnDealer(outpostId, dealer)
     Entities.despawnDealer(dealer.id)
     local definition = shared.outposts[outpostId]
     local corner = definition and definition.dealerCorners[dealer.corner_index or 0]
-    local profile = State.profiles[dealer.profile_key]
-    if not corner or not profile then
+    local modelName = State.dealerModel(dealer)
+    if not corner or not modelName then
         Log.warn('dealer_spawn_invalid', { dealerId = dealer.id, outpostId = outpostId, corner = dealer.corner_index })
         return nil
     end
 
-    local model = joaat(profile.model)
+    local model = joaat(modelName)
     local ped = CreatePed(4, model, corner.x, corner.y, corner.z, corner.w, true, true)
     if not ped or ped == 0 or not waitForEntity(ped) then
         Log.error('dealer_spawn_failed', { dealerId = dealer.id, outpostId = outpostId })
@@ -53,9 +53,13 @@ function Entities.spawnDealer(outpostId, dealer)
     pcall(SetEntityOrphanMode, ped, 2)
     local netId = NetworkGetNetworkIdFromEntity(ped)
     local state = Entity(ped).state
+    -- `noir:dealerId` é o gatilho que monta o ped no client, então tudo que ele precisa
+    -- para montar vai antes. A ordem de chegada não é garantida, e por isso o client
+    -- também reage à esquina chegando depois.
     state:set(C.StateBag.OUTPOST, outpostId, true)
-    state:set(C.StateBag.DEALER, dealer.id, true)
+    state:set(C.StateBag.DEALER_CORNER, dealer.corner_index, true)
     state:set(C.StateBag.DEALER_STATE, dealer.status, true)
+    state:set(C.StateBag.DEALER, dealer.id, true)
 
     registry[dealer.id] = { entity = ped, netId = netId, outpostId = outpostId, model = model }
     byNetId[netId] = dealer.id
@@ -69,12 +73,26 @@ function Entities.despawnDealer(dealerId)
     if not record then return end
     if record.entity and DoesEntityExist(record.entity) then
         local state = Entity(record.entity).state
+        state:set(C.StateBag.DEALER_CORNER, nil, true)
         state:set(C.StateBag.DEALER_STATE, nil, true)
         state:set(C.StateBag.DEALER, nil, true)
         state:set(C.StateBag.OUTPOST, nil, true)
         DeleteEntity(record.entity)
     end
     forget(dealerId)
+end
+
+---Quantos peds deste outpost estão registrados agora.
+---@param outpostId string
+---@return integer
+function Entities.count(outpostId)
+    local total = 0
+    for _, record in pairs(registry) do
+        if record.outpostId == outpostId and DoesEntityExist(record.entity) then
+            total = total + 1
+        end
+    end
+    return total
 end
 
 ---@param outpostId string
@@ -134,6 +152,25 @@ function Entities.deadDealers()
     end
     table.sort(dead)
     return dead
+end
+
+---@param dealerId integer
+---@return boolean
+function Entities.isAlive(dealerId)
+    local record = registry[dealerId]
+    if not record or not DoesEntityExist(record.entity) then return false end
+    return GetEntityHealth(record.entity) > 0
+end
+
+---Corredor morto: o corpo fica onde caiu em vez de sumir na hora. Deixa de ser mantido à
+---força, então o próprio jogo o limpa quando ninguém mais estiver por perto. Na recuperação
+---o que sobrar é removido e um ped novo assume o posto.
+---@param dealerId integer
+function Entities.markCorpse(dealerId)
+    local record = registry[dealerId]
+    if not record or not DoesEntityExist(record.entity) then return end
+    pcall(SetEntityOrphanMode, record.entity, 0)
+    Entity(record.entity).state:set(C.StateBag.DEALER_STATE, C.DealerStatus.RECOVERING, true)
 end
 
 ---@param dealerId integer

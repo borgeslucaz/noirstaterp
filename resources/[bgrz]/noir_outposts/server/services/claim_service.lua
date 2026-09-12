@@ -207,7 +207,7 @@ function Service.complete(actor, sessionId)
     State.reload(session.outpostId)
 
     local definition = shared.outposts[session.outpostId]
-    Notification.notifyOrganization(actor.organization.id, {
+    Notification.notifyOrganization(actor.organization.id, 'control', {
         title = locale('phone.claim_title'),
         body = locale('phone.claim_body', definition.label),
     })

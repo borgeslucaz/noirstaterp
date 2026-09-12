@@ -8,6 +8,7 @@ NoirOutposts.Api = Api
 local config = require 'config.server'
 local shared = require 'config.shared'
 local C = NoirOutposts.Constants
+local V = NoirOutposts.Validators
 local Log = NoirOutposts.Log
 local State = NoirOutposts.State
 local Sessions = NoirOutposts.Sessions
@@ -169,6 +170,13 @@ lib.callback.register(C.Callbacks.INSPECT, guarded('inspect', function(actor, pa
     return Services.Dealer.inspect(actor, dealerId, netId)
 end))
 
+lib.callback.register(C.Callbacks.HOLDUP, guarded('holdup', function(actor, payload)
+    local dealerId = Security.dealerId(payload.dealerId)
+    local netId = Security.netId(payload.netId)
+    if not dealerId or not netId then return fail('invalid_payload') end
+    return Services.Holdup.start(actor, dealerId, netId)
+end))
+
 lib.callback.register(C.Callbacks.ROBBERY_START, guarded('robbery', function(actor, payload)
     local dealerId = Security.dealerId(payload.dealerId)
     local netId = Security.netId(payload.netId)
@@ -188,6 +196,81 @@ lib.callback.register(C.Callbacks.ROBBERY_CANCEL, guarded('robbery', function(ac
     return Services.Robbery.cancel(actor, sessionId)
 end))
 
+---Diagnóstico: o que o SERVIDOR enxerga de um corredor. Só devolve o que já é visível ao
+---próprio jogador, e serve para comparar com o que o client vê.
+lib.callback.register(C.Callbacks.DEBUG_TARGET, guarded('debug', function(actor, payload)
+    local dealerId = Security.dealerId(payload.dealerId)
+    local netId = Security.netId(payload.netId)
+    if not dealerId or not netId then return fail('invalid_payload') end
+
+    local dealer = State.dealer(dealerId)
+    if not dealer then return { ok = true, data = { problem = 'corredor não existe no estado' } } end
+
+    local entity = NoirOutposts.Entities.validate(dealerId, netId)
+    if not entity then
+        return { ok = true, data = { problem = 'net ID não resolve para o ped registrado' } }
+    end
+
+    local playerCoords = GetEntityCoords(GetPlayerPed(actor.source))
+    local corner = Services.Dealer.cornerOf(dealer)
+    local tolerance = config.validation.maxDistanceTolerance
+
+    -- O ponto que autoriza: o gravado na rendição se houver, senão a leitura do momento.
+    local anchor = Services.Holdup.surrenderAnchor(dealerId)
+    local coords, trusted
+    if anchor then
+        coords, trusted = anchor.coords, anchor.trusted
+    else
+        coords, trusted = Services.Dealer.observedPosition(dealer, entity)
+    end
+
+    local slack = Services.Dealer.wanderSlack()
+    local origin = anchor and 'gravado na rendição'
+        or (trusted and 'leitura do ped' or 'esquina cadastrada')
+
+    return {
+        ok = true,
+        data = {
+            dealerStatus = dealer.status,
+            holdupState = Services.Holdup.stateOf(dealerId) or 'nenhum',
+            measuredAgainst = origin,
+            positionTrusted = trusted,
+            positionSyncProven = Services.Dealer.positionSyncProven(),
+            distance = math.floor(#(playerCoords - coords) * 100) / 100,
+            robberyLimit = V.dealerReach(trusted, config.robbery.interactionDistance, slack) + tolerance,
+            holdupLimit = V.dealerReach(trusted, config.holdup.maxDistance, slack) + tolerance,
+            sameBucket = Security.sameBucket(actor.source, entity),
+            dealerAt = ('%.1f, %.1f (esquina %s em %.1f, %.1f)'):format(
+                coords.x, coords.y, tostring(dealer.corner_index),
+                corner and corner.x or 0.0, corner and corner.y or 0.0),
+            playerAt = ('%.1f, %.1f, %.1f'):format(playerCoords.x, playerCoords.y, playerCoords.z),
+        },
+    }
+end))
+
 lib.callback.register(C.Callbacks.PHONE_STATE, guarded('phone', function(actor)
     return { ok = true, data = State.phoneSnapshot(actor, Security.permissionMap(actor)) }
+end))
+
+lib.callback.register(C.Callbacks.PHONE_FEED_CLEAR, guarded('settings', function(actor)
+    return Services.Settings.clearFeed(actor)
+end))
+
+lib.callback.register(C.Callbacks.PHONE_SETTINGS, guarded('settings', function(actor)
+    return Services.Settings.snapshot(actor)
+end))
+
+lib.callback.register(C.Callbacks.PHONE_SETTINGS_SET, guarded('settings', function(actor, payload)
+    if type(payload.alerts) ~= 'table' then return fail('invalid_payload') end
+    return Services.Settings.setAlerts(actor, payload.alerts)
+end))
+
+lib.callback.register(C.Callbacks.PHONE_FEED, guarded('feed', function(actor, payload)
+    -- Cursor ausente é a primeira página; cursor malformado é recusado, não ignorado.
+    if payload.cursor ~= nil then
+        local cursor = Security.feedCursor(payload.cursor)
+        if not cursor then return fail('invalid_payload') end
+        return Services.Feed.page(actor, cursor)
+    end
+    return Services.Feed.page(actor, nil)
 end))

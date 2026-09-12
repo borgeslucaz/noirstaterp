@@ -9,7 +9,8 @@ local D = NoirOutposts.Constants.DealerStatus
 local S = NoirOutposts.Constants.OutpostStatus
 
 local COLUMNS = table.concat({
-    'id', 'outpost_id', 'profile_key', 'status', 'corner_index', 'hired_by_citizenid', 'hired_at',
+    'id', 'outpost_id', 'profile_key', 'display_name', 'ped_model', 'status', 'corner_index',
+    'hired_by_citizenid', 'hired_at',
     'next_sale_at', 'robbed_until', 'lifetime_sales', 'lifetime_gross', 'version',
 }, ', ')
 
@@ -32,18 +33,20 @@ function Repo.get(dealerId)
 end
 
 ---Insere respeitando o limite por outpost e o perfil único (falha silenciosa retorna nil).
----@param dealer table { outpostId, profileKey, cornerIndex, hiredBy, hiredAt, nextSaleAt }
+---@param dealer table { outpostId, profileKey, displayName, pedModel, cornerIndex, hiredBy, hiredAt, nextSaleAt }
 ---@param maxDealers integer
 ---@return integer? insertId
 function Repo.insert(dealer, maxDealers)
     local id = Db.insert([[
         INSERT INTO noir_outpost_dealers
-            (outpost_id, profile_key, status, corner_index, hired_by_citizenid, hired_at, next_sale_at)
-        SELECT ?, ?, ?, ?, ?, ?, ?
+            (outpost_id, profile_key, display_name, ped_model, status, corner_index,
+             hired_by_citizenid, hired_at, next_sale_at)
+        SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
         FROM (SELECT COUNT(*) AS total FROM noir_outpost_dealers WHERE outpost_id = ?) counted
         WHERE counted.total < ?
     ]], {
-        dealer.outpostId, dealer.profileKey, D.DEPLOYED, dealer.cornerIndex, dealer.hiredBy,
+        dealer.outpostId, dealer.profileKey, dealer.displayName, dealer.pedModel,
+        D.DEPLOYED, dealer.cornerIndex, dealer.hiredBy,
         dealer.hiredAt, dealer.nextSaleAt, dealer.outpostId, maxDealers,
     })
     if not id or id == 0 then return nil end
@@ -85,6 +88,18 @@ function Repo.recover(dealerId, now, nextSaleAt)
         SET status = ?, next_sale_at = ?, version = version + 1
         WHERE id = ? AND status = ? AND robbed_until IS NOT NULL AND robbed_until <= ?
     ]], { D.DEPLOYED, nextSaleAt, dealerId, D.RECOVERING, now })
+end
+
+---Encerra o cooldown de um corredor em recuperação, para uso administrativo.
+---@param dealerId integer
+---@param now integer
+---@return boolean applied
+function Repo.expireRecovery(dealerId, now)
+    local affected = Db.update([[
+        UPDATE noir_outpost_dealers SET robbed_until = ?
+        WHERE id = ? AND status = ?
+    ]], { now - 1, dealerId, D.RECOVERING })
+    return (affected or 0) > 0
 end
 
 ---Corredor derrubado: sai de operação sem tocar em carteira nem estoque.

@@ -18,6 +18,17 @@ return {
         collect = { dict = 'mp_common', clip = 'givetake1_a', flag = 49 },
     },
 
+    holdup = {
+        -- Frequência da checagem de mira quando há corredor por perto.
+        aimCheckIntervalMs = 250,
+        -- Exige arma sacada, não punho.
+        requireWeapon = true,
+        surrenderAnim = { dict = 'random@mugging3', clip = 'handsup_standing_base' },
+        -- Por quanto tempo a reação recebida por evento tem precedência sobre o state bag.
+        -- Cobre só o atraso de replicação do bag; passado isso o bag é quem manda.
+        reactionGraceMs = 3000,
+    },
+
     progress = {
         depositDurationMs = 2500,
         collectDurationMs = 2500,

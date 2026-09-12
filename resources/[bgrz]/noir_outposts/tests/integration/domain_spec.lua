@@ -173,6 +173,8 @@ N.Repositories.Dealer = {
             id = db.dealerSequence,
             outpost_id = dealer.outpostId,
             profile_key = dealer.profileKey,
+            display_name = dealer.displayName,
+            ped_model = dealer.pedModel,
             status = C.DealerStatus.DEPLOYED,
             corner_index = dealer.cornerIndex,
             hired_by_citizenid = dealer.hiredBy,
@@ -303,6 +305,21 @@ N.Repositories.Stock = {
     clearByOutpost = function(outpostId) db.stock[outpostId] = nil end,
 }
 
+local settingsRows = {}
+N.Repositories.Settings = {
+    get = function(citizenId) return settingsRows[citizenId] end,
+    setAlerts = function(citizenId, alerts)
+        settingsRows[citizenId] = settingsRows[citizenId] or { citizenid = citizenId, feed_cleared_at = 0 }
+        settingsRows[citizenId].alerts = alerts
+        return true
+    end,
+    setClearedAt = function(citizenId, clearedAt)
+        settingsRows[citizenId] = settingsRows[citizenId] or { citizenid = citizenId }
+        settingsRows[citizenId].feed_cleared_at = clearedAt
+        return true
+    end,
+}
+
 N.Repositories.Operation = {
     insert = function(op)
         db.operations[op.id] = op
@@ -317,6 +334,44 @@ N.Repositories.Operation = {
         return 1
     end,
     recent = function() return {} end,
+    feed = function(organizationId, limit, cursor, since)
+        local rows = {}
+        for _, op in pairs(db.operations) do
+            local committed = op.status == C.OperationStatus.COMMITTED
+                or op.status == C.OperationStatus.PAID
+            local afterClear = not since or since == 0 or op.createdAt > since
+            if op.organizationId == organizationId and committed and afterClear then
+                rows[#rows + 1] = {
+                    operation_id = op.id,
+                    operation_type = op.type,
+                    outpost_id = op.outpostId,
+                    dealer_id = op.dealerId,
+                    item_name = op.item,
+                    quantity = op.quantity,
+                    gross_amount = op.gross,
+                    net_amount = op.net,
+                    payload = op.payload,
+                    created_at = op.createdAt,
+                }
+            end
+        end
+        table.sort(rows, function(a, b)
+            if a.created_at == b.created_at then return a.operation_id > b.operation_id end
+            return a.created_at > b.created_at
+        end)
+        local page = {}
+        for index = 1, #rows do
+            local row = rows[index]
+            local after = cursor == nil
+                or row.created_at < cursor.at
+                or (row.created_at == cursor.at and row.operation_id < cursor.id)
+            if after then
+                page[#page + 1] = row
+                if #page > limit then break end
+            end
+        end
+        return page
+    end,
     findByRequest = function(citizenId, requestId)
         for _, op in pairs(db.operations) do
             if op.citizenId == citizenId and op.requestId == requestId then return op end
@@ -337,11 +392,18 @@ N.Entities = {
     spawnDealer = function(_, dealer)
         N.Entities.spawned[dealer.id] = true
         N.Entities.dead[dealer.id] = nil
+        N.Entities.corpses[dealer.id] = nil
     end,
     despawnDealer = function(dealerId)
         N.Entities.spawned[dealerId] = nil
         N.Entities.dead[dealerId] = nil
+        N.Entities.corpses[dealerId] = nil
     end,
+    corpses = {},
+    isAlive = function(dealerId)
+        return N.Entities.spawned[dealerId] == true and not N.Entities.dead[dealerId]
+    end,
+    markCorpse = function(dealerId) N.Entities.corpses[dealerId] = true end,
     deadDealers = function()
         local list = {}
         for dealerId in pairs(N.Entities.dead) do list[#list + 1] = dealerId end
@@ -444,7 +506,10 @@ dofile('server/services/claim_service.lua')
 dofile('server/services/dealer_service.lua')
 dofile('server/services/stock_service.lua')
 dofile('server/services/sale_service.lua')
+dofile('server/services/holdup_service.lua')
 dofile('server/services/robbery_service.lua')
+dofile('server/services/settings_service.lua')
+dofile('server/services/feed_service.lua')
 
 local Services = N.Services
 local Security = N.Security
@@ -604,6 +669,30 @@ T.equal(overflow.ok, false, 'dealer limit enforced')
 T.equal(overflow.code, 'dealer_limit', 'dealer limit code')
 T.equal(State.dealerCount(OUTPOST), serverConfig.limits.maxDealersPerOutpost, 'roster is full')
 
+-- Nome e ped são sorteados por contratação, não herdados do arquétipo, e não se repetem no
+-- mesmo posto: dois corredores idênticos na mesma esquina denunciam o script.
+local identities = sharedConfig.dealerIdentities
+local nameSet, modelSet = {}, {}
+for index = 1, #identities.names do nameSet[identities.names[index]] = true end
+for index = 1, #identities.models do modelSet[identities.models[index]] = true end
+
+local usedNames, usedModels = {}, {}
+for _, dealer in pairs(State.get(OUTPOST).dealers) do
+    T.equal(nameSet[dealer.display_name], true, 'the drawn name comes from the list')
+    T.equal(modelSet[dealer.ped_model], true, 'the drawn ped comes from the list')
+    T.equal(usedNames[dealer.display_name], nil, 'no two runners share a name at one outpost')
+    T.equal(usedModels[dealer.ped_model], nil, 'no two runners share a ped at one outpost')
+    usedNames[dealer.display_name] = true
+    usedModels[dealer.ped_model] = true
+
+    T.equal(State.dealerName(dealer), dealer.display_name, 'the drawn name is what gets shown')
+    T.equal(State.dealerModel(dealer), dealer.ped_model, 'the drawn ped is what gets spawned')
+end
+
+-- Linha antiga, anterior ao sorteio: o arquétipo volta a valer em vez de ficar sem nome.
+T.equal(State.dealerName({ profile_key = 'smokey' }), 'Smokey', 'a runner with no drawn name falls back')
+T.equal(State.dealerModel({ profile_key = 'smokey' }), 'g_m_y_famdnf_01', 'a runner with no drawn ped falls back')
+
 -- Depósito -----------------------------------------------------------------------------------------
 
 players[2].inventory.weed_brick = 50
@@ -736,10 +825,121 @@ T.equal(badEntity.ok, false, 'a foreign net id is refused')
 T.equal(badEntity.code, 'invalid_entity', 'foreign net id code')
 
 pedCoords[3 * 10] = vector3(computer.x, computer.y, computer.z)
+
+---@param targetDealerId integer
+---@return table corner
+local function cornerOf(targetDealerId)
+    local dealer = assert(State.dealer(targetDealerId), 'dealer sem estado')
+    return sharedConfig.outposts[OUTPOST].dealerCorners[dealer.corner_index]
+end
+
+-- Onde cada ped aparece para o servidor. `nil` significa parado na própria esquina de spawn,
+-- que é o que uma sincronização quebrada devolveria.
+local dealerReading = {}
+
+local function readsAt(targetDealerId, coords) dealerReading[targetDealerId] = coords end
+
+local function standAt(actor, coords)
+    pedCoords[actor.source * 10] = vector3(coords.x, coords.y, coords.z)
+end
+
+local function standAtCorner(actor, targetDealerId)
+    standAt(actor, cornerOf(targetDealerId))
+end
+
+standAtCorner(rival, dealerId)
+
 GetEntityCoords = function(entity)
-    if entity == dealerId * 100 then return vector3(computer.x, computer.y, computer.z) end
+    if type(entity) == 'number' and entity >= 100 and entity % 100 == 0 and State.dealer(entity // 100) then
+        local id = entity // 100
+        if dealerReading[id] then return dealerReading[id] end
+        local corner = cornerOf(id)
+        return vector3(corner.x, corner.y, corner.z)
+    end
     return pedCoords[entity] or vector3(0.0, 0.0, 0.0)
 end
+
+-- Sem rendição não há revista, mesmo com tudo o mais válido.
+resetRateLimits()
+local unsurrendered = Services.Robbery.start(rival, dealerId, netId)
+T.equal(unsurrendered.ok, false, 'searching without a surrender is refused')
+T.equal(unsurrendered.code, 'not_surrendered', 'not surrendered code')
+
+-- Posição do corredor ------------------------------------------------------------------------
+-- Enquanto toda leitura cai em cima da esquina de spawn, o servidor não tem prova de que
+-- enxerga o ped. Aí a medida é contra a esquina e paga o raio de caminhada como folga.
+T.equal(Services.Dealer.positionSyncProven(), false, 'the sync starts unproven')
+
+-- O cooldown de abordagem tem teste próprio; aqui ele só atrapalharia a bateria de distâncias.
+local holdupCooldown = serverConfig.holdup.cooldownSeconds
+serverConfig.holdup.cooldownSeconds = 0
+
+local corner = cornerOf(dealerId)
+local slack = sharedConfig.dealerWander.radius
+
+standAt(rival, { x = corner.x + 10.0, y = corner.y, z = corner.z })
+resetRateLimits()
+local loose = Services.Holdup.start(rival, dealerId, netId)
+T.equal(loose.ok, true, 'without a trusted position the corner reach covers the wander radius')
+Services.Holdup.release(dealerId)
+
+standAt(rival, { x = corner.x + slack + 20.0, y = corner.y, z = corner.z })
+resetRateLimits()
+local beyondSlack = Services.Holdup.start(rival, dealerId, netId)
+T.equal(beyondSlack.ok, false, 'even the loose reach stops at the outpost area')
+T.equal(beyondSlack.code, 'too_far', 'out of the loose reach code')
+
+-- Agora o ped aparece longe da esquina. Ninguém o moveu no servidor, então esse deslocamento
+-- só pode ter vindo da sincronização: a partir daqui a leitura vale como posição real.
+local wandered = { x = corner.x + 30.0, y = corner.y, z = corner.z }
+readsAt(dealerId, vector3(wandered.x, wandered.y, wandered.z))
+
+standAtCorner(rival, dealerId)
+resetRateLimits()
+local staleCorner = Services.Holdup.start(rival, dealerId, netId)
+T.equal(staleCorner.ok, false, 'a trusted position is measured against the ped, not the corner')
+T.equal(staleCorner.code, 'too_far', 'standing at an empty corner is out of reach')
+T.equal(Services.Dealer.positionSyncProven(), true, 'a moved reading proves the sync works')
+
+standAt(rival, wandered)
+
+-- Com a chance em 0 ele sempre se rende, então o teste é determinístico.
+serverConfig.holdup.reactionChance = 0
+resetRateLimits()
+local holdup = Services.Holdup.start(rival, dealerId, netId)
+T.equal(holdup.ok, true, 'rival holds the runner at gunpoint')
+T.equal(holdup.data.reacted, false, 'zero chance always surrenders')
+T.equal(Services.Holdup.isSurrendered(dealerId), true, 'runner is surrendered')
+
+local anchor = Services.Holdup.surrenderAnchor(dealerId)
+T.truthy(anchor, 'the surrender recorded a position')
+T.equal(anchor.trusted, true, 'the recorded position is the one the server measured')
+T.equal(#(anchor.coords - vector3(wandered.x, wandered.y, wandered.z)), 0,
+    'the recorded position is where the runner put his hands up')
+
+-- O ped some para o outro lado do posto. A revista continua medindo contra o ponto gravado,
+-- senão bastaria arrastar o alvo para perto para roubar de longe.
+readsAt(dealerId, vector3(corner.x + 120.0, corner.y, corner.z))
+resetRateLimits()
+local frozen = Services.Robbery.start(rival, dealerId, netId)
+T.equal(frozen.ok, true, 'the search measures against the recorded position, not a fresh read')
+Services.Robbery.cancel(rival, frozen.data.sessionId)
+
+-- E o alcance gravado é o apertado: afastar-se poucos metros já barra.
+standAt(rival, { x = wandered.x + 10.0, y = wandered.y, z = wandered.z })
+resetRateLimits()
+local walkedOff = Services.Robbery.start(rival, dealerId, netId)
+T.equal(walkedOff.ok, false, 'walking away from the recorded position refuses the search')
+T.equal(walkedOff.code, 'too_far', 'walked away code')
+standAt(rival, wandered)
+
+resetRateLimits()
+local repeated = Services.Holdup.start(rival, dealerId, netId)
+T.equal(repeated.ok, false, 'a runner already held up cannot be held again')
+T.equal(repeated.code, 'holdup_in_progress', 'holdup in progress code')
+
+-- Sob abordagem ele para de vender.
+T.equal(Services.Sale.process(State.dealer(dealerId)), false, 'a runner under holdup does not sell')
 
 resetRateLimits()
 local robbery = Services.Robbery.start(rival, dealerId, netId)
@@ -787,6 +987,28 @@ T.equal(onCooldown.code, 'dealer_unavailable', 'recovering dealer code')
 local recoveringSold, recoveringReason = Services.Sale.process(State.dealer(dealerId))
 T.equal(recoveringSold, false, 'recovering dealer does not sell')
 
+-- Reação armada: nada de revista.
+
+Services.Holdup.release(3)
+readsAt(dealerId, nil)
+serverConfig.holdup.cooldownSeconds = holdupCooldown
+serverConfig.holdup.reactionChance = 100
+N.Sessions.abortForSource(rival.source, 'reset')
+standAtCorner(rival, 3)
+resetRateLimits()
+local hostile = Services.Holdup.start(rival, 3, 3 * 1000)
+T.equal(hostile.ok, true, 'holding up another runner works')
+T.equal(hostile.data.reacted, true, 'full chance always reacts')
+T.equal(Services.Holdup.isSurrendered(3), false, 'a reacting runner is not surrendered')
+
+resetRateLimits()
+local refused = Services.Robbery.start(rival, 3, 3 * 1000)
+T.equal(refused.ok, false, 'a reacting runner cannot be searched')
+T.equal(refused.code, 'not_surrendered', 'reacting runner refuses the search')
+Services.Holdup.release(3)
+serverConfig.holdup.reactionChance = 60
+standAtCorner(rival, dealerId)
+
 -- Morte do corredor -------------------------------------------------------------------------------
 
 local victim = State.dealer(2)
@@ -797,7 +1019,8 @@ N.Entities.dead[2] = true
 local down = Services.Dealer.markDown(2)
 T.equal(down, true, 'killing the runner takes him out of action')
 T.equal(State.dealer(2).status, C.DealerStatus.RECOVERING, 'killed runner is recovering')
-T.equal(N.Entities.spawned[2], nil, 'the body leaves the corner')
+T.equal(N.Entities.corpses[2], true, 'the body stays where it fell')
+T.equal(N.Entities.spawned[2], true, 'the corpse is not deleted on the spot')
 
 local downOperation
 for _, op in pairs(db.operations) do
@@ -813,12 +1036,39 @@ T.equal(downSold, false, 'a downed runner stops selling')
 
 T.equal(Services.Dealer.markDown(2), false, 'a runner already down cannot be downed again')
 
+-- Matar logo depois de assaltar rende castigo curto, para não virar sabotagem barata.
+local downUntilPlain = db.dealers[2].robbed_until
+T.truthy(downUntilPlain - os.time() > serverConfig.dealers.robbedDownCooldownSeconds,
+    'a plain kill serves the long cooldown')
+
+db.dealers[2].status = C.DealerStatus.DEPLOYED
+db.dealers[2].robbed_until = nil
+State.reload(OUTPOST)
+Services.Dealer.markRobbed(2)
+N.Entities.dead[2] = true
+T.equal(Services.Dealer.markDown(2), true, 'a just-robbed runner can still be killed')
+
+local shortened = db.dealers[2].robbed_until - os.time()
+T.truthy(shortened <= serverConfig.dealers.robbedDownCooldownSeconds + 1,
+    'killing right after a robbery serves the short cooldown')
+T.truthy(shortened < downUntilPlain - os.time(), 'the shortened cooldown is really shorter')
+
+local downOperationAfterRobbery
+for _, op in pairs(db.operations) do
+    if op.type == C.OperationKind.DOWN and op.payload and op.payload.afterRobbery then
+        downOperationAfterRobbery = op
+    end
+end
+T.truthy(downOperationAfterRobbery, 'the ledger records that the kill followed a robbery')
+
 -- Recuperação: volta a operar e reaparece no posto.
 db.dealers[2].robbed_until = os.time() - 1
 State.reload(OUTPOST)
 Services.Dealer.recoverDue()
 T.equal(State.dealer(2).status, C.DealerStatus.DEPLOYED, 'the runner comes back after the cooldown')
 T.equal(N.Entities.spawned[2], true, 'a fresh ped returns to the corner')
+T.equal(N.Entities.dead[2], nil, 'the replacement is alive')
+T.equal(N.Entities.corpses[2], nil, 'the corpse was cleared on recovery')
 
 local backSold = Services.Sale.process(State.dealer(2))
 T.equal(backSold, true, 'the recovered runner sells again')
@@ -851,5 +1101,103 @@ resetRateLimits()
 local farDeposit = Services.Stock.deposit(member, OUTPOST, 'weed_brick', 5, 'req-dep-00010')
 T.equal(farDeposit.ok, false, 'a distant player cannot deposit')
 T.equal(farDeposit.code, 'too_far', 'distance check code')
+
+-- Feed de notificações --------------------------------------------------------------------------
+
+local page = Services.Feed.page(leader, nil)
+T.equal(page.ok, true, 'leader reads the feed')
+T.truthy(#page.data.items > 0, 'the feed carries the ledger')
+
+-- Mais recente primeiro.
+for index = 2, #page.data.items do
+    local previous, current = page.data.items[index - 1], page.data.items[index]
+    T.truthy(previous.at > current.at or (previous.at == current.at and previous.id > current.id),
+        'feed is ordered newest first')
+end
+
+T.equal(#page.data.items <= serverConfig.limits.feedPageSize, true, 'page respects the size limit')
+
+-- Paginação por cursor não repete nem pula linhas.
+local seen, pages = {}, 0
+local cursor = nil
+repeat
+    local current = Services.Feed.page(leader, cursor)
+    T.equal(current.ok, true, 'every page resolves')
+    for _, item in ipairs(current.data.items) do
+        T.equal(seen[item.id], nil, 'no item repeats across pages')
+        seen[item.id] = true
+    end
+    cursor = current.data.nextCursor
+    pages = pages + 1
+until cursor == nil or pages > 20
+
+T.equal(cursor, nil, 'pagination terminates')
+
+local total = 0
+for _, op in pairs(db.operations) do
+    local committed = op.status == C.OperationStatus.COMMITTED or op.status == C.OperationStatus.PAID
+    if op.organizationId == 'ballas' and committed then total = total + 1 end
+end
+local collected = 0
+for _ in pairs(seen) do collected = collected + 1 end
+T.equal(collected, total, 'every committed operation of the organization was delivered once')
+
+-- Escopo: rival não vê o histórico alheio.
+local rivalPage = Services.Feed.page(rival, nil)
+T.equal(rivalPage.ok, true, 'rival gets a feed of their own')
+T.equal(#rivalPage.data.items, 0, 'rival sees nothing from another organization')
+
+-- Sem organização não há feed.
+local nobody = { source = 9, citizenId = 'NOONE001', character = {}, organization = nil }
+local denied = Services.Feed.page(nobody, nil)
+T.equal(denied.ok, false, 'a player without an organization has no feed')
+T.equal(denied.code, 'no_organization', 'no organization code')
+
+-- Preferências de alerta e limpeza do feed --------------------------------------------------------
+
+local snapshotSettings = Services.Settings.snapshot(leader)
+T.equal(snapshotSettings.ok, true, 'settings load')
+T.equal(#snapshotSettings.data.categories, #serverConfig.alerts.categories, 'every category is offered')
+for _, category in ipairs(snapshotSettings.data.categories) do
+    T.equal(category.enabled, true, 'categories start enabled')
+end
+
+T.equal(Services.Settings.allows(leader.citizenId, 'sales'), true, 'sales alerts allowed by default')
+
+local saved = Services.Settings.setAlerts(leader, { sales = false, security = true })
+T.equal(saved.ok, true, 'preferences saved')
+T.equal(Services.Settings.allows(leader.citizenId, 'sales'), false, 'disabled category is refused')
+T.equal(Services.Settings.allows(leader.citizenId, 'security'), true, 'the others stay on')
+T.equal(Services.Settings.allows(leader.citizenId, 'stock'), true, 'omitted category keeps its default')
+
+-- Categoria inventada não entra.
+Services.Settings.setAlerts(leader, { invented = false })
+T.equal(Services.Settings.allows(leader.citizenId, 'invented'), true, 'unknown category is ignored')
+
+-- O filtro de alerta não pode encolher o feed.
+local beforeClear = Services.Feed.page(leader, nil)
+T.truthy(#beforeClear.data.items > 0, 'feed still complete with alerts disabled')
+local hadSale = false
+for _, item in ipairs(beforeClear.data.items) do
+    if item.type == 'sale' then hadSale = true end
+end
+T.equal(hadSale, true, 'sales still show in the feed even with the sales alert off')
+
+-- Limpar esconde o passado sem apagar o ledger.
+local operationsBefore = 0
+for _ in pairs(db.operations) do operationsBefore = operationsBefore + 1 end
+
+local cleared = Services.Settings.clearFeed(leader)
+T.equal(cleared.ok, true, 'feed cleared')
+
+local afterClear = Services.Feed.page(leader, nil)
+T.equal(#afterClear.data.items, 0, 'the feed is empty right after clearing')
+
+local operationsAfter = 0
+for _ in pairs(db.operations) do operationsAfter = operationsAfter + 1 end
+T.equal(operationsAfter, operationsBefore, 'clearing never deletes ledger rows')
+
+-- E o de outro membro não foi afetado: a limpeza é por personagem.
+T.truthy(#Services.Feed.page(member, nil).data.items > 0, 'clearing is per character')
 
 print('domain_spec: ok')

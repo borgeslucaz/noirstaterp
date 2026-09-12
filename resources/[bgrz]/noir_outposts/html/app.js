@@ -44,6 +44,8 @@
         no_corner: 'Não há posição livre para este corredor.',
         insufficient_funds: 'Dinheiro insuficiente.',
         dealer_busy: 'Este corredor está ocupado.',
+        holdup_in_progress: 'Este corredor já está sendo abordado.',
+        not_surrendered: 'Renda o corredor antes de revistar.',
         amount_too_large: 'Quantidade acima do permitido.',
         stock_full: 'O estoque do local está cheio.',
         not_enough_items: 'Você não tem essa quantidade.',
@@ -76,6 +78,7 @@
         collect: 'Coleta',
         robbery: 'Roubo',
         dealer_down: 'Corredor derrubado',
+        holdup: 'Abordagem',
         hire: 'Contratação',
         fire: 'Demissão',
         claim: 'Tomada',
@@ -312,7 +315,11 @@
             title.textContent = dealer.name;
             const sub = document.createElement('p');
             sub.className = 'row__sub';
-            sub.textContent = `${DEALER_STATUS[dealer.status] || dealer.status} · posição ${dealer.cornerIndex || '—'}`;
+            // O nome é da pessoa, sorteado na contratação. O arquétipo contratado vai ao lado,
+            // senão quem contratou "Smokey" não liga o nome da rua ao que pagou.
+            const archetype = dealer.profileName ? `${dealer.profileName} · ` : '';
+            sub.textContent = `${archetype}${DEALER_STATUS[dealer.status] || dealer.status}`
+                + ` · posição ${dealer.cornerIndex || '—'}`;
             info.append(title, sub);
 
             const meta = document.createElement('div');

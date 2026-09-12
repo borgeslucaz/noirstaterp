@@ -69,6 +69,40 @@ RegisterNUICallback('phone:requestState', function(_, cb)
     Phone.pushState()
 end)
 
+---Uma página do feed. Responde direto ao fetch do app, sem passar pelo provider.
+RegisterNUICallback('phone:feed', function(data, cb)
+    if not NoirOutposts.Client.loggedIn then
+        cb({ ok = false, code = 'invalid_player' })
+        return
+    end
+    local cursor = type(data) == 'table' and data.cursor or nil
+    if cursor ~= nil and type(cursor) ~= 'table' then
+        cb({ ok = false, code = 'invalid_payload' })
+        return
+    end
+    local response = lib.callback.await(C.Callbacks.PHONE_FEED, false, { cursor = cursor })
+    cb(response or { ok = false, code = 'internal_error' })
+end)
+
+---Limpa o feed do jogador. O ledger não é tocado.
+RegisterNUICallback('phone:clearFeed', function(_, cb)
+    cb(lib.callback.await(C.Callbacks.PHONE_FEED_CLEAR, false) or { ok = false, code = 'internal_error' })
+end)
+
+---Preferências de alerta.
+RegisterNUICallback('phone:settings', function(_, cb)
+    cb(lib.callback.await(C.Callbacks.PHONE_SETTINGS, false) or { ok = false, code = 'internal_error' })
+end)
+
+RegisterNUICallback('phone:setAlerts', function(data, cb)
+    if type(data) ~= 'table' or type(data.alerts) ~= 'table' then
+        cb({ ok = false, code = 'invalid_payload' })
+        return
+    end
+    local response = lib.callback.await(C.Callbacks.PHONE_SETTINGS_SET, false, { alerts = data.alerts })
+    cb(response or { ok = false, code = 'internal_error' })
+end)
+
 ---Define rota até um outpost a partir do app.
 RegisterNUICallback('phone:setWaypoint', function(data, cb)
     if type(data) ~= 'table' or type(data.x) ~= 'number' or type(data.y) ~= 'number' then

@@ -23,14 +23,35 @@ local REQUIRED_TABLES = {
     'noir_outpost_operations',
     'noir_outpost_rotations',
     'noir_outpost_organizations',
+    'noir_outpost_player_settings',
 }
 
----Aplica migrations aceitando somente DDL não destrutivo.
+-- Numeradas e imutáveis depois de aplicadas. Toda nova migration entra aqui.
+local MIGRATIONS = {
+    '001_initial', '002_operation_feed', '003_player_settings', '004_dealer_identity',
+    '005_operation_retention',
+}
+
+---Só DDL não destrutivo passa. Qualquer outra coisa aborta o start.
+---@param statement string
+---@return boolean
+local function isAllowedStatement(statement)
+    local upper = statement:upper()
+    return upper:match('^CREATE%s+TABLE%s+IF%s+NOT%s+EXISTS%s+') ~= nil
+        or upper:match('^CREATE%s+INDEX%s+IF%s+NOT%s+EXISTS%s+') ~= nil
+        -- Só a forma idempotente de acrescentar coluna. `DROP`, `MODIFY` e `RENAME` seguem
+        -- fora: uma migration nunca deve poder destruir dado existente sozinha.
+        or upper:match('^ALTER%s+TABLE%s+[%w_]+%s+ADD%s+COLUMN%s+IF%s+NOT%s+EXISTS%s+') ~= nil
+        or upper:match('^INSERT%s+IGNORE%s+INTO%s+') ~= nil
+end
+
+---@param name string
 ---@return boolean ok
-local function runMigrations()
-    local sql = LoadResourceFile(GetCurrentResourceName(), 'migrations/001_initial.sql')
+local function runMigration(name)
+    local file = ('migrations/%s.sql'):format(name)
+    local sql = LoadResourceFile(GetCurrentResourceName(), file)
     if not sql or sql == '' then
-        Log.error('migration_missing', { file = 'migrations/001_initial.sql' })
+        Log.error('migration_missing', { file = file })
         return false
     end
 
@@ -39,15 +60,12 @@ local function runMigrations()
         local statement = rawStatement:gsub('^%s*(.-)%s*$', '%1')
         statement = statement:gsub('%-%-[^\n]*', ''):gsub('^%s*(.-)%s*$', '%1')
         if statement ~= '' then
-            local upper = statement:upper()
-            local allowed = upper:match('^CREATE%s+TABLE%s+IF%s+NOT%s+EXISTS%s+') ~= nil
-                or upper:match('^INSERT%s+IGNORE%s+INTO%s+') ~= nil
-            if not allowed then
-                Log.error('migration_rejected', { statement = statement:sub(1, 80) })
+            if not isAllowedStatement(statement) then
+                Log.error('migration_rejected', { file = file, statement = statement:sub(1, 80) })
                 return false
             end
             if Db.execute(statement) == nil then
-                Log.error('migration_failed', { statement = statement:sub(1, 80) })
+                Log.error('migration_failed', { file = file, statement = statement:sub(1, 80) })
                 return false
             end
             executed = executed + 1
@@ -55,13 +73,21 @@ local function runMigrations()
     end
 
     if executed == 0 then
-        Log.error('migration_empty', {})
+        Log.error('migration_empty', { file = file })
         return false
     end
 
     Db.insert('INSERT IGNORE INTO noir_outpost_migrations (name, applied_at) VALUES (?, ?)',
-        { '001_initial', os.time() })
-    Log.info('migration_checked', { statements = executed })
+        { name, os.time() })
+    return true
+end
+
+---@return boolean ok
+local function runMigrations()
+    for index = 1, #MIGRATIONS do
+        if not runMigration(MIGRATIONS[index]) then return false end
+    end
+    Log.info('migration_checked', { applied = #MIGRATIONS })
     return true
 end
 
@@ -80,6 +106,16 @@ end
 
 ---@return boolean ok
 local function validateConfiguration()
+    local retention = config.operationRetention
+    if type(retention) ~= 'table'
+        or type(retention.days) ~= 'number' or retention.days <= 0
+        or type(retention.intervalSeconds) ~= 'number' or retention.intervalSeconds <= 0
+        or type(retention.batchSize) ~= 'number' or retention.batchSize <= 0
+        or type(retention.maxBatchesPerRun) ~= 'number' or retention.maxBatchesPerRun <= 0 then
+        Log.error('config_invalid_operation_retention', {})
+        return false
+    end
+
     for id, definition in pairs(shared.outposts) do
         if type(definition.dealerCorners) ~= 'table'
             or #definition.dealerCorners < config.limits.maxDealersPerOutpost then
@@ -117,7 +153,32 @@ local function validateConfiguration()
     return true
 end
 
+local REQUIRED_SERVICES = {
+    'Notification', 'Rotation', 'Claim', 'Dealer', 'Stock', 'Sale', 'Holdup', 'Robbery', 'Feed', 'Settings',
+}
+
+---Um módulo que não entrou na lista de carga do manifest não quebra a sintaxe: ele só
+---falha em runtime, a cada tique. Melhor não subir do que subir pela metade.
+---@return boolean ok
+local function verifyServices()
+    for index = 1, #REQUIRED_SERVICES do
+        local name = REQUIRED_SERVICES[index]
+        if type(Services[name]) ~= 'table' then
+            Log.error('service_missing', {
+                service = name,
+                hint = 'arquivo novo no manifest exige `refresh` antes do restart',
+            })
+            return false
+        end
+    end
+    return true
+end
+
 local function bootstrap()
+    if not verifyServices() then
+        Log.error('startup_aborted', { reason = 'incomplete_load' })
+        return
+    end
     if not validateConfiguration() then
         Log.error('startup_aborted', { reason = 'invalid_configuration' })
         return
@@ -176,12 +237,16 @@ end)
 
 AddEventHandler('bgrz_core:server:playerUnloaded', function(playerSource)
     if type(playerSource) ~= 'number' then return end
+    local character = Integration.getCharacter(playerSource)
+    if character then Services.Settings.forget(character.citizenId) end
+    if Services.Holdup then Services.Holdup.releaseForSource(playerSource) end
     Sessions.abortForSource(playerSource, 'player_unloaded')
     Sessions.closePanel(playerSource, 'player_unloaded')
 end)
 
 AddEventHandler('playerDropped', function()
     local src = source
+    if Services.Holdup then Services.Holdup.releaseForSource(src) end
     Sessions.abortForSource(src, 'player_dropped')
     Sessions.closePanel(src, 'player_dropped')
 end)
@@ -197,8 +262,10 @@ AddEventHandler('onResourceStop', function(resource)
     Scheduler.stop()
     Sessions.abortAll('resource_stop')
     Entities.despawnAll()
-    Services.Notification.clear()
-    Services.Sale.clear()
+    if Services.Notification then Services.Notification.clear() end
+    if Services.Sale then Services.Sale.clear() end
+    if Services.Holdup then Services.Holdup.clear() end
+    if Services.Settings then Services.Settings.clear() end
     NoirOutposts.Ready = false
 end)
 
@@ -212,9 +279,14 @@ end)
 -- Administração ------------------------------------------------------------------------
 
 RegisterCommand('outposts', function(source, args)
-    if source ~= 0 and not Security.isAdmin(source) then return end
     local function reply(message)
         if source == 0 then print(message) else Integration.notify(source, message, 'inform') end
+    end
+
+    -- Recusar calado deixa o comando indistinguível de quebrado. Sempre responde.
+    if source ~= 0 and not Security.isAdmin(source) then
+        Log.warn('admin_denied', { source = source, action = args[1] })
+        return reply(('Sem permissão. Falta o ACE %s ou `command`.'):format(config.adminAce))
     end
 
     local action = args[1]
@@ -236,10 +308,65 @@ RegisterCommand('outposts', function(source, args)
         return reply(('Controle de %s liberado.'):format(outpostId))
     end
 
+    if action == 'recover' then
+        local outpostId = Security.outpostId(args[2])
+        if not outpostId then return reply('Outpost inválido.') end
+        local recovered = Services.Dealer.forceRecover(outpostId)
+        Log.info('admin_recover', { outpostId = outpostId, recovered = recovered, source = source })
+        return reply(('%d corredor(es) de volta ao serviço.'):format(recovered))
+    end
+
+    if action == 'reload' then
+        local outpostId = Security.outpostId(args[2])
+        if not outpostId then return reply('Outpost inválido.') end
+        State.reload(outpostId)
+        Services.Notification.broadcastPublicSnapshot()
+        Entities.syncAll()
+        return reply(('Estado de %s recarregado do banco.'):format(outpostId))
+    end
+
+    if action == 'cooldowns' then
+        local outpostId = Security.outpostId(args[2])
+        if not outpostId then return reply('Outpost inválido.') end
+
+        local recovered = Services.Dealer.forceRecover(outpostId)
+        local holdups = Services.Holdup.clearCooldowns()
+
+        -- Dispatch e espera de tomada também travam o ciclo de teste.
+        local entry = State.get(outpostId)
+        if entry then entry.dispatchUntil = 0 end
+
+        local organizationId = entry and entry.row.owner_organization_id or nil
+        if organizationId then
+            Repositories.Outpost.setOrganizationCooldown(organizationId, 0, nil)
+        end
+        if source ~= 0 then Security.cleanupSource(source) end
+
+        Log.info('admin_cooldowns', {
+            outpostId = outpostId, recovered = recovered, holdups = holdups, source = source,
+        })
+        return reply(('%s: %d corredor(es) recuperados, %d cooldown(s) de abordagem, dispatch e tomada liberados.')
+            :format(outpostId, recovered, holdups))
+    end
+
+    if action == 'respawn' then
+        local outpostId = Security.outpostId(args[2])
+        if not outpostId then return reply('Outpost inválido.') end
+        local before = Entities.count(outpostId)
+        Entities.despawnOutpost(outpostId)
+        State.reload(outpostId)
+        Entities.syncAll()
+        local after = Entities.count(outpostId)
+        Log.info('admin_respawn', {
+            outpostId = outpostId, removed = before, created = after, source = source,
+        })
+        return reply(('%s: %d ped(s) removidos, %d recriados.'):format(outpostId, before, after))
+    end
+
     if action == 'rotate' then
         Services.Rotation.rotateCorners(Security.outpostId(args[2]) or '')
         return reply('Corners rotacionados.')
     end
 
-    reply('Uso: /outposts status | release <id> | rotate <id>')
+    reply('Uso: /outposts status | cooldowns <id> | recover <id> | reload <id> | respawn <id> | release <id> | rotate <id>')
 end, false)

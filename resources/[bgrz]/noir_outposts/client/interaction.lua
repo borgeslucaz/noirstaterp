@@ -11,6 +11,10 @@ local C = NoirOutposts.Constants
 local zones = {}
 local busy = false
 
+-- Hash constante resolvido uma vez. Evita o literal com crase, que só o runtime CfxLua lê
+-- e que tiraria estes arquivos da verificação de sintaxe padrão.
+local UNARMED = joaat('WEAPON_UNARMED')
+
 local function requestId()
     return ('%s%x%x'):format('r', GetGameTimer(), math.random(0, 0xFFFFFF))
 end
@@ -129,6 +133,17 @@ function Interaction.organizationId()
     return gang.name
 end
 
+---O corredor está em pé e em condições de interagir.
+---@param netId integer
+---@return boolean
+function Interaction.isDealerResponsive(netId)
+    local entity = NetworkDoesNetworkIdExist(netId) and NetworkGetEntityFromNetworkId(netId) or nil
+    if not entity or entity == 0 or not DoesEntityExist(entity) then return false end
+    if IsPedDeadOrDying(entity, true) then return false end
+    local _, _, status = NoirOutposts.Entities.readState(entity)
+    return status == C.DealerStatus.DEPLOYED or status == C.HoldupState.SURRENDERED
+end
+
 ---Só esconde a opção de quem é do dono. Lê a gang viva do bridge em vez do snapshot
 ---guardado: um evento de grupo perdido deixaria o cache preso na gang antiga e
 ---o jogador sem conseguir roubar.
@@ -141,13 +156,78 @@ function Interaction.canRobDealer(netId)
     if not entity or entity == 0 then return false end
 
     local outpostId, _, status = NoirOutposts.Entities.readState(entity)
-    if status ~= C.DealerStatus.DEPLOYED then return false end
+    -- Revistar exige rendição, que só vem de uma abordagem armada bem-sucedida.
+    if status ~= C.HoldupState.SURRENDERED then return false end
 
     local outpost = outpostId and NoirOutposts.Client.outpost(outpostId) or nil
     if not outpost or not outpost.ownerOrganizationId then return false end
 
     return outpost.ownerOrganizationId ~= Interaction.organizationId()
 end
+
+-- Abordagem: o client só informa que está mirando num corredor. Quem decide se ele reage
+-- ou se rende é o servidor.
+local holdupAttempts = {}
+
+---@param netId integer
+local function attemptHoldup(netId)
+    local now = GetGameTimer()
+    if (holdupAttempts[netId] or 0) > now then return end
+    holdupAttempts[netId] = now + 3000
+    if busy then return end
+
+    local dealerId = NoirOutposts.Entities.dealerOf(netId)
+    if not dealerId then return end
+
+    busy = true
+    local response = lib.callback.await(C.Callbacks.HOLDUP, false, { dealerId = dealerId, netId = netId })
+    busy = false
+
+    if not response or not response.ok then
+        local code = response and response.code or 'internal_error'
+        -- Silencioso nos casos normais de "ainda não dá", para não virar spam ao mirar.
+        if code ~= 'holdup_in_progress' and code ~= 'dealer_cooldown' and code ~= 'too_far' then
+            NoirOutposts.Client.notify(NoirOutposts.Client.message(code), 'error')
+        end
+        return
+    end
+
+    if response.data.reacted then
+        NoirOutposts.Client.notify(locale('holdup.reacted'), 'error')
+    else
+        NoirOutposts.Client.notify(locale('holdup.surrendered'), 'success')
+        holdupAttempts[netId] = now + response.data.durationMs
+    end
+end
+
+---@return integer? netId do corredor sob a mira
+local function aimedDealerNetId()
+    if not IsPlayerFreeAiming(cache.playerId) then return nil end
+    if clientConfig.holdup.requireWeapon
+        and GetSelectedPedWeapon(cache.ped) == UNARMED then
+        return nil
+    end
+
+    local aiming, entity = GetEntityPlayerIsFreeAimingAt(cache.playerId)
+    if not aiming or not entity or entity == 0 or not DoesEntityExist(entity) then return nil end
+    if not NetworkGetEntityIsNetworked(entity) then return nil end
+
+    local netId = NetworkGetNetworkIdFromEntity(entity)
+    if not NoirOutposts.Entities.dealerOf(netId) then return nil end
+    return netId
+end
+
+CreateThread(function()
+    while true do
+        local sleep = 1000
+        if NoirOutposts.Client.loggedIn and NoirOutposts.Entities.hasTracked() then
+            sleep = clientConfig.holdup.aimCheckIntervalMs
+            local netId = aimedDealerNetId()
+            if netId then attemptHoldup(netId) end
+        end
+        Wait(sleep)
+    end
+end)
 
 ---@param dealerId integer
 ---@param netId integer
@@ -220,6 +300,9 @@ RegisterCommand('outpostsdebug', function()
     local ok, gang = pcall(function() return exports.bgrz_core:GetGang() end)
     local lines = {
         ('bridge GetGang: %s'):format(ok and 'ok' or 'indisponível (reinicie o bgrz_core)'),
+        ('caminhada: %s, raio %s'):format(
+            tostring(shared.dealerWander and shared.dealerWander.enabled),
+            tostring(shared.dealerWander and shared.dealerWander.radius)),
         ('sua organização: %s'):format(Interaction.organizationId() or 'nenhuma'),
         ('gang bruta: %s'):format(ok and type(gang) == 'table' and tostring(gang.name) or '-'),
     }
@@ -245,8 +328,39 @@ RegisterCommand('outpostsdebug', function()
         targets = targets + 1
         local entity = NetworkDoesNetworkIdExist(netId) and NetworkGetEntityFromNetworkId(netId) or 0
         local _, _, status = NoirOutposts.Entities.readState(entity)
-        lines[#lines + 1] = ('corredor %s: netId %s, estado %s, pode roubar %s'):format(
-            dealerId, netId, tostring(status), tostring(Interaction.canRobDealer(netId)))
+        local corner = entity ~= 0 and Entity(entity).state[C.StateBag.DEALER_CORNER] or nil
+        local owner = entity ~= 0 and NetworkGetEntityOwner(entity) or -1
+        local speed = entity ~= 0 and GetEntitySpeed(entity) or 0.0
+        lines[#lines + 1] = ('corredor %s: netId %s, esquina %s, dono %s%s'):format(
+            dealerId, netId, tostring(corner), tostring(owner),
+            owner == cache.playerId and ' (você)' or '')
+        lines[#lines + 1] = ('  estado %s, velocidade %.2f, caminhada: %s'):format(
+            tostring(status), speed, NoirOutposts.Entities.wanderReport(netId))
+
+        if entity ~= 0 then
+            local position = GetEntityCoords(entity)
+            local navigable = GetSafeCoordForPed(position.x, position.y, position.z, true, 16)
+            lines[#lines + 1] = ('  client vê em %.1f, %.1f, %.1f | a %.1fm de você | navegável %s'):format(
+                position.x, position.y, position.z, #(coords - position), tostring(navigable))
+
+            -- O servidor é quem autoriza, então a medida dele é a que importa.
+            local server = lib.callback.await(C.Callbacks.DEBUG_TARGET, false,
+                { dealerId = dealerId, netId = netId })
+            if server and server.ok then
+                local data = server.data
+                if data.problem then
+                    lines[#lines + 1] = ('  servidor: %s'):format(data.problem)
+                else
+                    lines[#lines + 1] = ('  servidor vê em %s | a %.2fm | limite roubo %.1f, abordagem %.1f'):format(
+                        data.dealerAt, data.distance, data.robberyLimit, data.holdupLimit)
+                    lines[#lines + 1] = ('  medindo contra: %s | posição confiável %s | sincronia provada %s'):format(
+                        tostring(data.measuredAgainst), tostring(data.positionTrusted),
+                        tostring(data.positionSyncProven))
+                    lines[#lines + 1] = ('  status %s, abordagem %s, mesmo bucket %s'):format(
+                        data.dealerStatus, data.holdupState, tostring(data.sameBucket))
+                end
+            end
+        end
     end
     if targets == 0 then lines[#lines + 1] = 'nenhum ped de corredor registrado neste client' end
 

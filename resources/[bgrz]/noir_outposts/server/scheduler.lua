@@ -20,6 +20,36 @@ local running = false
 local startupCatchup = {}
 local lastExpiryCheck = 0
 local lastEntityAudit = 0
+local lastOperationsPrune = 0
+
+---@param now integer
+local function pruneOperations(now)
+    local retention = config.operationRetention
+    if now - lastOperationsPrune < retention.intervalSeconds then return end
+    lastOperationsPrune = now
+
+    local olderThan = now - retention.days * 24 * 60 * 60
+    local removed = 0
+
+    for _ = 1, retention.maxBatchesPerRun do
+        local affected, err = Repositories.Operation.prune(olderThan, retention.batchSize)
+        if affected == nil then
+            Log.error('operations_prune_failed', { error = err })
+            return
+        end
+
+        removed = removed + affected
+        if affected < retention.batchSize then break end
+    end
+
+    if removed > 0 then
+        Log.info('operations_pruned', {
+            removed = removed,
+            olderThan = olderThan,
+            retentionDays = retention.days,
+        })
+    end
+end
 
 ---Dealers com venda vencida. Limita o catch-up após restart a uma venda por dealer.
 ---@param now integer
@@ -107,7 +137,7 @@ local function processLifecycle(now)
             if row.expires_at and row.expires_at <= now then
                 local organizationId = Services.Rotation.releaseExpired(outpostId)
                 if organizationId then
-                    Services.Notification.notifyOrganization(organizationId, {
+                    Services.Notification.notifyOrganization(organizationId, 'control', {
                         title = locale('phone.expired_title'),
                         body = locale('phone.expired_body', shared.outposts[outpostId].label),
                     })
@@ -116,7 +146,7 @@ local function processLifecycle(now)
                 Services.Notification.refreshPanels(outpostId)
             elseif row.expires_at and now >= warningAt and not row.expiry_warned_at then
                 Repositories.Outpost.setExpiryWarned(outpostId, now)
-                Services.Notification.notifyOrganization(row.owner_organization_id, {
+                Services.Notification.notifyOrganization(row.owner_organization_id, 'control', {
                     title = locale('phone.expiring_title'),
                     body = locale('phone.expiring_body',
                         shared.outposts[outpostId].label, config.rotation.expiryWarningMinutes),
@@ -147,6 +177,8 @@ function Scheduler.start()
                 local now = os.time()
                 Sessions.tick()
                 Security.pruneRequestIds()
+                pruneOperations(now)
+                Services.Holdup.tick()
                 Services.Dealer.recoverDue()
                 auditEntities(now)
                 processSales(now)
@@ -163,4 +195,5 @@ function Scheduler.stop()
     running = false
     startupCatchup = {}
     lastEntityAudit = 0
+    lastOperationsPrune = 0
 end

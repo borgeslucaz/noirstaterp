@@ -14,25 +14,34 @@ local Integration = NoirOutposts.Integration
 local pending = {}
 
 ---@param organizationId string
+---@param category string
 ---@param payload table { title, body }
 ---@param minimumGrade? number
-local function pushToOrganization(organizationId, payload, minimumGrade)
+local function pushToOrganization(organizationId, category, payload, minimumGrade)
     local members = Integration.onlineMembersWithGrade(organizationId, minimumGrade)
+    local Settings = NoirOutposts.Services.Settings
     for index = 1, #members do
-        Integration.sendPhoneNotification(members[index], {
-            title = payload.title,
-            body = payload.body,
-        })
+        local source = members[index]
+        -- O filtro é por personagem e vale só para o alerta. O feed no app ignora isto.
+        local character = Integration.getCharacter(source)
+        local allowed = not character or Settings.allows(character.citizenId, category)
+        if allowed then
+            Integration.sendPhoneNotification(source, {
+                title = payload.title,
+                body = payload.body,
+            })
+        end
     end
 end
 
 ---Evento importante: entregue imediatamente.
 ---@param organizationId string
+---@param category string categoria de alerta que o jogador pode desligar
 ---@param payload table
 ---@param minimumGrade? number
-function Service.notifyOrganization(organizationId, payload, minimumGrade)
+function Service.notifyOrganization(organizationId, category, payload, minimumGrade)
     if not organizationId then return end
-    pushToOrganization(organizationId, payload, minimumGrade)
+    pushToOrganization(organizationId, category, payload, minimumGrade)
 end
 
 ---Vendas: agregadas em janela para não inundar o telefone.
@@ -70,7 +79,7 @@ function Service.flush()
         local entry = pending[key]
         pending[key] = nil
         local definition = shared.outposts[entry.outpostId]
-        pushToOrganization(entry.organizationId, {
+        pushToOrganization(entry.organizationId, 'sales', {
             title = locale('phone.sales_title'),
             body = locale('phone.sales_body', entry.count, definition and definition.label or entry.outpostId, entry.net),
         }, config.notifications.minGradeForSales)
@@ -160,7 +169,7 @@ function Service.checkStockAlerts(outpostId)
         if entry.emptyNotified then return end
         entry.emptyNotified = true
         entry.lowStockNotified = true
-        Service.notifyOrganization(entry.row.owner_organization_id, {
+        Service.notifyOrganization(entry.row.owner_organization_id, 'stock', {
             title = locale('phone.stock_empty_title'),
             body = locale('phone.stock_empty_body', definition.label),
         }, config.permissions.stock)
@@ -168,7 +177,7 @@ function Service.checkStockAlerts(outpostId)
     end
     if total <= config.notifications.lowStockThreshold and not entry.lowStockNotified then
         entry.lowStockNotified = true
-        Service.notifyOrganization(entry.row.owner_organization_id, {
+        Service.notifyOrganization(entry.row.owner_organization_id, 'stock', {
             title = locale('phone.stock_low_title'),
             body = locale('phone.stock_low_body', definition.label, total),
         }, config.permissions.stock)
