@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "noir-truckjob-ui",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "4173", "--directory", "[standalone]/NOIR-TRUCKJOB/ui/dist"],
+      "port": 4173
+    }
+  ]
+}
