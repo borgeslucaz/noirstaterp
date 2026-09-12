@@ -197,6 +197,39 @@ function V.freeIdentityPool(pool, taken)
     return all
 end
 
+---Sorteia e associa uma identidade persistente a cada perfil de corredor.
+---Os itens saem dos pools conforme são escolhidos, então nomes e peds não se repetem.
+---@param profiles table[]
+---@param identities table { names: string[], models: string[] }
+---@param randomIndex? fun(maximum: integer): integer
+---@return table<string, { name: string, model: string }>?
+function V.drawIdentityRoster(profiles, identities, randomIndex)
+    if type(profiles) ~= 'table' or type(identities) ~= 'table' then return nil end
+
+    local names = V.freeIdentityPool(identities.names, nil)
+    local models = V.freeIdentityPool(identities.models, nil)
+    if #names < #profiles or #models < #profiles then return nil end
+
+    local pick = randomIndex or math.random
+    local roster = {}
+    for index = 1, #profiles do
+        local profile = profiles[index]
+        if type(profile) ~= 'table' or type(profile.key) ~= 'string' or profile.key == '' then return nil end
+
+        local nameIndex = pick(#names)
+        local modelIndex = pick(#models)
+        if not V.isPositiveInteger(nameIndex, #names) or not V.isPositiveInteger(modelIndex, #models) then
+            return nil
+        end
+
+        roster[profile.key] = {
+            name = table.remove(names, nameIndex),
+            model = table.remove(models, modelIndex),
+        }
+    end
+    return roster
+end
+
 ---O servidor só enxerga o ped se o dono de rede estiver sincronizando a posição. Uma leitura
 ---que saiu da esquina de spawn é prova disso: ninguém moveu aquele ped no servidor, então o
 ---deslocamento só pode ter chegado pela sincronização.
@@ -221,20 +254,6 @@ function V.dealerReach(trusted, maxDistance, wanderRadius)
     if trusted == true then return maxDistance end
     if not V.isFinite(wanderRadius) or wanderRadius < 0 then return maxDistance end
     return maxDistance + wanderRadius
-end
-
----Quanto tempo um corredor morto fica fora de operação.
----Matar logo depois de assaltar custa pouco de propósito: o objetivo é tirar o ganho de
----executar o rendido, não somar duas punições.
----@param secondsSinceRobbery number? nil quando não houve assalto recente
----@param normal number
----@param graceWindow number
----@param shortened number
----@return number seconds
-function V.downCooldown(secondsSinceRobbery, normal, graceWindow, shortened)
-    if not V.isFinite(secondsSinceRobbery) or secondsSinceRobbery < 0 then return normal end
-    if secondsSinceRobbery <= graceWindow then return shortened end
-    return normal
 end
 
 ---Decide se um corredor deve ser considerado derrubado.

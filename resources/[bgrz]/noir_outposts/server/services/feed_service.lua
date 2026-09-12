@@ -28,7 +28,7 @@ local function decodePayload(payload)
 end
 
 ---Nome do corredor: o dealer pode já não existir, então o que foi gravado na operação manda.
----Nomes são sorteados por contratação, e um corredor demitido leva o dele embora; sem a cópia
+---Nomes são sorteados na tomada, e um corredor demitido leva o dele embora; sem a cópia
 ---no payload o histórico passaria a mostrar o nome do arquétipo em vez de quem estava lá.
 ---@param row table
 ---@param payload table

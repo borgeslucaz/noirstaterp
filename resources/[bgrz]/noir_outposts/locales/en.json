@@ -1,6 +1,6 @@
 {
     "target": {
-        "open_computer": "Outpost terminal",
+        "talk_operator": "Talk to the operator",
         "inspect_dealer": "Observe runner",
         "rob_dealer": "Rob runner"
     },
@@ -13,12 +13,15 @@
     "dealer": {
         "status_deployed": "deployed",
         "status_recovering": "recovering",
+        "status_held_up": "already held up",
+        "status_surrendered": "hands in the air",
         "stock_line": "Stock on site: %s",
         "sales_line": "Completed sales: %s"
     },
     "claim": {
         "success": "Your organization controls %s.",
-        "cancelled": "Claim cancelled."
+        "cancelled": "Claim cancelled.",
+        "minigame_failed": "You failed to access the outpost system."
     },
     "robbery": {
         "purse_taken": "You took %s in dirty money.",
@@ -50,7 +53,8 @@
     },
     "dispatch": {
         "sale_title": "Narcotics trafficking",
-        "robbery_title": "Robbery in progress"
+        "robbery_title": "Robbery in progress",
+        "down_title": "Shots fired, victim down"
     },
     "error": {
         "rate_limited": "Wait a moment before trying again.",
@@ -72,6 +76,7 @@
         "insufficient_grade": "Your rank does not allow this action.",
         "not_owner": "Your organization does not control this location.",
         "own_outpost": "You cannot rob your own runner.",
+        "owner_offline": "Nobody from the controlling crew is around. This runner is not a target right now.",
         "too_far": "Get closer to continue.",
         "not_enough_players": "There is not enough activity in the city.",
         "not_enough_police": "There is not enough police coverage.",
@@ -85,8 +90,10 @@
         "dealer_busy": "This runner is busy.",
         "dealer_unavailable": "This runner is not available.",
         "holdup_in_progress": "This runner is already being held up.",
+        "holdup_done": "This runner has already been held up.",
         "not_surrendered": "Make the runner surrender before searching him.",
         "dealer_cooldown": "This runner was robbed recently.",
+        "holdup_cooldown": "This runner was held up recently.",
         "invalid_entity": "The target could not be confirmed.",
         "amount_too_large": "Amount above the allowed limit.",
         "stock_full": "The location stock is full.",

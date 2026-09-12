@@ -216,18 +216,30 @@ RegisterNUICallback('claim', function(_, cb)
     end
 
     local outpostId = state.outpostId
-    local started = request(C.Callbacks.CLAIM_START, { outpostId = outpostId })
-    if not started.ok then
-        cb(started)
-        return
-    end
 
-    -- A janela fecha para o jogador executar a progress bar no mundo.
+    -- Libera o foco desta NUI antes de abrir a NUI do minigame.
     cb({ ok = true, data = { closing = true } })
     beginClose(true)
 
     CreateThread(function()
-        Wait(200)
+        local closeDeadline = GetGameTimer() + clientConfig.ui.closeTimeoutMs + 250
+        while (state.open or state.closing) and GetGameTimer() < closeDeadline do Wait(50) end
+
+        local minigame = clientConfig.minigames.claim
+        local ok, minigameCompleted = pcall(function()
+            return exports.peuren_minigames:StartTypewriter(
+                minigame.typewriterCount, minigame.typewriterTimeMs)
+        end)
+
+        if not ok or minigameCompleted ~= true then
+            NoirOutposts.Client.notify(locale('claim.minigame_failed'), 'error')
+            return
+        end
+
+        -- O tempo configurado começa apenas depois do sucesso no Typewriter.
+        local started = lib.callback.await(C.Callbacks.CLAIM_START, false, { outpostId = outpostId })
+        if not NoirOutposts.Client.handleFailure(started) then return end
+
         local sessionId = started.data.sessionId
         local completed = NoirOutposts.Interaction.runProgress(
             locale('progress.claim'), started.data.durationMs, clientConfig.animations.claim)

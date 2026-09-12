@@ -130,7 +130,7 @@ function Service.process(dealer)
         Notification.queueSale(dealer.outpost_id, organizationId, amounts.net)
         Notification.checkStockAlerts(dealer.outpost_id)
         Notification.refreshPanels(dealer.outpost_id)
-        Notification.maybeDispatch(dealer.outpost_id, 'sale', config.sales.dispatchChance)
+        Notification.maybeDispatch(dealer, 'sale', config.sales.dispatchChance)
 
         Log.debug('sale_committed', {
             outpostId = dealer.outpost_id,

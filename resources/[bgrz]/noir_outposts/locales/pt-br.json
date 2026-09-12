@@ -1,6 +1,6 @@
 {
     "target": {
-        "open_computer": "Terminal do outpost",
+        "talk_operator": "Falar com o operador",
         "inspect_dealer": "Observar corredor",
         "rob_dealer": "Roubar corredor"
     },
@@ -13,12 +13,15 @@
     "dealer": {
         "status_deployed": "em campo",
         "status_recovering": "se recuperando",
+        "status_held_up": "já foi abordado",
+        "status_surrendered": "de mãos para o alto",
         "stock_line": "Estoque no local: %s",
         "sales_line": "Vendas concluídas: %s"
     },
     "claim": {
         "success": "Sua organização controla %s.",
-        "cancelled": "Tomada cancelada."
+        "cancelled": "Tomada cancelada.",
+        "minigame_failed": "Você falhou ao acessar o sistema do outpost."
     },
     "robbery": {
         "purse_taken": "Você levou %s em dinheiro sujo.",
@@ -50,7 +53,8 @@
     },
     "dispatch": {
         "sale_title": "Tráfico de entorpecentes",
-        "robbery_title": "Assalto em andamento"
+        "robbery_title": "Assalto em andamento",
+        "down_title": "Homicídio a tiros"
     },
     "error": {
         "rate_limited": "Aguarde um instante antes de tentar de novo.",
@@ -72,6 +76,7 @@
         "insufficient_grade": "Seu cargo não permite esta ação.",
         "not_owner": "Sua organização não controla este local.",
         "own_outpost": "Você não pode roubar o próprio corredor.",
+        "owner_offline": "Não há ninguém da organização dona por perto. Este corredor não é alvo agora.",
         "too_far": "Aproxime-se para continuar.",
         "not_enough_players": "Não há movimento suficiente na cidade.",
         "not_enough_police": "Não há policiamento suficiente na cidade.",
@@ -85,8 +90,10 @@
         "dealer_busy": "Este corredor está ocupado.",
         "dealer_unavailable": "Este corredor não está disponível.",
         "holdup_in_progress": "Este corredor já está sendo abordado.",
+        "holdup_done": "Este corredor já foi abordado.",
         "not_surrendered": "Renda o corredor antes de revistar.",
         "dealer_cooldown": "Este corredor já foi roubado há pouco tempo.",
+        "holdup_cooldown": "Este corredor já foi abordado há pouco tempo.",
         "invalid_entity": "Não foi possível confirmar o alvo.",
         "amount_too_large": "Quantidade acima do permitido.",
         "stock_full": "O estoque do local está cheio.",

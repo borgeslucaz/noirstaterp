@@ -22,24 +22,31 @@
                         </span>
                     </div>
 
-                    <nav class="nav" role="tablist" aria-label="Seções do terminal">
+                    <nav class="nav" id="main-nav" role="tablist" aria-label="Seções do terminal">
                         <button class="nav__item" id="nav-market" type="button" role="tab" data-tab="market" aria-selected="true" aria-controls="tab-market">MERCADO</button>
                         <button class="nav__item" id="nav-runners" type="button" role="tab" data-tab="runners" aria-selected="false" aria-controls="tab-runners" tabindex="-1">RUNNERS</button>
                         <button class="nav__item" id="nav-control" type="button" role="tab" data-tab="control" aria-selected="false" aria-controls="tab-control" tabindex="-1">CONTROLE</button>
                     </nav>
 
                     <div class="header__right">
-                        <span class="owner">
+                        <span class="owner" id="owner-summary">
                             <span class="data-label" id="owner-label">ORGANIZAÇÃO</span>
                             <span class="owner__value" id="owner-value">—</span>
                         </span>
-                        <span class="header__sep" aria-hidden="true"></span>
+                        <span class="header__sep" id="owner-separator" aria-hidden="true"></span>
                         <button class="close" id="close" type="button" aria-label="Fechar o terminal"><kbd>ESC</kbd> FECHAR</button>
                     </div>
                 </header>
 
                 <main class="window__main stagger" style="--i: 1">
                     <p class="message" id="message" role="status" hidden></p>
+
+                    <section class="claim-landing" id="claim-landing" hidden>
+                        <p class="data-label data-label--bare">OUTPOST SEM CONTROLE</p>
+                        <h1 id="claim-landing-name">OUTPOST</h1>
+                        <p class="claim-landing__description" id="outpost-description"></p>
+                        <button class="btn btn--primary claim-landing__button" id="claim-landing-button" type="button">INICIAR TOMADA</button>
+                    </section>
 
                     <section class="tab" id="tab-market" role="tabpanel" aria-labelledby="nav-market">
                         <header class="tab-head">

@@ -196,6 +196,38 @@ lib.callback.register(C.Callbacks.ROBBERY_CANCEL, guarded('robbery', function(ac
     return Services.Robbery.cancel(actor, sessionId)
 end))
 
+---O dono de rede de um ped informa onde ele está. É a única forma de o servidor acompanhar um
+---ped conduzido por IA no client, porque a posição dele aqui fica parada no spawn.
+---Nada aqui autoriza coisa alguma: a coordenada é limitada à área do posto no serviço, e quem
+---não for o dono de rede daquele ped é simplesmente ignorado.
+RegisterNetEvent(C.Events.DEALER_POSITION, function(payload)
+    local actorSource = source
+    if type(actorSource) ~= 'number' or actorSource <= 0 then return end
+    if type(payload) ~= 'table' then return end
+    if not Security.consumeRateLimit(actorSource, 'position') then return end
+
+    for index = 1, math.min(#payload, C.Limits.maxPositionReports) do
+        local entry = payload[index]
+        if type(entry) == 'table' then
+            local netId = Security.netId(entry.netId)
+            local coords = Security.coords(entry)
+            local dealerId = netId and NoirOutposts.Entities.dealerFor(netId) or nil
+            local entity = dealerId and NoirOutposts.Entities.validate(dealerId, netId) or nil
+
+            if entity and coords then
+                local ok, owner = pcall(NetworkGetEntityOwner, entity)
+                if ok and owner == actorSource then
+                    Services.Dealer.reportPosition(dealerId, coords)
+                    -- `dead` é só a hora de olhar, nunca a decisão: quem confirma é a leitura do
+                    -- servidor. Sem isto, a morte espera a varredura, e nessa janela quem matou
+                    -- pode sair de perto — aí a vida deixa de valer e o corpo fica em campo.
+                    if entry.dead == true then Services.Dealer.confirmDown(dealerId) end
+                end
+            end
+        end
+    end
+end)
+
 ---Diagnóstico: o que o SERVIDOR enxerga de um corredor. Só devolve o que já é visível ao
 ---próprio jogador, e serve para comparar com o que o client vê.
 lib.callback.register(C.Callbacks.DEBUG_TARGET, guarded('debug', function(actor, payload)
@@ -235,7 +267,10 @@ lib.callback.register(C.Callbacks.DEBUG_TARGET, guarded('debug', function(actor,
             holdupState = Services.Holdup.stateOf(dealerId) or 'nenhum',
             measuredAgainst = origin,
             positionTrusted = trusted,
-            positionSyncProven = Services.Dealer.positionSyncProven(),
+            positionSyncProven = Services.Dealer.positionSyncProven(dealerId),
+            -- A leitura crua do servidor, para comparar com o que o client vê no mesmo ped.
+            serverSees = ('%.1f, %.1f, %.1f'):format(
+                GetEntityCoords(entity).x, GetEntityCoords(entity).y, GetEntityCoords(entity).z),
             distance = math.floor(#(playerCoords - coords) * 100) / 100,
             robberyLimit = V.dealerReach(trusted, config.robbery.interactionDistance, slack) + tolerance,
             holdupLimit = V.dealerReach(trusted, config.holdup.maxDistance, slack) + tolerance,

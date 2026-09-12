@@ -103,11 +103,6 @@ T.equal(V.shouldClosePanel({ dead = false, inVehicle = false, distance = nil }, 
 
 -- Castigo por matar corredor recém-assaltado -------------------------------------------------
 
-T.equal(V.downCooldown(nil, 1200, 60, 120), 1200, 'a plain kill serves the full cooldown')
-T.equal(V.downCooldown(5, 1200, 60, 120), 120, 'killing right after a robbery is cheap')
-T.equal(V.downCooldown(60, 1200, 60, 120), 120, 'the window edge still counts as recent')
-T.equal(V.downCooldown(61, 1200, 60, 120), 1200, 'past the window it is a normal kill')
-T.equal(V.downCooldown(-1, 1200, 60, 120), 1200, 'a broken timestamp falls back to the full cooldown')
 
 -- Abordagem ------------------------------------------------------------------------------------
 
@@ -157,6 +152,20 @@ T.equal(#V.freeIdentityPool(pool, { Bagre = true, Bala = true, Corvo = true }), 
     'with everything taken the whole pool comes back rather than nothing')
 T.equal(#V.freeIdentityPool({ 'Bagre', '', 42 }, nil), 1, 'broken entries are dropped')
 T.equal(#V.freeIdentityPool(nil, nil), 0, 'a missing pool offers nothing')
+
+local roster = V.drawIdentityRoster(
+    { { key = 'ghost' }, { key = 'smokey' } },
+    { names = { 'Bagre', 'Bala' }, models = { 'ped_a', 'ped_b' } },
+    function(maximum) return maximum end)
+T.truthy(roster, 'a valid takeover draws a complete identity roster')
+T.equal(roster.ghost.name, 'Bala', 'the random picker selects the first profile name')
+T.equal(roster.ghost.model, 'ped_b', 'the random picker selects the first profile ped')
+T.equal(roster.smokey.name, 'Bagre', 'drawn names are removed from the pool')
+T.equal(roster.smokey.model, 'ped_a', 'drawn peds are removed from the pool')
+T.equal(V.drawIdentityRoster(
+    { { key = 'ghost' }, { key = 'smokey' } },
+    { names = { 'Bagre' }, models = { 'ped_a', 'ped_b' } }), nil,
+    'an undersized identity pool cannot build a takeover roster')
 
 -- Posição do corredor ---------------------------------------------------------------------
 

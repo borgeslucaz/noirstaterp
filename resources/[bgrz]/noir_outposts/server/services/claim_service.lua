@@ -8,6 +8,7 @@ NoirOutposts.Services.Claim = Service
 local config = require 'config.server'
 local shared = require 'config.shared'
 local C = NoirOutposts.Constants
+local V = NoirOutposts.Validators
 local Log = NoirOutposts.Log
 local State = NoirOutposts.State
 local Sessions = NoirOutposts.Sessions
@@ -178,8 +179,18 @@ function Service.complete(actor, sessionId)
     local entry = State.get(session.outpostId)
     local previousOwner = entry and entry.row.owner_organization_id or nil
 
+    -- A identidade de todos os perfis nasce junto com este domínio e permanece estável até
+    -- o controle acabar. Uma nova tomada gera outro conjunto de nomes e rostos.
+    local dealerRoster = V.drawIdentityRoster(shared.dealerProfiles, shared.dealerIdentities)
+    if not dealerRoster then
+        Sessions.transition(session, C.SessionState.READY)
+        Sessions.abort(session, 'identity_pool_unavailable')
+        Log.error('claim_identity_draw_failed', { outpostId = session.outpostId })
+        return { ok = false, code = 'internal_error' }
+    end
+
     local affected = Repositories.Outpost.completeClaim(
-        session.outpostId, session.id, actor.organization.id, actor.citizenId, now, expiresAt)
+        session.outpostId, session.id, actor.organization.id, actor.citizenId, now, expiresAt, dealerRoster)
     if not affected or affected == 0 then
         Sessions.transition(session, C.SessionState.READY)
         Sessions.abort(session, 'invalid_state')

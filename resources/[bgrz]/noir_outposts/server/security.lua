@@ -197,6 +197,18 @@ function Security.amount(value, maximum)
     return math.floor(value)
 end
 
+---Coordenada vinda do client. É alegação, nunca fato: quem chama precisa limitá-la contra algo
+---que o servidor conheça. Aqui só se recusa o que nem número é, e o que está fora do mapa.
+---@param value any
+---@return vector3? coords
+function Security.coords(value)
+    if type(value) ~= 'table' then return nil end
+    local x, y, z = value.x, value.y, value.z
+    if not V.isFinite(x) or not V.isFinite(y) or not V.isFinite(z) then return nil end
+    if math.abs(x) > 20000 or math.abs(y) > 20000 or math.abs(z) > 2000 then return nil end
+    return vector3(x + 0.0, y + 0.0, z + 0.0)
+end
+
 ---@param value any
 ---@return integer? netId
 function Security.netId(value)

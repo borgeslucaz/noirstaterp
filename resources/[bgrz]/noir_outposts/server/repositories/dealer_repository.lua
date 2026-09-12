@@ -108,12 +108,15 @@ end
 ---@param downUntil integer
 ---@param nextSaleAt integer
 ---@return boolean applied
-function Repo.markDown(dealerId, dealerVersion, downUntil, nextSaleAt)
+---`fromStatus` é o estado que o serviço leu antes de decidir, e entra na guarda para a escrita
+---continuar perdendo uma corrida em vez de corromper. Ele não é sempre `deployed`: matar um
+---corredor recém-assaltado parte de `recovering`, porque o assalto já gravou esse estado.
+function Repo.markDown(dealerId, dealerVersion, downUntil, nextSaleAt, fromStatus)
     local affected = Db.update([[
         UPDATE noir_outpost_dealers
         SET status = ?, robbed_until = ?, next_sale_at = ?, version = version + 1
         WHERE id = ? AND status = ? AND version = ?
-    ]], { D.RECOVERING, downUntil, nextSaleAt, dealerId, D.DEPLOYED, dealerVersion })
+    ]], { D.RECOVERING, downUntil, nextSaleAt, dealerId, fromStatus or D.DEPLOYED, dealerVersion })
     return (affected or 0) > 0
 end
 

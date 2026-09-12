@@ -173,7 +173,7 @@ function State.intervalFor(profileKey)
     return V.saleInterval(config.sales.baseIntervalSeconds, config.sales.minimumIntervalSeconds, speed)
 end
 
----Nome de rua do corredor. Sorteado na contratação e gravado com ele, então não muda se o
+---Nome de rua do corredor. Sorteado na tomada e copiado ao contratar, então não muda se o
 ---config mudar. Linhas anteriores ao sorteio caem no nome do arquétipo.
 ---@param dealer table?
 ---@return string?
@@ -266,6 +266,7 @@ function State.panelSnapshot(entry, actor, permissions, extra)
         outpost = {
             id = row.id,
             label = definition.label,
+            description = definition.description,
             status = row.status,
             operationType = row.operation_type,
             claimedAt = row.claimed_at,
@@ -310,9 +311,11 @@ function State.panelSnapshot(entry, actor, permissions, extra)
     for index = 1, #shared.dealerProfiles do
         local profile = shared.dealerProfiles[index]
         local hired = hiredByProfile[profile.key]
+        local reserved = type(row.dealer_roster) == 'table' and row.dealer_roster[profile.key] or nil
         snapshot.market.profiles[index] = {
             key = profile.key,
-            name = profile.name,
+            name = type(reserved) == 'table' and reserved.name or profile.name,
+            archetypeName = profile.name,
             description = profile.description,
             stats = profile.stats,
             hirePrice = config.dealerHirePrice[profile.key] or 0,

@@ -3,6 +3,11 @@ return {
     adminAce = 'noir.outposts.admin',
 
     rotation = {
+        -- TESTE: fixa a rotação nestes postos, ignorando o sorteio e a rotação já persistida
+        -- do ciclo. Todo posto fora desta lista é desativado. Esvazie antes de abrir para os
+        -- jogadores, senão a rotação nunca mais sai do lugar.
+        forced = { pier = 'drug' }, --TODO: NÃO SUBIR PRA PRODUÇÃO ASSIM
+
         activeDrugOutposts = 1,
         activeMoneyOutposts = 0,
         durationHours = 24,
@@ -64,15 +69,36 @@ return {
     },
 
     dealers = {
-        -- Corredor morto sai de operação e volta depois deste tempo.
-        downCooldownSeconds = 1200,
-        -- Matar um corredor recém-assaltado rende um castigo bem menor. Sem isso, roubar e
-        -- executar o rendido em seguida tiraria o corredor por 20 minutos de graça, o que
-        -- transforma o assalto em sabotagem barata em vez de escolha entre levar ou punir.
-        robbedGraceSeconds = 60,
-        robbedDownCooldownSeconds = 120,
+        -- Morte limpa, sem assalto antes. Curta de propósito: matar o corredor não é a forma
+        -- de tirar um posto de operação. Quem só atira devolve um corredor em um minuto, então
+        -- a sabotagem por tiro não compensa e o roubo continua sendo o caminho.
+        downCooldownSeconds = 60,
+        -- Morte depois de um assalto. Aqui o corredor já tinha sido rendido e revistado, e a
+        -- execução fecha o episódio: substitui o que restava do roubo pelo prazo cheio. Precisa
+        -- ser maior que `robbery.cooldownSeconds`, senão executar o rendido o devolveria mais
+        -- cedo do que deixá-lo vivo.
+        downAfterRobberyCooldownSeconds = 1200,
+        -- Chance de a morte de um corredor virar chamado para a polícia. Alta de propósito:
+        -- executar gente na rua é mais visível que vender na esquina, e sem chamado nenhum três
+        -- rivais limpam os quatro corredores e vão embora em silêncio. O cooldown de dispatch é
+        -- por posto, então uma chacina inteira gera uma ocorrência, não quatro.
+        dispatchChance = 75,
         -- Varredura que detecta ped morto e recria ped ausente.
         auditSeconds = 10,
+    },
+
+    -- Proteção da gang dona offline.
+    -- Sem ninguém da organização dona online o corredor deixa de ser alvo: nem abordagem, nem
+    -- assalto. Isso é o outro lado do `sales.requireOwnerMemberOnline`: se a venda passiva já
+    -- para quando a gang está offline, deixar o roubo aberto faz da madrugada ganho de graça
+    -- para o rival e perda pura para quem não tem ninguém para reagir. Com isto ligado o posto
+    -- fica congelado no período: não rende e não perde.
+    --
+    -- Matar o corredor continua possível, porque ele é um ped como qualquer outro. Mas isso não
+    -- tira nada da organização: ele volta sozinho pelo cooldown de morte, sem carteira nem
+    -- estoque a menos.
+    ownerOffline = {
+        protectDealers = true,
     },
 
     -- Abordagem à mão armada, antes do assalto em si.
@@ -145,6 +171,7 @@ return {
         -- Blip aproximado: deslocamento aleatório em metros.
         offset = { min = 15.0, max = 35.0 },
         robberyCode = '10-31',
+        downCode = '10-71',
     },
 
     -- Categorias de alerta que o jogador pode desligar no telefone.
@@ -191,6 +218,7 @@ return {
         feed = 700,
         settings = 1000,
         debug = 1000,
+        position = 400,
     },
 
     validation = {
@@ -198,5 +226,19 @@ return {
         -- A partir de quantos metros uma leitura fora da esquina de spawn conta como prova de
         -- que o servidor recebe a posição do ped. Abaixo disso pode ser só ruído de sincronia.
         positionSyncEpsilon = 0.75,
+
+        -- Posição reportada pelo dono de rede do ped.
+        -- Por quanto tempo um reporte continua valendo antes de o servidor voltar a se virar
+        -- com a leitura própria. Curto de propósito: dono que saiu não deixa rastro velho.
+        reportedPositionTtlSeconds = 6,
+        -- O reporte não é limitado pela esquina, e sim pela continuidade: um corredor assustado
+        -- pode ir parar longe, e prendê-lo ao raio de caminhada tornaria o assalto impossível
+        -- justamente quando ele fugiu. O que se recusa é o salto impossível.
+        reportedPositionMaxSpeed = 12.0,
+        -- Teto do orçamento acumulado entre dois reportes. Sem dono o ped fica parado, então
+        -- um intervalo longo não deve virar licença para teleporte.
+        reportedPositionMaxGapSeconds = 10,
+        -- Folga fixa por reporte, para ruído de sincronia e passo de contorno.
+        reportedPositionSlack = 2.0,
     },
 }

@@ -12,6 +12,18 @@ local C = NoirOutposts.Constants
 local tracked = {}
 local trackedEntity = {}
 local terminals = {}
+---@type table<string, boolean>
+local wantedTerminals = {}
+---Falha de criação se repete a cada volta do laço. O aviso não.
+local terminalWarned = {}
+
+---@param outpostId string
+---@param message string
+local function warnOnce(outpostId, message)
+    if terminalWarned[outpostId] then return end
+    terminalWarned[outpostId] = true
+    lib.print.warn(('[noir_outposts] %s'):format(message))
+end
 
 local function optionNames()
     return { 'dealer:inspect', 'dealer:rob' }
@@ -49,8 +61,19 @@ function Entities.wanderReport(netId)
 end
 
 ---Estado da caminhada por net ID. Um único loop conduz todos, em vez de uma thread por ped.
----@type table<integer, { anchor: vector3, target: vector3?, taskedAt: integer, nextAt: integer }>
+---@type table<integer, { anchor: vector3, target: vector3?, taskedAt: integer, nextAt: integer,
+---holding: boolean?, returning: boolean?, lastPosition: vector3?, stalled: integer? }>
 local walks = {}
+
+-- Corredor fixado no lugar porque não está caminhando: em recuperação, ou em serviço mas sem
+-- caminhada possível. Guarda o estado que motivou a fixação, para não retarefar a cada tique.
+---@type table<integer, string>
+local pinned = {}
+
+-- Quem já assumiu a caminhada de um ped. A propriedade de rede migra conforme os jogadores se
+-- movem, e só o dono conduz a IA; isto faz quem assumir reaplicar a caminhada uma vez.
+---@type table<integer, boolean>
+local wanderOwned = {}
 
 -- Reação de abordagem em curso, por net ID.
 -- O state bag é a verdade do servidor, mas é encaminhado por outro caminho que o evento e pode
@@ -121,6 +144,46 @@ local function pickDestination(entity, anchor, from)
     return nil, false
 end
 
+---Blindagem contra fuga, reaplicada a cada troca de estado. Trocar de dono de rede, de tarefa
+---ou de modelo devolve o ped ao padrão do jogo, e o padrão do jogo é correr.
+---O atributo 17 é "sempre fugir" e fica desligado. Os atributos 5 e 46, "sempre lutar" e "encara
+---ped armado mesmo desarmado", não estão aqui para deixar o corredor agressivo: desarmado e sem
+---eles, a resposta padrão dele a uma arma apontada é a corrida. Com eles, o susto vira qualquer
+---outra coisa.
+---@param ped integer
+local function denyFlee(ped)
+    SetPedFleeAttributes(ped, 0, false)
+    SetPedCombatAttributes(ped, 17, false)
+    SetPedCombatAttributes(ped, 5, true)
+    SetPedCombatAttributes(ped, 46, true)
+    SetPedAlertness(ped, 0)
+end
+
+---Para o corredor no lugar e fecha a porta dos eventos.
+---`SetBlockingOfNonTemporaryEvents` é o único freio de fuga que não depende de atributo de
+---combate, mas ligado durante a caminhada ele cancela a tarefa de destino junto e o corredor não
+---sai do lugar, o que está testado e anotado no README. Parado não há destino a cancelar, então
+---ele entra exatamente aqui. E é aqui que importa: abordagem exige 12 metros, a parada por
+---jogador perto começa em 18, então quem aponta uma arma sempre encontra o corredor já parado.
+---@param entity integer
+---@param scenario string? cenário de ócio, ou nil para só ficar de pé
+local function holdGround(entity, scenario)
+    ClearPedTasks(entity)
+    denyFlee(entity)
+    -- Bloqueio antes do cenário, como nos outros resources deste servidor.
+    SetBlockingOfNonTemporaryEvents(entity, true)
+    if scenario then
+        TaskStartScenarioInPlace(entity, scenario, 0, true)
+    end
+end
+
+---Solta o bloqueio para o corredor poder andar de novo. Precisa vir antes da tarefa de destino.
+---@param entity integer
+local function releaseHold(entity)
+    SetBlockingOfNonTemporaryEvents(entity, shared.dealerWander.blockEvents == true)
+    denyFlee(entity)
+end
+
 ---@param entity integer
 ---@return boolean wandering
 local function startWander(entity)
@@ -149,12 +212,10 @@ local function startWander(entity)
     local grounded = groundedPoint(anchor.x, anchor.y, anchor.z)
     if grounded then anchor = grounded end
 
-    -- Bloquear eventos não temporários mantém o corredor no posto, mas também impede que
-    -- ele ande. Enquanto caminha o bloqueio fica desligado; quem segura a fuga são os
-    -- atributos. O bloqueio volta na rendição, onde ele precisa ficar imóvel.
-    SetBlockingOfNonTemporaryEvents(entity, false)
-    SetPedFleeAttributes(entity, 0, false)
-    SetPedCombatAttributes(entity, 17, true)
+    -- Andando, o bloqueio de eventos fica no que o config mandar, que é false: ligado ele cancela
+    -- a tarefa de destino junto com a reação ao susto. Quem segura a fuga enquanto ele anda é
+    -- `denyFlee`; parado, é `holdGround`.
+    releaseHold(entity)
     -- Sem marcar como entidade de missão, o gerenciador de população pode descartar a tarefa.
     SetEntityAsMissionEntity(entity, true, true)
     ClearPedTasks(entity)
@@ -179,17 +240,15 @@ local function playerNearby(position)
     return false
 end
 
----Faz o corredor parar para alguma coisa. Devolve o nome do cenário, ou nil se não parou.
----@param entity integer
+---Sorteia um cenário de ócio, ou nil quando o corredor não para desta vez.
+---Quem toca o cenário é `holdGround`: parar e bloquear evento são a mesma decisão, e separar as
+---duas deixava o ped com cenário tocando e a fuga liberada.
 ---@return string?
-local function startIdle(entity)
+local function pickIdleScenario()
     local idle = shared.dealerWander.idle
     if type(idle) ~= 'table' or #idle.scenarios == 0 then return nil end
     if math.random(100) > idle.chance then return nil end
-
-    local scenario = idle.scenarios[math.random(#idle.scenarios)]
-    TaskStartScenarioInPlace(entity, scenario, 0, true)
-    return scenario
+    return idle.scenarios[math.random(#idle.scenarios)]
 end
 
 ---Avança um passo da caminhada. Chamado pelo loop de manutenção, um ped por vez.
@@ -202,20 +261,30 @@ local function advanceWalk(netId, entity)
     local now = GetGameTimer()
     local position = GetEntityCoords(entity)
 
+    -- Coleira. Nenhuma blindagem cobre tudo: um empurrão, um carro ou um susto que escapou ainda
+    -- podem tirar o corredor da esquina. Fora do limite ele volta andando, em vez de ficar onde
+    -- parou. Tem precedência sobre a parada por jogador perto, porque parar longe do posto é
+    -- justamente o que não pode durar: lá ele não é abordável, não é assaltável e não é dele.
+    -- Config antigo sem coleira não pode quebrar o laço a cada tique: cai no raio com folga.
+    local leash = shared.dealerWander.leashDistance or (shared.dealerWander.radius * 1.5)
+    local strayed = #(position - walk.anchor) > leash
+
     -- Com gente por perto ele fica no posto. Isso mantém a posição estável para o servidor
     -- validar assalto e abordagem, além de ficar melhor do que ele passar andando por você.
-    if playerNearby(position) then
+    if playerNearby(position) and not strayed then
         if walk.target then
-            ClearPedTasks(entity)
             walk.target = nil
+            walk.returning = nil
             walk.stalled = 0
         end
         if not walk.holding then
             walk.holding = true
-            local scenario = startIdle(entity) or shared.dealerWander.idle.scenarios[1]
-            TaskStartScenarioInPlace(entity, scenario, 0, true)
-            wanderReport[netId] = ('parado com jogador perto: %s')
-                :format(scenario:lower():gsub('world_human_', ''))
+            local scenario = pickIdleScenario() or shared.dealerWander.idle.scenarios[1]
+            holdGround(entity, scenario)
+            wanderReport[netId] = scenario
+                and ('parado com jogador perto: %s')
+                    :format(scenario:lower():gsub('world_human_', ''))
+                or 'parado com jogador perto'
         end
         walk.nextAt = now + 1000
         return
@@ -234,18 +303,22 @@ local function advanceWalk(netId, entity)
 
         local expired = now - walk.taskedAt > 20000
         if arrived or blocked or expired then
-            ClearPedTasks(entity)
+            local returning = walk.returning
             walk.target = nil
+            walk.returning = nil
             walk.stalled = 0
 
             local pause = math.floor(shared.dealerWander.timeBetweenWalks * 1000)
-            local scenario = arrived and startIdle(entity) or nil
+            local scenario = arrived and pickIdleScenario() or nil
+            -- Parado é parado, com cenário sorteado ou sem: a pausa entre trechos também precisa
+            -- do bloqueio, senão ela vira a janela em que o corredor ainda foge.
+            holdGround(entity, scenario)
             if scenario then
                 local duration = shared.dealerWander.idle.durationSeconds
                 pause = math.random(duration.min, duration.max) * 1000
                 wanderReport[netId] = ('parado: %s'):format(scenario:lower():gsub('world_human_', ''))
             else
-                wanderReport[netId] = arrived and 'chegou, aguardando'
+                wanderReport[netId] = arrived and (returning and 'voltou para a esquina' or 'chegou, aguardando')
                     or blocked and 'caminho bloqueado, trocando'
                     or 'trecho expirou'
             end
@@ -257,16 +330,26 @@ local function advanceWalk(netId, entity)
 
     if now < walk.nextAt then return end
 
-    local destination, navigable = pickDestination(entity, walk.anchor, position)
+    local destination, navigable
+    if strayed then
+        -- Longe demais: o destino não é sorteado, é a esquina. Sem ponto navegável ali ele volta
+        -- em linha reta, que é o mesmo tratamento dos pátios sem malha de navegação.
+        local point, nav = groundedPoint(walk.anchor.x, walk.anchor.y, walk.anchor.z)
+        destination, navigable = point or walk.anchor, nav
+    else
+        destination, navigable = pickDestination(entity, walk.anchor, position)
+    end
     if not destination then
         walk.nextAt = now + 5000
         wanderReport[netId] = 'sem destino livre no raio'
         return
     end
 
-    -- Encerra o cenário da pausa antes de voltar a andar.
+    -- Encerra o cenário da pausa e libera o evento antes de voltar a andar.
+    releaseHold(entity)
     ClearPedTasks(entity)
     walk.target = destination
+    walk.returning = strayed or nil
     walk.taskedAt = now
     walk.lastPosition = nil
     walk.stalled = 0
@@ -277,7 +360,8 @@ local function advanceWalk(netId, entity)
         -- num pátio aberto e evita ele ficar imóvel esperando um caminho que não existe.
         TaskGoStraightToCoord(entity, destination.x, destination.y, destination.z, 1.0, 20000, 0.0, 0.0)
     end
-    wanderReport[netId] = ('andando para %.1f, %.1f (%s)'):format(
+    wanderReport[netId] = ('%s para %.1f, %.1f (%s)'):format(
+        strayed and 'voltando' or 'andando',
         destination.x, destination.y, navigable and 'rota' or 'linha reta')
 end
 
@@ -285,13 +369,14 @@ end
 ---Cada client ajusta o seu: o corredor não foge do posto, anda pela esquina e morre normalmente.
 ---@param entity integer
 local function settleDealer(entity)
-    SetPedFleeAttributes(entity, 0, false)
+    denyFlee(entity)
     SetPedCanRagdollFromPlayerImpact(entity, false)
     SetPedDropsWeaponsWhenDead(entity, false)
 
     if startWander(entity) then return end
-    -- Sem caminhada, o bloqueio é o que impede o corredor de sair andando por aí.
-    SetBlockingOfNonTemporaryEvents(entity, true)
+    -- Sem caminhada não há tarefa de destino para o bloqueio cancelar, então ele entra cheio,
+    -- e o corredor fica de pé no cenário de esquina.
+    holdGround(entity, clientConfig.dealerScenario)
 end
 
 ---@param netId integer
@@ -349,15 +434,30 @@ local function attach(netId, dealerId, entity)
     trackedEntity[netId] = entity
 end
 
+---Esquece tudo que este client guarda sobre um ped: caminhada, fixação, propriedade de rede e
+---reação. O FiveM recicla net ID, então o corredor recriado costuma herdar o número do anterior,
+---e qualquer resto aqui vale por uma instrução que nunca mais será dada. Um `wanderOwned`
+---esquecido, por exemplo, deixa o ped novo parado para sempre: a caminhada dele consta como já
+---iniciada, e ninguém a inicia de novo.
+---@param netId integer
+local function forgetPed(netId)
+    walks[netId] = nil
+    pinned[netId] = nil
+    wanderOwned[netId] = nil
+    reactions[netId] = nil
+    reactionApplied[netId] = nil
+end
+
 ---@param netId integer
 function detach(netId)
     if not tracked[netId] then return end
     exports.bgrz_core:RemoveEntityTarget(netId, optionNames())
     tracked[netId] = nil
     trackedEntity[netId] = nil
-    walks[netId] = nil
-    reactions[netId] = nil
-    reactionApplied[netId] = nil
+    forgetPed(netId)
+    -- Guardado porque `Entities.clear` também roda no stop do resource, e a ordem de carga entre
+    -- os arquivos do client não é contrato.
+    if NoirOutposts.Interaction then NoirOutposts.Interaction.forgetDealer(netId) end
 end
 
 ---Há algum corredor transmitido para este client. Evita manter o loop de mira aceso à toa.
@@ -391,15 +491,8 @@ end
 -- Atendente do terminal -----------------------------------------------------------------
 
 ---@param outpostId string
----@return boolean enabled
-local function terminalEnabled(outpostId)
-    local npc = shared.terminalNpc
-    if type(npc) ~= 'table' or npc.enabled ~= true then return false end
-    return shared.outposts[outpostId].terminalNpc ~= false
-end
-
----@param outpostId string
 local function removeTerminal(outpostId)
+    terminalWarned[outpostId] = nil
     local terminal = terminals[outpostId]
     if not terminal then return end
     terminals[outpostId] = nil
@@ -407,6 +500,46 @@ local function removeTerminal(outpostId)
         exports.bgrz_core:RemoveEntityTarget(terminal.ped, { 'terminal:open' })
         SetEntityAsMissionEntity(terminal.ped, true, true)
         DeleteEntity(terminal.ped)
+    end
+end
+
+---Chama um nativo opcional. Um nome que não existe nesta build chega aqui como `nil`, e
+---chamar `nil` derruba o resource inteiro no client. Já derrubou: `SetPedDiesFromLowHealth`
+---não existe e eu o escrevi de cabeça. Endurecer o atendente é acumular garantias, então uma
+---garantia indisponível deve ser ignorada, nunca custar as outras.
+---@param native any
+---@return boolean called
+local function optional(native, ...)
+    if type(native) ~= 'function' then return false end
+    return (pcall(native, ...))
+end
+
+---Deixa o atendente imune e imóvel. Ele é mobília com voz: não morre, não cambaleia, não
+---reage a tiro, explosão ou carro, e não sai do lugar por nada.
+---@param ped integer
+local function hardenTerminal(ped)
+    -- Estes já são usados por outros resources do servidor, então existem.
+    SetEntityAsMissionEntity(ped, true, true)
+    SetEntityInvincible(ped, true)
+    SetEntityCanBeDamaged(ped, false)
+    SetBlockingOfNonTemporaryEvents(ped, true)
+    SetPedFleeAttributes(ped, 0, false)
+    SetPedCanRagdoll(ped, false)
+    SetPedSuffersCriticalHits(ped, false)
+    SetPedCanBeTargetted(ped, false)
+
+    -- Estes reforçam, mas não são essenciais. Se a build não tiver algum, o atendente continua
+    -- imune e parado pelos de cima.
+    optional(SetPedDiesWhenInjured, ped, false)
+    optional(SetPedDiesInWater, ped, false)
+    optional(SetPedCanRagdollFromPlayerImpact, ped, false)
+    optional(SetEntityProofs, ped, true, true, true, true, true, true, true, true)
+
+    -- O congelamento é o que de fato prende a posição.
+    FreezeEntityPosition(ped, true)
+
+    if shared.terminalNpc.scenario then
+        TaskStartScenarioInPlace(ped, shared.terminalNpc.scenario, 0, true)
     end
 end
 
@@ -421,77 +554,93 @@ local function createTerminal(outpostId)
     local coords = definition.computer
     local model = joaat(shared.terminalNpc.model)
     if not IsModelInCdimage(model) or not IsModelAPed(model) then
-        lib.print.warn(('[noir_outposts] modelo de atendente inválido: %s'):format(shared.terminalNpc.model))
+        warnOnce(outpostId, ('modelo de atendente inválido: %s'):format(shared.terminalNpc.model))
         return false
     end
     if not lib.requestModel(model, 5000) then
-        lib.print.warn(('[noir_outposts] timeout carregando o atendente de %s'):format(outpostId))
+        warnOnce(outpostId, ('timeout carregando o atendente de %s'):format(outpostId))
         return false
     end
 
-    -- `computer` é a posição absoluta do ped. Uma coordenada copiada da posição do jogador
-    -- fica cerca de 1m acima do chão, então desconte isso ao cadastrar um local novo.
+    -- `computer` é usada como está, sem procurar chão e sem corrigir altura. O ped fica
+    -- congelado exatamente aí, então a coordenada cadastrada é a posição final.
     local ped = CreatePed(4, model, coords.x, coords.y, coords.z, coords.w, false, false)
     SetModelAsNoLongerNeeded(model)
     if not ped or ped == 0 or not DoesEntityExist(ped) then return false end
 
-    SetEntityAsMissionEntity(ped, true, true)
-    SetEntityInvincible(ped, true)
-    SetBlockingOfNonTemporaryEvents(ped, true)
-    SetPedDiesWhenInjured(ped, false)
-    SetPedCanRagdollFromPlayerImpact(ped, false)
-    FreezeEntityPosition(ped, true)
-    if shared.terminalNpc.scenario then
-        TaskStartScenarioInPlace(ped, shared.terminalNpc.scenario, 0, true)
-    end
+    hardenTerminal(ped)
 
     local ok, err = exports.bgrz_core:AddEntityTarget(ped, {
         {
             name = 'terminal:open',
-            icon = clientConfig.target.icons.computer,
-            label = locale('target.open_computer'),
+            icon = clientConfig.target.icons.operator,
+            label = locale('target.talk_operator'),
             distance = shared.interaction.computerDistance,
             onSelect = function() NoirOutposts.Interaction.openComputer(outpostId) end,
         },
     })
     if not ok then
-        lib.print.warn(('[noir_outposts] target do atendente de %s falhou: %s'):format(outpostId, tostring(err)))
+        warnOnce(outpostId, ('target do atendente de %s falhou: %s'):format(outpostId, tostring(err)))
         SetEntityAsMissionEntity(ped, true, true)
         DeleteEntity(ped)
         return false
     end
 
+    terminalWarned[outpostId] = nil
     terminals[outpostId] = { ped = ped }
     return true
 end
 
----Sincroniza os atendentes com os outposts ativos.
+---Declara em quais locais deve haver atendente. A criação em si fica no laço abaixo.
 ---@param activeIds table<string, boolean>
----@return table<string, boolean> withNpc locais que ficaram com atendente
 function Entities.syncTerminals(activeIds)
-    local withNpc = {}
-
-    for outpostId in pairs(terminals) do
-        if not activeIds[outpostId] or not terminalEnabled(outpostId) then
-            removeTerminal(outpostId)
-        end
-    end
-
-    for outpostId in pairs(activeIds) do
-        if terminalEnabled(outpostId) then
-            local terminal = terminals[outpostId]
-            -- O ped pode ter sido removido pelo engine ao sair do stream.
-            if terminal and not DoesEntityExist(terminal.ped) then
-                terminals[outpostId] = nil
-            end
-            if createTerminal(outpostId) then withNpc[outpostId] = true end
-        end
-    end
-
-    return withNpc
+    wantedTerminals = activeIds
 end
 
+-- O atendente é a única porta de entrada do terminal, então uma falha não pode deixar o local
+-- inacessível até o próximo snapshot. Streaming de modelo falha, e o engine remove o ped em
+-- algumas situações; as duas coisas se resolvem tentando de novo.
+CreateThread(function()
+    while true do
+        local stale = {}
+        for outpostId, terminal in pairs(terminals) do
+            if not wantedTerminals[outpostId] or not DoesEntityExist(terminal.ped) then
+                stale[#stale + 1] = outpostId
+            end
+        end
+        for index = 1, #stale do
+            if wantedTerminals[stale[index]] then
+                -- Ped sumiu mas o local continua ativo: solta o registro para recriar abaixo.
+                terminals[stale[index]] = nil
+            else
+                removeTerminal(stale[index])
+            end
+        end
+
+        for outpostId in pairs(wantedTerminals) do
+            if createTerminal(outpostId) then
+                local terminal = terminals[outpostId]
+                -- Reafirma a cada volta. Uma explosão perto, ou outro resource mexendo em peds
+                -- por perto, pode soltar a animação ou o congelamento sem apagar o ped.
+                if not shared.terminalNpc.scenario then
+                    -- Sem cenário não há estado observável para comparar, e reafirmar as flags
+                    -- é barato. Sai mais em conta que deixar o ped solto entre as voltas.
+                    hardenTerminal(terminal.ped)
+                elseif type(IsPedUsingScenario) == 'function'
+                    and not IsPedUsingScenario(terminal.ped, shared.terminalNpc.scenario) then
+                    -- `IsPedUsingScenario` não é usado por nenhum outro resource daqui, então
+                    -- não confio que exista. Sem ele, o congelamento sozinho segura o ped.
+                    hardenTerminal(terminal.ped)
+                end
+            end
+        end
+
+        Wait(shared.terminalNpc.checkIntervalMs)
+    end
+end)
+
 function Entities.clearTerminals()
+    wantedTerminals = {}
     local ids = {}
     for outpostId in pairs(terminals) do ids[#ids + 1] = outpostId end
     for index = 1, #ids do removeTerminal(ids[index]) end
@@ -508,7 +657,9 @@ end
 ---@param state string?
 ---@return boolean
 local function isHoldupState(state)
-    return state == C.HoldupState.SURRENDERED or state == C.HoldupState.HOSTILE
+    return state == C.HoldupState.SURRENDERED
+        or state == C.HoldupState.HOSTILE
+        or state == C.HoldupState.SHAKEN
 end
 
 ---@param netId integer
@@ -531,10 +682,34 @@ local function holdupReaction(netId, bagState)
     return nil
 end
 
+---Fixa o corredor que não está caminhando: blindagem, bloqueio de evento e cenário de esquina.
+---Uma vez por estado, para não retarefar a cada tique, e nunca sobre um corpo caído.
+---@param netId integer
+---@param entity integer
+---@param state string estado que motivou a fixação
+local function pin(netId, entity, state)
+    if pinned[netId] == state then return end
+    if IsPedDeadOrDying(entity, true) then
+        -- Corpo caído não recebe tarefa. A remoção é do servidor, na recuperação.
+        pinned[netId] = state
+        return
+    end
+    pinned[netId] = state
+    -- Em serviço e sem caminhada ele só fica de pé na esquina. Fora de serviço, que é o corredor
+    -- em recuperação de assalto ou de morte, ele fica agachado com medo: é o que diz ao jogador,
+    -- sem nenhum texto, que ali não há o que tirar agora.
+    local scenario = state == C.DealerStatus.DEPLOYED
+        and clientConfig.dealerScenario
+        or clientConfig.cowerScenario
+    holdGround(entity, scenario)
+    wanderReport[netId] = ('parado, fora da caminhada (%s)'):format(state)
+end
+
 -- State bags são apenas identificação: nunca autorizam a ação.
--- A propriedade de rede migra conforme os jogadores se movem, e só o dono conduz a IA.
--- Este loop garante que quem assumir o ped reaplique a caminhada uma vez.
-local wanderOwned = {}
+-- Último envio de posições ao servidor. O servidor não enxerga um ped conduzido por IA aqui,
+-- então quem é dono de rede precisa contar. Sem isso a validação de distância mede contra a
+-- coordenada de spawn e recusa quem está encostado no corredor.
+local lastPositionReport = 0
 
 CreateThread(function()
     while true do
@@ -546,6 +721,11 @@ CreateThread(function()
             local netIds = {}
             for netId in pairs(tracked) do netIds[#netIds + 1] = netId end
 
+            local now = GetGameTimer()
+            local reportDue = (now - lastPositionReport) >= shared.dealerWander.reportIntervalMs
+            local report = reportDue and {} or nil
+            if reportDue then lastPositionReport = now end
+
             for index = 1, #netIds do
                 local netId = netIds[index]
                 -- Reconfere `tracked`: o ped pode ter sido solto enquanto a volta cedia o frame.
@@ -554,10 +734,12 @@ CreateThread(function()
                 if entity == 0 or not DoesEntityExist(entity) then
                     wanderOwned[netId] = nil
                     walks[netId] = nil
+                    pinned[netId] = nil
                 elseif not ownsEntity(entity) then
                     -- Perdeu a propriedade: quem assumir reaplica.
                     wanderOwned[netId] = nil
                     walks[netId] = nil
+                    pinned[netId] = nil
                     reactionApplied[netId] = nil
                 else
                     local bagState = Entity(entity).state[C.StateBag.DEALER_STATE]
@@ -567,21 +749,55 @@ CreateThread(function()
                         -- a rendição ou tiraria o corredor armado do combate.
                         wanderOwned[netId] = nil
                         walks[netId] = nil
+                        pinned[netId] = nil
                         if reactionApplied[netId] ~= reaction.state then
                             applyReaction(entity, reaction)
                             reactionApplied[netId] = reaction.state
                         end
                     elseif bagState ~= C.DealerStatus.DEPLOYED then
+                        -- Fora de serviço — em recuperação de assalto ou de morte — ele some da
+                        -- lógica de venda, mas continua na rua e continua sendo um ped. Aqui
+                        -- antes só se largava a caminhada, e ped largado volta à IA do jogo: era
+                        -- ele que fugia da arma apontada durante os dez minutos de recuperação.
                         wanderOwned[netId] = nil
                         walks[netId] = nil
+                        pin(netId, entity, bagState or 'sem estado')
                     else
                         reactionApplied[netId] = nil
-                        if not wanderOwned[netId] and startWander(entity) then
-                            wanderOwned[netId] = true
+                        if not wanderOwned[netId] then
+                            if startWander(entity) then
+                                wanderOwned[netId] = true
+                                pinned[netId] = nil
+                            else
+                                -- Em serviço e sem caminhada: config desligado, esquina que ainda
+                                -- não chegou pelo state bag. Solto ele fugiria do mesmo jeito.
+                                pin(netId, entity, C.DealerStatus.DEPLOYED)
+                            end
                         end
                         advanceWalk(netId, entity)
                     end
+
+                    -- Reporta em qualquer estado, inclusive rendido ou hostil: é justamente
+                    -- nesses que a posição precisa estar certa para a revista funcionar.
+                    if reportDue then
+                        local position = GetEntityCoords(entity)
+                        report[#report + 1] = {
+                            netId = netId,
+                            x = position.x,
+                            y = position.y,
+                            z = position.z,
+                            -- Só a hora de olhar. O servidor confirma com a leitura dele, que é
+                            -- confiável enquanto este client for o dono — e no instante da morte
+                            -- ele é, porque quem matou está aqui. A varredura sozinha chegava até
+                            -- dez segundos depois, quando o corpo já podia estar sem dono.
+                            dead = IsPedDeadOrDying(entity, true) or nil,
+                        }
+                    end
                 end
+            end
+
+            if report and #report > 0 then
+                TriggerServerEvent(C.Events.DEALER_POSITION, report)
             end
         end
         Wait(sleep)
@@ -599,6 +815,7 @@ AddStateBagChangeHandler(C.StateBag.DEALER_CORNER, nil, function(bagName, _, val
     if not tracked[netId] then return end
     wanderOwned[netId] = nil
     walks[netId] = nil
+    pinned[netId] = nil
     -- A rotação de esquinas pode cair no meio de uma abordagem. Reassentar aqui cancelaria a
     -- rendição; o laço de manutenção refaz a caminhada quando a abordagem terminar.
     if holdupReaction(netId, Entity(entity).state[C.StateBag.DEALER_STATE]) then return end
@@ -640,14 +857,11 @@ function applyReaction(entity, payload)
         -- a animação de saída inteira antes de obedecer, e reagir a uma arma apontada chegava
         -- segundos depois, quando a mira já tinha acabado.
         ClearPedTasksImmediately(entity)
-        SetBlockingOfNonTemporaryEvents(entity, false)
         if payload.weapon then
             GiveWeaponToPed(entity, joaat(payload.weapon), 250, false, true)
         end
-        SetPedCombatAttributes(entity, 46, true)
-        SetPedCombatAttributes(entity, 5, true)
+        denyFlee(entity)
         SetPedCombatAbility(entity, 2)
-        SetPedFleeAttributes(entity, 0, false)
         SetPedSeeingRange(entity, 60.0)
 
         local target = payload.targetServerId and GetPlayerFromServerId(payload.targetServerId) or -1
@@ -655,8 +869,14 @@ function applyReaction(entity, payload)
         if targetPed ~= 0 and DoesEntityExist(targetPed) then
             TaskCombatPed(entity, targetPed, 0, 16)
         else
-            TaskReactAndFleePed(entity, cache.ped)
+            -- O alvo pode não existir neste client. Aqui era `TaskReactAndFleePed`, que mandava
+            -- o corredor correr — e correr do jogador local, que quase nunca é quem apontou a
+            -- arma. Sem alvo ele fica firme, armado, até o servidor encerrar a hostilidade.
+            TaskStandStill(entity, 60000)
         end
+        -- Depois da tarefa de combate, e ligado: é ela que ele deve seguir. Sem isto, levar tiro
+        -- durante a briga gera o evento que larga o combate e vira fuga.
+        SetBlockingOfNonTemporaryEvents(entity, true)
         return
     end
 
@@ -667,6 +887,7 @@ function applyReaction(entity, payload)
         local loaded = lib.requestAnimDict(anim.dict, 3000)
 
         ClearPedTasksImmediately(entity)
+        denyFlee(entity)
         SetBlockingOfNonTemporaryEvents(entity, true)
         RemoveAllPedWeapons(entity, true)
 
@@ -682,6 +903,19 @@ function applyReaction(entity, payload)
         return
     end
 
+    if payload.state == C.HoldupState.SHAKEN then
+        -- Abordagem encerrada, cooldown correndo. Ele não volta a caminhar como se nada tivesse
+        -- acontecido: fica agachado com medo até o servidor devolver o estado normal.
+        -- Imediato pelo mesmo motivo da rendição: um cenário de ócio só obedece depois de tocar
+        -- a animação de saída inteira, e aqui ele vem direto de uma arma na cara.
+        ClearPedTasksImmediately(entity)
+        denyFlee(entity)
+        RemoveAllPedWeapons(entity, true)
+        SetBlockingOfNonTemporaryEvents(entity, true)
+        TaskStartScenarioInPlace(entity, clientConfig.cowerScenario, 0, true)
+        return
+    end
+
     -- Voltou ao normal.
     ClearPedTasks(entity)
     RemoveAllPedWeapons(entity, true)
@@ -692,6 +926,7 @@ end
 local function forgetWander(netId)
     wanderOwned[netId] = nil
     walks[netId] = nil
+    pinned[netId] = nil
 end
 
 RegisterNetEvent(C.Events.DEALER_REACTION, function(payload)

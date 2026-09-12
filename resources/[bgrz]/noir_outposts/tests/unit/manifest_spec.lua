@@ -44,6 +44,7 @@ local function luaFilesIn(directory)
 end
 
 local manifest = read('fxmanifest.lua')
+assert(manifest:find("'peuren_minigames'", 1, true), 'claim minigame dependency must be declared')
 
 local scriptBlocks = { 'shared_scripts', 'client_scripts', 'server_scripts' }
 local listed = {}

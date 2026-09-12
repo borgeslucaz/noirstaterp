@@ -129,7 +129,7 @@ N.Repositories.Outpost = {
         row.claim_session_id, row.claim_organization_id, row.claim_started_at = nil, nil, nil
         return 1
     end,
-    completeClaim = function(id, sessionId, organizationId, citizenId, now, expiresAt)
+    completeClaim = function(id, sessionId, organizationId, citizenId, now, expiresAt, dealerRoster)
         local row = outpostRow(id)
         if not row or row.status ~= C.OutpostStatus.CLAIMING then return 0 end
         if row.claim_session_id ~= sessionId then return 0 end
@@ -139,6 +139,7 @@ N.Repositories.Outpost = {
         row.claimed_at, row.expires_at = now, expiresAt
         row.claim_session_id, row.claim_organization_id, row.claim_started_at = nil, nil, nil
         row.purse_available, row.purse_pending = 0, 0
+        row.dealer_roster = dealerRoster
         return 1
     end,
 }
@@ -215,9 +216,15 @@ N.Repositories.Dealer = {
         dealer.version = dealer.version + 1
         return 1
     end,
-    markDown = function(dealerId, dealerVersion, downUntil, nextSaleAt)
+    expireRecovery = function(dealerId, now)
         local dealer = db.dealers[dealerId]
-        if not dealer or dealer.status ~= C.DealerStatus.DEPLOYED then return false end
+        if not dealer or dealer.status ~= C.DealerStatus.RECOVERING then return false end
+        dealer.robbed_until = now - 1
+        return true
+    end,
+    markDown = function(dealerId, dealerVersion, downUntil, nextSaleAt, fromStatus)
+        local dealer = db.dealers[dealerId]
+        if not dealer or dealer.status ~= (fromStatus or C.DealerStatus.DEPLOYED) then return false end
         if dealer.version ~= dealerVersion then return false end
         dealer.status = C.DealerStatus.RECOVERING
         dealer.robbed_until = downUntil
@@ -403,6 +410,11 @@ N.Entities = {
     isAlive = function(dealerId)
         return N.Entities.spawned[dealerId] == true and not N.Entities.dead[dealerId]
     end,
+    -- Leitura do servidor, e não a alegação de quem avisou: só devolve verdadeiro para ped que
+    -- está mesmo caído.
+    readDown = function(dealerId)
+        return N.Entities.spawned[dealerId] == true and N.Entities.dead[dealerId] == true
+    end,
     markCorpse = function(dealerId) N.Entities.corpses[dealerId] = true end,
     deadDealers = function()
         local list = {}
@@ -454,6 +466,10 @@ N.Services.Rotation = {
 
 local players = {}
 local inventoryFull = false
+-- Presença da gang dona. É o que liga e desliga a proteção de posto sem ninguém online.
+local ownerOnline = true
+-- Chamados enviados à polícia, para o teste conferir quem acorda quem.
+local dispatches = {}
 
 N.Integration = {
     getCharacter = function(source)
@@ -490,10 +506,10 @@ N.Integration = {
     end,
     notify = function() end,
     sendPhoneNotification = function() return true end,
-    sendDispatch = function() return true end,
+    sendDispatch = function(payload) dispatches[#dispatches + 1] = payload return true end,
     onlinePlayerCount = function() return 10 end,
     onDutyPoliceCount = function() return 3 end,
-    hasOnlineMember = function() return true end,
+    hasOnlineMember = function() return ownerOnline end,
     onlineMembers = function() return { 1 } end,
     onlineMembersWithGrade = function() return { 1 } end,
     refreshPlayer = function() end,
@@ -618,6 +634,19 @@ T.equal(db.outposts[OUTPOST].owner_organization_id, 'ballas', 'owner recorded')
 T.equal(db.outposts[OUTPOST].kingpin_citizenid, 'LEADER01', 'kingpin recorded')
 T.truthy(db.organizations.ballas.claim_cooldown_until > os.time(), 'organization is on cooldown')
 
+local claimRoster = db.outposts[OUTPOST].dealer_roster
+T.truthy(claimRoster, 'claim draws and persists the dealer identity roster')
+local rosterNames, rosterModels = {}, {}
+for index = 1, #sharedConfig.dealerProfiles do
+    local profileKey = sharedConfig.dealerProfiles[index].key
+    local identity = claimRoster[profileKey]
+    T.truthy(identity, 'claim draws an identity for profile ' .. profileKey)
+    T.equal(rosterNames[identity.name], nil, 'claim roster names do not repeat')
+    T.equal(rosterModels[identity.model], nil, 'claim roster peds do not repeat')
+    rosterNames[identity.name] = true
+    rosterModels[identity.model] = true
+end
+
 local claimOperation
 for _, op in pairs(db.operations) do
     if op.type == C.OperationKind.CLAIM then claimOperation = op end
@@ -669,8 +698,7 @@ T.equal(overflow.ok, false, 'dealer limit enforced')
 T.equal(overflow.code, 'dealer_limit', 'dealer limit code')
 T.equal(State.dealerCount(OUTPOST), serverConfig.limits.maxDealersPerOutpost, 'roster is full')
 
--- Nome e ped são sorteados por contratação, não herdados do arquétipo, e não se repetem no
--- mesmo posto: dois corredores idênticos na mesma esquina denunciam o script.
+-- Nome e ped vêm do elenco sorteado na tomada e não mudam durante este domínio.
 local identities = sharedConfig.dealerIdentities
 local nameSet, modelSet = {}, {}
 for index = 1, #identities.names do nameSet[identities.names[index]] = true end
@@ -680,6 +708,10 @@ local usedNames, usedModels = {}, {}
 for _, dealer in pairs(State.get(OUTPOST).dealers) do
     T.equal(nameSet[dealer.display_name], true, 'the drawn name comes from the list')
     T.equal(modelSet[dealer.ped_model], true, 'the drawn ped comes from the list')
+    T.equal(dealer.display_name, claimRoster[dealer.profile_key].name,
+        'hiring uses the name reserved when the outpost was claimed')
+    T.equal(dealer.ped_model, claimRoster[dealer.profile_key].model,
+        'hiring uses the ped reserved when the outpost was claimed')
     T.equal(usedNames[dealer.display_name], nil, 'no two runners share a name at one outpost')
     T.equal(usedModels[dealer.ped_model], nil, 'no two runners share a ped at one outpost')
     usedNames[dealer.display_name] = true
@@ -900,6 +932,63 @@ local staleCorner = Services.Holdup.start(rival, dealerId, netId)
 T.equal(staleCorner.ok, false, 'a trusted position is measured against the ped, not the corner')
 T.equal(staleCorner.code, 'too_far', 'standing at an empty corner is out of reach')
 T.equal(Services.Dealer.positionSyncProven(), true, 'a moved reading proves the sync works')
+T.equal(Services.Dealer.positionSyncProven(dealerId), true, 'the proof belongs to the runner that moved')
+
+-- A prova é de um corredor só. Um vizinho cuja leitura ainda é a esquina de spawn continua no
+-- alcance frouxo: tratá-lo como confiável mediria 2,5 m contra um ponto que pode estar a
+-- dezenas de metros do ped de verdade, e recusaria quem está encostado nele.
+T.equal(Services.Dealer.positionSyncProven(3), false, 'one runner proving sync does not vouch for another')
+local neighbourCoords, neighbourTrusted =
+    Services.Dealer.observedPosition(State.dealer(3), N.Entities.validate(3, 3 * 1000))
+T.truthy(neighbourCoords, 'the neighbour still reports a position')
+T.equal(neighbourTrusted, false, 'an unmoved neighbour reading is not trusted')
+
+-- Reporte do dono de rede. É o que resolve o problema de raiz: o servidor deixa de adivinhar
+-- e passa a saber onde o ped está, desde que a alegação caiba na área do posto.
+local reportedSpot = vector3(corner.x + 10.0, corner.y, corner.z)
+T.equal(Services.Dealer.reportPosition(dealerId, reportedSpot), true, 'a report inside the outpost is accepted')
+
+local afterReport, reportTrusted =
+    Services.Dealer.observedPosition(State.dealer(dealerId), N.Entities.validate(dealerId, netId))
+T.equal(#(afterReport - reportedSpot), 0, 'the reported position wins over the server read')
+T.equal(reportTrusted, true, 'a reported position needs no trust heuristic')
+
+-- Salto impossível é mentira ou bug, e não substitui o que já havia.
+T.equal(Services.Dealer.reportPosition(dealerId, vector3(corner.x + 400.0, corner.y, corner.z)), false,
+    'a teleport-sized jump is refused')
+local afterBadReport = Services.Dealer.observedPosition(State.dealer(dealerId), N.Entities.validate(dealerId, netId))
+T.equal(#(afterBadReport - reportedSpot), 0, 'the refused report did not overwrite the good one')
+
+-- Fuga: o corredor assustado sai da área dele e a âncora acompanha, um passo plausível por vez.
+-- Prender a âncora à esquina tornaria impossível assaltar exatamente quem correu.
+local fleeing = reportedSpot
+for _ = 1, 12 do
+    gameTimer = gameTimer + 1000
+    fleeing = vector3(fleeing.x + 10.0, fleeing.y, fleeing.z)
+    T.equal(Services.Dealer.reportPosition(dealerId, fleeing), true, 'a fleeing runner keeps being tracked')
+end
+T.truthy(#(fleeing - corner) > sharedConfig.dealerWander.radius * 4,
+    'the runner ended far outside his own wander area')
+
+local afterFlight = Services.Dealer.observedPosition(State.dealer(dealerId), N.Entities.validate(dealerId, netId))
+T.equal(#(afterFlight - fleeing), 0, 'the anchor followed the runner out of the outpost')
+
+-- Mas o passo continua limitado: ninguém arrasta a âncora para o próprio colo de uma vez.
+gameTimer = gameTimer + 1000
+T.equal(Services.Dealer.reportPosition(dealerId, vector3(fleeing.x + 300.0, fleeing.y, fleeing.z)), false,
+    'one second does not buy three hundred metres')
+
+Services.Dealer.forgetReportedPosition(dealerId)
+T.equal(Services.Dealer.reportPosition(dealerId, reportedSpot), true, 'the anchor reseeds at the corner')
+
+-- Reporte vencido: o servidor volta a se virar com a leitura própria.
+local ttl = serverConfig.validation.reportedPositionTtlSeconds
+serverConfig.validation.reportedPositionTtlSeconds = -1
+local afterExpiry = Services.Dealer.observedPosition(State.dealer(dealerId), N.Entities.validate(dealerId, netId))
+T.equal(#(afterExpiry - vector3(wandered.x, wandered.y, wandered.z)), 0,
+    'an expired report falls back to the server read')
+serverConfig.validation.reportedPositionTtlSeconds = ttl
+Services.Dealer.forgetReportedPosition(dealerId)
 
 standAt(rival, wandered)
 
@@ -1005,7 +1094,83 @@ resetRateLimits()
 local refused = Services.Robbery.start(rival, 3, 3 * 1000)
 T.equal(refused.ok, false, 'a reacting runner cannot be searched')
 T.equal(refused.code, 'not_surrendered', 'reacting runner refuses the search')
+-- Abalado: encerrada a abordagem, o corredor não volta a caminhar enquanto o cooldown corre.
+-- Ele fica agachado com medo, que é a única pista visível de que apontar a arma de novo agora não
+-- vai dar em nada. É encenação: quem recusa a abordagem seguinte continua sendo o cooldown.
+local published = {}
+local realSetState = N.Entities.setState
+N.Entities.setState = function(id, state) published[id] = state end
+
 Services.Holdup.release(3)
+T.equal(published[3], C.HoldupState.SHAKEN, 'a released runner stays shaken while the cooldown runs')
+
+-- O cooldown vencido é que o levanta. Zerá-lo pela porta administrativa tem o mesmo efeito, e
+-- sem isso ele ficaria agachado até o próximo restart.
+T.truthy(Services.Holdup.clearCooldowns() > 0, 'the holdup cooldown was in force')
+T.equal(published[3], C.DealerStatus.DEPLOYED, 'clearing the cooldown puts him back on his feet')
+
+-- Sem cooldown a abordagem termina direto no estado real, sem passar pelo medo.
+serverConfig.holdup.cooldownSeconds = 0
+resetRateLimits()
+T.equal(Services.Holdup.start(rival, 3, 3 * 1000).ok, true, 'a second holdup works without cooldown')
+Services.Holdup.release(3)
+T.equal(published[3], C.DealerStatus.DEPLOYED, 'without a cooldown there is nothing to be shaken about')
+serverConfig.holdup.cooldownSeconds = holdupCooldown
+
+-- Quem já reagiu responde "já foi abordado", e não "está sendo abordado": quem está levando tiro
+-- dele não precisa ouvir que a abordagem está em curso.
+resetRateLimits()
+T.equal(Services.Holdup.start(rival, 3, 3 * 1000).ok, true, 'a holdup starts again after the reset')
+resetRateLimits()
+T.equal(Services.Holdup.start(rival, 3, 3 * 1000).code, 'holdup_done',
+    'a runner that already reacted answers "already held up"')
+
+-- Ped recriado não herda nada do anterior. Uma abordagem em curso que sobrevive ao ped recusaria
+-- todas as seguintes até vencer sozinha, e era ela que fazia o "já está sendo abordado" aparecer
+-- sem ninguém abordando. O cooldown de roubo não passa por aqui: é do corredor, não do ped.
+Services.Holdup.resetDealer(3)
+resetRateLimits()
+T.equal(Services.Holdup.start(rival, 3, 3 * 1000).ok, true,
+    'a recreated ped carries no holdup and no holdup cooldown')
+Services.Holdup.resetDealer(3)
+
+-- Gang dona offline --------------------------------------------------------------------------
+-- Sem ninguém da organização dona online o corredor deixa de ser alvo, e a recusa é a mesma para
+-- abordagem e assalto porque as duas passam por `rivalTarget`. A venda passiva já para sozinha
+-- nesse período: sem esta trava, a madrugada seria ganho de graça de um lado e perda pura do
+-- outro, contra quem não tem ninguém para reagir.
+ownerOnline = false
+
+resetRateLimits()
+local offlineHoldup = Services.Holdup.start(rival, 3, 3 * 1000)
+T.equal(offlineHoldup.ok, false, 'a runner of an offline crew cannot be held up')
+T.equal(offlineHoldup.code, 'owner_offline', 'offline crew holdup code')
+
+-- O assalto para no mesmo lugar, e antes do `not_surrendered` que este mesmo alvo devolvia com a
+-- gang online: a trava precede a revista, não depende dela.
+resetRateLimits()
+local offlineRobbery = Services.Robbery.start(rival, 3, 3 * 1000)
+T.equal(offlineRobbery.ok, false, 'a runner of an offline crew cannot be robbed')
+T.equal(offlineRobbery.code, 'owner_offline', 'offline crew robbery code')
+
+-- É a proteção que recusa, e não outra coisa em cima do mesmo alvo: desligada, com a gang ainda
+-- offline, a abordagem volta a passar.
+serverConfig.ownerOffline.protectDealers = false
+resetRateLimits()
+T.equal(Services.Holdup.start(rival, 3, 3 * 1000).ok, true,
+    'with the protection off the same target is reachable again')
+Services.Holdup.release(3)
+Services.Holdup.resetDealer(3)
+serverConfig.ownerOffline.protectDealers = true
+
+-- Um membro voltando devolve o posto à disputa no mesmo instante.
+ownerOnline = true
+resetRateLimits()
+T.equal(Services.Holdup.start(rival, 3, 3 * 1000).ok, true, 'one member back online reopens the runner')
+Services.Holdup.release(3)
+Services.Holdup.resetDealer(3)
+
+N.Entities.setState = realSetState
 serverConfig.holdup.reactionChance = 60
 standAtCorner(rival, dealerId)
 
@@ -1015,9 +1180,27 @@ local victim = State.dealer(2)
 T.equal(victim.status, C.DealerStatus.DEPLOYED, 'victim starts deployed')
 T.equal(N.Entities.spawned[2], true, 'victim has a ped')
 
+-- Chamado para a polícia. Sem ele, executar os corredores é a forma silenciosa de atacar um
+-- posto: não rende loot, não acorda ninguém, e o dono só descobre pelo telefone.
+local dispatchesBefore = #dispatches
+State.get(OUTPOST).dispatchUntil = 0
+local realKillDispatch = serverConfig.dealers.dispatchChance
+serverConfig.dealers.dispatchChance = 100
+
 N.Entities.dead[2] = true
 local down = Services.Dealer.markDown(2)
 T.equal(down, true, 'killing the runner takes him out of action')
+
+T.equal(#dispatches, dispatchesBefore + 1, 'killing a runner calls the police')
+local killCall = dispatches[#dispatches]
+T.equal(killCall.code, serverConfig.dispatch.downCode, 'the call carries the homicide code')
+T.equal(killCall.jobs[1], serverConfig.police.jobs[1], 'the call goes to the police')
+
+-- E a chacina inteira vira uma ocorrência, não quatro: o cooldown de dispatch é por posto, e
+-- matar o primeiro corredor já o arma para os seguintes.
+T.truthy(State.get(OUTPOST).dispatchUntil > os.time(),
+    'the first kill arms the per-outpost dispatch cooldown')
+serverConfig.dealers.dispatchChance = realKillDispatch
 T.equal(State.dealer(2).status, C.DealerStatus.RECOVERING, 'killed runner is recovering')
 T.equal(N.Entities.corpses[2], true, 'the body stays where it fell')
 T.equal(N.Entities.spawned[2], true, 'the corpse is not deleted on the spot')
@@ -1036,30 +1219,51 @@ T.equal(downSold, false, 'a downed runner stops selling')
 
 T.equal(Services.Dealer.markDown(2), false, 'a runner already down cannot be downed again')
 
--- Matar logo depois de assaltar rende castigo curto, para não virar sabotagem barata.
-local downUntilPlain = db.dealers[2].robbed_until
-T.truthy(downUntilPlain - os.time() > serverConfig.dealers.robbedDownCooldownSeconds,
-    'a plain kill serves the long cooldown')
+-- Morte limpa: prazo curto, para matar não virar o atalho de tirar um posto de operação.
+local plainDown = db.dealers[2].robbed_until - os.time()
+T.truthy(plainDown <= serverConfig.dealers.downCooldownSeconds
+    and plainDown > serverConfig.dealers.downCooldownSeconds - 5,
+    'a plain kill serves the short cooldown')
+T.truthy(plainDown < serverConfig.robbery.cooldownSeconds,
+    'a plain kill brings the runner back sooner than a robbery does')
 
-db.dealers[2].status = C.DealerStatus.DEPLOYED
-db.dealers[2].robbed_until = nil
-State.reload(OUTPOST)
-Services.Dealer.markRobbed(2)
-N.Entities.dead[2] = true
-T.equal(Services.Dealer.markDown(2), true, 'a just-robbed runner can still be killed')
+-- Matar quem acabou de ser assaltado. O estado aqui é o do fluxo real: este corredor foi rendido
+-- e roubado de verdade lá em cima, então ele já está em `recovering` e nada é ajustado à mão.
+-- A versão anterior deste teste devolvia o corredor para `deployed` antes de carimbar o assalto,
+-- montando um estado que o assalto nunca produz — e por isso passava enquanto a morte de um
+-- corredor roubado era recusada em silêncio.
+local robbedRunner = State.dealer(dealerId)
+T.equal(robbedRunner.status, C.DealerStatus.RECOVERING, 'the robbed runner is still recovering')
+local robberyDeadline = robbedRunner.robbed_until
 
-local shortened = db.dealers[2].robbed_until - os.time()
-T.truthy(shortened <= serverConfig.dealers.robbedDownCooldownSeconds + 1,
-    'killing right after a robbery serves the short cooldown')
-T.truthy(shortened < downUntilPlain - os.time(), 'the shortened cooldown is really shorter')
-
-local downOperationAfterRobbery
-for _, op in pairs(db.operations) do
-    if op.type == C.OperationKind.DOWN and op.payload and op.payload.afterRobbery then
-        downOperationAfterRobbery = op
+local function countDowns()
+    local total = 0
+    for _, op in pairs(db.operations) do
+        if op.type == C.OperationKind.DOWN then total = total + 1 end
     end
+    return total
 end
-T.truthy(downOperationAfterRobbery, 'the ledger records that the kill followed a robbery')
+local downsBefore = countDowns()
+
+N.Entities.dead[dealerId] = true
+T.equal(Services.Dealer.markDown(dealerId), true, 'killing a robbed runner takes him out of action')
+
+local killDeadline = State.dealer(dealerId).robbed_until
+T.truthy(killDeadline - os.time() > serverConfig.robbery.cooldownSeconds,
+    'the kill replaces the robbery window with the full execution cooldown')
+T.truthy(killDeadline > robberyDeadline, 'the deadline only ever moves forward')
+-- E é o prazo longo, não o da morte limpa: executar o rendido é o caminho caro dos dois.
+T.truthy(killDeadline - os.time() > serverConfig.dealers.downCooldownSeconds,
+    'executing a robbed runner costs more than a plain kill')
+T.equal(N.Entities.corpses[dealerId], true, 'the body is marked so the engine can reclaim it')
+
+-- Registro: o episódio é um só para a organização, e o alerta do roubo já saiu.
+T.equal(countDowns(), downsBefore, 'a kill that follows a robbery opens no ledger row of its own')
+
+-- O carimbo do assalto é consumido na primeira passagem. A varredura reencontra o mesmo corpo a
+-- cada volta, e sem isso ela empurraria o prazo para sempre.
+T.equal(Services.Dealer.markDown(dealerId), false, 'the same corpse is not marked down twice')
+T.equal(State.dealer(dealerId).robbed_until, killDeadline, 'a refused re-mark leaves the deadline alone')
 
 -- Recuperação: volta a operar e reaparece no posto.
 db.dealers[2].robbed_until = os.time() - 1
@@ -1072,6 +1276,25 @@ T.equal(N.Entities.corpses[2], nil, 'the corpse was cleared on recovery')
 
 local backSold = Services.Sale.process(State.dealer(2))
 T.equal(backSold, true, 'the recovered runner sells again')
+
+-- Aviso do dono de rede. Ele diz apenas quando olhar; quem decide é a leitura do servidor, com a
+-- mesma regra da varredura. Um client mentindo encontra um ped vivo e não derruba ninguém.
+T.equal(State.dealer(2).status, C.DealerStatus.DEPLOYED, 'the runner is on duty')
+T.equal(Services.Dealer.confirmDown(2), false, 'a client claim alone downs nobody')
+N.Entities.dead[2] = true
+T.equal(Services.Dealer.confirmDown(2), true, 'told to look, the server confirms the kill')
+T.equal(State.dealer(2).status, C.DealerStatus.RECOVERING, 'the confirmed kill takes him out of action')
+T.truthy(Services.Dealer.forceRecover(OUTPOST) > 0, 'and the admin command brings him back')
+T.equal(State.dealer(2).status, C.DealerStatus.DEPLOYED, 'back on duty')
+
+-- Matar e recuperar em seguida, sem passar por aviso nenhum. A morte só vira estado na varredura
+-- de peds, que roda a cada `dealers.auditSeconds`; antes o comando chegava primeiro, encontrava o
+-- corredor ainda em campo e respondia zero, como se não houvesse nada a recuperar.
+N.Entities.dead[2] = true
+T.equal(State.dealer(2).status, C.DealerStatus.DEPLOYED, 'the runner is on duty when he is killed')
+T.truthy(Services.Dealer.forceRecover(OUTPOST) > 0, 'recovering right after a kill finds the body')
+T.equal(State.dealer(2).status, C.DealerStatus.DEPLOYED, 'and puts a runner back on the corner')
+T.equal(N.Entities.dead[2], nil, 'the replacement is alive')
 
 -- Demissão -------------------------------------------------------------------------------------------------
 

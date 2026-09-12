@@ -103,26 +103,38 @@ local function approximate(coords)
     }
 end
 
----@param outpostId string
+---@param dealer table linha do corredor que gerou o chamado
 ---@param kind 'sale'|'robbery'
 ---@param chance integer
 ---@return boolean sent
-function Service.maybeDispatch(outpostId, kind, chance)
+function Service.maybeDispatch(dealer, kind, chance)
+    local outpostId = dealer.outpost_id
     local entry = State.get(outpostId)
     local definition = shared.outposts[outpostId]
     if not entry or not definition then return false end
     if math.random(100) > chance then return false end
 
+    -- O chamado sai de onde o corredor está, não da entrada do posto. Um posto pode espalhar
+    -- as esquinas por centenas de metros, e apontar sempre para a entrada mandaria a polícia
+    -- para um lugar onde não aconteceu nada.
+    local origin = NoirOutposts.Services.Dealer.cornerOf(dealer) or definition.entrance
+
     local now = os.time()
     if entry.dispatchUntil > now then return false end
     entry.dispatchUntil = now + config.sales.dispatchCooldownSeconds
 
-    local isRobbery = kind == 'robbery'
+    -- Tabela em vez de ternário: eram dois tipos, hoje são três, e aninhar condição aqui é
+    -- como o código e o título acabam saindo trocados.
+    local kinds = {
+        robbery = { code = config.dispatch.robberyCode, title = 'dispatch.robbery_title' },
+        down = { code = config.dispatch.downCode, title = 'dispatch.down_title' },
+    }
+    local chosen = kinds[kind] or { code = config.dispatch.code, title = 'dispatch.sale_title' }
     return Integration.sendDispatch({
-        code = isRobbery and config.dispatch.robberyCode or config.dispatch.code,
-        title = isRobbery and locale('dispatch.robbery_title') or locale('dispatch.sale_title'),
+        code = chosen.code,
+        title = locale(chosen.title),
         message = definition.dispatch.label,
-        coords = approximate(definition.entrance),
+        coords = approximate(origin),
         jobs = config.police.jobs,
         duration = config.dispatch.duration,
         priority = config.dispatch.priority,

@@ -25,6 +25,9 @@ NoirOutposts.Constants = {
     HoldupState = {
         SURRENDERED = 'surrendered',
         HOSTILE = 'hostile',
+        -- Passada a abordagem, o corredor fica abalado enquanto o cooldown corre. Serve para o
+        -- client mostrar por que a arma apontada de novo não produz reação nenhuma.
+        SHAKEN = 'shaken',
     },
 
     OperationKind = {
@@ -77,6 +80,8 @@ NoirOutposts.Constants = {
         PANEL_CLOSE = 'noir_outposts:client:panelClose',
         SESSION_ABORTED = 'noir_outposts:client:sessionAborted',
         DEALER_REACTION = 'noir_outposts:client:dealerReaction',
+        -- Client -> servidor: o dono de rede informa onde os corredores dele estão.
+        DEALER_POSITION = 'noir_outposts:server:dealerPosition',
     },
 
     Callbacks = {
@@ -110,5 +115,8 @@ NoirOutposts.Constants = {
         maxIdentifierLength = 40,
         maxRequestIdLength = 64,
         maxSessionIdLength = 64,
+        -- Corredores por reporte de posição. O teto por posto é 4, e o cliente só reporta os
+        -- que ele possui, então isto é só o freio contra payload inflado.
+        maxPositionReports = 16,
     },
 }

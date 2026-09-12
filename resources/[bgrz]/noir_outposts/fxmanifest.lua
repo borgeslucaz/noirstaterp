@@ -75,4 +75,5 @@ dependencies {
     'ox_lib',
     'oxmysql',
     'bgrz_core',
+    'peuren_minigames',
 }

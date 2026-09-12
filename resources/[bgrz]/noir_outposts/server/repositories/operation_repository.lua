@@ -97,6 +97,21 @@ function Repo.findByRequest(citizenId, requestId)
     ]], { citizenId, requestId })
 end
 
+---Última organização que concluiu a tomada de um outpost. Permite manutenção mesmo depois
+---de o `release` limpar o proprietário da linha principal.
+---@param outpostId string
+---@return table? row { organization_id: string }
+function Repo.latestClaimOrganization(outpostId)
+    return Db.single([[
+        SELECT organization_id
+        FROM noir_outpost_operations
+        WHERE outpost_id = ? AND operation_type = 'claim'
+            AND status IN ('committed', 'paid') AND organization_id IS NOT NULL
+        ORDER BY created_at DESC, operation_id DESC
+        LIMIT 1
+    ]], { outpostId })
+end
+
 ---Operações mais antigas que `olderThan` (retenção).
 ---@param olderThan integer epoch
 ---@param limit integer

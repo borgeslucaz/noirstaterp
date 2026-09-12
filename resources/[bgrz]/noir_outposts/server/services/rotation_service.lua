@@ -74,6 +74,32 @@ local function draw()
     return { assignments = assignments }
 end
 
+---Sobrepõe a rotação com a lista fixada em config, quando houver.
+---Vale por cima do que já está persistido no ciclo, e não só do sorteio: sem isso a mudança
+---no config só apareceria no ciclo seguinte, daqui a até 24 horas, que não serve para testar.
+---@param assignments table<string, string>
+---@return table<string, string>
+local function applyForced(assignments)
+    local forced = config.rotation.forced
+    if type(forced) ~= 'table' or next(forced) == nil then return assignments end
+
+    local result = {}
+    for id, operationType in pairs(forced) do
+        if shared.outposts[id]
+            and (operationType == C.OperationType.DRUG or operationType == C.OperationType.MONEY) then
+            result[id] = operationType
+        else
+            Log.warn('rotation_forced_invalid', { outpostId = id, operationType = operationType })
+        end
+    end
+
+    -- Lista inteira inválida: melhor o sorteio normal que nenhum posto ativo.
+    if next(result) == nil then return assignments end
+
+    Log.warn('rotation_forced', { assignments = result })
+    return result
+end
+
 ---Desativa um outpost: encerra sessões, remove dealers/estoque e zera a carteira.
 ---@param outpostId string
 local function deactivate(outpostId)
@@ -144,6 +170,7 @@ function Service.apply()
 
     local assignments = type(row.state) == 'table' and row.state.assignments or {}
     if type(assignments) ~= 'table' then assignments = {} end
+    assignments = applyForced(assignments)
 
     for id in pairs(shared.outposts) do
         local entry = State.get(id)

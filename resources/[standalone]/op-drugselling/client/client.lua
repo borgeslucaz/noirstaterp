@@ -169,7 +169,11 @@ end
 -- ADDING GLOBAL TARGETS:
 ----
 
-addGlobalPeds("global_peds_drugselling", 1.7, TranslateIt('target_selldrug_icon'), TranslateIt('target_selldrug'), function(entity)
+-- `addGlobalPed` registra a opção para todo ped do mapa, inclusive NPCs criados por outros
+-- scripts, e o ox_target não permite excluir uma entidade dessa lista. Por isso a venda global
+-- virou opcional: com `Config.GlobalPedDealing.Enable = false` sobra só a venda de esquina.
+if Config.GlobalPedDealing and Config.GlobalPedDealing.Enable then
+addGlobalPeds("global_peds_drugselling", tonumber(Config.GlobalPedDealing.Distance) or 1.7, TranslateIt('target_selldrug_icon'), TranslateIt('target_selldrug'), function(entity)
     dealingPed = entity
     sellDrugMenu(entity)
 end, function(entity) 
@@ -182,6 +186,7 @@ end, function(entity)
     if soldPedsList[entity] then return false end
     return IsEntityAPed(entity) and not IsPedAPlayer(entity) and not IsPedInAnyVehicle(entity, false) and not IsPedDeadOrDying(entity, true) and not IsPedInCombat(entity, PlayerPedId())
 end)
+end
 
 ----
 -- SELL DRUGS MENU:

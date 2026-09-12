@@ -61,8 +61,34 @@ function Entities.spawnDealer(outpostId, dealer)
     state:set(C.StateBag.DEALER_STATE, dealer.status, true)
     state:set(C.StateBag.DEALER, dealer.id, true)
 
-    registry[dealer.id] = { entity = ped, netId = netId, outpostId = outpostId, model = model }
+    -- A morte é detectada comparando a vida com uma observação anterior de ped vivo. Esperar a
+    -- varredura fazer essa observação abre um buraco: ped morto antes dela nunca mais é dado como
+    -- morto, porque `seenAlive` só liga com vida acima de zero, e a vida já é zero. Aqui quem lê é
+    -- o servidor, no ped que ele mesmo acabou de criar, então a observação é honesta. Se a leitura
+    -- vier zerada, fica como antes e a varredura decide.
+    registry[dealer.id] = {
+        entity = ped,
+        netId = netId,
+        outpostId = outpostId,
+        model = model,
+        seenAlive = GetEntityHealth(ped) > 0,
+    }
     byNetId[netId] = dealer.id
+
+    -- Ped novo, estado transitório zerado: abordagem em curso, cooldown de abordagem, medo e as
+    -- leituras de posição ficam com o ped que saiu. A posição importa tanto quanto o resto — a
+    -- última leitura do ped anterior pode estar longe daqui, e o salto até a esquina nova é
+    -- grande o bastante para ser recusado como teleporte, o que travaria toda checagem de
+    -- distância deste corredor. O cooldown de roubo sobrevive de propósito: é do corredor, está
+    -- na linha do banco, e é ele que impede assaltar duas vezes trocando o ped no meio.
+    local Services = NoirOutposts.Services
+    if Services then
+        if Services.Holdup then Services.Holdup.resetDealer(dealer.id) end
+        if Services.Dealer then
+            Services.Dealer.forgetPositionSync(dealer.id)
+            Services.Dealer.forgetReportedPosition(dealer.id)
+        end
+    end
     Log.debug('dealer_spawned', { dealerId = dealer.id, outpostId = outpostId, netId = netId })
     return netId
 end
@@ -154,6 +180,23 @@ function Entities.deadDealers()
     return dead
 end
 
+---A mesma decisão da varredura, para um corredor só e no instante em que perguntam.
+---Existe porque a varredura roda a cada `auditSeconds`, e nessa janela quem matou pode sair de
+---perto: sem dono a vida deixa de valer, e o corpo fica preso como se estivesse em campo.
+---A regra não muda em nada — continua exigindo dono e observação anterior de vivo. O que muda é
+---a hora de perguntar, e quem avisa a hora é o client que está com o ped na mão.
+---@param dealerId integer
+---@return boolean
+function Entities.readDown(dealerId)
+    local record = registry[dealerId]
+    if not record or not DoesEntityExist(record.entity) then return false end
+
+    local owned = hasOwner(record.entity)
+    local health = GetEntityHealth(record.entity)
+    if owned and health > 0 then record.seenAlive = true end
+    return V.isDealerDown(owned, record.seenAlive == true, health)
+end
+
 ---@param dealerId integer
 ---@return boolean
 function Entities.isAlive(dealerId)
@@ -183,6 +226,13 @@ function Entities.resolve(dealerId)
         return nil
     end
     return record.entity, record.netId
+end
+
+---Corredor dono de um net ID, se houver. Só consulta o índice: quem valida é `validate`.
+---@param netId integer
+---@return integer? dealerId
+function Entities.dealerFor(netId)
+    return byNetId[netId]
 end
 
 ---Valida que o net ID enviado pelo client resolve para a entidade registrada do dealer.

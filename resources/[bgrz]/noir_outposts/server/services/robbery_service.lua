@@ -224,7 +224,7 @@ function Service.complete(actor, sessionId)
     })
     Notification.broadcastPublicSnapshot()
     Notification.refreshPanels(dealer.outpost_id)
-    Notification.maybeDispatch(dealer.outpost_id, 'robbery', config.robbery.dispatchChance)
+    Notification.maybeDispatch(dealer, 'robbery', config.robbery.dispatchChance)
 
     Log.info('robbery_completed', {
         outpostId = dealer.outpost_id,

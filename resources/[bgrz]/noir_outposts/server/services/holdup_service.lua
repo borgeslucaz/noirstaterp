@@ -22,6 +22,10 @@ local Dealer = NoirOutposts.Services.Dealer
 local active = {}
 ---@type table<integer, integer>
 local cooldowns = {}
+-- Corredores que ficaram abalados depois da abordagem. É só encenação no client: nenhuma regra
+-- lê este estado, e quem recusa a abordagem seguinte continua sendo o cooldown acima.
+---@type table<integer, boolean>
+local shaken = {}
 
 ---@param dealerId integer
 ---@return boolean
@@ -54,7 +58,30 @@ end
 ---@return string? state
 function Service.stateOf(dealerId)
     local holdup = active[dealerId]
-    return holdup and holdup.state or nil
+    if holdup then return holdup.state end
+    -- O abalado não é abordagem em curso, mas aparece no diagnóstico: é ele que explica um
+    -- corredor agachado sem ninguém por perto.
+    return shaken[dealerId] and C.HoldupState.SHAKEN or nil
+end
+
+---Publica um estado de corredor para os clients: state bag para quem chegar depois, evento para
+---quem já está vendo. O bag atrasa, e a encenação precisa do evento.
+---@param dealerId integer
+---@param state string
+local function publish(dealerId, state)
+    Entities.setState(dealerId, state)
+    local _, netId = Entities.resolve(dealerId)
+    if not netId then return end
+    TriggerClientEvent(C.Events.DEALER_REACTION, -1, { netId = netId, state = state })
+end
+
+---Tira o corredor do estado de abalado e o devolve ao estado real dele.
+---@param dealerId integer
+local function unshake(dealerId)
+    if not shaken[dealerId] then return end
+    shaken[dealerId] = nil
+    local dealer = State.dealer(dealerId)
+    if dealer then publish(dealerId, dealer.status) end
 end
 
 ---Devolve o corredor ao comportamento normal.
@@ -67,15 +94,19 @@ local function release(dealerId, reason)
 
     local dealer = State.dealer(dealerId)
     if dealer then
-        Entities.setState(dealerId, dealer.status)
-        if Entities.resolve(dealerId) then
-            TriggerClientEvent(C.Events.DEALER_REACTION, -1, {
-                netId = select(2, Entities.resolve(dealerId)),
-                state = dealer.status,
-            })
+        -- Enquanto o cooldown corre ele não volta a caminhar como se nada tivesse acontecido:
+        -- fica agachado com medo. É a única pista visível de que apontar a arma de novo agora
+        -- não vai dar em nada, e sem ela a recusa se lê como corredor quebrado.
+        local state = dealer.status
+        if dealer.status == C.DealerStatus.DEPLOYED and (cooldowns[dealerId] or 0) > os.time() then
+            state = C.HoldupState.SHAKEN
+            shaken[dealerId] = true
+        else
+            shaken[dealerId] = nil
         end
+        publish(dealerId, state)
     end
-    Log.debug('holdup_released', { dealerId = dealerId, reason = reason })
+    Log.debug('holdup_released', { dealerId = dealerId, reason = reason, state = shaken[dealerId] and 'shaken' or nil })
 end
 
 ---@param dealerId integer
@@ -88,13 +119,22 @@ end
 ---@param netId integer
 ---@return table result
 function Service.start(actor, dealerId, netId)
-    if active[dealerId] then
-        return { ok = false, code = 'holdup_in_progress' }
+    local current = active[dealerId]
+    if current then
+        -- Ele já reagiu: dizer "está sendo abordado" para quem está levando tiro dele não
+        -- descreve nada. De mãos para o alto, sim, a abordagem está em curso, e a janela
+        -- pertence a quem a abriu.
+        return {
+            ok = false,
+            code = current.state == C.HoldupState.HOSTILE and 'holdup_done' or 'holdup_in_progress',
+        }
     end
 
     local now = os.time()
     if (cooldowns[dealerId] or 0) > now then
-        return { ok = false, code = 'dealer_cooldown' }
+        -- Código próprio: 'dealer_cooldown' é o do assalto, e usar o mesmo nos dois fazia a
+        -- mensagem dizer "já foi roubado" para quem só tinha abordado.
+        return { ok = false, code = 'holdup_cooldown' }
     end
 
     local context, code = Dealer.rivalTarget(actor, dealerId, netId, config.holdup.maxDistance)
@@ -176,6 +216,14 @@ function Service.tick()
     for dealerId, until_ in pairs(cooldowns) do
         if until_ <= now then cooldowns[dealerId] = nil end
     end
+
+    -- Cooldown vencido: quem estava agachado se levanta e volta à caminhada. Nada mais toca este
+    -- estado, então sem esta volta ele ficaria abalado até o próximo restart.
+    local settled = {}
+    for dealerId in pairs(shaken) do
+        if not cooldowns[dealerId] and not active[dealerId] then settled[#settled + 1] = dealerId end
+    end
+    for index = 1, #settled do unshake(settled[index]) end
 end
 
 ---@param source number
@@ -187,6 +235,18 @@ function Service.releaseForSource(source)
     for index = 1, #ids do release(ids[index], 'source_gone') end
 end
 
+---Zera tudo que é transitório de um corredor: abordagem em curso, cooldown de abordagem e medo.
+---Chamado quando o ped é recriado, porque o corredor novo não pode herdar nada do ped anterior —
+---uma abordagem em curso que sobrevive ao ped recusa toda abordagem seguinte até vencer sozinha,
+---e foi isso que fez o "já está sendo abordado" aparecer sem ninguém abordando.
+---O cooldown de roubo não está aqui: ele é do corredor, não do ped, e vive na linha do banco.
+---@param dealerId integer
+function Service.resetDealer(dealerId)
+    active[dealerId] = nil
+    cooldowns[dealerId] = nil
+    shaken[dealerId] = nil
+end
+
 ---Zera os cooldowns de abordagem. Uso administrativo.
 ---@return integer cleared
 function Service.clearCooldowns()
@@ -195,10 +255,16 @@ function Service.clearCooldowns()
         cooldowns[dealerId] = nil
         count = count + 1
     end
+
+    -- Sem o cooldown não há por que continuar agachado.
+    local ids = {}
+    for dealerId in pairs(shaken) do ids[#ids + 1] = dealerId end
+    for index = 1, #ids do unshake(ids[index]) end
     return count
 end
 
 function Service.clear()
     active = {}
     cooldowns = {}
+    shaken = {}
 end

@@ -3,6 +3,7 @@ NoirOutposts = NoirOutposts or {}
 
 local config = require 'config.server'
 local shared = require 'config.shared'
+local C = NoirOutposts.Constants
 local Log = NoirOutposts.Log
 local Db = NoirOutposts.Db
 local State = NoirOutposts.State
@@ -29,7 +30,7 @@ local REQUIRED_TABLES = {
 -- Numeradas e imutáveis depois de aplicadas. Toda nova migration entra aqui.
 local MIGRATIONS = {
     '001_initial', '002_operation_feed', '003_player_settings', '004_dealer_identity',
-    '005_operation_retention',
+    '005_operation_retention', '006_claim_dealer_roster',
 }
 
 ---Só DDL não destrutivo passa. Qualquer outra coisa aborta o start.
@@ -55,10 +56,13 @@ local function runMigration(name)
         return false
     end
 
+    -- Remove comentários antes de separar por `;`. Separar primeiro fazia um ponto e vírgula
+    -- dentro de comentário virar o início de uma instrução falsa (ex.: "este índice...").
+    sql = sql:gsub('%-%-[^\r\n]*', '')
+
     local executed = 0
     for rawStatement in sql:gmatch('([^;]+);') do
         local statement = rawStatement:gsub('^%s*(.-)%s*$', '%1')
-        statement = statement:gsub('%-%-[^\n]*', ''):gsub('^%s*(.-)%s*$', '%1')
         if statement ~= '' then
             if not isAllowedStatement(statement) then
                 Log.error('migration_rejected', { file = file, statement = statement:sub(1, 80) })
@@ -312,8 +316,25 @@ RegisterCommand('outposts', function(source, args)
         local outpostId = Security.outpostId(args[2])
         if not outpostId then return reply('Outpost inválido.') end
         local recovered = Services.Dealer.forceRecover(outpostId)
-        Log.info('admin_recover', { outpostId = outpostId, recovered = recovered, source = source })
-        return reply(('%d corredor(es) de volta ao serviço.'):format(recovered))
+
+        -- Zero sozinho não distingue "não havia ninguém para recuperar" de "o comando não fez
+        -- efeito", e essa dúvida já custou tempo. A contagem depois diz qual dos dois foi.
+        local entry = State.get(outpostId)
+        local deployed, recovering = 0, 0
+        for _, dealer in pairs(entry and entry.dealers or {}) do
+            if dealer.status == C.DealerStatus.RECOVERING then
+                recovering = recovering + 1
+            elseif dealer.status == C.DealerStatus.DEPLOYED then
+                deployed = deployed + 1
+            end
+        end
+
+        Log.info('admin_recover', {
+            outpostId = outpostId, recovered = recovered, source = source,
+            deployed = deployed, recovering = recovering,
+        })
+        return reply(('%d corredor(es) de volta ao serviço. Agora: %d em campo, %d em recuperação.')
+            :format(recovered, deployed, recovering))
     end
 
     if action == 'reload' then
@@ -329,6 +350,11 @@ RegisterCommand('outposts', function(source, args)
         local outpostId = Security.outpostId(args[2])
         if not outpostId then return reply('Outpost inválido.') end
 
+        local explicitOrganization = args[3]
+        if explicitOrganization and not NoirOutposts.Validators.isIdentifier(explicitOrganization, 64) then
+            return reply('Organização inválida.')
+        end
+
         local recovered = Services.Dealer.forceRecover(outpostId)
         local holdups = Services.Holdup.clearCooldowns()
 
@@ -336,17 +362,37 @@ RegisterCommand('outposts', function(source, args)
         local entry = State.get(outpostId)
         if entry then entry.dispatchUntil = 0 end
 
-        local organizationId = entry and entry.row.owner_organization_id or nil
+        -- Depois de `release`, o dono já não existe na linha do outpost. Nesse caso o ledger
+        -- identifica quem concluiu a última tomada. Um ID explícito continua disponível para
+        -- manutenção de dados muito antigos que já tenham saído da retenção do ledger.
+        local organizationId = explicitOrganization
+            or (entry and (entry.row.owner_organization_id or entry.row.claim_organization_id) or nil)
+        if not organizationId then
+            local previousClaim = Repositories.Operation.latestClaimOrganization(outpostId)
+            organizationId = previousClaim and previousClaim.organization_id or nil
+        end
+
+        local claimCooldownCleared = false
         if organizationId then
-            Repositories.Outpost.setOrganizationCooldown(organizationId, 0, nil)
+            local written = Repositories.Outpost.setOrganizationCooldown(organizationId, 0, nil)
+            local saved = written ~= nil and Repositories.Outpost.getOrganization(organizationId) or nil
+            claimCooldownCleared = saved ~= nil and (tonumber(saved.claim_cooldown_until) or 0) <= os.time()
         end
         if source ~= 0 then Security.cleanupSource(source) end
 
         Log.info('admin_cooldowns', {
             outpostId = outpostId, recovered = recovered, holdups = holdups, source = source,
+            organizationId = organizationId, claimCooldownCleared = claimCooldownCleared,
         })
-        return reply(('%s: %d corredor(es) recuperados, %d cooldown(s) de abordagem, dispatch e tomada liberados.')
-            :format(outpostId, recovered, holdups))
+        if not organizationId then
+            return reply(('%s: corredores, abordagem e dispatch liberados; nenhuma organização foi encontrada para zerar a tomada.')
+                :format(outpostId))
+        end
+        if not claimCooldownCleared then
+            return reply(('%s: falha ao zerar o cooldown de tomada de %s.'):format(outpostId, organizationId))
+        end
+        return reply(('%s: %d corredor(es) recuperados, %d cooldown(s) de abordagem e cooldown de tomada de %s liberados.')
+            :format(outpostId, recovered, holdups, organizationId))
     end
 
     if action == 'respawn' then
@@ -368,5 +414,5 @@ RegisterCommand('outposts', function(source, args)
         return reply('Corners rotacionados.')
     end
 
-    reply('Uso: /outposts status | cooldowns <id> | recover <id> | reload <id> | respawn <id> | release <id> | rotate <id>')
+    reply('Uso: /outposts status | cooldowns <id> [organização] | recover <id> | reload <id> | respawn <id> | release <id> | rotate <id>')
 end, false)

@@ -97,6 +97,15 @@ Config.DrugSelling = {
     }
 }
 
+-- Venda ao mirar qualquer pedestre do mundo, via target.
+-- Desligado: a opção era registrada com `addGlobalPed`, que vale para todo ped do mapa, e por
+-- isso aparecia também em NPCs de outros scripts, como o atendente do noir_outposts. Com isto
+-- em false só sobra a venda de esquina, que procura o cliente e já ignora entidade de missão.
+Config.GlobalPedDealing = {
+    Enable = false,
+    Distance = 1.7,
+}
+
 Config.CornerDealing = {
     Enable = true, 
     SellTimeout = 5, -- Tempo até procurar outro comprador no modo de esquina.

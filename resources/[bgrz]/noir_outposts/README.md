@@ -3,8 +3,8 @@
 Outposts disputados por organizações criminosas, com dealers NPC que vendem estoque
 passivamente enquanto o local estiver sob controle.
 
-O resource é dono do domínio (posse, dealers, estoque, agenda, carteira, roubo). A única
-dependência de integração é o `bgrz_core`. Nenhum arquivo chama `qbx_core`, `noir_gangs`,
+O resource é dono do domínio (posse, dealers, estoque, agenda, carteira, roubo). As dependências
+de integração são o `bgrz_core` e o `peuren_minigames`. Nenhum arquivo chama `qbx_core`, `noir_gangs`,
 `ox_inventory`, `ox_target`, `sd-phone`, dispatch ou `ox_doorlock` diretamente.
 
 A organização dona de um outpost é a gang do personagem, lida do `GetCharacter` do bridge.
@@ -13,8 +13,9 @@ Vale o `name` da gang como `organizationId` e o `grade.level` como cargo. Um per
 
 ## Instalação
 
-1. Garanta a ordem de start: `ox_lib` / `oxmysql` → `qbx_core` e providers → `bgrz_core` →
-   `noir_outposts`. O `server.cfg` já traz essa ordem explícita antes do `ensure [bgrz]`.
+1. Garanta a ordem de start: `ox_lib` / `oxmysql` → `qbx_core` e providers → `bgrz_core` /
+   `peuren_lib` → `peuren_minigames` → `noir_outposts`. As dependências também estão declaradas
+   nos manifests.
 2. `bgrz_core` precisa estar na versão `0.5.0` ou superior: o resource usa os adapters de
    inventário, target, phone, dispatch e os exports `SendPhoneAppMessage` e `CountOnDutyJob`.
 3. As migrations rodam sozinhas no start (apenas `CREATE TABLE IF NOT EXISTS` e
@@ -61,9 +62,142 @@ objetos. Outros peds não contam como obstáculo. Se ainda assim o corredor enco
 o teto de 20 segundos.
 
 A IA roda no client que for dono de rede do ped, como qualquer ped, e o loop reaplica a
-caminhada quando a propriedade troca de mão. Eles não fogem de tiro, por atributo de fuga, e
-continuam mortais. Enquanto rendidos ou hostis a caminhada para, e volta quando a abordagem
-termina.
+caminhada quando a propriedade troca de mão. Eles continuam mortais.
+
+### O corredor não corre
+
+A fuga é barrada em quatro camadas, porque nenhuma delas cobre tudo sozinha.
+
+**Atributos, em toda troca de estado.** O atributo de combate 17, que é "sempre fugir", fica
+desligado; 5 e 46, "sempre lutar" e "encara ped armado mesmo desarmado", ficam ligados. Estes
+dois não estão lá para deixar o corredor agressivo: desarmado e sem eles, a resposta padrão do
+jogo a uma arma apontada é a corrida. Tudo isso é reaplicado em toda transição — assentar,
+começar a andar, parar, render, reagir — porque trocar de dono de rede ou de tarefa devolve o ped
+ao padrão do modelo, e o padrão é correr.
+
+**Bloqueio de evento enquanto ele está parado.** `SetBlockingOfNonTemporaryEvents` é o único
+freio que não depende de atributo de combate, e ligado durante a caminhada ele cancela a tarefa
+de destino junto: o corredor não anda, só toca a animação de ócio. Isso foi testado e reprovado,
+e é por isso que `dealerWander.blockEvents` está em **false** — não tente de novo. Mas parado não
+há destino a cancelar, então parado ele entra sempre, e é aí que importa: a abordagem exige 12
+metros e a parada por jogador perto começa em 18, então quem aponta uma arma encontra o corredor
+já parado e já surdo a susto. Vale para a parada por jogador, para a pausa entre trechos e para a
+rendição.
+
+**Nada de tarefa de fuga.** A reação hostil sem alvo resolvido neste client chamava
+`TaskReactAndFleePed` e mandava o corredor correr — do jogador local, que quase nunca é quem
+apontou a arma. Agora ele fica firme e armado até o servidor encerrar a hostilidade. E o combate
+é dado com o bloqueio de evento ligado em seguida: sem isso, levar tiro durante a briga gerava o
+evento que larga o combate e vira fuga.
+
+**Coleira.** Empurrão, carro e ragdoll não são susto, e nenhum atributo cobre eles. Passando de
+`dealerWander.leashDistance` da esquina, o corredor larga o que está fazendo e volta andando, em
+vez de ficar parado onde foi parar. Essa volta tem precedência sobre a parada por jogador perto:
+parado longe do posto ele não é abordável nem assaltável, e é justamente o que não pode durar.
+
+**Fora de serviço.** Corredor em recuperação — de assalto ou de morte — sai da lógica de venda,
+mas continua na rua e continua sendo um ped. O laço largava a caminhada dele e não colocava nada
+no lugar, e ped largado volta à IA do jogo: era ele que fugia da arma apontada durante os dez
+minutos inteiros de recuperação. Agora ele é fixado parado, blindado e com cenário de esquina,
+uma vez por estado, e corpo caído nunca recebe tarefa. O mesmo vale para o corredor em serviço
+cuja caminhada não pôde começar, por config desligado ou por esquina que ainda não chegou pelo
+state bag.
+
+Enquanto rendidos ou hostis a caminhada para, e volta quando a abordagem termina.
+
+### Quando a abordagem é recusada
+
+Apontar a arma nem sempre vira abordagem, e as recusas vinham caladas. O efeito era o pior
+possível: o corredor não reagia, o jogador não recebia explicação nenhuma, e a leitura era de que
+o NPC estava quebrado. São três janelas, e todas terminam sozinhas:
+
+- **10 minutos de recuperação** depois de um assalto bem-sucedido, ou 20 depois de uma morte. O
+  corredor está fora de serviço, e `dealer_unavailable` ou `dealer_cooldown` explicam.
+- **2 minutos de cooldown de abordagem**, contados da abordagem anterior, que existem para
+  ninguém ficar rolando o dado até tirar a rendição. Este tem código próprio,
+  `holdup_cooldown`: usar o mesmo do assalto fazia a mensagem dizer "já foi roubado" para quem
+  só tinha abordado.
+- **Fora de alcance**, que continua em silêncio de propósito: mirar de longe é acidente comum, a
+  correção é andar, e avisar aqui viraria spam a cada volta do laço de mira.
+
+Nas duas primeiras a mensagem aparece e a próxima tentativa é adiada em 15 segundos, porque a
+resposta não vai mudar nos próximos segundos e mirar é contínuo. `/outposts recover <id>` devolve
+quem está em recuperação, e `/outposts cooldowns <id>` zera também os cooldowns de abordagem.
+
+**E o corredor nessas janelas fica agachado com medo**, no `cowerScenario` do config do client, em
+vez de voltar a circular como se nada tivesse acontecido. Vale para os dois casos: o abalado da
+abordagem recente e o que está em recuperação de assalto. A postura é a pista visível de que ali
+não há o que tirar agora — a mensagem explica, mas quem chega de longe lê a cena antes de mirar.
+
+### Gang dona offline
+
+Sem nenhum membro da organização dona online, **o corredor deixa de ser alvo**: não pode ser
+abordado nem assaltado, e as duas recusas saem como `owner_offline`. A checagem mora em
+`Dealer.rivalTarget`, que é por onde a abordagem e o assalto passam, então é uma trava só para
+os dois caminhos.
+
+A venda passiva já parava sozinha nesse período, por `sales.requireOwnerMemberOnline`. Faltava
+a outra metade: com a venda travada e o roubo aberto, a madrugada virava ganho de graça para o
+rival e perda unilateral para quem não tinha ninguém para reagir. Ligado, o posto fica congelado
+enquanto a gang está fora — não rende e não perde. É `ownerOffline.protectDealers`, em
+`config/server.lua`, e o `config_spec` recusa a combinação incoerente: se a gang offline não
+ganha nada, ela também não pode perder nada.
+
+Vale um membro online de qualquer cargo, em qualquer lugar do mapa — o mesmo critério da venda.
+A presença vem do cache de `server/integration.lua`, alimentado pelos eventos de login, troca de
+gang e queda do `bgrz_core`.
+
+A trava é revalidada na conclusão do assalto, não só na abertura: quem começou a revista com a
+gang online e viu o último membro cair no meio dela não conclui. E ela precede a checagem de
+distância, então um rival fora de alcance recebe `owner_offline` em vez de `too_far` — a resposta
+que não muda por andar até lá é a que deve aparecer.
+
+**Matar o corredor continua possível**, porque ele é um ped como qualquer outro e não há como
+blindá-lo sem deixá-lo imortal. Mas isso não tira nada da organização: sem carteira nem estoque
+a menos, ele volta sozinho pelo cooldown de morte, que corre mesmo com o servidor vazio.
+
+Uma organização que se desfaz deixa o posto num estado parado: ele continua `controlled` com um
+dono que não tem mais ninguém, então não pode ser tomado — o status não é `available` — nem
+roubado, pela trava acima. Não é um caso a tratar em código. A rotação o desativa no fim do
+ciclo, e `/outposts release <id>` resolve na hora.
+
+### Estado é do ped, não do corredor
+
+Tudo que é transitório vive em memória por `dealerId` e sobrevive à troca do ped, e isso já custou
+dois sintomas. Uma abordagem em curso que sobreviveu ao ped recusa todas as seguintes até vencer
+sozinha, e foi ela que fez o "já está sendo abordado" aparecer sem ninguém abordando. A última
+posição reportada do ped anterior pode estar longe da esquina nova, e o salto até lá é grande o
+bastante para ser recusado como teleporte, o que trava toda checagem de distância do corredor.
+
+Por isso `Entities.spawnDealer` zera, no ped novo, a abordagem em curso, o cooldown de abordagem,
+o medo e as leituras de posição. **O cooldown de roubo não:** ele é do corredor, não do ped, está
+na linha do banco, e é o que impede assaltar duas vezes trocando o ped no meio.
+
+No client vale o mesmo, e pelo motivo mais direto: o FiveM recicla net ID, então o corredor
+recriado costuma herdar o número do anterior. `detach` esquece caminhada, fixação, propriedade de
+rede, reação e recuo de mira de uma vez só. Um `wanderOwned` esquecido era o bastante para deixar
+o ped novo parado para sempre — a caminhada dele constava como já iniciada, e ninguém a iniciava
+de novo.
+
+### Já foi abordado
+
+Quem já reagiu responde `holdup_done`, "Este corredor já foi abordado", e não "está sendo
+abordado": quem está levando tiro dele não precisa ouvir que a abordagem está em curso. De mãos
+para o alto, sim, ela está em curso, e a janela pertence a quem a abriu. A inspeção mostra o mesmo
+— o estado exibido é o que se vê, não o da linha do banco, que continua dizendo "em campo" para
+quem reagiu ou está agachado.
+
+E o recuo do laço de mira agora vale para os dois resultados. Só a rendição o tinha, então depois
+de uma reação o client voltava a pedir abordagem a cada três segundos enquanto o corredor atirava
+de volta, e era isso que enchia a tela de recusa.
+
+O abalado é um estado transitório novo, `shaken`, publicado no state bag e por evento quando a
+abordagem termina com o cooldown ainda correndo, e desfeito pelo `tick` quando ele vence. Nenhuma
+regra do servidor o consulta: quem recusa a abordagem seguinte continua sendo o cooldown em
+memória, e o estado existe só para o client saber o que encenar. Ele aparece no `/outposts status`
+como `holdupState`, que é o que explica um corredor agachado sem ninguém por perto. O corredor
+abalado continua respondendo ao alvo de inspeção — está agachado, não fora do ar —, enquanto o
+que está em recuperação continua fora, como já era.
 
 Essa parada depende de duas coisas que já custaram caro. A reação chega ao client por evento e
 por state bag, e o bag atrasa: durante esse intervalo a manutenção ainda lia `deployed` e
@@ -77,16 +211,29 @@ E a reação corta as tarefas de forma imediata. `ClearPedTasks` não interrompe
 ócio: o ped toca a animação de saída inteira antes de obedecer, então quem apontava a arma
 esperava o cigarro acabar para o corredor se render.
 
+### A rendição é de quem chegar
+
+A janela de revista **não pertence a quem abriu a abordagem**. `Robbery.start` confere que o
+corredor está rendido e não confere quem o rendeu, então dois rivais podem dividir o trabalho: um
+aponta a arma e tira a rendição na sorte, o outro revista. Também significa que um terceiro que
+estava passando leva o loot de uma rendição que não é dele.
+
+Isso é intencional, e está escrito aqui porque no código se lê como esquecimento — a correção
+"óbvia" seria comparar o `source` de quem abordou com o de quem revista. Não compare. O que
+pertence a quem abriu é só a recusa da abordagem seguinte (`holdup_in_progress`), que existe para
+ninguém rolar o dado de novo em cima de um corredor já rendido.
+
 ### Identidade do corredor
 
 O perfil é o arquétipo contratado: preço, ritmo de venda, capacidade, comissão. Ele não é mais o
-sujeito. Nome e ped são sorteados no momento da contratação, das listas em `dealerIdentities`, e
-gravados na linha do corredor. Ficam gravados de propósito: mudar a lista no config não troca o
-rosto de quem já está na rua, e um restart não redistribui ninguém.
+sujeito. Quando a tomada termina, nome e ped são sorteados para todos os perfis a partir das
+listas em `dealerIdentities` e o elenco é gravado no outpost. A contratação copia a identidade
+reservada para a linha do corredor. Tudo fica gravado de propósito: mudar o config não troca o
+rosto de quem já está na rua, demitir e recontratar preserva a pessoa durante aquele controle,
+e um restart não redistribui ninguém. Uma nova tomada gera outro elenco.
 
-O sorteio evita repetir nome ou ped já em uso no mesmo posto. Com tudo tomado ele repete em vez
-de recusar a contratação, o que só acontece se a lista ficar menor que o teto de corredores por
-posto, e `config_spec` barra essa configuração.
+O sorteio evita repetir nome ou ped no mesmo elenco. Cada lista precisa cobrir todos os perfis,
+e `config_spec` barra uma configuração menor.
 
 Corredores contratados antes desta mudança ficam com as colunas nulas e caem no nome e no modelo
 do arquétipo, então nada quebra sem backfill. O feed guarda o nome dentro da operação: um
@@ -95,35 +242,72 @@ arquétipo no lugar de quem estava lá.
 
 ### Atendente do terminal
 
-O computador é uma zona de alvo invisível, então um local sem MLO ou objeto próprio não
-tem nada para mirar. Por isso `config/shared.lua` traz `terminalNpc`, um NPC local criado no
-client em cima da coordenada do terminal, que serve de âncora de interação.
+O terminal é um NPC, e é a única forma de abrir o painel. A zona de alvo invisível que existia
+antes foi removida: os postos ficam em doca e pátio, a céu aberto, onde não há MLO nem objeto
+para mirar, e o alvo de esfera ficava suspenso no ar sem nada visível dizendo onde interagir.
 
 ```lua
 terminalNpc = {
-    enabled = true,
-    model = 's_m_m_highsec_01',
-    scenario = 'WORLD_HUMAN_CLIPBOARD',
+    model = 'a_m_o_beach_01',
+    scenario = nil,
+    checkIntervalMs = 5000,
 },
 ```
 
-Ele é auxiliar de teste. Quando um local ganhar um objeto próprio, marque
-`terminalNpc = false` naquele outpost, ou desligue `enabled` para todos. Onde há atendente a
-zona invisível não é criada, então nunca existem duas opções de abrir o mesmo terminal.
+Sem cenário, como o NPC do `noir-truckjob`: ele só fica de pé. Com `scenario` preenchido o ped
+toca o cenário e o laço o reinicia se ele parar; sem cenário o laço apenas reafirma as flags.
 
-O ped nasce exatamente na coordenada `computer`, sem ajuste de altura. Como as ferramentas de
-dev copiam a posição do jogador, que fica cerca de um metro acima do chão, desconte esse metro
-ao cadastrar um local novo, ou o atendente vai flutuar.
+O ped é local e não networked. Ele não carrega autoridade nenhuma: serve de âncora de
+interação, e toda callback revalida distância no servidor contra a coordenada `computer` do
+posto, que é exatamente onde o ped nasce. Uma coordenada, dois usos, sem chance de divergirem.
 
-O ped não é networked e não carrega estado: toda autorização continua no servidor, que
-revalida a distância até a coordenada do terminal, não até o NPC.
+Como o atendente virou a única porta, uma falha de criação deixaria o local inacessível. Por
+isso um laço no client confere a cada `checkIntervalMs` se cada posto ativo ainda tem o seu de
+pé, e refaz o que faltar. Isso cobre o streaming de modelo falhando e o engine removendo o ped.
+O aviso de falha sai uma vez por local, não a cada volta.
+
+A coordenada `computer` é usada como está. O ped nasce exatamente nela e fica congelado, então o
+que está no config é a posição final: não há busca de chão nem correção de altura. Cadastre a
+coordenada já no ponto onde o atendente deve ficar.
+
+Ele é mobília com voz: imune a dano, sem ragdoll, sem reagir a nada ao redor e congelado no
+lugar. As garantias extras, como prova contra explosão, passam por `optional`, que só chama o
+nativo se ele existir nesta build. Isso não é zelo à toa: um nativo inventado é `nil` no client
+e derruba o resource inteiro, e foi o que aconteceu com `SetPedDiesFromLowHealth`. Nativo sem
+uso em nenhum outro resource do servidor entra por ali ou fica de fora. O laço de manutenção reafirma esse estado junto
+com a existência do ped, porque uma explosão perto ou outro resource mexendo em peds da região
+pode soltar a animação sem apagar a entidade.
+
+**Cuidado com `addGlobalPed` de outros resources.** Quem registra assim no ox_target coloca a
+opção em todo ped do mapa, e o ox_target 1.18.1 não tem como excluir uma entidade dessa lista:
+quem decide é o `canInteract` de quem registrou. Nada que se faça aqui dentro tira a opção do
+atendente. O `op-drugselling` oferecia venda de droga nele, e foi resolvido lá, com a flag
+`Config.GlobalPedDealing.Enable` desligando o alvo global e deixando só a venda de esquina, que
+já ignora entidade de missão. Um resource novo com o mesmo padrão precisa do mesmo tipo de
+ajuste do lado dele.
 
 ### Coordenadas
 
-As coordenadas em `config/shared.lua` são **placeholders** e precisam ser capturadas in-game
-antes de produção: `computer` (terminal), `entrance` (blip/dispatch) e no mínimo seis
-`dealerCorners` por local. O start aborta se algum local tiver menos corners que o limite de
-dealers.
+As coordenadas de `docks`, `cypress` e `lamesa` em `config/shared.lua` ainda são **placeholders**
+e precisam ser capturadas in-game antes de produção: `computer` (terminal), `entrance` (blip) e
+no mínimo seis `dealerCorners` por local. O start aborta se algum local tiver menos corners que o
+limite de dealers, e o `config_spec` recusa duas esquinas a menos de 20 metros.
+
+O `pier` é o único com coordenada real. Ele também é o mais espalhado, com 265 metros entre as
+esquinas extremas, e foi por causa dele que o chamado da polícia passou a sair da posição do
+corredor em vez da entrada do posto.
+
+Todas as coordenadas são usadas como estão, sem correção de altura em lugar nenhum.
+
+### Rotação fixada para teste
+
+`rotation.forced` em `config/server.lua` prende a rotação nos postos listados e desativa todos os
+outros. Ela vale por cima da rotação já persistida do ciclo, não só do sorteio, senão a mudança
+só apareceria até 24 horas depois.
+
+Está em `{ pier = 'drug' }` e precisa ser esvaziada antes de abrir para os jogadores, junto com
+`claim.minOnlinePlayers` e `claim.minPolice`, que também estão zerados para teste. Os três estão
+marcados com `--TODO: NÃO SUBIR PRA PRODUÇÃO ASSIM`.
 
 ## Configuração
 
@@ -140,8 +324,10 @@ Nenhum preço, payout, chance de dispatch ou regra anti-exploit existe fora de
 
 1. No boot e a cada ciclo (24h por padrão), o servidor sorteia os outposts ativos e **persiste**
    a rotação por `cycle_key`. Restart dentro do mesmo ciclo restaura a mesma seleção.
-2. Uma organização com grade suficiente inicia a tomada no terminal. O claim é travado no banco
-   (`status = claiming` + `claim_session_id`), então duas organizações não concluem ao mesmo tempo.
+2. Quando o outpost está livre, o terminal mostra apenas sua descrição e a ação de tomada. O
+   jogador precisa concluir o `StartTypewriter`; em seguida o claim é travado no banco
+   (`status = claiming` + `claim_session_id`) e começa o tempo configurado da tomada. Assim, duas
+   organizações não concluem ao mesmo tempo.
 3. O líder contrata até quatro dealers; cada um ocupa um corner livre e é rotacionado a cada
    20 minutos.
 4. Membros abastecem o estoque virtual pelo painel, com os itens saindo do inventário.
@@ -155,14 +341,81 @@ Nenhum preço, payout, chance de dispatch ou regra anti-exploit existe fora de
    Abordar de novo o mesmo corredor tem cooldown, para ninguém ficar rolando o dado.
 9. O corredor assaltado entra em recuperação por 10 minutos, e nesse período não vende nem
    pode ser assaltado de novo.
-10. Matar um corredor também o tira por 20 minutos. O corpo fica caído onde estava, deixa de
-    ser mantido à força e some sozinho quando a área esvazia. Na recuperação o que tiver
-    sobrado é removido e um ped novo assume o posto. Corredor em recuperação não vende, não
-    pode ser roubado e não aceita a opção de observar.
-    **Exceção:** matar dentro de 60 segundos após o assalto tira ele por apenas 2 minutos.
-    Sem essa regra, roubar e executar o rendido removeria o corredor por 20 minutos de graça,
-    transformando o assalto em sabotagem barata em vez de escolha entre levar ou punir.
+10. Matar um corredor o tira de operação, e por quanto tempo depende de ter havido assalto
+    antes: **1 minuto numa morte limpa, 20 minutos se ele já tinha sido revistado**. O corpo
+    fica caído onde estava, deixa de ser mantido à força e some sozinho quando a área esvazia.
+    Na recuperação o que tiver sobrado é removido e um ped novo assume o posto, com o mesmo nome
+    e o mesmo rosto. Corredor em recuperação não vende, não pode ser roubado e não aceita a
+    opção de observar. Ver "Matar: os dois prazos", abaixo.
 11. Ao expirar o controle ou mudar o ciclo, dealers e estoque são encerrados.
+
+### Como a morte é detectada
+
+A vida de um ped só vale enquanto algum client o transmite: **sem dono de rede o servidor lê vida
+zero num ped perfeitamente vivo**, e confiar nessa leitura já derrubou todos os corredores de
+outposts vazios de uma vez. Por isso a regra exige dono e uma observação anterior de vivo, e por
+isso ela não pode ser afrouxada — está fixada no `validators_spec` como regressão.
+
+O que fica frágil é a *hora* de olhar. A varredura roda a cada `dealers.auditSeconds`, e nessa
+janela quem matou pode sair de perto: o corpo perde o dono, a vida deixa de valer, e o corredor
+fica preso "em campo" com um cadáver na esquina, vendendo. Três coisas fecham isso:
+
+- **O ped nasce já observado vivo**, com o servidor lendo a vida do ped que ele mesmo acabou de
+  criar. Esperar a varredura fazer essa primeira observação abria um buraco permanente: ped morto
+  antes dela nunca mais era dado como morto, porque a observação de vivo só liga com vida acima de
+  zero e a vida já era zero.
+- **O dono de rede avisa quando olhar.** O reporte de posição, que já existia e já é validado
+  contra o dono verdadeiro do ped, carrega um `dead`. Ele não derruba ninguém: quem decide é a
+  leitura do servidor, com a mesma regra de sempre. Um client mentindo encontra um ped vivo e não
+  consegue nada. E no instante da morte sempre há dono, porque quem matou está ali.
+- **`/outposts recover` põe o estado em dia antes de recuperar**, em vez de esperar a varredura.
+  Sem isso, matar e recuperar em seguida encontrava o corredor ainda em campo e o comando
+  respondia zero, como se não houvesse nada a fazer. A resposta também passou a dizer quantos
+  estão em campo e quantos em recuperação, porque zero sozinho não distinguia "não havia o que
+  recuperar" de "o comando não funcionou".
+
+Sobra um caso: quem mata e desconecta no mesmo segundo não gera aviso nenhum, e aí a morte volta a
+depender de outro jogador estar por perto na varredura seguinte.
+
+### Matar: os dois prazos
+
+| Como | Fora de operação | Ledger | Alerta |
+|---|---|---|---|
+| Morte limpa, sem assalto antes | **1 minuto** | `dealer_down` | sim |
+| Execução depois da revista | **20 minutos** | só o roubo | só o roubo |
+
+**A morte limpa é curta de propósito.** Matar não é a forma de tirar um posto de operação: quem
+só atira devolve o corredor em um minuto, então a sabotagem por tiro não compensa e o roubo
+continua sendo o caminho. Render e matar sem concluir a revista cai aqui, não no prazo longo — o
+carimbo do assalto só é gravado quando a revista termina, e até lá o corredor ainda está em campo.
+O rival que estava assaltando perde a revista junto, porque a conclusão revalida e encontra o
+corredor fora de operação.
+
+**A execução depois da revista é o caminho caro.** Ela substitui o que restava do roubo pelo prazo
+cheio, e o prazo só anda para frente: matar nunca devolve o corredor mais cedo do que deixá-lo
+vivo. O `config_spec` trava as duas relações — `downAfterRobberyCooldownSeconds` precisa ser maior
+que `robbery.cooldownSeconds`, e `downCooldownSeconds` precisa ser menor que ele.
+
+Isso só funciona porque `markDown` aceita corredor em `recovering`. O assalto grava esse estado no
+mesmo `UPDATE` que debita a carteira, então, no instante em que a revista termina, o corredor já
+não está mais em campo. Enquanto `markDown` exigia `deployed`, a morte dele era recusada em
+silêncio: ele voltava no prazo do roubo, sem linha no ledger, sem alerta e sem o corpo marcado para
+a engine recolher. Executar o rendido não custava nada.
+
+**A segunda passagem é autorizada pelo carimbo do assalto, e o carimbo é consumido nela.** Sem isso
+a varredura reencontraria o mesmo corpo a cada dez segundos e empurraria o prazo para sempre.
+Consumido o carimbo, remarcar o mesmo corredor é recusado como sempre foi.
+
+**A execução não abre registro próprio.** Para a organização o episódio é um só, e o alerta de
+roubo já saiu: não há linha `dealer_down` no ledger nem segunda notificação no telefone. O que muda
+é o prazo, não o aviso. O `Log` do servidor registra os dois casos, com `afterRobbery`, porque ele
+é diagnóstico e não o histórico que o jogador lê. A morte limpa, essa sim, abre linha e alerta.
+
+Houve uma punição reduzida — matar até 60 segundos depois do assalto custaria 2 minutos em vez de
+20 — e ela **foi removida**, junto com `dealers.robbedGraceSeconds`,
+`dealers.robbedDownCooldownSeconds` e o `V.downCooldown` que os consumia. Nunca chegou a funcionar:
+o carimbo que alimentava a conta era apagado na recuperação, e até lá o corredor estava sempre em
+`recovering`, fora do alcance do `markDown`. Hoje cada caminho tem a sua chave própria.
 
 ### Estados
 
@@ -195,12 +448,34 @@ loot, chance de polícia, cooldown e posição. Pontos de controle:
 - **distância até o corredor**: a checagem mede o jogador até onde o servidor acredita que o
   ped está, e o alcance depende de essa crença ser fato ou palpite.
 
-  O servidor só enxerga um ped movido por IA se o client dono estiver sincronizando a posição.
-  Ele descobre isso sozinho: uma leitura que saiu da esquina de spawn, no plano X/Y, só pode ter
-  chegado pela sincronização, porque ninguém move aquele ped no servidor. A primeira leitura
-  assim liga `positionSyncProven` para o resource inteiro, e a partir daí a medida é a real, com
-  a distância de interação sem folga nenhuma. Antes disso a medida cai na **esquina cadastrada**
-  somando `dealerWander.radius` como folga, o que é frouxo mas confina a ação à área do posto.
+  A posição de um ped conduzido por IA não existe no servidor: ele fica parado na coordenada de
+  spawn. Por isso **o dono de rede reporta**, a cada `dealerWander.reportIntervalMs`, onde os
+  corredores que ele possui estão. É a fonte principal, e o que tornou a validação honesta.
+
+  O reporte é alegação de client, então chega limitado. **O limite é de continuidade, não de
+  área.** Um corredor assustado foge e pode parar bem longe, e esse comportamento é desejado:
+  prendê-lo ao raio de caminhada tornaria impossível assaltar exatamente quem correu.
+
+  A âncora começa na esquina cadastrada, que o servidor conhece de fato, e cada reporte só pode
+  afastá-la o que um ped percorre no tempo decorrido, por `reportedPositionMaxSpeed`. A posição
+  acompanha a fuga a qualquer distância, mas ninguém teleporta o corredor para o próprio colo:
+  arrastar a âncora custa o mesmo tempo que andar até lá de verdade. Sem esse limite, um client
+  modificado drenaria a carteira da organização sem sair de casa.
+
+  O primeiro reporte depois de ancorar recebe o raio de caminhada como orçamento, porque ali o
+  corredor legitimamente já pode estar em qualquer ponto da área dele. E `reportedPositionMaxGap`
+  limita o orçamento acumulado, já que sem dono o ped fica parado e um intervalo longo não deve
+  virar licença para teleporte.
+
+  Só o dono de rede daquele ped é ouvido, o evento tem limite de taxa e teto de itens por envio,
+  e o reporte vence em `reportedPositionTtlSeconds`, para que um dono que saiu não deixe rastro.
+
+  Sem reporte fresco, o servidor cai na leitura própria e na heurística antiga: uma leitura que
+  saiu da coordenada de spawn, medida em 3D, prova que a sincronização chega, porque o servidor
+  não simula física para estes peds. Essa prova é **por corredor**. Já foi global e estava errado:
+  bastava um provar para todos passarem ao alcance apertado, inclusive um cuja leitura ainda era
+  o spawn. No píer isso quebrou o assalto, porque o Z cadastrado fica metros acima do chão e a
+  distância é medida em 3D.
 
   No assalto a medida não é uma leitura nova: é a **posição gravada no instante da rendição**,
   em `holdup_service`. Congelar o ponto impede arrastar o alvo para perto de quem está roubando
@@ -216,14 +491,14 @@ autoriza qualquer coisa.
 
 ## Persistência
 
-Sete tabelas próprias, criadas em `migrations/001_initial.sql` indexadas para o feed em
-`migrations/002_operation_feed.sql` e completadas por `migrations/003_player_settings.sql`. O migrador aplica os arquivos em ordem e aceita apenas
+Sete tabelas próprias, criadas em `migrations/001_initial.sql` e evoluídas pelas migrations
+seguintes. A `006_claim_dealer_roster.sql` persiste o elenco sorteado na tomada. O migrador aplica os arquivos em ordem e aceita apenas
 `CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS` e `INSERT IGNORE`; nenhuma consulta a schema de terceiros.
 Valores monetários são inteiros e timestamps são epoch UTC.
 
 | Tabela | Papel |
 |---|---|
-| `noir_outposts` | estado, dono, carteira disponível/pendente, lock de claim |
+| `noir_outposts` | estado, dono, elenco sorteado, carteira disponível/pendente, lock de claim |
 | `noir_outpost_dealers` | perfil, identidade sorteada, corner, agenda, recuperação e acumulados |
 | `noir_outpost_stock` | estoque virtual por produto |
 | `noir_outpost_operations` | ledger idempotente de toda operação econômica e fonte do feed |
@@ -311,7 +586,7 @@ App Store do celular e o jogador precisa instalar antes de abrir. Para exigir o 
 
 ```text
 /outposts status          lista estado, dono, dealers, estoque e carteira
-/outposts cooldowns <id>  libera recuperação, abordagem, dispatch e espera de tomada
+/outposts cooldowns <id> [organização]  libera recuperação, abordagem, dispatch e espera de tomada
 /outposts release <id>    libera o controle de um outpost
 /outposts rotate <id>     rotaciona os corners dos dealers
 ```

@@ -1,4 +1,4 @@
--- Zonas do computador, progress bars e envio de intenção. Nenhum resultado nasce aqui.
+-- Acesso ao terminal, progress bars e envio de intenção. Nenhum resultado nasce aqui.
 NoirOutposts = NoirOutposts or {}
 
 local Interaction = {}
@@ -8,7 +8,6 @@ local shared = require 'config.shared'
 local clientConfig = require 'config.client'
 local C = NoirOutposts.Constants
 
-local zones = {}
 local busy = false
 
 -- Hash constante resolvido uma vez. Evita o literal com crase, que só o runtime CfxLua lê
@@ -53,20 +52,13 @@ end
 
 Interaction.runProgress = runProgress
 
-local function clearZones()
-    for name in pairs(zones) do
-        exports.bgrz_core:RemoveZoneTarget(name)
-        zones[name] = nil
-    end
-end
-
 function Interaction.clear()
-    clearZones()
     NoirOutposts.Entities.clear()
 end
 
----Cria/remove o acesso ao computador conforme o outpost está ativo.
----Onde existe atendente, ele é o alvo; a zona invisível cobre o resto.
+---Declara em quais locais o atendente do terminal deve existir.
+---A zona invisível que cobria isto foi removida: em área aberta não há objeto nem MLO para
+---mirar, e o alvo de esfera ficava no ar sem nada visível explicando onde interagir.
 function Interaction.refresh()
     local Client = NoirOutposts.Client
     local wanted = {}
@@ -76,38 +68,7 @@ function Interaction.refresh()
         if outpost.status ~= C.OutpostStatus.INACTIVE then wanted[outpost.id] = true end
     end
 
-    local withNpc = NoirOutposts.Entities.syncTerminals(wanted)
-
-    for name in pairs(zones) do
-        local outpostId = name:match('^computer:(.+)$')
-        if outpostId and (not wanted[outpostId] or withNpc[outpostId]) then
-            exports.bgrz_core:RemoveZoneTarget(name)
-            zones[name] = nil
-        end
-    end
-
-    for outpostId in pairs(wanted) do
-        local name = 'computer:' .. outpostId
-        if not zones[name] and not withNpc[outpostId] then
-            local definition = shared.outposts[outpostId]
-            local ok = exports.bgrz_core:AddSphereZoneTarget({
-                name = name,
-                coords = vector3(definition.computer.x, definition.computer.y, definition.computer.z),
-                radius = shared.interaction.computerDistance,
-                debug = clientConfig.debug,
-                options = {
-                    {
-                        name = 'computer:open',
-                        icon = clientConfig.target.icons.computer,
-                        label = locale('target.open_computer'),
-                        distance = shared.interaction.computerDistance,
-                        onSelect = function() Interaction.openComputer(outpostId) end,
-                    },
-                },
-            })
-            if ok then zones[name] = true end
-        end
-    end
+    NoirOutposts.Entities.syncTerminals(wanted)
 end
 
 ---@param outpostId string
@@ -141,7 +102,10 @@ function Interaction.isDealerResponsive(netId)
     if not entity or entity == 0 or not DoesEntityExist(entity) then return false end
     if IsPedDeadOrDying(entity, true) then return false end
     local _, _, status = NoirOutposts.Entities.readState(entity)
-    return status == C.DealerStatus.DEPLOYED or status == C.HoldupState.SURRENDERED
+    -- Abalado ainda conversa: ele está agachado, não fora do ar. Recuperação, sim, fica fora.
+    return status == C.DealerStatus.DEPLOYED
+        or status == C.HoldupState.SURRENDERED
+        or status == C.HoldupState.SHAKEN
 end
 
 ---Só esconde a opção de quem é do dono. Lê a gang viva do bridge em vez do snapshot
@@ -169,6 +133,13 @@ end
 -- ou se rende é o servidor.
 local holdupAttempts = {}
 
+---Ped recriado herda o net ID do anterior com frequência. Sem limpar, o corredor novo nasceria
+---em silêncio pelo recuo de quem veio antes.
+---@param netId integer
+function Interaction.forgetDealer(netId)
+    holdupAttempts[netId] = nil
+end
+
 ---@param netId integer
 local function attemptHoldup(netId)
     local now = GetGameTimer()
@@ -185,18 +156,26 @@ local function attemptHoldup(netId)
 
     if not response or not response.ok then
         local code = response and response.code or 'internal_error'
-        -- Silencioso nos casos normais de "ainda não dá", para não virar spam ao mirar.
-        if code ~= 'holdup_in_progress' and code ~= 'dealer_cooldown' and code ~= 'too_far' then
+        -- Só 'too_far' fica em silêncio: mirar de longe é acidente comum e a correção é andar.
+        -- O resto precisa aparecer. Corredor em recuperação ou em cooldown não reage à arma, e
+        -- sem uma linha dizendo isso a recusa se lê como NPC quebrado — foi o que aconteceu.
+        if code ~= 'too_far' then
             NoirOutposts.Client.notify(NoirOutposts.Client.message(code), 'error')
+            -- Recuo maior depois de avisar: a resposta não muda nos próximos segundos e a mira
+            -- é contínua, então sem isto a mesma mensagem sairia a cada três segundos.
+            holdupAttempts[netId] = now + 15000
         end
         return
     end
 
+    -- O recuo vale para os dois resultados. Só a rendição o tinha, e depois de uma reação o laço
+    -- de mira voltava a pedir abordagem a cada três segundos enquanto o corredor atirava de
+    -- volta: o servidor recusava cada uma, e era isso que enchia a tela de "já foi abordado".
+    holdupAttempts[netId] = now + response.data.durationMs
     if response.data.reacted then
         NoirOutposts.Client.notify(locale('holdup.reacted'), 'error')
     else
         NoirOutposts.Client.notify(locale('holdup.surrendered'), 'success')
-        holdupAttempts[netId] = now + response.data.durationMs
     end
 end
 
@@ -353,9 +332,11 @@ RegisterCommand('outpostsdebug', function()
                 else
                     lines[#lines + 1] = ('  servidor vê em %s | a %.2fm | limite roubo %.1f, abordagem %.1f'):format(
                         data.dealerAt, data.distance, data.robberyLimit, data.holdupLimit)
-                    lines[#lines + 1] = ('  medindo contra: %s | posição confiável %s | sincronia provada %s'):format(
+                    lines[#lines + 1] = ('  medindo contra: %s | confiável %s | sincronia provada %s'):format(
                         tostring(data.measuredAgainst), tostring(data.positionTrusted),
                         tostring(data.positionSyncProven))
+                    lines[#lines + 1] = ('  leitura crua do servidor: %s'):format(
+                        tostring(data.serverSees))
                     lines[#lines + 1] = ('  status %s, abordagem %s, mesmo bucket %s'):format(
                         data.dealerStatus, data.holdupState, tostring(data.sameBucket))
                 end
@@ -370,6 +351,5 @@ end, false)
 
 AddEventHandler('onClientResourceStop', function(resource)
     if resource ~= GetCurrentResourceName() then return end
-    clearZones()
     stopAnimation()
 end)

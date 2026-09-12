@@ -10,8 +10,21 @@ local S = NoirOutposts.Constants.OutpostStatus
 local COLUMNS = table.concat({
     'id', 'status', 'operation_type', 'rotation_id', 'owner_organization_id', 'kingpin_citizenid',
     'claimed_at', 'expires_at', 'claim_session_id', 'claim_organization_id', 'claim_started_at',
-    'purse_available', 'purse_pending', 'last_corner_rotation_at', 'expiry_warned_at', 'version',
+    'purse_available', 'purse_pending', 'last_corner_rotation_at', 'expiry_warned_at', 'dealer_roster', 'version',
 }, ', ')
+
+---@param row table?
+---@return table?
+local function decodeRoster(row)
+    if not row then return nil end
+    if type(row.dealer_roster) == 'string' then
+        local ok, decoded = pcall(json.decode, row.dealer_roster)
+        row.dealer_roster = ok and type(decoded) == 'table' and decoded or nil
+    elseif type(row.dealer_roster) ~= 'table' then
+        row.dealer_roster = nil
+    end
+    return row
+end
 
 ---@param ids string[]
 function Repo.ensureRows(ids)
@@ -22,13 +35,15 @@ end
 
 ---@return table[]
 function Repo.getAll()
-    return Db.rows(('SELECT %s FROM noir_outposts'):format(COLUMNS)) or {}
+    local rows = Db.rows(('SELECT %s FROM noir_outposts'):format(COLUMNS)) or {}
+    for index = 1, #rows do decodeRoster(rows[index]) end
+    return rows
 end
 
 ---@param id string
 ---@return table?
 function Repo.get(id)
-    return Db.single(('SELECT %s FROM noir_outposts WHERE id = ?'):format(COLUMNS), { id })
+    return decodeRoster(Db.single(('SELECT %s FROM noir_outposts WHERE id = ?'):format(COLUMNS), { id }))
 end
 
 ---Reseta claims em andamento (sessões vivem apenas em memória).
@@ -50,7 +65,7 @@ function Repo.activate(id, operationType, rotationId)
         SET status = ?, operation_type = ?, rotation_id = ?, owner_organization_id = NULL,
             kingpin_citizenid = NULL, claimed_at = NULL, expires_at = NULL, claim_session_id = NULL,
             claim_organization_id = NULL, claim_started_at = NULL, purse_available = 0, purse_pending = 0,
-            last_corner_rotation_at = NULL, expiry_warned_at = NULL, version = version + 1
+            last_corner_rotation_at = NULL, expiry_warned_at = NULL, dealer_roster = NULL, version = version + 1
         WHERE id = ?
     ]], { S.AVAILABLE, operationType, rotationId, id })
 end
@@ -62,7 +77,7 @@ function Repo.deactivate(id)
         SET status = ?, operation_type = NULL, rotation_id = NULL, owner_organization_id = NULL,
             kingpin_citizenid = NULL, claimed_at = NULL, expires_at = NULL, claim_session_id = NULL,
             claim_organization_id = NULL, claim_started_at = NULL, purse_available = 0, purse_pending = 0,
-            last_corner_rotation_at = NULL, expiry_warned_at = NULL, version = version + 1
+            last_corner_rotation_at = NULL, expiry_warned_at = NULL, dealer_roster = NULL, version = version + 1
         WHERE id = ?
     ]], { S.INACTIVE, id })
 end
@@ -75,7 +90,7 @@ function Repo.release(id)
         SET status = ?, owner_organization_id = NULL, kingpin_citizenid = NULL, claimed_at = NULL,
             expires_at = NULL, claim_session_id = NULL, claim_organization_id = NULL, claim_started_at = NULL,
             purse_available = 0, purse_pending = 0, last_corner_rotation_at = NULL, expiry_warned_at = NULL,
-            version = version + 1
+            dealer_roster = NULL, version = version + 1
         WHERE id = ? AND status IN (?, ?)
     ]], { S.AVAILABLE, id, S.CONTROLLED, S.CLAIMING })
 end
@@ -112,16 +127,20 @@ end
 ---@param citizenId string
 ---@param now integer
 ---@param expiresAt integer
+---@param dealerRoster table
 ---@return integer? affected
-function Repo.completeClaim(id, sessionId, organizationId, citizenId, now, expiresAt)
+function Repo.completeClaim(id, sessionId, organizationId, citizenId, now, expiresAt, dealerRoster)
     return Db.update([[
         UPDATE noir_outposts
         SET status = ?, owner_organization_id = ?, kingpin_citizenid = ?, claimed_at = ?, expires_at = ?,
             claim_session_id = NULL, claim_organization_id = NULL, claim_started_at = NULL,
             purse_available = 0, purse_pending = 0, last_corner_rotation_at = ?, expiry_warned_at = NULL,
-            version = version + 1
+            dealer_roster = ?, version = version + 1
         WHERE id = ? AND status = ? AND claim_session_id = ?
-    ]], { S.CONTROLLED, organizationId, citizenId, now, expiresAt, now, id, S.CLAIMING, sessionId })
+    ]], {
+        S.CONTROLLED, organizationId, citizenId, now, expiresAt, now, json.encode(dealerRoster),
+        id, S.CLAIMING, sessionId,
+    })
 end
 
 ---@param id string

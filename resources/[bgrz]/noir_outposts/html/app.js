@@ -229,6 +229,24 @@
         el('owner-value').textContent = viewer.organizationLabel || 'Sem organização';
     }
 
+    function isClaimLanding() {
+        return snapshot.outpost.status === 'available' && !snapshot.outpost.owner;
+    }
+
+    function renderClaimLanding() {
+        const visible = isClaimLanding();
+        el('claim-landing').hidden = !visible;
+        el('main-nav').hidden = visible;
+        el('owner-summary').hidden = visible;
+        el('owner-separator').hidden = visible;
+        if (!visible) return;
+
+        el('claim-landing-name').textContent = snapshot.outpost.label.toUpperCase();
+        el('outpost-description').textContent = snapshot.outpost.description
+            || 'Um ponto estratégico disponível para sua organização.';
+        el('claim-landing-button').disabled = snapshot.claim.canClaim !== true;
+    }
+
     function renderMarket() {
         const stats = el('market-stats');
         clear(stats);
@@ -252,7 +270,9 @@
             title.textContent = profile.name;
             const sub = document.createElement('p');
             sub.className = 'row__sub';
-            sub.textContent = profile.description;
+            sub.textContent = profile.archetypeName
+                ? `${profile.archetypeName} · ${profile.description}`
+                : profile.description;
             info.append(title, sub);
 
             const meta = document.createElement('div');
@@ -551,9 +571,15 @@
     function render(data) {
         snapshot = data;
         renderHeader();
+        renderClaimLanding();
+        if (isClaimLanding()) {
+            for (const tab of document.querySelectorAll('.tab')) tab.hidden = true;
+            return;
+        }
         renderMarket();
         renderRunners();
         renderControl();
+        selectTab(data.viewer.isOwner ? 'runners' : activeTab === 'runners' ? 'market' : activeTab);
     }
 
     /* Navegação ---------------------------------------------------------- */
@@ -595,6 +621,10 @@
         );
         if (!accepted) return;
         await act(el('claim'), 'claim', {});
+    });
+
+    el('claim-landing-button').addEventListener('click', async () => {
+        await act(el('claim-landing-button'), 'claim', {});
     });
 
     el('close').addEventListener('click', () => { void requestClose(); });
@@ -660,7 +690,6 @@
     function show(data) {
         hideImmediate();
         render(data);
-        selectTab(data.viewer.isOwner ? 'runners' : activeTab === 'runners' ? 'market' : activeTab);
         shell.hidden = false;
         shell.dataset.anim = 'enter';
         el('close').focus();
