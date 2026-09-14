@@ -1,4 +1,4 @@
-# N4 Crafting System
+# Noir Guncraft
 
 Advanced FiveM crafting system with weapon customization, placeable benches, and blueprint-based recipes. made with AI tools as an expiremnetal project.
 ## Screenshots
@@ -36,7 +36,7 @@ Advanced FiveM crafting system with weapon customization, placeable benches, and
 2. Import `database_complete.sql` into your database
 3. Add to `server.cfg`:
    ```cfg
-   ensure n4-crafting
+   ensure noir_guncraft
    ```
 4. Add required items to `ox_inventory/data/items.lua`:
    ```lua
@@ -92,4 +92,4 @@ To force players to use crafting benches for weapon customization, see [disableo
 
 This is a **free** resource provided **as-is** with no guaranteed support.
 
-- Report issues: [GitHub Issues](https://github.com/Nmil4/n4-crafting/issues)
+- Report issues: [GitHub Issues](https://github.com/Nmil4/noir_guncraft/issues)

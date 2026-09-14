@@ -240,7 +240,7 @@ end)
 -- Handle crafting data from server
 RegisterNetEvent('crafting:showCrafting', function(data)
     if Config.Debug then
-        print('[N4 Crafting] Received crafting data, opening NUI')
+        print('[noir_guncraft] Received crafting data, opening NUI')
     end
     SendNUIMessage({
         action = 'showCrafting',
@@ -249,7 +249,7 @@ RegisterNetEvent('crafting:showCrafting', function(data)
 end)
 
 -- Handle notifications
-RegisterNetEvent('n4_crafting:showNotification', function(message, type)
+RegisterNetEvent('noir_guncraft:showNotification', function(message, type)
     if frameworkType == 'qbox' then
         Framework:Notify(message, type)
     else
@@ -297,7 +297,7 @@ function AddTargetToEntity(entity, benchId)
             })
         end)
         if not success and Config.Debug then
-            print('[N4 Crafting] qb-target export not found, skipping target setup')
+            print('[noir_guncraft] qb-target export not found, skipping target setup')
         end
     elseif target == 'interact' then
         exports.interact:AddLocalEntityInteraction({

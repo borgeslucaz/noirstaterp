@@ -1,4 +1,4 @@
--- N4 Crafting System Database Tables
+-- Noir Guncraft Database Tables
 -- Run this SQL file to create the required database tables
 
 CREATE TABLE IF NOT EXISTS `benches` (

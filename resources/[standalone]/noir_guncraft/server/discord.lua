@@ -14,14 +14,14 @@ function Discord.sendWebhook(title, description, fields, color)
             fields = fields or {},
             timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ"),
             footer = {
-                text = "N4 Crafting System",
+                text = "Noir Guncraft",
                 icon_url = "https://cdn.discordapp.com/emojis/1234567890123456789.png"
             }
         }
     }
     
     local payload = {
-        username = Config.Discord.botName or "N4 Crafting",
+        username = Config.Discord.botName or "Noir Guncraft",
         embeds = embed
     }
     

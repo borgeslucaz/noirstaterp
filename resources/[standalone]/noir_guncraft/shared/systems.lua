@@ -88,6 +88,6 @@ CreateThread(function()
     -- Auto-detect target system only
     Systems.target = Systems.detectTarget()
     if Config.Debug then
-        print('[N4 Crafting] Initialized - Target: ' .. Systems.target)
+        print('[noir_guncraft] Initialized - Target: ' .. Systems.target)
     end
 end)

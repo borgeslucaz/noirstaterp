@@ -2,9 +2,10 @@ fx_version 'cerulean'
 game 'gta5'
 lua54 'yes'
 
-author 'Nmil4'
-description 'Advanced Crafting System with Weapon Customization'
-version '1.0.0'
+name 'noir_guncraft'
+author 'Nmil4 (upstream) / Noir State'
+description 'Bancadas de crafting com customizacao de armas. Fork de Nmil4/n4-crafting.'
+version '1.1.0'
 
 dependencies {
     'object_gizmo'

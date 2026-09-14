@@ -13,7 +13,7 @@ Config.Discord = {
     webhook = '',
     logCrafting = true,
     logBenchPlacement = true,
-    botName = 'N4 Crafting',
+    botName = 'Noir Guncraft',
     color = 3066993 -- Default green color
 }
 

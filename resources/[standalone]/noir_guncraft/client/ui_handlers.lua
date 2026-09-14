@@ -16,7 +16,7 @@ RegisterNetEvent('crafting:refreshUI', function()
 end)
 
 -- Standardized notification event
-RegisterNetEvent('nsk_crafting:showNotification', function(message, type)
+RegisterNetEvent('noir_guncraft:showNotification', function(message, type)
     SendNUIMessage({
         action = 'showNotification',
         data = {

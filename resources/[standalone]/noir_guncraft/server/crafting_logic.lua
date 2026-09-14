@@ -24,14 +24,14 @@ RegisterNetEvent('crafting:startCraft', function(benchId, itemName, quantity)
     quantity = math.min(quantity or 1, 10) -- Max 10 items
     local recipe = Config.Recipes[itemName]
     if not recipe then
-        TriggerClientEvent('n4_crafting:showNotification', src, 'Recipe not found', 'error')
+        TriggerClientEvent('noir_guncraft:showNotification', src, 'Recipe not found', 'error')
         return
     end
     
     MySQL.query('SELECT serial FROM benches WHERE id = ?', {benchId}, function(benchResult)
         local benchSerial = benchResult[1] and benchResult[1].serial
         if not benchSerial then 
-            TriggerClientEvent('n4_crafting:showNotification', src, 'Bench not found', 'error')
+            TriggerClientEvent('noir_guncraft:showNotification', src, 'Bench not found', 'error')
             return 
         end
         
@@ -50,12 +50,12 @@ RegisterNetEvent('crafting:startCraft', function(benchId, itemName, quantity)
                     end
                 end
                 if available < (needed * quantity) then
-                    TriggerClientEvent('n4_crafting:showNotification', src, 'Not enough ' .. material .. ' for ' .. quantity .. 'x crafting', 'error')
+                    TriggerClientEvent('noir_guncraft:showNotification', src, 'Not enough ' .. material .. ' for ' .. quantity .. 'x crafting', 'error')
                     return
                 end
             end
         else
-            TriggerClientEvent('n4_crafting:showNotification', src, 'No materials available', 'error')
+            TriggerClientEvent('noir_guncraft:showNotification', src, 'No materials available', 'error')
             return
         end
         
@@ -82,7 +82,7 @@ RegisterNetEvent('crafting:startCraft', function(benchId, itemName, quantity)
         end
         
         if not hasBlueprint then
-            TriggerClientEvent('n4_crafting:showNotification', src, 'Blueprint not found or not enough uses left for ' .. quantity .. 'x crafting', 'error')
+            TriggerClientEvent('noir_guncraft:showNotification', src, 'Blueprint not found or not enough uses left for ' .. quantity .. 'x crafting', 'error')
             return
         end
         
@@ -118,7 +118,7 @@ RegisterNetEvent('crafting:startCraft', function(benchId, itemName, quantity)
                 MySQL.insert('INSERT INTO crafting_queue (bench_id, item, finish_time, quantity, start_time) VALUES (?, ?, ?, ?, ?)', {
                     benchId, itemName, finishTime, quantity, startTime
                 })
-                TriggerClientEvent('n4_crafting:showNotification', src, 'Started crafting ' .. quantity .. 'x ' .. (recipe.label or itemName), 'success')
+                TriggerClientEvent('noir_guncraft:showNotification', src, 'Started crafting ' .. quantity .. 'x ' .. (recipe.label or itemName), 'success')
                 TriggerClientEvent('crafting:refreshUI', src)
             else
                 -- Queue system: one by one, add after existing items
@@ -129,7 +129,7 @@ RegisterNetEvent('crafting:startCraft', function(benchId, itemName, quantity)
                         benchId, itemName, finishTime, 1, startTime
                     })
                 end
-                TriggerClientEvent('n4_crafting:showNotification', src, 'Started crafting ' .. quantity .. 'x ' .. (recipe.label or itemName), 'success')
+                TriggerClientEvent('noir_guncraft:showNotification', src, 'Started crafting ' .. quantity .. 'x ' .. (recipe.label or itemName), 'success')
                 TriggerClientEvent('crafting:refreshUI', src)
             end
         end)

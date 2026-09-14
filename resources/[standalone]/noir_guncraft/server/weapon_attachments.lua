@@ -238,7 +238,7 @@ RegisterNetEvent('crafting:equipAccessory', function(weaponSerial, accessoryName
     end
     
     if not weaponSlot or not accessorySlot or not weapon then
-        TriggerClientEvent('nsk_crafting:showNotification', src, 'Weapon or accessory not found', 'error')
+        TriggerClientEvent('noir_guncraft:showNotification', src, 'Weapon or accessory not found', 'error')
         return
     end
     
@@ -247,19 +247,19 @@ RegisterNetEvent('crafting:equipAccessory', function(weaponSerial, accessoryName
     
     for _, comp in pairs(newMetadata.components) do
         if comp == accessoryName then
-            TriggerClientEvent('nsk_crafting:showNotification', src, 'This attachment is already equipped', 'error')
+            TriggerClientEvent('noir_guncraft:showNotification', src, 'This attachment is already equipped', 'error')
             return
         end
     end
     
     if not isAccessoryCompatible(weapon.name, accessoryName) then
-        TriggerClientEvent('nsk_crafting:showNotification', src, 'This attachment is not compatible with this weapon', 'error')
+        TriggerClientEvent('noir_guncraft:showNotification', src, 'This attachment is not compatible with this weapon', 'error')
         return
     end
     
     local componentData = oxComponents[accessoryName]
     if not componentData then
-        TriggerClientEvent('nsk_crafting:showNotification', src, 'Invalid component data', 'error')
+        TriggerClientEvent('noir_guncraft:showNotification', src, 'Invalid component data', 'error')
         return
     end
     
@@ -279,7 +279,7 @@ RegisterNetEvent('crafting:equipAccessory', function(weaponSerial, accessoryName
     exports.ox_inventory:SetMetadata(src, weaponSlot, newMetadata)
     exports.ox_inventory:RemoveItem(src, accessoryName, 1)
     
-    TriggerClientEvent('nsk_crafting:showNotification', src, 'Attachment equipped successfully', 'success')
+    TriggerClientEvent('noir_guncraft:showNotification', src, 'Attachment equipped successfully', 'success')
     TriggerClientEvent('crafting:refreshWeaponObject', src, weapon.name, weaponSerial)
     
     SetTimeout(200, function()
@@ -315,7 +315,7 @@ RegisterNetEvent('crafting:unequipAccessory', function(weaponSerial, accessoryNa
     end
     
     if not weaponSlot or not weapon then
-        TriggerClientEvent('nsk_crafting:showNotification', src, 'Weapon not found', 'error')
+        TriggerClientEvent('noir_guncraft:showNotification', src, 'Weapon not found', 'error')
         return
     end
     
@@ -335,7 +335,7 @@ RegisterNetEvent('crafting:unequipAccessory', function(weaponSerial, accessoryNa
     if componentRemoved then
         exports.ox_inventory:SetMetadata(src, weaponSlot, newMetadata)
         exports.ox_inventory:AddItem(src, accessoryName, 1)
-        TriggerClientEvent('nsk_crafting:showNotification', src, 'Attachment unequipped successfully', 'success')
+        TriggerClientEvent('noir_guncraft:showNotification', src, 'Attachment unequipped successfully', 'success')
         
         TriggerClientEvent('crafting:refreshWeaponObject', src, weapon.name, weaponSerial)
         
@@ -344,6 +344,6 @@ RegisterNetEvent('crafting:unequipAccessory', function(weaponSerial, accessoryNa
             TriggerEvent('crafting:getPersonalData')
         end)
     else
-        TriggerClientEvent('nsk_crafting:showNotification', src, 'Component not found on weapon', 'error')
+        TriggerClientEvent('noir_guncraft:showNotification', src, 'Component not found on weapon', 'error')
     end
 end)

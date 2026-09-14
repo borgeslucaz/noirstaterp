@@ -3157,7 +3157,7 @@ return {
     ['clothing_watch'] = { label = 'Relógio', clothing = 'watch', weight = 80, stack = false, close = true, consume = 0, client = { export = 'clothingmenu.UseClothingItem' } },
     ['clothing_necklace'] = { label = 'Colar', clothing = 'necklace', weight = 50, stack = false, close = true, consume = 0, client = { export = 'clothingmenu.UseClothingItem' } },
 
-    -- n4-crafting: bancada portatil, materiais e blueprints.
+    -- noir_guncraft: bancada portatil, materiais e blueprints.
     ['crafting_bench'] = { label = 'Crafting Bench', weight = 5000, stack = false, close = true, description = 'A portable crafting workstation' },
 
     ['gunpowder'] = { label = 'Gunpowder', rarity = 'uncommon', weight = 100 },

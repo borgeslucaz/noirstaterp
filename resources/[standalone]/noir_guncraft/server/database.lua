@@ -3,7 +3,7 @@ Database = {}
 -- Database initialization
 CreateThread(function()
     MySQL.ready(function()
-        print('[N4 Crafting] Database connection established')
+        print('[noir_guncraft] Database connection established')
         
         -- Create tables if they don't exist
         MySQL.query([[
@@ -38,7 +38,7 @@ CreateThread(function()
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         ]])
         
-        print('[N4 Crafting] Database tables verified')
+        print('[noir_guncraft] Database tables verified')
     end)
 end)
 

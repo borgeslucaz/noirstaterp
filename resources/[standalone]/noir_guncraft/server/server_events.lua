@@ -293,7 +293,7 @@ RegisterNetEvent('crafting:pickupBench', function(benchId)
     local currentTime = os.time()
     
     if playerCooldowns[citizenid] and (currentTime - playerCooldowns[citizenid]) < 5 then
-        TriggerClientEvent('n4_crafting:showNotification', src, 'Please wait before picking up another bench', 'error')
+        TriggerClientEvent('noir_guncraft:showNotification', src, 'Please wait before picking up another bench', 'error')
         return
     end
     
@@ -335,12 +335,12 @@ RegisterNetEvent('crafting:pickupBench', function(benchId)
             
             if hasActiveItems then
                 pickupLocks[benchId] = nil
-                TriggerClientEvent('n4_crafting:showNotification', src, 'Cannot pickup bench while items are being crafted', 'error')
+                TriggerClientEvent('noir_guncraft:showNotification', src, 'Cannot pickup bench while items are being crafted', 'error')
                 return
             end
             
             if completedItems > 0 then
-                TriggerClientEvent('n4_crafting:showNotification', src, completedItems .. ' completed items moved to storage', 'success')
+                TriggerClientEvent('noir_guncraft:showNotification', src, completedItems .. ' completed items moved to storage', 'success')
             end
             
             MySQL.execute('DELETE FROM crafting_queue WHERE bench_id = ?', {benchId})
@@ -426,16 +426,16 @@ RegisterNetEvent('crafting:pickupItem', function(queueId)
                 
                 if success then
                     MySQL.execute('DELETE FROM crafting_queue WHERE id = ?', {craft.id})
-                    TriggerClientEvent('n4_crafting:showNotification', src, 'Item picked up and added to storage', 'success')
+                    TriggerClientEvent('noir_guncraft:showNotification', src, 'Item picked up and added to storage', 'success')
                     TriggerClientEvent('crafting:refreshUI', src)
                 else
-                    TriggerClientEvent('n4_crafting:showNotification', src, 'Failed to add item to storage', 'error')
+                    TriggerClientEvent('noir_guncraft:showNotification', src, 'Failed to add item to storage', 'error')
                 end
             else
-                TriggerClientEvent('n4_crafting:showNotification', src, 'Item not ready yet', 'error')
+                TriggerClientEvent('noir_guncraft:showNotification', src, 'Item not ready yet', 'error')
             end
         else
-            TriggerClientEvent('n4_crafting:showNotification', src, 'Item not found', 'error')
+            TriggerClientEvent('noir_guncraft:showNotification', src, 'Item not found', 'error')
         end
     end)
 end)
@@ -500,7 +500,7 @@ RegisterNetEvent('crafting:cancelCraft', function(queueId)
                     end
                 end
                 
-                TriggerClientEvent('n4_crafting:showNotification', src, 'Crafting cancelled, materials and blueprint use refunded', 'success')
+                TriggerClientEvent('noir_guncraft:showNotification', src, 'Crafting cancelled, materials and blueprint use refunded', 'success')
                 SetTimeout(100, function()
                     TriggerClientEvent('crafting:refreshUI', src)
                 end)
