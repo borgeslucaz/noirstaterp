@@ -3158,7 +3158,9 @@ return {
     ['clothing_necklace'] = { label = 'Colar', clothing = 'necklace', weight = 50, stack = false, close = true, consume = 0, client = { export = 'clothingmenu.UseClothingItem' } },
 
     -- noir_guncraft: bancada portatil, materiais e blueprints.
-    ['crafting_bench'] = { label = 'Crafting Bench', weight = 5000, stack = false, close = true, description = 'A portable crafting workstation' },
+    -- allowArmed: sem isto o ox_inventory recusa o uso com arma na mao
+    -- (client.lua:693) e devolve 'Voce nao pode realizar esta acao'.
+    ['crafting_bench'] = { label = 'Crafting Bench', weight = 5000, stack = false, close = true, allowArmed = true, description = 'A portable crafting workstation' },
 
     ['gunpowder'] = { label = 'Gunpowder', rarity = 'uncommon', weight = 100 },
     ['pistol_frame'] = { label = 'Pistol Frame', rarity = 'uncommon', weight = 400 },
