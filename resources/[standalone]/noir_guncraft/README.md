@@ -25,40 +25,18 @@ Advanced FiveM crafting system with weapon customization, placeable benches, and
 - [object_gizmo](https://github.com/DemiAutomatic/object_gizmo)
 
 ### Framework (Auto-detected)
-- [qb-core](https://github.com/qbcore-framework/qb-core) **OR** [qbx_core](https://github.com/Qbox-project/qbx_core)
+- [qbx_core](https://github.com/Qbox-project/qbx_core) **OR** [qb-core](https://github.com/qbcore-framework/qb-core)
 
 ### Target System (Choose One)
-- [qb-target](https://github.com/qbcore-framework/qb-target) **OR** [ox_target](https://github.com/overextended/ox_target) **OR** [interact](https://github.com/darktrovx/interact)
+- [ox_target](https://github.com/overextended/ox_target) **OR** [qb-target](https://github.com/qbcore-framework/qb-target) **OR** [interact](https://github.com/darktrovx/interact)
 
 ## Installation
 
-1. Download and extract to your `resources` folder
-2. Import `database_complete.sql` into your database
-3. Add to `server.cfg`:
-   ```cfg
-   ensure noir_guncraft
-   ```
-4. Add required items to `ox_inventory/data/items.lua`:
-   ```lua
-   ['crafting_bench'] = {
-       label = 'Crafting Bench',
-       weight = 5000,
-       stack = false,
-       close = true,
-       description = 'A portable crafting workstation'
-   },
-   ```
-5. Add blueprint items (example):
-   ```lua
-   ['pistol_blueprint'] = {
-       label = 'Pistol Blueprint',
-       weight = 10,
-       stack = false,
-       close = true,
-       description = 'Blueprint for crafting pistols'
-   },
-   ```
-6. Restart your server
+1. `ensure object_gizmo` e `ensure noir_guncraft` no server.cfg, depois do ox_inventory.
+2. As tabelas (`noir_guncraft_benches`, `noir_guncraft_queue`) são criadas sozinhas
+   no `MySQL.ready`. O `database_complete.sql` fica só como referência do schema.
+3. Registrar os itens em `ox_inventory/data/items.lua`: `crafting_bench`,
+   os materiais das receitas e um item por blueprint de `config/blueprints.lua`.
 
 ## Configuration
 
@@ -93,3 +71,33 @@ To force players to use crafting benches for weapon customization, see [disableo
 This is a **free** resource provided **as-is** with no guaranteed support.
 
 - Report issues: [GitHub Issues](https://github.com/Nmil4/noir_guncraft/issues)
+
+---
+
+## Diferenças em relação ao upstream
+
+Fork de [Nmil4/n4-crafting](https://github.com/Nmil4/n4-crafting). O que mudou:
+
+**Segurança.** Nenhum evento de rede do upstream conferia dono ou distância, e o
+`benchId` é um inteiro sequencial — dava para abrir a stash, craftar e cancelar a
+fila de qualquer bancada do servidor chutando ids. Todo evento passa agora por
+`server/access.lua`. Colocar bancada consome o item de verdade (antes, um slot
+inválido fazia o `RemoveItem` falhar em silêncio e a bancada nascia de graça).
+`quantity` é normalizada: valor negativo devolvia usos ao blueprint.
+
+**Duplicação.** `cancelCraft` criava um blueprint do nada quando não achava o
+original na stash, o que dava blueprint infinito. `equipAccessory` gravava a
+metadata da arma antes de consumir o item e não checava retorno, o que duplicava
+o attachment.
+
+**Perda de item.** A limpeza periódica apagava craft pronto e não coletado sem
+devolver nada. Agora o item vai para a storage da bancada antes de a linha sair.
+
+**Performance.** As bancadas viram objeto por distância (`Config.StreamDistance`),
+em vez de um `CreateObject` por bancada do servidor em todo cliente, para sempre.
+
+**Outros.** Tabelas com prefixo; `Config.Stashes` no lugar dos 5.000.000g fixos;
+webhooks do Discord ligados de fato (o módulo existia e nada o chamava); `Logger`
+indefinido em `camera.lua`; carregamentos de modelo com timeout; a varredura de
+`GetGamePool('CObject')` que apagava qualquer prop num raio de 2 m da bancada;
+eventos de notificação unificados; `qb-core` hardcoded em `weapon_attachments.lua`.

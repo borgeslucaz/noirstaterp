@@ -38,6 +38,7 @@ server_scripts {
     '@oxmysql/lib/MySQL.lua',
     'server/database.lua',
     'server/discord.lua',
+    'server/access.lua',
     'server/server_events.lua',
     'server/crafting_logic.lua',
     'server/weapon_attachments.lua'

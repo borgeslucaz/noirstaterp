@@ -8,30 +8,6 @@ Config.AttachmentBones = {
     ['WAPGrip'] = { label = 'Grip', key = 'grip', shift_left = -60, shift_top = 40 }
 }
 
--- Camera Settings
-Config.WorkbenchCamera = {
-    offset = vector3(0.0, -1.2, 1.4),
-    target = vector3(0.0, 0.0, 1.2),
-    fov = 40.0,
-    transitionTime = 1500
-}
-
--- Theme File
-Config.ThemeFile = 'theme.json'
-
--- Load external configs
-local function loadConfig(file)
-    local content = LoadResourceFile(GetCurrentResourceName(), file)
-    if content then
-        local chunk = load(content)
-        return chunk and chunk() or {}
-    end
-    return {}
-end
-
-Config.Recipes = loadConfig('config/recipes.lua')
-Config.Blueprints = loadConfig('config/blueprints.lua')
-
 -- Weapon Configurations (ox_inventory compatible)
 Config.Weapons = {
     -- Pistols

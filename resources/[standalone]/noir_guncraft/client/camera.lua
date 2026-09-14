@@ -1,11 +1,15 @@
 CameraManager = {}
 
+local function warn(message, detail)
+    print(('[noir_guncraft] %s%s'):format(message, detail and (': ' .. tostring(detail)) or ''))
+end
+
 local isCamActive = false
 local workbenchCam = nil
 
 function CameraManager.startWorkbenchView(benchEntity)
     if isCamActive then 
-        Logger.warn("Camera already active")
+        warn("Camera already active")
         return false
     end
 
@@ -30,7 +34,7 @@ function CameraManager.startWorkbenchView(benchEntity)
     end)
 
     if not success then
-        Logger.error("Failed to start workbench view", {error = result})
+        warn("Failed to start workbench view", result)
         return false
     end
     
@@ -58,6 +62,6 @@ function CameraManager.stopWorkbenchView()
     end)
 
     if not success then
-        Logger.error("Failed to stop workbench view", {error = result})
+        warn("Failed to stop workbench view", result)
     end
 end

@@ -8,7 +8,13 @@ local function GetFramework()
 end
 
 local frameworkType, Framework = GetFramework()
-local benches = {}
+
+-- benchData: tudo que o servidor conhece. benchEntities: só o que virou objeto
+-- aqui perto. O upstream criava um CreateObject para toda bancada do servidor,
+-- em todo cliente, para sempre.
+local benchData = {}
+local benchEntities = {}
+
 currentBench = nil
 currentBenchEntity = nil
 
@@ -22,57 +28,71 @@ attachmentMarkerActive = false
 selectedWeapon = nil
 weaponObjectsToCleanup = {}
 
--- Aggressive cleanup function for weapon objects
-function ForceCleanupWeaponObjects()
-    if currentBenchEntity and DoesEntityExist(currentBenchEntity) then
-        local benchCoords = GetEntityCoords(currentBenchEntity)
-        local allObjects = GetGamePool('CObject')
-        for _, obj in pairs(allObjects) do
-            if DoesEntityExist(obj) and obj ~= currentBenchEntity then
-                local objCoords = GetEntityCoords(obj)
-                local distance = #(benchCoords - objCoords)
-                if distance < 2.0 then
-                    DeleteObject(obj)
-                end
-            end
-        end
+---Notificação única do recurso. Sempre passa pelo framework (funciona com a UI
+---fechada) e espelha na NUI quando a bancada está aberta.
+local function notify(message, kind)
+    if frameworkType == 'qbox' then
+        Framework:Notify(message, kind)
+    elseif frameworkType == 'qbcore' then
+        TriggerEvent('QBCore:Notify', message, kind)
     end
-    
-    local objects = {currentProp, currentWeaponProp, previewProp}
-    for _, obj in pairs(objects) do
+
+    if currentBench then
+        SendNUIMessage({ action = 'showNotification', data = { message = message, type = kind or 'info' } })
+    end
+end
+
+---Carrega um modelo com teto de tempo. O upstream tinha
+---`while not HasModelLoaded(h) do Wait(0) end` solto: modelo inválido numa
+---receita travava a thread para sempre, a 0 ms.
+---@param hash number
+---@param timeout? number
+---@return boolean
+function RequestModelTimed(hash, timeout)
+    if not IsModelValid(hash) then return false end
+    RequestModel(hash)
+    local deadline = GetGameTimer() + (timeout or 5000)
+    while not HasModelLoaded(hash) do
+        if GetGameTimer() > deadline then return false end
+        Wait(10)
+    end
+    return true
+end
+
+-- Limpeza dos objetos que este recurso criou.
+--
+-- O upstream varria GetGamePool('CObject') e apagava *qualquer* objeto a menos
+-- de 2 m da bancada: prop do mapa, sacola de item dropado, objeto de outro
+-- script. Os handles já são rastreados, então basta usá-los.
+function ForceCleanupWeaponObjects()
+    for _, obj in pairs({ currentProp, currentWeaponProp, previewProp }) do
         if obj and DoesEntityExist(obj) then
             DeleteObject(obj)
         end
     end
-    
-    if weaponObjectsToCleanup then
-        for obj, _ in pairs(weaponObjectsToCleanup) do
-            if DoesEntityExist(obj) then
-                DeleteObject(obj)
-            end
+
+    for obj in pairs(weaponObjectsToCleanup) do
+        if DoesEntityExist(obj) then
+            DeleteObject(obj)
         end
-        weaponObjectsToCleanup = {}
     end
-    
+    weaponObjectsToCleanup = {}
+
     currentProp, currentWeaponProp, previewProp = nil, nil, nil
 end
 
 -- UI cleanup
 function HandleCloseUI()
     SetNuiFocus(false, false)
-    
+
     if CameraManager and CameraManager.stopWorkbenchView then
         CameraManager.stopWorkbenchView()
     end
-    
-    -- Stop all threads
+
     attachmentMarkerActive = false
-    escThread = nil
-    
-    -- Use centralized cleanup
+
     ForceCleanupWeaponObjects()
-    
-    -- Reset state
+
     selectedWeapon, currentBench, currentBenchEntity = nil, nil, nil
     previewRotationX, previewRotationZ = 0.0, 0.0
 end
@@ -94,105 +114,106 @@ local function startEscHandler()
 end
 
 -- Place bench using object_gizmo
-RegisterNetEvent('crafting:placeBench', function(benchSerial, itemData)
-    if frameworkType == 'qbox' then
-        Framework:Notify('G=Toggle Cursor, W=Move, R=Rotate, ENTER=Confirm (ESC not supported)', 'primary', 8000)
-    else
-        TriggerEvent('QBCore:Notify', 'G=Toggle Cursor, W=Move, R=Rotate, ENTER=Confirm (ESC not supported)', 'primary', 8000)
-    end
-    
+RegisterNetEvent('crafting:placeBench', function()
+    notify('G=Toggle Cursor, W=Move, R=Rotate, ENTER=Confirm (ESC not supported)', 'primary')
+
     local playerPed = PlayerPedId()
     local coords = GetEntityCoords(playerPed)
     local offset = coords + GetEntityForwardVector(playerPed) * 2
-    
+
     local modelHash = GetHashKey(Config.BenchModel)
-    RequestModel(modelHash)
-    
-    CreateThread(function()
-        while not HasModelLoaded(modelHash) do
-            Wait(10)
-        end
-        
-        local obj = CreateObject(modelHash, offset.x, offset.y, offset.z, false, false, false)
-        if not obj or not DoesEntityExist(obj) then
-            if frameworkType == 'qbox' then
-                Framework:Notify('Failed to create bench', 'error')
-            else
-                TriggerEvent('QBCore:Notify', 'Failed to create bench', 'error')
-            end
-            return
-        end
-        
-        local placementCancelled = false
-        CreateThread(function()
-            while not placementCancelled do
-                if IsControlJustPressed(0, 322) then -- ESC key
-                    placementCancelled = true
-                    if DoesEntityExist(obj) then
-                        DeleteObject(obj)
-                    end
-                    TriggerEvent('QBCore:Notify', 'Bench placement cancelled', 'error')
-                    return
-                end
-                Wait(0)
-            end
-        end)
-        
-        local data = exports.object_gizmo:useGizmo(obj)
-        
-        if data and data.position and not placementCancelled then
-            if DoesEntityExist(obj) then
-                DeleteObject(obj)
-            end
-            
-            if frameworkType == 'qbox' then
-                -- QBox - place immediately without progress bar
-                TriggerServerEvent('crafting:saveBench', data.position.x, data.position.y, data.position.z, data.rotation.z or 0.0, benchSerial, itemData)
-            else
-                Framework.Functions.Progressbar('placing_bench', 'Placing crafting bench...', 3000, false, true, {
-                    disableMovement = true,
-                    disableCarMovement = true,
-                    disableMouse = false,
-                    disableCombat = true,
-                }, {}, {}, {}, function() -- Done
-                    TriggerServerEvent('crafting:saveBench', data.position.x, data.position.y, data.position.z, data.rotation.z or 0.0, benchSerial, itemData)
-                end, function() -- Cancel
-                    TriggerEvent('QBCore:Notify', 'Bench placement cancelled', 'error')
-                end)
-            end
-        else
-            if DoesEntityExist(obj) then
-                DeleteObject(obj)
-            end
-            if not placementCancelled then
-                TriggerEvent('QBCore:Notify', 'Bench placement cancelled', 'error')
-            end
-        end
-    end)
+    if not RequestModelTimed(modelHash) then
+        notify('Failed to load bench model', 'error')
+        return
+    end
+
+    local obj = CreateObject(modelHash, offset.x, offset.y, offset.z, false, false, false)
+    SetModelAsNoLongerNeeded(modelHash)
+
+    if not obj or not DoesEntityExist(obj) then
+        notify('Failed to create bench', 'error')
+        return
+    end
+
+    local data = exports.object_gizmo:useGizmo(obj)
+
+    if DoesEntityExist(obj) then
+        DeleteObject(obj)
+    end
+
+    if not data or not data.position then
+        notify('Bench placement cancelled', 'error')
+        return
+    end
+
+    -- O serial e o consumo do item são resolvidos no servidor; mandar o slot
+    -- daqui era o que permitia colocar bancada sem gastar item.
+    TriggerServerEvent('crafting:saveBench',
+        data.position.x, data.position.y, data.position.z, (data.rotation and data.rotation.z) or 0.0)
 end)
 
--- Load benches from server
-RegisterNetEvent('crafting:loadBenches', function(benchData)
-    for id, bench in pairs(benches) do
-        if DoesEntityExist(bench.object) then
-            RemoveTargetFromEntity(bench.object, id)
-            DeleteObject(bench.object)
+-- Streaming das bancadas
+local function despawnBench(id)
+    local entity = benchEntities[id]
+    if not entity then return end
+    if DoesEntityExist(entity) then
+        RemoveTargetFromEntity(entity, id)
+        DeleteObject(entity)
+    end
+    benchEntities[id] = nil
+end
+
+local function spawnBench(id, data)
+    local hash = GetHashKey(data.model)
+    if not RequestModelTimed(hash) then return end
+
+    local object = CreateObject(hash, data.x, data.y, data.z, false, false, false)
+    SetModelAsNoLongerNeeded(hash)
+    if not object or not DoesEntityExist(object) then return end
+
+    SetEntityHeading(object, data.heading)
+    FreezeEntityPosition(object, true)
+
+    benchEntities[id] = object
+    AddTargetToEntity(object, id)
+end
+
+RegisterNetEvent('crafting:loadBenches', function(rows)
+    local seen = {}
+
+    for _, data in pairs(rows or {}) do
+        seen[data.id] = true
+        local existing = benchData[data.id]
+        if existing and benchEntities[data.id]
+            and (existing.x ~= data.x or existing.y ~= data.y or existing.z ~= data.z or existing.heading ~= data.heading) then
+            despawnBench(data.id)
+        end
+        benchData[data.id] = data
+    end
+
+    for id in pairs(benchData) do
+        if not seen[id] then
+            despawnBench(id)
+            benchData[id] = nil
         end
     end
-    
-    benches = {}
-    
-    for _, data in pairs(benchData) do
-        local object = CreateObject(GetHashKey(data.model), data.x, data.y, data.z, false, false, false)
-        SetEntityHeading(object, data.heading)
-        FreezeEntityPosition(object, true)
-        
-        benches[data.id] = {
-            object = object,
-            data = data
-        }
-        
-        AddTargetToEntity(object, data.id)
+end)
+
+CreateThread(function()
+    local far = Config.StreamDistance + 25.0
+    while true do
+        local coords = GetEntityCoords(PlayerPedId())
+
+        for id, data in pairs(benchData) do
+            local distance = #(coords - vector3(data.x, data.y, data.z))
+            if distance <= Config.StreamDistance then
+                if not benchEntities[id] then spawnBench(id, data) end
+            elseif distance > far and benchEntities[id] then
+                despawnBench(id)
+            end
+        end
+
+        Wait(1500)
     end
 end)
 
@@ -220,41 +241,29 @@ end)
 
 RegisterNetEvent('crafting:openCrafting', function()
     local benchId = GetClosestBenchId()
-    if benchId then
-        currentBench = benchId
-        currentBenchEntity = benches[benchId].object
-        startEscHandler()
-        
-        if CameraManager and CameraManager.startWorkbenchView then
-            local cameraStarted = CameraManager.startWorkbenchView(currentBenchEntity)
-            if cameraStarted then
-                Wait(Config.WorkbenchCamera.transitionTime or 1000)
-            end
+    if not benchId then return end
+
+    currentBench = benchId
+    currentBenchEntity = benchEntities[benchId]
+    startEscHandler()
+
+    if CameraManager and CameraManager.startWorkbenchView then
+        if CameraManager.startWorkbenchView(currentBenchEntity) then
+            Wait(Config.WorkbenchCamera.transitionTime or 1000)
         end
-        
-        SetNuiFocus(true, true)
-        TriggerServerEvent('crafting:getCraftingData', benchId)
     end
+
+    SetNuiFocus(true, true)
+    TriggerServerEvent('crafting:getCraftingData', benchId)
 end)
 
 -- Handle crafting data from server
 RegisterNetEvent('crafting:showCrafting', function(data)
-    if Config.Debug then
-        print('[noir_guncraft] Received crafting data, opening NUI')
-    end
-    SendNUIMessage({
-        action = 'showCrafting',
-        data = data
-    })
+    SendNUIMessage({ action = 'showCrafting', data = data })
 end)
 
--- Handle notifications
-RegisterNetEvent('noir_guncraft:showNotification', function(message, type)
-    if frameworkType == 'qbox' then
-        Framework:Notify(message, type)
-    else
-        TriggerEvent('QBCore:Notify', message, type)
-    end
+RegisterNetEvent('noir_guncraft:showNotification', function(message, kind)
+    notify(message, kind)
 end)
 
 -- Target system functions
@@ -268,14 +277,14 @@ function AddTargetToEntity(entity, benchId)
         },
         {
             name = 'blueprints_' .. benchId,
-            event = 'crafting:openBlueprints', 
+            event = 'crafting:openBlueprints',
             icon = 'fas fa-scroll',
             label = 'Open Blueprints'
         },
         {
             name = 'storage_' .. benchId,
             event = 'crafting:openStorage',
-            icon = 'fas fa-archive', 
+            icon = 'fas fa-archive',
             label = 'Open Storage'
         },
         {
@@ -285,16 +294,13 @@ function AddTargetToEntity(entity, benchId)
             label = 'Open Crafting'
         }
     }
-    
+
     local target = Systems.target or Systems.detectTarget()
     if target == 'ox_target' then
         exports.ox_target:addLocalEntity(entity, options)
     elseif target == 'qb-target' then
-        local success, err = pcall(function()
-            exports['qb-target']:AddTargetEntity(entity, {
-                options = options,
-                distance = 2.0
-            })
+        local success = pcall(function()
+            exports['qb-target']:AddTargetEntity(entity, { options = options, distance = 2.0 })
         end)
         if not success and Config.Debug then
             print('[noir_guncraft] qb-target export not found, skipping target setup')
@@ -328,48 +334,29 @@ end
 -- Helper function to get closest bench ID
 function GetClosestBenchId()
     local playerCoords = GetEntityCoords(PlayerPedId())
-    local closestBench = nil
-    local closestDistance = 999.0
-    
-    for id, bench in pairs(benches) do
-        if DoesEntityExist(bench.object) then
-            local benchCoords = GetEntityCoords(bench.object)
-            local distance = #(playerCoords - benchCoords)
-            if distance < closestDistance and distance < 3.0 then
+    local closestBench, closestDistance = nil, 3.0
+
+    for id, entity in pairs(benchEntities) do
+        if DoesEntityExist(entity) then
+            local distance = #(playerCoords - GetEntityCoords(entity))
+            if distance < closestDistance then
                 closestDistance = distance
                 closestBench = id
             end
         end
     end
+
     return closestBench
 end
 
 -- Commands
 RegisterCommand('pickupbench', function()
-    local playerPed = PlayerPedId()
-    local coords = GetEntityCoords(playerPed)
-    
-    for id, bench in pairs(benches) do
-        local benchCoords = GetEntityCoords(bench.object)
-        if #(coords - benchCoords) < 2.0 then
-            if frameworkType == 'qbox' then
-                -- QBox - pickup immediately without progress bar
-                TriggerServerEvent('crafting:pickupBench', id)
-            else
-                Framework.Functions.Progressbar('pickup_bench', 'Saving bench data and picking up...', 6000, false, true, {
-                    disableMovement = true,
-                    disableCarMovement = true,
-                    disableMouse = false,
-                    disableCombat = true,
-                }, {}, {}, {}, function() -- Done
-                    TriggerServerEvent('crafting:pickupBench', id)
-                end, function() -- Cancel
-                    TriggerEvent('QBCore:Notify', 'Bench pickup cancelled', 'error')
-                end)
-            end
-            break
-        end
+    local benchId = GetClosestBenchId()
+    if not benchId then
+        notify('No bench nearby', 'error')
+        return
     end
+    TriggerServerEvent('crafting:pickupBench', benchId)
 end)
 
 RegisterCommand('refreshcrafting', function()
@@ -378,59 +365,32 @@ RegisterCommand('refreshcrafting', function()
     end
 end)
 
-RegisterCommand('refundbench', function(source, args)
+RegisterCommand('refundbench', function(_, args)
     if not args[1] then
-        TriggerEvent('QBCore:Notify', 'Usage: /refundbench [serial]', 'error')
+        notify('Usage: /refundbench [serial]', 'error')
         return
     end
-    
-    local benchSerial = args[1]
-    TriggerServerEvent('crafting:refundBench', benchSerial)
+    TriggerServerEvent('crafting:refundBench', args[1])
 end)
 
 -- Initialize
 CreateThread(function()
+    while not Systems or not Systems.target do Wait(100) end
     TriggerServerEvent('crafting:requestBenches')
 end)
 
 -- Cleanup on resource stop
 AddEventHandler('onResourceStop', function(resourceName)
-    if GetCurrentResourceName() == resourceName then
-        HandleCloseUI()
-        
-        -- Force cleanup all objects
-        local objects = {currentProp, currentWeaponProp, previewProp}
-        for _, obj in pairs(objects) do
-            if obj and DoesEntityExist(obj) then
-                DeleteObject(obj)
-            end
-        end
-        
+    if GetCurrentResourceName() ~= resourceName then return end
 
-        
-        -- Clean up tracked weapon objects
-        if weaponObjectsToCleanup then
-            for obj, _ in pairs(weaponObjectsToCleanup) do
-                if DoesEntityExist(obj) then
-                    DeleteObject(obj)
-                end
-            end
-            weaponObjectsToCleanup = {}
-        end
-        
-        -- Cleanup bench objects
-        for id, bench in pairs(benches) do
-            if DoesEntityExist(bench.object) then
-                RemoveTargetFromEntity(bench.object, id)
-                DeleteObject(bench.object)
-            end
-        end
-        benches = {}
-        
-        -- Reset all variables
-        currentProp, currentWeaponProp, previewProp = nil, nil, nil
-        selectedWeapon = nil
-        attachmentMarkerActive = false
-        currentBench, currentBenchEntity = nil, nil
+    HandleCloseUI()
+
+    for id in pairs(benchEntities) do
+        despawnBench(id)
     end
+    benchData = {}
+
+    selectedWeapon = nil
+    attachmentMarkerActive = false
+    currentBench, currentBenchEntity = nil, nil
 end)

@@ -1,13 +1,23 @@
 Database = {}
 
--- Database initialization
+-- As tabelas do upstream se chamavam `benches` e `crafting_queue`, sem prefixo
+-- nenhum, esperando ser as únicas do banco a usar esses nomes.
+local BENCHES = 'noir_guncraft_benches'
+local QUEUE = 'noir_guncraft_queue'
+
+Database.BENCHES = BENCHES
+Database.QUEUE = QUEUE
+
+local function tableExists(name)
+    return (MySQL.scalar.await(
+        'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?',
+        { name }) or 0) > 0
+end
+
 CreateThread(function()
     MySQL.ready(function()
-        print('[noir_guncraft] Database connection established')
-        
-        -- Create tables if they don't exist
-        MySQL.query([[
-            CREATE TABLE IF NOT EXISTS `benches` (
+        MySQL.query.await(([[
+            CREATE TABLE IF NOT EXISTS `%s` (
                 `id` int(11) NOT NULL AUTO_INCREMENT,
                 `owner` varchar(50) NOT NULL,
                 `x` float NOT NULL,
@@ -20,78 +30,35 @@ CreateThread(function()
                 UNIQUE KEY `serial` (`serial`),
                 INDEX `owner_idx` (`owner`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-        ]])
-        
-        MySQL.query([[
-            CREATE TABLE IF NOT EXISTS `crafting_queue` (
+        ]]):format(BENCHES))
+
+        MySQL.query.await(([[
+            CREATE TABLE IF NOT EXISTS `%s` (
                 `id` int(11) NOT NULL AUTO_INCREMENT,
                 `bench_id` int(11) NOT NULL,
                 `item` varchar(50) NOT NULL,
                 `finish_time` bigint(20) NOT NULL,
                 `start_time` bigint(20) DEFAULT NULL,
-                `completed` tinyint(1) DEFAULT 0,
                 `quantity` int(11) DEFAULT 1,
                 PRIMARY KEY (`id`),
                 KEY `bench_id` (`bench_id`),
                 KEY `finish_time_idx` (`finish_time`),
-                FOREIGN KEY (`bench_id`) REFERENCES `benches`(`id`) ON DELETE CASCADE
+                FOREIGN KEY (`bench_id`) REFERENCES `%s`(`id`) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-        ]])
-        
-        print('[noir_guncraft] Database tables verified')
+        ]]):format(QUEUE, BENCHES))
+
+        -- Não renomeia sozinho: `benches` é genérico o bastante para pertencer a
+        -- outro recurso, e um RENAME cego quebraria aquele script.
+        if tableExists('benches') and tableExists('crafting_queue') then
+            print(('[noir_guncraft] Tabelas antigas do upstream encontradas. Para migrar os dados:\n' ..
+                '  INSERT INTO `%s` SELECT * FROM `benches`;\n' ..
+                '  INSERT INTO `%s` (id, bench_id, item, finish_time, start_time, quantity)\n' ..
+                '    SELECT id, bench_id, item, finish_time, start_time, quantity FROM `crafting_queue`;')
+                :format(BENCHES, QUEUE))
+        end
+
+        if Config.Debug then
+            print('[noir_guncraft] Database tables verified')
+        end
     end)
 end)
-
--- Promise-based MySQL wrapper
-function Database.query(query, params)
-    return promise:new(function(resolve, reject)
-        MySQL.query(query, params or {}, function(result)
-            if result then
-                resolve(result)
-            else
-                reject("Query failed: " .. query)
-            end
-        end)
-    end)
-end
-
-function Database.execute(query, params)
-    return promise:new(function(resolve, reject)
-        MySQL.execute(query, params or {}, function(affectedRows)
-            if affectedRows then
-                resolve(affectedRows)
-            else
-                reject("Execute failed: " .. query)
-            end
-        end)
-    end)
-end
-
-function Database.insert(query, params)
-    return promise:new(function(resolve, reject)
-        MySQL.insert(query, params or {}, function(insertId)
-            if insertId then
-                resolve(insertId)
-            else
-                reject("Insert failed: " .. query)
-            end
-        end)
-    end)
-end
-
--- Optimized queries
-function Database.getCraftingData(benchId)
-    return Database.query([[
-        SELECT 
-            b.serial,
-            cq.id as queue_id,
-            cq.item as queue_item,
-            cq.finish_time,
-            cq.start_time,
-            cq.completed,
-            cq.quantity
-        FROM benches b
-        LEFT JOIN crafting_queue cq ON b.id = cq.bench_id
-        WHERE b.id = ?
-    ]], {benchId})
-end

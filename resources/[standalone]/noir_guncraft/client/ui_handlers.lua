@@ -15,17 +15,6 @@ RegisterNetEvent('crafting:refreshUI', function()
     end
 end)
 
--- Standardized notification event
-RegisterNetEvent('noir_guncraft:showNotification', function(message, type)
-    SendNUIMessage({
-        action = 'showNotification',
-        data = {
-            message = message,
-            type = type or 'info'
-        }
-    })
-end)
-
 RegisterNetEvent('crafting:personalData', function(data)
     SendNUIMessage({
         action = 'personalData',
@@ -219,9 +208,15 @@ function LoadWeaponOnTable(weapon)
     local _rot = vector3(0.0, 0.0, 30.0)
     local weaponModel = weapon.name
     
-    RequestWeaponAsset(GetHashKey(weaponModel), 31, 0)
-    while not HasWeaponAssetLoaded(GetHashKey(weaponModel)) do
-        Wait(0)
+    local weaponHash = GetHashKey(weaponModel)
+    RequestWeaponAsset(weaponHash, 31, 0)
+    local deadline = GetGameTimer() + 5000
+    while not HasWeaponAssetLoaded(weaponHash) do
+        if GetGameTimer() > deadline then
+            weaponSpawnInProgress = false
+            return nil
+        end
+        Wait(10)
     end
     
     -- Use CreateWeaponObject but mark for aggressive cleanup
@@ -240,12 +235,10 @@ function LoadWeaponOnTable(weapon)
     for _, component in pairs(weaponComponents) do
         if component.type ~= "skin" then
             local componentModel = GetWeaponComponentTypeModel(component.hash)
-            RequestModel(componentModel)
-            while not HasModelLoaded(componentModel) do
-                Wait(0)
+            if RequestModelTimed(componentModel, 3000) then
+                GiveWeaponComponentToWeaponObject(weaponObject, GetHashKey(component.hash))
+                SetModelAsNoLongerNeeded(componentModel)
             end
-            GiveWeaponComponentToWeaponObject(weaponObject, GetHashKey(component.hash))
-            SetModelAsNoLongerNeeded(componentModel)
         end
     end
     
@@ -366,20 +359,18 @@ RegisterNUICallback('spawnProp', function(data, cb)
     storedRotZ = 0.0
     
     local modelHash = GetHashKey(data.propModel)
-    RequestModel(modelHash)
-    
+
     CreateThread(function()
-        local timeout = 5000
-        local startTime = GetGameTimer()
-        
-        while not HasModelLoaded(modelHash) do
-            if GetGameTimer() - startTime > timeout then
-                cb({success = false})
-                return
-            end
-            Wait(10)
+        if not RequestModelTimed(modelHash, 5000) then
+            cb({success = false})
+            return
         end
-        
+
+        if not currentBenchEntity or not DoesEntityExist(currentBenchEntity) then
+            cb({success = false})
+            return
+        end
+
         local benchCoords = GetEntityCoords(currentBenchEntity)
         local spawnCoords = benchCoords + vector3(0, 0, 1.2)
         currentProp = CreateObject(modelHash, spawnCoords.x, spawnCoords.y, spawnCoords.z, false, false, false)

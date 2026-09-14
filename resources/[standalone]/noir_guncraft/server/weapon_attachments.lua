@@ -1,5 +1,8 @@
 -- Weapon attachment system
-local QBCore = exports['qb-core']:GetCoreObject()
+--
+-- O upstream fazia `exports['qb-core']:GetCoreObject()` direto na linha 2, sem
+-- deteccao de framework: num Qbox sem a bridge ligada este arquivo morria no
+-- load e a customizacao de armas sumia junto.
 
 -- Load ox_inventory weapon components data
 local function loadOxInventoryComponents()
@@ -19,9 +22,8 @@ end
 local oxComponents = loadOxInventoryComponents()
 
 -- Get personal data using inventory system
-RegisterNetEvent('crafting:getPersonalData', function()
-    local src = source
-    local Player = QBCore.Functions.GetPlayer(src)
+local function sendPersonalData(src)
+    local Player = Systems.Framework.GetPlayer(src)
     if not Player then return end
     
     local playerInventory = Systems.Inventory.GetInventory(src)
@@ -89,6 +91,10 @@ RegisterNetEvent('crafting:getPersonalData', function()
         accessories = accessories,
         theme = currentTheme
     })
+end
+
+RegisterNetEvent('crafting:getPersonalData', function()
+    sendPersonalData(source)
 end)
 
 -- Check if accessory is compatible with weapon using Config.Weapons
@@ -106,9 +112,8 @@ local function isAccessoryCompatible(weaponName, accessoryName)
 end
 
 -- Get compatible accessories for a specific weapon
-RegisterNetEvent('crafting:getCompatibleAccessories', function(weaponName, weaponSerial)
-    local src = source
-    local Player = QBCore.Functions.GetPlayer(src)
+local function sendCompatibleAccessories(src, weaponName, weaponSerial)
+    local Player = Systems.Framework.GetPlayer(src)
     if not Player then return end
     
     -- Basic validation
@@ -207,12 +212,22 @@ RegisterNetEvent('crafting:getCompatibleAccessories', function(weaponName, weapo
         accessories = compatibleAccessories,
         weaponAttachments = weaponAttachments
     })
+end
+
+RegisterNetEvent('crafting:getCompatibleAccessories', function(weaponName, weaponSerial)
+    sendCompatibleAccessories(source, weaponName, weaponSerial)
 end)
+
+---Reenvia os dois payloads da aba de customizacao depois de uma troca.
+local function refreshAttachmentUI(src, weaponName, weaponSerial)
+    sendCompatibleAccessories(src, weaponName, weaponSerial)
+    sendPersonalData(src)
+end
 
 -- Equip accessory to weapon
 RegisterNetEvent('crafting:equipAccessory', function(weaponSerial, accessoryName)
     local src = source
-    local Player = QBCore.Functions.GetPlayer(src)
+    local Player = Systems.Framework.GetPlayer(src)
     if not Player then return end
     
     -- Basic validation
@@ -263,35 +278,47 @@ RegisterNetEvent('crafting:equipAccessory', function(weaponSerial, accessoryName
         return
     end
     
-    -- Remove existing component of same type
+    -- Consome o acessorio primeiro. Se falhar, nada foi escrito na arma.
+    if not exports.ox_inventory:RemoveItem(src, accessoryName, 1, nil, accessorySlot) then
+        TriggerClientEvent('noir_guncraft:showNotification', src, 'Could not take the attachment', 'error')
+        return
+    end
+
+    -- Devolve o componente que ocupava o mesmo slot. Se o inventario estiver
+    -- cheio ele nao cabe, entao desfaz a troca em vez de sumir com ele.
+    local replaced = {}
     if componentData.type then
         for i = #newMetadata.components, 1, -1 do
             local comp = newMetadata.components[i]
             local existingData = oxComponents[comp] or {}
             if existingData.type == componentData.type then
-                exports.ox_inventory:AddItem(src, comp, 1)
+                replaced[#replaced + 1] = comp
                 table.remove(newMetadata.components, i)
             end
         end
     end
-    
+
+    for _, comp in ipairs(replaced) do
+        if not exports.ox_inventory:AddItem(src, comp, 1) then
+            newMetadata.components[#newMetadata.components + 1] = comp
+            exports.ox_inventory:AddItem(src, accessoryName, 1)
+            TriggerClientEvent('noir_guncraft:showNotification', src, 'Not enough room to swap attachments', 'error')
+            return
+        end
+    end
+
     table.insert(newMetadata.components, accessoryName)
     exports.ox_inventory:SetMetadata(src, weaponSlot, newMetadata)
-    exports.ox_inventory:RemoveItem(src, accessoryName, 1)
-    
+
     TriggerClientEvent('noir_guncraft:showNotification', src, 'Attachment equipped successfully', 'success')
     TriggerClientEvent('crafting:refreshWeaponObject', src, weapon.name, weaponSerial)
-    
-    SetTimeout(200, function()
-        TriggerEvent('crafting:getCompatibleAccessories', weapon.name, weaponSerial)
-        TriggerEvent('crafting:getPersonalData')
-    end)
+    refreshAttachmentUI(src, weapon.name, weaponSerial)
 end)
 
 -- Unequip accessory from weapon
 RegisterNetEvent('crafting:unequipAccessory', function(weaponSerial, accessoryName)
     local src = source
-    local Player = QBCore.Functions.GetPlayer(src)
+    local Player = Systems.Framework.GetPlayer(src)
     if not Player then return end
     
     -- Basic validation
@@ -333,16 +360,17 @@ RegisterNetEvent('crafting:unequipAccessory', function(weaponSerial, accessoryNa
     end
     
     if componentRemoved then
+        -- Entrega o item antes de tirar da arma: sem espaco no inventario o
+        -- componente continua equipado, em vez de desaparecer.
+        if not exports.ox_inventory:AddItem(src, accessoryName, 1) then
+            TriggerClientEvent('noir_guncraft:showNotification', src, 'No room in your inventory', 'error')
+            return
+        end
+
         exports.ox_inventory:SetMetadata(src, weaponSlot, newMetadata)
-        exports.ox_inventory:AddItem(src, accessoryName, 1)
         TriggerClientEvent('noir_guncraft:showNotification', src, 'Attachment unequipped successfully', 'success')
-        
         TriggerClientEvent('crafting:refreshWeaponObject', src, weapon.name, weaponSerial)
-        
-        SetTimeout(200, function()
-            TriggerEvent('crafting:getCompatibleAccessories', weapon.name, weaponSerial)
-            TriggerEvent('crafting:getPersonalData')
-        end)
+        refreshAttachmentUI(src, weapon.name, weaponSerial)
     else
         TriggerClientEvent('noir_guncraft:showNotification', src, 'Component not found on weapon', 'error')
     end
