@@ -1,6 +1,7 @@
 -- ox_target integration
 
 CreateThread(function()
+    if not Config.enableOxTarget then return end
     if not GetResourceState('ox_target'):find('start') then return end
     if Config.usePermission and not lib.callback.await('dolu_tool:isAllowed', 100, true) then return end
 
