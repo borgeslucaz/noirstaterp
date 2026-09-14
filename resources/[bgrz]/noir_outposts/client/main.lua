@@ -90,6 +90,26 @@ RegisterNetEvent(C.Events.SYNC, function(snapshot)
     applySnapshot(snapshot)
 end)
 
+---Atualização de um posto só. A lista inteira continua chegando no login e na troca de ciclo;
+---isto cobre o caso comum, que é um posto mudando e o servidor inteiro sendo avisado à toa
+---sobre os outros. A ordem da lista local não importa: tudo que a lê faz busca por id.
+RegisterNetEvent(C.Events.SYNC_OUTPOST, function(outpost)
+    if source ~= 65535 then return end
+    if type(outpost) ~= 'table' or type(outpost.id) ~= 'string' then return end
+
+    local slot = #Client.outposts + 1
+    for index = 1, #Client.outposts do
+        if Client.outposts[index].id == outpost.id then
+            slot = index
+            break
+        end
+    end
+    Client.outposts[slot] = outpost
+
+    refreshBlips()
+    NoirOutposts.Interaction.refresh()
+end)
+
 function Client.requestContext()
     local response = lib.callback.await(C.Callbacks.GET_CONTEXT, false)
     if not response or not response.ok then return end

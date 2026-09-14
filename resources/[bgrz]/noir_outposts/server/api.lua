@@ -45,15 +45,15 @@ end
 ---Snapshot do painel para um jogador, revalidando permissão e proximidade.
 ---@param source number
 ---@param outpostId string
----@return table? snapshot
+---@return table? snapshot, string? code
 function Api.buildPanelSnapshot(source, outpostId)
     local actor = Security.resolveActor(source)
-    if not actor then return nil end
+    if not actor then return nil, 'invalid_player' end
     local entry = State.get(outpostId)
-    if not entry then return nil end
+    if not entry then return nil, 'unknown_outpost' end
 
-    local definition = shared.outposts[outpostId]
-    if not Security.isNear(source, definition.computer, shared.interaction.computerDistance) then return nil end
+    local atComputer, placeError = Security.atComputer(source, outpostId, shared.interaction.computerDistance)
+    if not atComputer then return nil, placeError end
 
     local permissions = Security.permissionMap(actor)
     local online, police, cooldownUntil = Services.Claim.requirements(actor)
@@ -89,8 +89,8 @@ lib.callback.register(C.Callbacks.OPEN_PANEL, guarded('openPanel', function(acto
     if not entry then return fail('unknown_outpost') end
     if entry.row.status == C.OutpostStatus.INACTIVE then return fail('outpost_inactive') end
 
-    local snapshot = Api.buildPanelSnapshot(actor.source, outpostId)
-    if not snapshot then return fail('too_far') end
+    local snapshot, placeError = Api.buildPanelSnapshot(actor.source, outpostId)
+    if not snapshot then return fail(placeError or 'too_far') end
 
     Sessions.openPanel(actor.source, outpostId)
     return { ok = true, data = snapshot }
@@ -99,10 +99,10 @@ end))
 lib.callback.register(C.Callbacks.REFRESH_PANEL, guarded('refresh', function(actor)
     local panel = Sessions.panel(actor.source)
     if not panel then return fail('invalid_session') end
-    local snapshot = Api.buildPanelSnapshot(actor.source, panel.outpostId)
+    local snapshot, placeError = Api.buildPanelSnapshot(actor.source, panel.outpostId)
     if not snapshot then
-        Sessions.closePanel(actor.source, 'too_far')
-        return fail('too_far')
+        Sessions.closePanel(actor.source, placeError or 'too_far')
+        return fail(placeError or 'too_far')
     end
     return { ok = true, data = snapshot }
 end))
@@ -281,6 +281,66 @@ lib.callback.register(C.Callbacks.DEBUG_TARGET, guarded('debug', function(actor,
             playerAt = ('%.1f, %.1f, %.1f'):format(playerCoords.x, playerCoords.y, playerCoords.z),
         },
     }
+end))
+
+---Elenco completo de um posto, com prazo e ped de cada corredor. É a visão que o comando de
+---diagnóstico usa para responder duas perguntas: o ped vai ser recriado, e o cooldown está andando.
+---Exige ACE administrativo: expõe prazos e o registro interno de entidades, que não são coisas
+---que um jogador comum deva enxergar.
+lib.callback.register(C.Callbacks.DEBUG_OUTPOST, guarded('debug', function(actor, payload)
+    if not Security.isAdmin(actor.source) then return fail('admin_only') end
+
+    local outpostId = Security.outpostId(payload.outpostId)
+    if not outpostId then return fail('invalid_payload') end
+    local entry = State.get(outpostId)
+    if not entry then return fail('unknown_outpost') end
+
+    local now = os.time()
+    local dealers = {}
+    local sorted = State.sortedDealers(outpostId)
+    for index = 1, #sorted do
+        local dealer = sorted[index]
+        local entity, netId = NoirOutposts.Entities.resolve(dealer.id)
+        dealers[index] = {
+            dealerId = dealer.id,
+            name = State.dealerName(dealer),
+            profileKey = dealer.profile_key,
+            status = dealer.status,
+            cornerIndex = dealer.corner_index,
+            holdupState = Services.Holdup.stateOf(dealer.id),
+            -- Negativo quer dizer prazo vencido esperando a varredura recuperar.
+            recoversIn = dealer.robbed_until and (dealer.robbed_until - now) or nil,
+            nextSaleIn = dealer.next_sale_at and (dealer.next_sale_at - now) or nil,
+            hasEntity = entity ~= nil,
+            netId = netId,
+            -- Leitura crua: sem dono de rede a vida sai zero mesmo com o ped vivo.
+            alive = NoirOutposts.Entities.isAlive(dealer.id),
+        }
+    end
+
+    return {
+        ok = true,
+        data = {
+            outpostId = outpostId,
+            status = entry.row.status,
+            dealers = dealers,
+            maxDealers = config.limits.maxDealersPerOutpost,
+            auditSeconds = config.dealers.auditSeconds,
+            interiorBucket = Security.expectedBucket(outpostId),
+            occupants = Services.Interior.occupancy()[outpostId] or 0,
+        },
+    }
+end))
+
+lib.callback.register(C.Callbacks.ENTER_INTERIOR, guarded('openPanel', function(actor, payload)
+    local outpostId = Security.outpostId(payload.outpostId)
+    if not outpostId then return fail('invalid_payload') end
+    return Services.Interior.enter(actor, outpostId)
+end))
+
+lib.callback.register(C.Callbacks.LEAVE_INTERIOR, guarded('openPanel', function(actor)
+    Services.Interior.leave(actor.source, 'client')
+    return { ok = true }
 end))
 
 lib.callback.register(C.Callbacks.PHONE_STATE, guarded('phone', function(actor)

@@ -219,3 +219,191 @@ RegisterNetEvent('QBCore:Server:OnPlayerLoaded', function()
     if type(src) == 'number' then lastGang[src] = gangSignature(BGRZ.GetGang(src)) end
     TriggerEvent('bgrz_core:server:playerLoaded', src)
 end)
+
+-- ---------------------------------------------------------------------------
+-- Gestão de gang
+-- ---------------------------------------------------------------------------
+-- O provider guarda grades em config estática e membros em tabela própria. Estes
+-- helpers normalizam as duas coisas para que os resources não precisem conhecer
+-- nem `shared/gangs.lua` nem a tabela `player_groups`.
+
+---Definição estática de uma gang.
+---@param gangName string
+---@return table|nil info { name, label, grades = table<integer, { name, isBoss }>, topGrade }
+function BGRZ.GetGangInfo(gangName)
+    if type(gangName) ~= 'string' or gangName == '' or gangName == 'none' then return nil end
+    local gang = exports.qbx_core:GetGang(gangName)
+    if not gang then return nil end
+
+    local grades, topGrade = {}, 0
+    for rawLevel, grade in pairs(gang.grades or {}) do
+        local level = tonumber(rawLevel)
+        if level then
+            grades[level] = { name = grade.name, isBoss = grade.isboss == true }
+            if level > topGrade then topGrade = level end
+        end
+    end
+
+    return { name = gangName, label = gang.label or gangName, grades = grades, topGrade = topGrade }
+end
+
+---Todas as gangs configuradas, já ordenadas e sem a gang vazia.
+---@return { name: string, label: string }[]
+function BGRZ.GetGangList()
+    local list = {}
+    for name, gang in pairs(exports.qbx_core:GetGangs() or {}) do
+        if name ~= 'none' then
+            list[#list + 1] = { name = name, label = gang.label or name }
+        end
+    end
+    table.sort(list, function(a, b) return a.label < b.label end)
+    return list
+end
+
+---Membros persistidos de uma gang, incluindo quem está offline.
+---@param gangName string
+---@return { citizenId: string, grade: integer }[]
+function BGRZ.GetGangMembers(gangName)
+    if type(gangName) ~= 'string' or gangName == '' then return {} end
+    local rows = exports.qbx_core:GetGroupMembers(gangName, 'gang') or {}
+    local members = {}
+    for i = 1, #rows do
+        members[i] = { citizenId = rows[i].citizenid, grade = tonumber(rows[i].grade) or 0 }
+    end
+    return members
+end
+
+---Gangs em que o personagem está, mesmo offline.
+---@param citizenId string
+---@return table<string, integer> gangName -> grade
+function BGRZ.GetCharacterGangs(citizenId)
+    if type(citizenId) ~= 'string' or citizenId == '' then return {} end
+    local player = exports.qbx_core:GetPlayerByCitizenId(citizenId)
+        or exports.qbx_core:GetOfflinePlayer(citizenId)
+    if not player or not player.PlayerData then return {} end
+
+    local gangs = {}
+    for name, grade in pairs(player.PlayerData.gangs or {}) do
+        gangs[name] = tonumber(grade) or 0
+    end
+    return gangs
+end
+
+---@param citizenId string
+---@return number|nil source nil quando o personagem não está online
+function BGRZ.GetCharacterSource(citizenId)
+    if type(citizenId) ~= 'string' or citizenId == '' then return nil end
+    local player = exports.qbx_core:GetPlayerByCitizenId(citizenId)
+    return player and player.PlayerData.source or nil
+end
+
+---Nomes de personagem em lote. Quem está online sai da memória; o resto sai de uma
+---query só. Resolver um a um custava um carregamento completo de personagem por
+---membro offline, o que ficava caro em listas grandes.
+---@param citizenIds string[]
+---@return table<string, string> citizenId -> nome completo
+function BGRZ.GetCharacterNames(citizenIds)
+    if type(citizenIds) ~= 'table' then return {} end
+
+    local names, pending = {}, {}
+    for i = 1, #citizenIds do
+        local citizenId = citizenIds[i]
+        if type(citizenId) == 'string' and citizenId ~= '' and not names[citizenId] then
+            local player = exports.qbx_core:GetPlayerByCitizenId(citizenId)
+            if player then
+                local info = player.PlayerData.charinfo or {}
+                names[citizenId] = ('%s %s'):format(info.firstname or '', info.lastname or '')
+            else
+                pending[#pending + 1] = citizenId
+            end
+        end
+    end
+
+    if #pending > 0 then
+        local rows = MySQL.query.await('SELECT citizenid, charinfo FROM players WHERE citizenid IN (?)',
+            { pending }) or {}
+        for i = 1, #rows do
+            local ok, info = pcall(json.decode, rows[i].charinfo)
+            if ok and type(info) == 'table' then
+                names[rows[i].citizenid] = ('%s %s'):format(info.firstname or '', info.lastname or '')
+            end
+        end
+    end
+
+    return names
+end
+
+---Define o cargo do personagem na gang (entrando nela se preciso) e a torna primária.
+---@param citizenId string
+---@param gangName string
+---@param grade integer
+---@return boolean ok
+---@return string? errorCode
+function BGRZ.SetGangGrade(citizenId, gangName, grade)
+    if type(citizenId) ~= 'string' or citizenId == '' then return false, 'invalid_character' end
+    if type(gangName) ~= 'string' or gangName == '' or gangName == 'none' then return false, 'invalid_gang' end
+
+    grade = tonumber(grade)
+    if not grade or grade < 0 then return false, 'invalid_grade' end
+
+    local info = BGRZ.GetGangInfo(gangName)
+    if not info then return false, 'gang_not_found' end
+    if not info.grades[grade] then return false, 'invalid_grade' end
+
+    if not exports.qbx_core:AddPlayerToGang(citizenId, gangName, grade) then
+        return false, 'operation_failed'
+    end
+    if not exports.qbx_core:SetPlayerPrimaryGang(citizenId, gangName) then
+        return false, 'operation_failed'
+    end
+    return true
+end
+
+---@param citizenId string
+---@param gangName string
+---@return boolean ok
+---@return string? errorCode
+function BGRZ.RemoveFromGang(citizenId, gangName)
+    if type(citizenId) ~= 'string' or citizenId == '' then return false, 'invalid_character' end
+    if type(gangName) ~= 'string' or gangName == '' or gangName == 'none' then return false, 'invalid_gang' end
+    if not exports.qbx_core:RemovePlayerFromGang(citizenId, gangName) then
+        return false, 'operation_failed'
+    end
+    return true
+end
+
+---Publica um cargo no provider. O rótulo precisa existir lá porque é de
+---`PlayerData.gang.grade.name` que o resto do servidor lê o nome do cargo, e porque
+---`AddPlayerToGang` recusa nível que a gang não tenha. Permissões não entram: o provider
+---não tem conceito delas, elas ficam com quem chamou.
+---@param gangName string
+---@param level integer
+---@param data table { label, isBoss?, bankAuth? }
+---@return boolean ok
+---@return string? errorCode
+function BGRZ.UpsertGangGrade(gangName, level, data)
+    if type(gangName) ~= 'string' or gangName == '' or gangName == 'none' then return false, 'invalid_gang' end
+    level = tonumber(level)
+    if not level or level < 0 or level % 1 ~= 0 then return false, 'invalid_grade' end
+    if type(data) ~= 'table' or type(data.label) ~= 'string' or data.label == '' then return false, 'invalid_label' end
+    if not exports.qbx_core:GetGang(gangName) then return false, 'gang_not_found' end
+
+    -- `commitToFile` fica falso de propósito: gravar em shared/gangs.lua atropelaria
+    -- edições feitas à mão lá. Quem chamou é dono dos cargos e republica a cada start.
+    exports.qbx_core:UpsertGangGrade(gangName, level, {
+        name = data.label,
+        isboss = data.isBoss == true,
+        bankAuth = data.bankAuth == true,
+    }, false)
+    return true
+end
+
+exports('GetGangInfo', BGRZ.GetGangInfo)
+exports('UpsertGangGrade', BGRZ.UpsertGangGrade)
+exports('GetGangList', BGRZ.GetGangList)
+exports('GetGangMembers', BGRZ.GetGangMembers)
+exports('GetCharacterGangs', BGRZ.GetCharacterGangs)
+exports('GetCharacterSource', BGRZ.GetCharacterSource)
+exports('GetCharacterNames', BGRZ.GetCharacterNames)
+exports('SetGangGrade', BGRZ.SetGangGrade)
+exports('RemoveFromGang', BGRZ.RemoveFromGang)

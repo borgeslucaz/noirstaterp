@@ -8,9 +8,9 @@ return {
         docks = {
             label = 'Terminal de Elysian',
             description = 'Um terminal logístico discreto, usado para coordenar corredores e distribuir mercadoria pela região portuária.',
-            typePool = { 'drug', 'money' },
-            computer = vector4(-43.52, -2521.06, 6.4, 314.17),
-            entrance = vector3(-35.2, -2520.1, 6.0),
+            typePool = { 'drug' },
+            entrance = vector4(-35.2, -2520.1, 6.0, 0.0),
+            shell = 'drug1',
             doorId = nil,
             dealerCorners = {
                 vector4(-42.6, -2492.3, 6.0, 140.0),
@@ -27,8 +27,8 @@ return {
             label = 'Galpão de Cypress Flats',
             description = 'Um galpão afastado no coração industrial, ideal para armazenar produtos e organizar operações clandestinas.',
             typePool = { 'drug' },
-            computer = vector4(1204.6, -3115.2, 5.5, 90.0),
-            entrance = vector3(1198.2, -3121.0, 5.5),
+            entrance = vector4(1198.2, -3121.0, 5.5, 0.0),
+            shell = 'drug1',
             doorId = nil,
             dealerCorners = {
                 vector4(1189.4, -3100.7, 5.5, 180.0),
@@ -44,9 +44,9 @@ return {
         lamesa = {
             label = 'Ferro-velho de La Mesa',
             description = 'Um ferro-velho fora dos olhos da cidade, com espaço para abastecer e comandar uma rede de corredores.',
-            typePool = { 'drug', 'money' },
-            computer = vector4(880.5, -2100.7, 30.5, 175.0),
-            entrance = vector3(873.9, -2093.2, 30.5),
+            typePool = { 'drug' },
+            entrance = vector4(873.9, -2093.2, 30.5, 0.0),
+            shell = 'drug1',
             doorId = nil,
             dealerCorners = {
                 vector4(866.2, -2118.9, 30.5, 260.0),
@@ -63,8 +63,8 @@ return {
             label = 'Píer de Del Perro',
             description = 'Calçadão, areia e o deck do píer. Movimento constante de turista serve de disfarce, e ninguém ali é de facção nenhuma.',
             typePool = { 'drug' },
-            computer = vector4(-1598.72, -1060.48, 5.02, 319.57),
-            entrance = vector3(-1602.33, -1017.8, 11.49),
+            entrance = vector4(-1487.56, -910.05, 10.36, 140.1),
+            shell = 'drug1',
             doorId = nil,
             -- As esquinas cobrem 265 metros, do começo do calçadão até a ponta da areia. É o
             -- posto mais espalhado dos quatro, e foi por causa dele que o chamado da polícia
@@ -79,6 +79,35 @@ return {
             },
             dispatch = { radius = 80.0, label = 'Movimentação suspeita no píer' },
             blip = { sprite = 478, color = 6, scale = 0.8 },
+        },
+    },
+
+    -- Plantas de interior, reutilizáveis entre postos --------------------------------------------
+    --
+    -- O interior é uma planta genérica, não uma coisa de cada posto: vários apontam para a mesma, e
+    -- quem separa quem está em qual é o routing bucket. Por isso a coordenada pode se repetir sem
+    -- conflito — dois jogadores em instâncias diferentes nunca se veem, mesmo parados no mesmo
+    -- ponto do mundo.
+    --
+    -- Todas ficam sob o mapa, na área reservada para shells. `origin` é onde o `noir_shell` cria o
+    -- objeto; `computer` e `door` são coordenadas ABSOLUTAS de mundo, não offsets relativos à
+    -- origem. Elas só continuam válidas enquanto a origem não se mexer: reposicionar o shell
+    -- obriga a recapturar as duas, senão o painel deixa de abrir com `too_far`.
+    shells = {
+        drug1 = {
+            model = 'shell_store1',
+            origin = vector4(-430.44, -1000.92, -79.35, 326.35),
+            -- Onde o jogador nasce ao entrar e de onde ele sai. Fica a 8,4 m do computador, então
+            -- ele precisa andar até o laptop — `interaction.computerDistance` é 2,0.
+            door = vector4(-430.24, -995.5, -78.26, 151.87),
+            -- Mesma coordenada do prop do laptop, e o `config_spec` obriga que continue assim: é
+            -- ela que o servidor valida e é nela que o alvo é pendurado. Quando as duas viviam
+            -- separadas, mover o laptop deixou o ponto de validação para trás, enterrado no piso.
+            computer = vector4(-433.65, -1002.92, -78.26, 78.23),
+            props = {
+                { model = 'xm_prop_x17_laptop_agent14_01',
+                  coords = vector4(-433.65, -1002.92, -78.26, 78.23) },
+            },
         },
     },
 
@@ -177,16 +206,21 @@ return {
     -- não na posição atual do ped, senão ele iria derivando a cada novo stream.
     dealerWander = {
         enabled = true,
-        radius = 25.0,
+        radius = 50.0,
         -- Distância mínima de cada trecho e pausa entre eles, em segundos.
         minimalLength = 5.0,
         timeBetweenWalks = 2.0,
 
-        -- O corredor para de andar quando há jogador por perto. Duas razões: ele reage à
-        -- aproximação, e a posição que o servidor enxerga de um ped em movimento fica
-        -- defasada em dezenas de metros, o que quebraria a checagem de distância do assalto.
-        -- Parado, a posição converge e a validação volta a ser confiável.
-        pauseNearPlayers = 18.0,
+        -- Distância a partir da qual um jogador faz o corredor parar de circular. `0` desliga.
+        --
+        -- Está desligado: o corredor circula mesmo com alguém do lado. A razão original de parar
+        -- era que a posição de um ped em movimento chegava defasada ao servidor, e isso quebrava
+        -- a checagem de distância do assalto — mas quem media era a leitura própria do servidor.
+        -- Hoje o dono de rede reporta a cada `reportIntervalMs`, então a defasagem é o que o ped
+        -- anda em um segundo, cerca de um metro, contra os 3,5 m de alcance da revista.
+        --
+        -- Voltar a ligar é trocar este número: qualquer valor acima de zero restaura a parada.
+        pauseNearPlayers = 0.0,
 
         -- De quanto em quanto tempo o dono de rede informa ao servidor onde os corredores dele
         -- estão. É o que mantém a validação de distância honesta: sem reporte, a posição que o
@@ -204,26 +238,14 @@ return {
         -- volta andando. É a rede de segurança da blindagem contra fuga: atributo de combate e
         -- bloqueio de evento cobrem o susto, mas empurrão, carro e ragdoll não são susto.
         -- Precisa ser maior que o raio, senão ele é chamado de volta no meio de um trecho normal.
-        leashDistance = 35.0,
+        leashDistance = 65.0,
 
-
-        -- De vez em quando o corredor para para fazer alguma coisa, em vez de só aguardar.
-        -- É o que devolve a naturalidade que a perambulação ambiente dava de graça.
-        idle = {
-            -- Chance de parar ao chegar num destino.
-            chance = 45,
-            durationSeconds = { min = 8, max = 20 },
-            scenarios = {
-                'WORLD_HUMAN_DRUG_DEALER',
-                'WORLD_HUMAN_DRUG_DEALER_HARD',
-                'WORLD_HUMAN_SMOKING',
-                'WORLD_HUMAN_SMOKING_POT',
-                'WORLD_HUMAN_STAND_MOBILE',
-                'WORLD_HUMAN_STAND_IMPATIENT',
-                'WORLD_HUMAN_HANG_OUT_STREET',
-                'WORLD_HUMAN_GUARD_STAND',
-            },
-        },
+        -- Quanto a malha pode discordar da altura pedida antes de o ponto ser recusado.
+        -- A sonda devolve a malha mais próxima, e "mais próxima" inclui o andar de baixo: uma
+        -- esquina sobre o deck do píer resolvia para a areia onze metros abaixo, e o corredor
+        -- caminhava dentro do mar. Afastamento horizontal continua liberado — é a malha
+        -- encostando o ponto no chão caminhável mais próximo, que é para isso que ela serve.
+        maxHeightOffset = 3.0,
     },
 
     -- Arma que o corredor saca ao reagir a uma abordagem.
@@ -239,6 +261,8 @@ return {
 
     interaction = {
         computerDistance = 2.0,
+        -- Raio da esfera na porta do interior. É uma soleira, não uma sala.
+        doorDistance = 1.5,
         dealerDistance = 2.5,
     },
 
@@ -249,14 +273,6 @@ return {
     --
     -- O ped nasce na coordenada `computer` do posto, exatamente como cadastrada, e é a mesma
     -- coordenada que o servidor usa para validar distância. Nada de procurar chão nem corrigir
-    -- altura: o ped fica congelado ali, então o que está no config é a posição final.
-    terminalNpc = {
-        model = 'a_m_o_beach_01',
-        -- Sem cenário, como o NPC do noir_truckjob: ele só fica de pé, congelado.
-        scenario = nil,
-        -- De quanto em quanto tempo o client confere se o atendente ainda está de pé.
-        checkIntervalMs = 5000,
-    },
 
     phone = {
         identifier = 'exchange',

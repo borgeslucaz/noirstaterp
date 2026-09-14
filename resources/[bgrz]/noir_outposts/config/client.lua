@@ -49,8 +49,9 @@ return {
 
     target = {
         icons = {
-            -- O terminal é um NPC, não um objeto: o alvo é a pessoa.
-            operator = 'fa-solid fa-user-tie',
+            -- O terminal virou um laptop dentro do interior, e a entrada uma porta.
+            computer = 'fa-solid fa-laptop',
+            door = 'fa-solid fa-door-open',
             inspect = 'fa-solid fa-circle-info',
             stock = 'fa-solid fa-box',
             robbery = 'fa-solid fa-mask',

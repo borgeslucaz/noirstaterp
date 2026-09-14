@@ -37,29 +37,31 @@ criado pelo servidor. Um único loop no client sorteia um destino dentro do raio
 corredor até lá, espera a chegada e repete, com teto de 20 segundos por trecho para caminho
 bloqueado não travar ninguém. É um loop só para todos os corredores, não uma thread por ped.
 
-**Boa parte do mapa não tem malha de navegação de pedestre**, docas e pátios industriais
-inclusive, e nesses lugares tanto a perambulação ambiente quanto o cálculo de rota falham em
-silêncio. Por isso o destino é resolvido em dois níveis: com malha o corredor usa rota, sem
-malha ele vai em linha reta sobre o chão bruto. Um ponto sem chão, como água, é descartado.
+**O corredor só anda sobre malha de navegação de pedestre.** O destino sai de
+`GetSafeCoordForPed` e o trajeto de `TaskGoToCoordAnyMeans`, então o jogo contorna obstáculo
+sozinho. **Esquina sem malha não tem caminhada:** o corredor fica de pé no cenário de esquina,
+e o `/outpostsdebug` reporta `esquina sem malha de navegação`.
 
-**O corredor para de circular quando há jogador a menos de 18 metros.** Isso não é só
-ambientação. A posição que o servidor enxerga de um ped em movimento fica defasada, e foi
-medida com 38 metros de erro em teste, o que quebrava a checagem de distância do assalto. Com
-o ped parado a posição converge e a validação volta a ser confiável. É disso que depende a
-posição gravada na rendição: quem aponta a arma está a menos de 18 metros, então o corredor já
-está parado quando o servidor tira a foto. Enquanto segura o posto ele toca uma animação, então
-não fica congelado.
+Boa parte do mapa não tem essa malha, docas e pátios industriais inclusive — o que significa que
+a escolha da coordenada decide se o corredor anda. Houve aqui um segundo nível, em que sem malha
+ele ia em linha reta sobre o chão bruto, validado por um teste de visada e com um detector de
+travamento para quando ele encostava em algo que o teste não pegou. Tudo isso **foi removido**: o
+caminhar torto em pátio sem malha não valia as três camadas que o sustentavam.
 
-Ao chegar num destino o corredor tem 45% de chance de parar para alguma coisa por 8 a 20
-segundos, em vez de aguardar imóvel: fumar, mexer no celular, ficar de vigia, a lista está em
-`dealerWander.idle.scenarios`. É o que devolve a naturalidade que a perambulação ambiente dava
-de graça.
+**O corredor circula mesmo com jogador do lado.** Houve aqui uma parada obrigatória a 18 metros,
+porque a posição de um ped em movimento chegava ao servidor com até 38 metros de erro medidos em
+teste, e isso quebrava a checagem de distância do assalto. O que tornou a parada dispensável foi
+o reporte do dono de rede: hoje a posição chega a cada `reportIntervalMs`, então a defasagem é o
+que o ped anda em um segundo — cerca de um metro, contra os 3,5 m de alcance da revista.
 
-Em linha reta não há quem contorne obstáculo, então o destino só é aceito se houver caminho
-livre até ele, verificado por um teste de visada na altura do peito contra mundo, veículos e
-objetos. Outros peds não contam como obstáculo. Se ainda assim o corredor encostar em algo, ele
-é detectado parado em dois tiques seguidos e troca de destino, em vez de empurrar a parede até
-o teto de 20 segundos.
+A parada continua existindo em `dealerWander.pauseNearPlayers`, agora em `0`. Qualquer valor
+acima de zero a restaura, e o `config_spec` volta a exigir que ela cubra o alcance da revista e
+a maior parte do alcance da abordagem.
+
+Parado é parado, sempre no mesmo cenário de esquina (`client.dealerScenario`). Houve um sorteio
+de cenários de ócio — fumar, mexer no celular, ficar de vigia — e ele **foi removido junto com
+`dealerWander.idle`**: era ele que aparecia por cima da rendição enquanto o dicionário da
+animação carregava, e a leitura em jogo era de corredor que levanta as mãos e volta a fumar.
 
 A IA roda no client que for dono de rede do ped, como qualquer ped, e o loop reaplica a
 caminhada quando a propriedade troca de mão. Eles continuam mortais.
@@ -79,10 +81,14 @@ ao padrão do modelo, e o padrão é correr.
 freio que não depende de atributo de combate, e ligado durante a caminhada ele cancela a tarefa
 de destino junto: o corredor não anda, só toca a animação de ócio. Isso foi testado e reprovado,
 e é por isso que `dealerWander.blockEvents` está em **false** — não tente de novo. Mas parado não
-há destino a cancelar, então parado ele entra sempre, e é aí que importa: a abordagem exige 12
-metros e a parada por jogador perto começa em 18, então quem aponta uma arma encontra o corredor
-já parado e já surdo a susto. Vale para a parada por jogador, para a pausa entre trechos e para a
-rendição.
+há destino a cancelar, então parado ele entra sempre: na pausa entre trechos, fora de serviço e
+na rendição.
+
+**Com a parada por jogador perto desligada, esta camada deixou de cobrir o instante da mira.**
+Antes, quem apontava a arma encontrava o corredor já parado e já surdo a susto, porque a parada
+começava em 18 metros e a abordagem exige 12. Agora ele pode estar andando, e aí o freio é só o
+de atributos de combate até a reação do servidor chegar e ligar o bloqueio. Se aparecer corredor
+que dá um passo de fuga antes de levantar as mãos, é aqui que se olha.
 
 **Nada de tarefa de fuga.** A reação hostil sem alvo resolvido neste client chamava
 `TaskReactAndFleePed` e mandava o corredor correr — do jogador local, que quase nunca é quem
@@ -111,8 +117,8 @@ Apontar a arma nem sempre vira abordagem, e as recusas vinham caladas. O efeito 
 possível: o corredor não reagia, o jogador não recebia explicação nenhuma, e a leitura era de que
 o NPC estava quebrado. São três janelas, e todas terminam sozinhas:
 
-- **10 minutos de recuperação** depois de um assalto bem-sucedido, ou 20 depois de uma morte. O
-  corredor está fora de serviço, e `dealer_unavailable` ou `dealer_cooldown` explicam.
+- **10 minutos de recuperação** depois de um assalto bem-sucedido, ou 1 minuto depois de uma morte
+  limpa. O corredor está fora de serviço, e `dealer_unavailable` ou `dealer_cooldown` explicam.
 - **2 minutos de cooldown de abordagem**, contados da abordagem anterior, que existem para
   ninguém ficar rolando o dado até tirar a rendição. Este tem código próprio,
   `holdup_cooldown`: usar o mesmo do assalto fazia a mensagem dizer "já foi roubado" para quem
@@ -169,9 +175,12 @@ sozinha, e foi ela que fez o "já está sendo abordado" aparecer sem ninguém ab
 posição reportada do ped anterior pode estar longe da esquina nova, e o salto até lá é grande o
 bastante para ser recusado como teleporte, o que trava toda checagem de distância do corredor.
 
-Por isso `Entities.spawnDealer` zera, no ped novo, a abordagem em curso, o cooldown de abordagem,
-o medo e as leituras de posição. **O cooldown de roubo não:** ele é do corredor, não do ped, está
-na linha do banco, e é o que impede assaltar duas vezes trocando o ped no meio.
+Por isso `Entities.spawnDealer` zera, no ped novo, a abordagem em curso, o medo e as leituras de
+posição. **Os cooldowns não:** eles são do corredor, não do ped. O de roubo sempre esteve na linha
+do banco; o de abordagem passou a sobreviver ao respawn pelo mesmo motivo, e de quebra fechou um
+atalho — como matar tira o corredor de circulação por menos tempo do que o cooldown de abordagem,
+executá-lo devolvia um ped novo e limpo mais rápido do que esperar, e atirar era a forma ótima de
+rolar o dado da rendição de novo.
 
 No client vale o mesmo, e pelo motivo mais direto: o FiveM recicla net ID, então o corredor
 recriado costuma herdar o número do anterior. `detach` esquece caminhada, fixação, propriedade de
@@ -340,9 +349,10 @@ Nenhum preço, payout, chance de dispatch ou regra anti-exploit existe fora de
    Só o corredor rendido pode ser revistado, e o assalto em si segue com a barra de progresso.
    Abordar de novo o mesmo corredor tem cooldown, para ninguém ficar rolando o dado.
 9. O corredor assaltado entra em recuperação por 10 minutos, e nesse período não vende nem
-   pode ser assaltado de novo.
+   pode ser assaltado de novo — por ninguém. Passado esse prazo ele volta a operar, mas **quem já
+   o roubou fica de fora por uma hora**: ver "A trava por identidade", abaixo.
 10. Matar um corredor o tira de operação, e por quanto tempo depende de ter havido assalto
-    antes: **1 minuto numa morte limpa, 20 minutos se ele já tinha sido revistado**. O corpo
+    antes: **1 minuto numa morte limpa, e o prazo do roubo se ele já tinha sido revistado**. O corpo
     fica caído onde estava, deixa de ser mantido à força e some sozinho quando a área esvazia.
     Na recuperação o que tiver sobrado é removido e um ped novo assume o posto, com o mesmo nome
     e o mesmo rosto. Corredor em recuperação não vende, não pode ser roubado e não aceita a
@@ -377,30 +387,67 @@ fica preso "em campo" com um cadáver na esquina, vendendo. Três coisas fecham 
 Sobra um caso: quem mata e desconecta no mesmo segundo não gera aviso nenhum, e aí a morte volta a
 depender de outro jogador estar por perto na varredura seguinte.
 
-### Matar: os dois prazos
+### A trava por identidade
+
+`robbed_until`, na linha do corredor, responde "por quanto tempo ele não vende": **dez minutos**,
+valendo para todo mundo. É o teto global, e não mudou.
+
+A tabela `noir_outpost_dealer_locks` responde outra pergunta: **quem já o roubou e ainda não pode
+de novo**. Uma gang tranca a gang inteira por `robbery.gangLockSeconds` (1h); um jogador sem gang
+tranca a si mesmo por `robbery.soloLockSeconds` (1h30), porque não tem com quem dividir o alvo nem
+a quem responder.
+
+O efeito combinado é o que transforma assalto de farm em evento. O corredor continua sendo
+roubável uma vez a cada dez minutos — mas cada vez por uma gang diferente. Uma gang sozinha sai de
+quatro assaltos a cada quinze minutos para **quatro por hora**.
+
+**Todo assalto grava as duas travas quando há gang**: a da organização e a do próprio cidadão. Sem
+a segunda, sair da gang, roubar de novo e voltar renderia um assalto extra.
+
+A checagem mora em `Robbery.start` e `Robbery.complete`, **não** em `rivalTarget`. Isso é
+deliberado em dois sentidos. A abordagem continua liberada para quem já roubou, porque render é de
+quem chegar e a gang A ainda pode render um corredor para a gang B revistar — o que já era
+intencional. E a leitura fica fora do caminho quente: o laço de mira dispara toda hora, o assalto
+não.
+
+A recusa tem código próprio, `robbery_locked`. Usar `dealer_cooldown` faria a mensagem dizer "ele
+está em recuperação" para quem só esbarrou na própria trava — o mesmo erro que já custou a
+separação entre `holdup_cooldown` e `dealer_cooldown`.
+
+As travas morrem com o corredor, por `ON DELETE CASCADE`: tomada nova contrata gente nova, e a
+conta recomeça com ela. O que vence com o corredor ainda em campo sai na poda do scheduler, junto
+com a do ledger.
+
+### Matar: os dois caminhos
 
 | Como | Fora de operação | Ledger | Alerta |
 |---|---|---|---|
 | Morte limpa, sem assalto antes | **1 minuto** | `dealer_down` | sim |
-| Execução depois da revista | **20 minutos** | só o roubo | só o roubo |
+| Execução depois da revista | **o que restava do roubo** | só o roubo | só o roubo |
 
 **A morte limpa é curta de propósito.** Matar não é a forma de tirar um posto de operação: quem
 só atira devolve o corredor em um minuto, então a sabotagem por tiro não compensa e o roubo
-continua sendo o caminho. Render e matar sem concluir a revista cai aqui, não no prazo longo — o
-carimbo do assalto só é gravado quando a revista termina, e até lá o corredor ainda está em campo.
-O rival que estava assaltando perde a revista junto, porque a conclusão revalida e encontra o
-corredor fora de operação.
+continua sendo o caminho. O `config_spec` trava a relação: `downCooldownSeconds` precisa ser menor
+que `robbery.cooldownSeconds`, senão atirar viraria o atalho barato para o mesmo resultado.
 
-**A execução depois da revista é o caminho caro.** Ela substitui o que restava do roubo pelo prazo
-cheio, e o prazo só anda para frente: matar nunca devolve o corredor mais cedo do que deixá-lo
-vivo. O `config_spec` trava as duas relações — `downAfterRobberyCooldownSeconds` precisa ser maior
-que `robbery.cooldownSeconds`, e `downCooldownSeconds` precisa ser menor que ele.
+Render e matar **sem** concluir a revista também cai aqui — o carimbo do assalto só é gravado
+quando a revista termina, e até lá o corredor ainda está em campo. O rival que estava assaltando
+perde a revista junto, porque a conclusão revalida e encontra o corredor fora de operação.
 
-Isso só funciona porque `markDown` aceita corredor em `recovering`. O assalto grava esse estado no
-mesmo `UPDATE` que debita a carteira, então, no instante em que a revista termina, o corredor já
-não está mais em campo. Enquanto `markDown` exigia `deployed`, a morte dele era recusada em
-silêncio: ele voltava no prazo do roubo, sem linha no ledger, sem alerta e sem o corpo marcado para
-a engine recolher. Executar o rendido não custava nada.
+**A execução depois da revista não acrescenta tempo.** O corredor continua no cooldown do roubo,
+que já está gravado na linha dele: o episódio é um só, e quem já pagou por ser assaltado não paga
+de novo por levar um tiro depois. Não existe prazo próprio para esse caminho, e a chave que
+existia (`downAfterRobberyCooldownSeconds`) foi removida — o `config_spec` barra a volta dela,
+como já barrava as duas tentativas anteriores.
+
+O que a segunda passagem faz, então, é o que só ela faz: marca o corpo para a engine recolher e
+dispara o chamado para a polícia. Ela **não escreve no banco**, porque status, `robbed_until` e
+`next_sale_at` já estão certos desde o assalto — reescrevê-los só serviria para empurrar o prazo.
+
+Isso depende de `markDown` aceitar corredor em `recovering`. O assalto grava esse estado no mesmo
+`UPDATE` que debita a carteira, então, no instante em que a revista termina, o corredor já não
+está mais em campo. Enquanto `markDown` exigia `deployed`, a morte dele era recusada em silêncio, e
+o corpo ficava sem ser recolhido e sem gerar ocorrência.
 
 **A segunda passagem é autorizada pelo carimbo do assalto, e o carimbo é consumido nela.** Sem isso
 a varredura reencontraria o mesmo corpo a cada dez segundos e empurraria o prazo para sempre.
@@ -491,7 +538,7 @@ autoriza qualquer coisa.
 
 ## Persistência
 
-Sete tabelas próprias, criadas em `migrations/001_initial.sql` e evoluídas pelas migrations
+Oito tabelas próprias, criadas em `migrations/001_initial.sql` e evoluídas pelas migrations
 seguintes. A `006_claim_dealer_roster.sql` persiste o elenco sorteado na tomada. O migrador aplica os arquivos em ordem e aceita apenas
 `CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS` e `INSERT IGNORE`; nenhuma consulta a schema de terceiros.
 Valores monetários são inteiros e timestamps são epoch UTC.
@@ -505,6 +552,7 @@ Valores monetários são inteiros e timestamps são epoch UTC.
 | `noir_outpost_rotations` | seleção persistida por ciclo |
 | `noir_outpost_organizations` | cooldown de claim por organização |
 | `noir_outpost_player_settings` | preferências de alerta e marcador de feed limpo |
+| `noir_outpost_dealer_locks` | quem já roubou cada corredor e até quando não pode de novo |
 
 Venda, roubo, depósito e coleta usam `UPDATE` condicional com guardas de estado, dono, estoque
 e `version` do dealer, então uma corrida perde em vez de corromper. Onde a fronteira é externa

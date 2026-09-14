@@ -30,10 +30,9 @@ local function ownedEntry(actor, outpostId, action)
     if not Security.isOwner(actor, entry.row) then return nil, 'not_owner' end
     local allowed, permissionError = Security.requirePermission(actor, action)
     if not allowed then return nil, permissionError end
-    local definition = shared.outposts[outpostId]
-    if not Security.isNear(actor.source, definition.computer, shared.interaction.computerDistance) then
-        return nil, 'too_far'
-    end
+    local atComputer, placeError = Security.atComputer(
+        actor.source, outpostId, shared.interaction.computerDistance)
+    if not atComputer then return nil, placeError end
     return entry
 end
 
@@ -176,7 +175,7 @@ function Service.hire(actor, outpostId, profileKey, requestId)
     local dealer = State.dealer(dealerId)
     if dealer then Entities.spawnDealer(outpostId, dealer) end
 
-    Notification.broadcastPublicSnapshot()
+    Notification.broadcastOutpost(outpostId)
     Notification.refreshPanels(outpostId)
     Log.info('dealer_hired', {
         outpostId = outpostId,
@@ -243,7 +242,7 @@ function Service.fire(actor, outpostId, dealerId, requestId)
     })
 
     State.reload(outpostId)
-    Notification.broadcastPublicSnapshot()
+    Notification.broadcastOutpost(outpostId)
     Notification.refreshPanels(outpostId)
     Log.info('dealer_fired', { outpostId = outpostId, dealerId = dealerId, citizenId = actor.citizenId })
 
@@ -509,10 +508,10 @@ function Service.markDown(dealerId)
     if not dealer then return false end
 
     -- Quem acabou de ser assaltado já está em `recovering`, porque o assalto grava esse estado no
-    -- mesmo UPDATE que debita a carteira. Exigir `deployed` aqui fazia a morte dele ser recusada
-    -- em silêncio: ele voltava no prazo do roubo, como se ninguém o tivesse executado.
+    -- mesmo UPDATE que debita a carteira. Exigir `deployed` aqui recusaria a morte dele em
+    -- silêncio, e o corpo ficaria sem ser recolhido e sem gerar chamado.
     -- O carimbo do assalto é o que autoriza essa segunda passagem, e é consumido logo abaixo —
-    -- sem isso a varredura remarcaria o mesmo corpo a cada volta, empurrando o prazo para sempre.
+    -- sem isso a varredura remarcaria o mesmo corpo a cada volta.
     local afterRobbery = robbedAt[dealerId] ~= nil
     local deployed = dealer.status == C.DealerStatus.DEPLOYED
     if not deployed and not (dealer.status == C.DealerStatus.RECOVERING and afterRobbery) then
@@ -523,17 +522,23 @@ function Service.markDown(dealerId)
     if not entry then return false end
 
     local now = os.time()
-    -- O prazo depende de ter havido assalto antes. Morte limpa é um contratempo curto; execução
-    -- depois da revista fecha o episódio e substitui o que restava do roubo pelo prazo cheio.
-    local cooldown = afterRobbery
-        and config.dealers.downAfterRobberyCooldownSeconds
-        or config.dealers.downCooldownSeconds
-    local downUntil = now + cooldown
-    local nextSaleAt = downUntil + State.intervalFor(dealer.profile_key)
 
-    if not Repositories.Dealer.markDown(dealer.id, dealer.version, downUntil, nextSaleAt, dealer.status) then
-        State.reload(dealer.outpost_id)
-        return false
+    -- Executar quem acabou de ser revistado NÃO mexe no prazo: o corredor continua no cooldown do
+    -- roubo, que já está gravado na linha dele. O episódio é um só, e quem já pagou o preço de ser
+    -- assaltado não paga de novo por levar um tiro depois. A morte acrescenta o corpo no chão e o
+    -- chamado para a polícia — não tempo.
+    --
+    -- Por isso a segunda passagem não escreve no banco: status, `robbed_until` e `next_sale_at` já
+    -- estão certos desde o assalto, e reescrevê-los só serviria para empurrar o prazo.
+    local cooldown = afterRobbery and 0 or config.dealers.downCooldownSeconds
+    local downUntil = afterRobbery and (dealer.robbed_until or now) or (now + cooldown)
+
+    if not afterRobbery then
+        local nextSaleAt = downUntil + State.intervalFor(dealer.profile_key)
+        if not Repositories.Dealer.markDown(dealer.id, dealer.version, downUntil, nextSaleAt, dealer.status) then
+            State.reload(dealer.outpost_id)
+            return false
+        end
     end
 
     -- Consome o carimbo: a partir daqui ele está em recuperação de morte, e uma segunda
@@ -546,7 +551,7 @@ function Service.markDown(dealerId)
     local organizationId = entry.row.owner_organization_id
 
     -- Executar quem acabou de ser assaltado não abre registro próprio: para a organização o
-    -- episódio é um só, e o alerta de roubo já saiu. O prazo muda, o aviso não se repete.
+    -- episódio é um só, e o alerta de roubo já saiu. Nem o prazo nem o aviso mudam.
     -- O `Log` abaixo continua registrando os dois casos — ele é diagnóstico de servidor, não
     -- o histórico que o jogador lê.
     if not afterRobbery then
@@ -584,7 +589,7 @@ function Service.markDown(dealerId)
     -- posto: uma chacina inteira vira uma ocorrência, não quatro.
     Notification.maybeDispatch(dealer, 'down', config.dealers.dispatchChance)
 
-    Notification.broadcastPublicSnapshot()
+    Notification.broadcastOutpost(dealer.outpost_id)
     Notification.refreshPanels(dealer.outpost_id)
 
     Log.info('dealer_down', {
@@ -628,7 +633,7 @@ function Service.recoverDue()
                     end
                 end
             end
-            Notification.broadcastPublicSnapshot()
+            Notification.broadcastOutpost(outpostId)
             Notification.refreshPanels(outpostId)
         end
     end

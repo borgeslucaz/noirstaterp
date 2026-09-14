@@ -1,6 +1,11 @@
+-- Estado de gang e notificações vêm do bgrz_core; este resource não fala com o
+-- framework diretamente.
+local core = exports.bgrz_core
+
 local zones, radialAdded = {}, false
-local function notify(text, kind) lib.notify({ description = text, type = kind or 'inform' }) end
-local function gang() return QBX.PlayerData.gang end
+
+local function notify(text, kind) core:Notify(text, kind or 'inform') end
+local function gang() return core:GetGang() end
 
 local function closestPlayer()
     local id = lib.getClosestPlayer(GetEntityCoords(cache.ped), Config.Invitation.maxDistance, false)
@@ -9,19 +14,31 @@ local function closestPlayer()
 end
 
 local function openMember(member, data)
-    local options = {{ title = member.gradeName, description = member.online and 'Online' or 'Offline', icon = 'user', disabled = true }}
+    local options = {{ title = member.gradeName, description = member.online and 'Online' or 'Offline',
+        icon = member.isBoss and 'crown' or 'user', disabled = true }}
+
     local function action(label, event, icon, danger)
         options[#options + 1] = { title = label, icon = icon, iconColor = danger and '#c44747' or nil, onSelect = function()
-            if lib.alertDialog({ header = label, content = ('Confirmar ação sobre **%s**?'):format(member.name), centered = true, cancel = true }) == 'confirm' then
+            if lib.alertDialog({ header = label, content = ('Confirmar ação sobre **%s**?'):format(member.name),
+                centered = true, cancel = true }) == 'confirm' then
                 TriggerServerEvent('noir_gangs:server:memberAction', member.citizenid, event)
             end
         end }
     end
-    if member.citizenid ~= data.actorCitizenId then
-        if data.permissions.promote then action('Promover', 'promote', 'arrow-up') end
-        if data.permissions.demote then action('Rebaixar', 'demote', 'arrow-down') end
-        if data.permissions.remove_member then action('Remover da gang', 'remove', 'user-minus', true) end
+
+    -- Chefe não é desligado nem muda de cargo por jogador; quem troca liderança é a
+    -- administração. Então nem oferecemos as ações.
+    if member.citizenid ~= data.actorCitizenId and not member.isBoss then
+        if data.permissions.promote and member.canPromote then action('Promover', 'promote', 'arrow-up') end
+        if data.permissions.demote and member.canDemote then action('Rebaixar', 'demote', 'arrow-down') end
+        if data.permissions.remove_member then action('Desligar da gang', 'remove', 'user-minus', true) end
     end
+
+    if #options == 1 then
+        options[2] = { title = member.isBoss and 'O chefe não pode ser alterado' or 'Nenhuma ação disponível',
+            icon = 'lock', disabled = true }
+    end
+
     lib.registerContext({ id = 'noir_gangs_member', title = member.name, menu = 'noir_gangs_members', options = options })
     lib.showContext('noir_gangs_member')
 end
@@ -76,14 +93,40 @@ local function openActivity()
     lib.showContext('noir_gangs_activity')
 end
 
+local function leaveGang()
+    local confirmed = lib.alertDialog({ header = 'Sair da gang',
+        content = 'Você perde o cargo e o acesso à gestão. Para voltar, precisa de um convite novo.',
+        centered = true, cancel = true })
+    if confirmed == 'confirm' then TriggerServerEvent('noir_gangs:server:leaveGang') end
+end
+
 local function openManagement()
     local state = lib.callback.await('noir_gangs:server:getState', false)
     if not state or not state.inGang or not state.permissions.view_members then return notify('Sem acesso à gestão.', 'error') end
-    lib.registerContext({ id = 'noir_gangs_main', title = state.gang.label:upper(), options = {
+    local options = {
         { title = 'Membros', description = 'Lista, cargos e status', icon = 'users', onSelect = openMembers },
         { title = 'Atividade', description = 'Histórico de gestão', icon = 'clock-rotate-left', onSelect = openActivity },
-        { title = 'Meu cargo', description = state.gang.grade.name, icon = 'ranking-star', disabled = true },
-    } })
+        { title = 'Meu cargo', description = state.rankLabel or state.gang.gradeName, icon = 'ranking-star', disabled = true },
+    }
+
+    -- Reputação e produto só aparecem para quem tem a permissão; ambos são leitura. A
+    -- reputação é concedida por admin ou por outro resource, nunca pelo próprio menu.
+    if state.reputation then
+        options[#options + 1] = { title = 'Reputação', description = tostring(state.reputation),
+            icon = 'star', disabled = true }
+    end
+    if state.products then
+        local labels = {}
+        for i = 1, #state.products do labels[i] = state.products[i].label end
+        options[#options + 1] = { title = 'Operação',
+            description = #labels > 0 and table.concat(labels, ', ') or 'Nenhum produto definido',
+            icon = 'boxes-stacked', disabled = true }
+    end
+
+    options[#options + 1] = { title = 'Sair da gang', description = 'Você perde o acesso à gestão',
+        icon = 'right-from-bracket', iconColor = '#c44747', onSelect = leaveGang }
+
+    lib.registerContext({ id = 'noir_gangs_main', title = state.gang.label:upper(), options = options })
     lib.showContext('noir_gangs_main')
 end
 
@@ -113,32 +156,52 @@ RegisterNetEvent('noir_gangs:client:invitation', function(invite)
         canClose = false,
         options = {
             { title = 'Aceitar convite', description = ('Entrar para a gang de %s.'):format(actorName), icon = 'check', iconColor = '#69c586',
-                onSelect = function() TriggerServerEvent('noir_gangs:server:answerInvite', invite.id, true) end },
+                onSelect = function() TriggerServerEvent('noir_gangs:server:answerInvite', invite.id) end },
             { title = 'Recusar convite', description = ('Recusar o convite de %s.'):format(actorName), icon = 'xmark', iconColor = '#c44747',
-                onSelect = function() TriggerServerEvent('noir_gangs:server:answerInvite', invite.id, false) end },
+                onSelect = function() TriggerServerEvent('noir_gangs:server:declineInvite', invite.id) end },
         }
     })
     lib.showContext('noir_gangs_invitation')
 end)
 
-RegisterNetEvent('noir_gangs:client:setLocations', function(locations)
-    for i = 1, #zones do exports.ox_target:removeZone(zones[i]) end
+---Recria as zonas de gestão. Serve tanto para o broadcast do servidor (edição do admin)
+---quanto para a busca do próprio client, para não haver dois caminhos que divergem.
+local function applyLocations(incoming)
+    for i = 1, #zones do core:RemoveZoneTarget(zones[i]) end
     zones = {}
-    for i = 1, #locations do
-        local location = locations[i]
-        zones[#zones + 1] = exports.ox_target:addBoxZone({
+    if type(incoming) ~= 'table' then return end
+
+    for i = 1, #incoming do
+        local location = incoming[i]
+        local name = ('management:%s'):format(location.id)
+        local ok, err = core:AddBoxZoneTarget({
+            name = name,
             coords = vec3(location.coords.x, location.coords.y, location.coords.z),
-            size = vec3(location.size.x, location.size.y, location.size.z), rotation = location.heading,
-            options = {{ name = ('noir_gang_management_%s'):format(location.id), icon = 'users-gear', label = 'Gerenciar Gang',
+            size = vec3(location.size.x, location.size.y, location.size.z),
+            rotation = location.heading,
+            options = {{ name = 'manage', icon = 'users-gear', label = 'Gerenciar Gang',
                 distance = Config.ManagementDistance,
                 canInteract = function()
                     local current = gang()
-                    return current and current.name == location.gangName and current.name ~= 'none'
+                    return current ~= nil and current.name == location.gangName and current.name ~= 'none'
                 end,
                 onSelect = openManagement }}
         })
+        if ok then
+            zones[#zones + 1] = name
+        else
+            lib.print.error(('[noir_gangs] zona %s falhou: %s'):format(name, tostring(err)))
+        end
     end
-end)
+end
+
+RegisterNetEvent('noir_gangs:client:setLocations', applyLocations)
+
+local function requestLocations()
+    local incoming = lib.callback.await('noir_gangs:server:getLocations', false)
+    -- nil é o servidor segurando o pedido pelo cooldown; as zonas atuais seguem valendo.
+    if incoming then applyLocations(incoming) end
+end
 
 local function place(gangName, locationId)
     notify('Posicione-se no local. E confirma; BACKSPACE cancela.')
@@ -195,8 +258,22 @@ RegisterNetEvent('noir_gangs:client:openSetup', function(gangs, locations)
     lib.showContext('noir_gangs_setup')
 end)
 
-RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function() Wait(1000); refreshRadial(); TriggerServerEvent('noir_gangs:server:requestLocations') end)
-RegisterNetEvent('QBCore:Client:OnGangUpdate', function() Wait(100); refreshRadial() end)
-RegisterNetEvent('qbx_core:client:playerLoggedOut', function() if radialAdded then lib.removeRadialItem('noir_gang_actions'); radialAdded = false end end)
-CreateThread(function() Wait(1500); refreshRadial(); TriggerServerEvent('noir_gangs:server:requestLocations') end)
+-- O bgrz_core já normaliza entrar/sair de gang e troca de cargo num evento só.
+AddEventHandler('bgrz_core:client:playerLoaded', function()
+    refreshRadial()
+    requestLocations()
+end)
+AddEventHandler('bgrz_core:client:gangUpdated', refreshRadial)
+AddEventHandler('bgrz_core:client:playerUnloaded', function()
+    if radialAdded then lib.removeRadialItem('noir_gang_actions'); radialAdded = false end
+end)
+
+-- Restart do resource com o jogador já em jogo: `playerLoaded` não vai disparar de novo.
+CreateThread(function()
+    Wait(1500)
+    if not core:IsLoggedIn() then return end
+    refreshRadial()
+    requestLocations()
+end)
+
 exports('OpenManagement', openManagement)

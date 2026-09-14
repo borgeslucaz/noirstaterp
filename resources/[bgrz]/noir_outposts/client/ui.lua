@@ -280,8 +280,13 @@ CreateThread(function()
             local definition = state.outpostId and shared.outposts[state.outpostId] or nil
             local distance
             if definition then
-                local target = vector3(definition.computer.x, definition.computer.y, definition.computer.z)
-                distance = #(GetEntityCoords(cache.ped) - target)
+                -- O computador vive dentro do interior. Medir contra a coordenada do posto, lá
+                -- fora, dava mil metros e o painel se fechava sozinho no instante em que abria.
+                local shell = shared.shells[definition.shell]
+                local computer = shell and shell.computer
+                local target = computer
+                    and vector3(computer.x, computer.y, computer.z) or nil
+                distance = target and #(GetEntityCoords(cache.ped) - target) or nil
             end
             -- cache.vehicle é `false` a pé, então precisa de teste de verdade, não de nil.
             local facts = {

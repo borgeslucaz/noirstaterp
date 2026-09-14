@@ -23,6 +23,7 @@ client_scripts {
 }
 
 server_scripts {
+    '@oxmysql/lib/MySQL.lua',
     'server/character.lua',
     'server/vehicle_keys.lua',
     'server/inventory.lua',
@@ -35,6 +36,7 @@ server_scripts {
 dependencies {
     'ox_lib',
     'qbx_core',
+    'oxmysql',
     'qbx_vehiclekeys',
     'ox_inventory',
     'ox_target'

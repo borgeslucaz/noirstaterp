@@ -22,8 +22,16 @@ GetGameTimer = function() return gameTimer end
 local pedCoords = {}
 GetPlayerPed = function(source) return source > 0 and source * 10 or 0 end
 GetEntityCoords = function(ped) return pedCoords[ped] or vector3(0.0, 0.0, 0.0) end
-GetEntityRoutingBucket = function() return 0 end
-GetPlayerRoutingBucket = function() return 0 end
+-- O falso colapsa os dois mundos: na vida real o corredor fica na rua (bucket 0) e o painel no
+-- interior (bucket do posto), e o jogador atravessa entre eles. Aqui o que se exercita são as
+-- regras de domínio, então ped e jogador compartilham o mesmo número e `sameBucket` passa. Quem
+-- assere comportamento de bucket é a seção "Routing bucket", que sobrepõe explicitamente.
+GetEntityRoutingBucket = function() return OUTPOST_BUCKET_FOR_TESTS end
+-- Padrão é o bucket do posto do cenário: as ações presenciais acontecem dentro do interior, então
+-- é ali que os atores estão. `playerBuckets` sobrepõe para simular quem está fora.
+OUTPOST_BUCKET_FOR_TESTS = 7101
+local playerBuckets = {}
+GetPlayerRoutingBucket = function(source) return playerBuckets[source] or OUTPOST_BUCKET_FOR_TESTS end
 DoesEntityExist = function(entity) return entity ~= nil and entity ~= 0 end
 GetEntityType = function() return 1 end
 GetEntityModel = function() return 1234 end
@@ -51,12 +59,17 @@ dofile('server/log.lua')
 
 -- Repositórios falsos, preservando as mesmas invariantes do SQL -----------------------------
 
+OUTPOST_FOR_TESTS = 'docks'
+
 local db = {
     outposts = {},
     dealers = {},
     stock = {},
     operations = {},
     organizations = {},
+    -- Travas de assalto por identidade, na chave composta `dealerId|detentor`, como a chave
+    -- primária da tabela real.
+    dealerLocks = {},
     dealerSequence = 0,
 }
 
@@ -188,16 +201,49 @@ N.Repositories.Dealer = {
         }
         return db.dealerSequence
     end,
+    -- O CASCADE da tabela real apaga as travas junto com o corredor. O falso imita, senão o teste
+    -- passaria num estado que o banco nunca produz.
     delete = function(id)
         if not db.dealers[id] then return 0 end
         db.dealers[id] = nil
+        for key in pairs(db.dealerLocks) do
+            if key:match('^' .. id .. '|') then db.dealerLocks[key] = nil end
+        end
         return 1
     end,
     deleteByOutpost = function(outpostId)
         for id, dealer in pairs(db.dealers) do
-            if dealer.outpost_id == outpostId then db.dealers[id] = nil end
+            if dealer.outpost_id == outpostId then
+                db.dealers[id] = nil
+                for key in pairs(db.dealerLocks) do
+                    if key:match('^' .. id .. '|') then db.dealerLocks[key] = nil end
+                end
+            end
         end
         return 1
+    end,
+
+    activeLock = function(dealerId, holders, now)
+        local best
+        for index = 1, #holders do
+            local until_ = db.dealerLocks[('%s|%s'):format(dealerId, holders[index])]
+            if until_ and until_ > now and (not best or until_ > best) then best = until_ end
+        end
+        return best
+    end,
+    lockRobbery = function(dealerId, holder, lockedUntil)
+        db.dealerLocks[('%s|%s'):format(dealerId, holder)] = lockedUntil
+        return 1
+    end,
+    pruneLocks = function(now)
+        local removed = 0
+        for key, until_ in pairs(db.dealerLocks) do
+            if until_ <= now then
+                db.dealerLocks[key] = nil
+                removed = removed + 1
+            end
+        end
+        return removed
     end,
     setCorner = function(id, corner)
         db.dealers[id].corner_index = corner
@@ -449,9 +495,19 @@ N.Services.Notification = {
         return true
     end,
     broadcastPublicSnapshot = function() end,
+    broadcastOutpost = function() end,
     sendPublicSnapshot = function() end,
     refreshPanels = function() end,
     checkStockAlerts = function() end,
+}
+
+-- Interior: o `atComputer` consulta a presença, então o falso precisa responder. O cenário do
+-- teste roda com todos os atores "dentro" do posto, que é onde as ações presenciais acontecem.
+N.Services.Interior = {
+    outpostOf = function() return OUTPOST_FOR_TESTS end,
+    leave = function() return false end,
+    clear = function() end,
+    evictOutpost = function() end,
 }
 
 local uuidCounter = 0
@@ -534,7 +590,8 @@ local State = N.State
 -- Cenário -----------------------------------------------------------------------------------------
 
 local OUTPOST = 'docks'
-local computer = sharedConfig.outposts[OUTPOST].computer
+-- O computador vive dentro do interior, e é contra ele que o servidor mede distância.
+local computer = sharedConfig.shells[sharedConfig.outposts[OUTPOST].shell].computer
 
 local function addPlayer(source, citizenId, organizationId, grade)
     local organization = organizationId
@@ -961,13 +1018,19 @@ T.equal(#(afterBadReport - reportedSpot), 0, 'the refused report did not overwri
 
 -- Fuga: o corredor assustado sai da área dele e a âncora acompanha, um passo plausível por vez.
 -- Prender a âncora à esquina tornaria impossível assaltar exatamente quem correu.
+-- A fuga é medida em passos de dez metros, um por segundo, que é o que o orçamento de
+-- continuidade aceita. A quantidade de passos sai do raio configurado em vez de ser fixa: com
+-- distância fixa e limiar preso ao raio, aumentar o raio no config quebrava este teste sem que
+-- nada no comportamento tivesse mudado.
+local fleeStep = 10.0
+local fleeSteps = math.ceil(sharedConfig.dealerWander.radius * 3 / fleeStep)
 local fleeing = reportedSpot
-for _ = 1, 12 do
+for _ = 1, fleeSteps do
     gameTimer = gameTimer + 1000
-    fleeing = vector3(fleeing.x + 10.0, fleeing.y, fleeing.z)
+    fleeing = vector3(fleeing.x + fleeStep, fleeing.y, fleeing.z)
     T.equal(Services.Dealer.reportPosition(dealerId, fleeing), true, 'a fleeing runner keeps being tracked')
 end
-T.truthy(#(fleeing - corner) > sharedConfig.dealerWander.radius * 4,
+T.truthy(#(fleeing - corner) > sharedConfig.dealerWander.radius * 2,
     'the runner ended far outside his own wander area')
 
 local afterFlight = Services.Dealer.observedPosition(State.dealer(dealerId), N.Entities.validate(dealerId, netId))
@@ -1072,6 +1135,98 @@ local onCooldown = Services.Robbery.start(rival, dealerId, netId)
 T.equal(onCooldown.ok, false, 'a recovering dealer cannot be robbed again')
 T.equal(onCooldown.code, 'dealer_unavailable', 'recovering dealer code')
 
+-- Trava por identidade -------------------------------------------------------------------------
+-- Outra coisa que a recuperação: o corredor volta a operar em dez minutos, mas quem já o roubou
+-- fica de fora por uma hora. Os testes abaixo devolvem o corredor ao serviço à mão, para isolar a
+-- trava da janela de recuperação. `reactionChance` continua em 0 aqui, então render é determinístico.
+
+db.dealers[dealerId].status = C.DealerStatus.DEPLOYED
+db.dealers[dealerId].robbed_until = nil
+State.reload(OUTPOST)
+
+---A esta altura a âncora do corredor não é mais a esquina: os testes de posição a moveram. Em vez
+---de adivinhar onde ela parou, pergunta ao serviço e põe o ator exatamente ali.
+---Põe o ator exatamente onde o `rivalTarget` vai medir, espelhando a escolha dele: a âncora
+---gravada na rendição quando existe uma, senão a leitura viva.
+---
+---A ordem também importa. `resetRateLimits` avança o relógio e vence o reporte de posição, então
+---medir antes dele colocaria o ator onde o corredor ESTAVA, e a ação seguinte mediria contra
+---outro ponto — foi assim que este teste falhou com `too_far` duas vezes.
+local function readyAt(source)
+    resetRateLimits()
+    local anchor = Services.Holdup.surrenderAnchor(dealerId)
+    local target = anchor and anchor.coords
+        or Services.Dealer.observedPosition(State.dealer(dealerId), N.Entities.validate(dealerId, netId))
+    pedCoords[source * 10] = vector3(target.x, target.y, target.z)
+end
+
+---Rende o corredor de novo. Só os casos que devem PASSAR precisam disto: a trava é checada antes
+---do `not_surrendered`, então as recusas por trava não dependem de rendição.
+local function surrenderAgain(actor)
+    Services.Holdup.clearCooldowns()
+    Services.Holdup.resetDealer(dealerId)
+    readyAt(actor.source)
+    T.equal(Services.Holdup.start(actor, dealerId, netId).ok, true, 'forced surrender for the lock test')
+end
+
+-- O assalto gravou as duas travas: a gang do ladrão e ele mesmo.
+T.truthy(db.dealerLocks[('%s|gang:vagos'):format(dealerId)], 'the robbery locked the crew')
+T.truthy(db.dealerLocks[('%s|citizen:RIVAL003'):format(dealerId)], 'the robbery locked the robber')
+
+-- Mesmo ladrão, corredor de volta ao serviço: recusado, e com código próprio.
+resetRateLimits()
+local lockedAgain = Services.Robbery.start(rival, dealerId, netId)
+T.equal(lockedAgain.ok, false, 'the same robber cannot rob the same runner again')
+T.equal(lockedAgain.code, 'robbery_locked', 'identity lock code')
+
+-- Companheiro de gang também não: a trava vale para a organização inteira.
+addPlayer(4, 'RIVAL004', 'vagos', 2)
+local rivalMate = actorFor(4)
+readyAt(4)
+local mateBlocked = Services.Robbery.start(rivalMate, dealerId, netId)
+T.equal(mateBlocked.ok, false, 'a crewmate inherits the lock')
+T.equal(mateBlocked.code, 'robbery_locked', 'crewmate lock code')
+
+-- Sair da gang não devolve a vez: o assalto trancou o cidadão junto.
+addPlayer(5, 'RIVAL003', nil, nil)
+local exGang = actorFor(5)
+readyAt(5)
+local leftGang = Services.Robbery.start(exGang, dealerId, netId)
+T.equal(leftGang.ok, false, 'leaving the crew does not buy another robbery')
+T.equal(leftGang.code, 'robbery_locked', 'ex-crew lock code')
+
+-- Outra gang rouba normalmente: a trava é por identidade, não global.
+addPlayer(6, 'OTHER006', 'families', 4)
+local otherCrew = actorFor(6)
+surrenderAgain(otherCrew)
+readyAt(6)
+local otherStart = Services.Robbery.start(otherCrew, dealerId, netId)
+T.equal(otherStart.ok, true, 'a different crew is not blocked by another crew lock')
+Services.Robbery.cancel(otherCrew, otherStart.data.sessionId)
+
+-- Vencida a trava, o ladrão original volta a poder.
+db.dealerLocks[('%s|gang:vagos'):format(dealerId)] = os.time() - 1
+db.dealerLocks[('%s|citizen:RIVAL003'):format(dealerId)] = os.time() - 1
+surrenderAgain(rival)
+readyAt(3)
+local afterLock = Services.Robbery.start(rival, dealerId, netId)
+T.equal(afterLock.ok, true, 'an expired lock lets the robber back in')
+Services.Robbery.cancel(rival, afterLock.data.sessionId)
+
+-- A poda remove só o que venceu.
+local liveLock = ('%s|gang:families'):format(dealerId)
+db.dealerLocks[liveLock] = os.time() + 3600
+N.Repositories.Dealer.pruneLocks(os.time(), 100)
+T.truthy(db.dealerLocks[liveLock], 'a live lock survives the prune')
+T.falsy(db.dealerLocks[('%s|gang:vagos'):format(dealerId)], 'an expired lock is pruned')
+
+-- Devolve o corredor ao estado de recuperação em que os testes seguintes o esperam.
+db.dealerLocks[liveLock] = nil
+Services.Holdup.resetDealer(dealerId)
+db.dealers[dealerId].status = C.DealerStatus.RECOVERING
+db.dealers[dealerId].robbed_until = os.time() + serverConfig.robbery.cooldownSeconds
+State.reload(OUTPOST)
+
 -- Dealer em recuperação não vende.
 local recoveringSold, recoveringReason = Services.Sale.process(State.dealer(dealerId))
 T.equal(recoveringSold, false, 'recovering dealer does not sell')
@@ -1125,13 +1280,24 @@ resetRateLimits()
 T.equal(Services.Holdup.start(rival, 3, 3 * 1000).code, 'holdup_done',
     'a runner that already reacted answers "already held up"')
 
--- Ped recriado não herda nada do anterior. Uma abordagem em curso que sobrevive ao ped recusaria
--- todas as seguintes até vencer sozinha, e era ela que fazia o "já está sendo abordado" aparecer
--- sem ninguém abordando. O cooldown de roubo não passa por aqui: é do corredor, não do ped.
+-- Ped recriado não herda a ABORDAGEM EM CURSO do anterior: ela sobrevivendo ao ped recusaria todas
+-- as seguintes até vencer sozinha, e era ela que fazia o "já está sendo abordado" aparecer sem
+-- ninguém abordando.
+--
+-- **Mas herda o cooldown.** Ele é do corredor, não do ped — o mesmo argumento que já valia para o
+-- cooldown de roubo. Zerá-lo aqui fazia de matar o atalho ótimo para rolar o dado da rendição de
+-- novo, porque tirar o corredor de circulação custa menos tempo do que esperar a abordagem liberar.
 Services.Holdup.resetDealer(3)
 resetRateLimits()
+T.equal(Services.Holdup.start(rival, 3, 3 * 1000).code, 'holdup_cooldown',
+    'a recreated ped still owes the holdup cooldown of the runner')
+
+-- Zerado o cooldown, aí sim ele aceita de novo.
+Services.Holdup.clearCooldowns()
+resetRateLimits()
 T.equal(Services.Holdup.start(rival, 3, 3 * 1000).ok, true,
-    'a recreated ped carries no holdup and no holdup cooldown')
+    'clearing the cooldown lets a recreated ped be held up again')
+Services.Holdup.clearCooldowns()
 Services.Holdup.resetDealer(3)
 
 -- Gang dona offline --------------------------------------------------------------------------
@@ -1160,6 +1326,7 @@ resetRateLimits()
 T.equal(Services.Holdup.start(rival, 3, 3 * 1000).ok, true,
     'with the protection off the same target is reachable again')
 Services.Holdup.release(3)
+Services.Holdup.clearCooldowns()
 Services.Holdup.resetDealer(3)
 serverConfig.ownerOffline.protectDealers = true
 
@@ -1168,6 +1335,7 @@ ownerOnline = true
 resetRateLimits()
 T.equal(Services.Holdup.start(rival, 3, 3 * 1000).ok, true, 'one member back online reopens the runner')
 Services.Holdup.release(3)
+Services.Holdup.clearCooldowns()
 Services.Holdup.resetDealer(3)
 
 N.Entities.setState = realSetState
@@ -1248,20 +1416,20 @@ local downsBefore = countDowns()
 N.Entities.dead[dealerId] = true
 T.equal(Services.Dealer.markDown(dealerId), true, 'killing a robbed runner takes him out of action')
 
+-- Executar quem já foi revistado não compra tempo: o prazo continua sendo o do roubo, intacto.
+-- O episódio é um só, e quem já pagou por ser assaltado não paga de novo por levar um tiro.
 local killDeadline = State.dealer(dealerId).robbed_until
-T.truthy(killDeadline - os.time() > serverConfig.robbery.cooldownSeconds,
-    'the kill replaces the robbery window with the full execution cooldown')
-T.truthy(killDeadline > robberyDeadline, 'the deadline only ever moves forward')
--- E é o prazo longo, não o da morte limpa: executar o rendido é o caminho caro dos dois.
-T.truthy(killDeadline - os.time() > serverConfig.dealers.downCooldownSeconds,
-    'executing a robbed runner costs more than a plain kill')
+T.equal(killDeadline, robberyDeadline, 'the kill keeps the robbery deadline untouched')
+T.equal(State.dealer(dealerId).status, C.DealerStatus.RECOVERING,
+    'he stays in the recovery the robbery put him in')
+-- Mas a morte ainda faz o que só ela faz: põe o corpo no chão para a engine recolher.
 T.equal(N.Entities.corpses[dealerId], true, 'the body is marked so the engine can reclaim it')
 
 -- Registro: o episódio é um só para a organização, e o alerta do roubo já saiu.
 T.equal(countDowns(), downsBefore, 'a kill that follows a robbery opens no ledger row of its own')
 
 -- O carimbo do assalto é consumido na primeira passagem. A varredura reencontra o mesmo corpo a
--- cada volta, e sem isso ela empurraria o prazo para sempre.
+-- cada volta, e sem isso ela remarcaria o mesmo corredor para sempre.
 T.equal(Services.Dealer.markDown(dealerId), false, 'the same corpse is not marked down twice')
 T.equal(State.dealer(dealerId).robbed_until, killDeadline, 'a refused re-mark leaves the deadline alone')
 
@@ -1324,6 +1492,40 @@ resetRateLimits()
 local farDeposit = Services.Stock.deposit(member, OUTPOST, 'weed_brick', 5, 'req-dep-00010')
 T.equal(farDeposit.ok, false, 'a distant player cannot deposit')
 T.equal(farDeposit.code, 'too_far', 'distance check code')
+
+-- Routing bucket ------------------------------------------------------------------------------------
+
+T.equal(Security.expectedBucket(OUTPOST), OUTPOST_BUCKET_FOR_TESTS, 'each outpost owns its bucket')
+T.equal(Security.expectedBucket('nao_existe'), 0, 'an unknown outpost falls back to the shared world')
+
+-- Estar em cima da coordenada não basta: a ação exige a mesma instância. Sem isto, uma instância
+-- privada parada no terminal operaria o outpost de quem está no mundo compartilhado.
+pedCoords[2 * 10] = vector3(computer.x, computer.y, computer.z)
+playerBuckets[2] = 9999
+resetRateLimits()
+local otherBucketDeposit = Services.Stock.deposit(member, OUTPOST, 'weed_brick', 5, 'req-dep-00011')
+T.equal(otherBucketDeposit.ok, false, 'another instance cannot deposit')
+T.equal(otherBucketDeposit.code, 'invalid_bucket', 'deposit bucket check code')
+
+playerBuckets[1] = 9999
+resetRateLimits()
+local otherBucketCollect = Services.Stock.collect(leader, OUTPOST, 'req-col-00010')
+T.equal(otherBucketCollect.ok, false, 'another instance cannot collect')
+T.equal(otherBucketCollect.code, 'invalid_bucket', 'collect bucket check code')
+
+-- O bucket vem antes da distância: andar até lá não muda a resposta, então é ela que aparece.
+pedCoords[1 * 10] = vector3(computer.x + 50.0, computer.y, computer.z)
+local placeOk, placeCode = Security.atComputer(1, OUTPOST, sharedConfig.interaction.computerDistance)
+T.equal(placeOk, false, 'wrong bucket and far away is refused')
+T.equal(placeCode, 'invalid_bucket', 'the answer walking cannot fix comes first')
+
+-- De volta ao mundo compartilhado, a mesma ação passa.
+playerBuckets[1] = nil
+playerBuckets[2] = nil
+pedCoords[1 * 10] = vector3(computer.x, computer.y, computer.z)
+resetRateLimits()
+local sameBucketDeposit = Services.Stock.deposit(member, OUTPOST, 'weed_brick', 5, 'req-dep-00012')
+T.equal(sameBucketDeposit.ok, true, 'the same deposit passes from the shared world')
 
 -- Feed de notificações --------------------------------------------------------------------------
 

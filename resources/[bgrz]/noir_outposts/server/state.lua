@@ -208,6 +208,30 @@ local function dealerPublic(dealer)
     }
 end
 
+---Estado público de um posto: sem owner detalhado, estoque ou carteira.
+---@param id string
+---@return table? outpost
+function State.outpostPublic(id)
+    local definition = shared.outposts[id]
+    if not definition then return nil end
+
+    local entry = State.outposts[id]
+    local row = entry and entry.row or nil
+    local dealers = {}
+    if entry then
+        local sorted = State.sortedDealers(id)
+        for index = 1, #sorted do dealers[index] = dealerPublic(sorted[index]) end
+    end
+    return {
+        id = id,
+        label = definition.label,
+        status = row and row.status or C.OutpostStatus.INACTIVE,
+        operationType = row and row.operation_type or nil,
+        ownerOrganizationId = row and row.owner_organization_id or nil,
+        dealers = dealers,
+    }
+end
+
 ---Snapshot público enviado a todos os clients: sem owner, estoque ou carteira.
 ---@return table[]
 function State.publicSnapshot()
@@ -215,24 +239,7 @@ function State.publicSnapshot()
     local ids = {}
     for id in pairs(shared.outposts) do ids[#ids + 1] = id end
     table.sort(ids)
-    for index = 1, #ids do
-        local id = ids[index]
-        local entry = State.outposts[id]
-        local row = entry and entry.row or nil
-        local dealers = {}
-        if entry then
-            local sorted = State.sortedDealers(id)
-            for dealerIndex = 1, #sorted do dealers[dealerIndex] = dealerPublic(sorted[dealerIndex]) end
-        end
-        list[#list + 1] = {
-            id = id,
-            label = shared.outposts[id].label,
-            status = row and row.status or C.OutpostStatus.INACTIVE,
-            operationType = row and row.operation_type or nil,
-            ownerOrganizationId = row and row.owner_organization_id or nil,
-            dealers = dealers,
-        }
-    end
+    for index = 1, #ids do list[index] = State.outpostPublic(ids[index]) end
     return list
 end
 

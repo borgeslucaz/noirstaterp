@@ -1,6 +1,8 @@
 {
     "target": {
-        "talk_operator": "Talk to the operator",
+        "open_terminal": "Use the terminal",
+        "enter_outpost": "Enter the outpost",
+        "leave_outpost": "Leave the outpost",
         "inspect_dealer": "Observe runner",
         "rob_dealer": "Rob runner"
     },
@@ -78,6 +80,7 @@
         "own_outpost": "You cannot rob your own runner.",
         "owner_offline": "Nobody from the controlling crew is around. This runner is not a target right now.",
         "too_far": "Get closer to continue.",
+        "invalid_bucket": "You are not in the same instance as this location.",
         "not_enough_players": "There is not enough activity in the city.",
         "not_enough_police": "There is not enough police coverage.",
         "organization_cooldown": "Your organization must wait before claiming again.",
@@ -93,6 +96,7 @@
         "holdup_done": "This runner has already been held up.",
         "not_surrendered": "Make the runner surrender before searching him.",
         "dealer_cooldown": "This runner was robbed recently.",
+        "robbery_locked": "Your crew robbed this runner recently. Find another one.",
         "holdup_cooldown": "This runner was held up recently.",
         "invalid_entity": "The target could not be confirmed.",
         "amount_too_large": "Amount above the allowed limit.",

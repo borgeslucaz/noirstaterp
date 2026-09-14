@@ -47,10 +47,9 @@ local function validate(actor, outpostId)
     local entry = State.get(outpostId)
     if not entry then return false, 'unknown_outpost' end
 
-    local definition = shared.outposts[outpostId]
-    if not Security.isNear(actor.source, definition.computer, config.claim.interactionDistance) then
-        return false, 'too_far'
-    end
+    local atComputer, placeError = Security.atComputer(
+        actor.source, outpostId, config.claim.interactionDistance)
+    if not atComputer then return false, placeError end
 
     local online, police, cooldownUntil = requirements(actor)
     if online < config.claim.minOnlinePlayers then return false, 'not_enough_players' end
@@ -96,7 +95,7 @@ function Service.start(actor, outpostId)
 
     Sessions.transition(session, C.SessionState.READY)
     State.reload(outpostId)
-    Notification.broadcastPublicSnapshot()
+    Notification.broadcastOutpost(outpostId)
     Notification.refreshPanels(outpostId)
     Log.info('claim_started', {
         outpostId = outpostId,
@@ -117,7 +116,7 @@ local function unlock(session)
     local affected = Repositories.Outpost.cancelClaim(session.outpostId, session.id)
     if affected and affected > 0 then
         State.reload(session.outpostId)
-        Notification.broadcastPublicSnapshot()
+        Notification.broadcastOutpost(session.outpostId)
         Notification.refreshPanels(session.outpostId)
     end
 end
@@ -222,7 +221,7 @@ function Service.complete(actor, sessionId)
         title = locale('phone.claim_title'),
         body = locale('phone.claim_body', definition.label),
     })
-    Notification.broadcastPublicSnapshot()
+    Notification.broadcastOutpost(session.outpostId)
     Notification.refreshPanels(session.outpostId)
 
     Log.info('claim_completed', {

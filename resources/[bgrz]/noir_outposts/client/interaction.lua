@@ -273,11 +273,21 @@ RegisterNetEvent(C.Events.SESSION_ABORTED, function(payload)
     NoirOutposts.Client.notify(NoirOutposts.Client.message(payload.reason or 'internal_error'), 'error')
 end)
 
+---Segundos em texto curto, para os prazos do diagnóstico.
+---@param seconds number
+---@return string
+local function countdown(seconds)
+    seconds = math.floor(seconds + 0.5)
+    if seconds < 60 then return ('%ds'):format(seconds) end
+    return ('%dm%02ds'):format(math.floor(seconds / 60), seconds % 60)
+end
+
 -- Diagnóstico local: diz por que a opção de roubar aparece ou não no corredor mais próximo.
 RegisterCommand('outpostsdebug', function()
     local Client = NoirOutposts.Client
     local ok, gang = pcall(function() return exports.bgrz_core:GetGang() end)
     local lines = {
+        ('Interação %d'):format(C.Iteration),
         ('bridge GetGang: %s'):format(ok and 'ok' or 'indisponível (reinicie o bgrz_core)'),
         ('caminhada: %s, raio %s'):format(
             tostring(shared.dealerWander and shared.dealerWander.enabled),
@@ -285,6 +295,8 @@ RegisterCommand('outpostsdebug', function()
         ('sua organização: %s'):format(Interaction.organizationId() or 'nenhuma'),
         ('gang bruta: %s'):format(ok and type(gang) == 'table' and tostring(gang.name) or '-'),
     }
+
+    for _, line in ipairs(NoirOutposts.Interior.report()) do lines[#lines + 1] = line end
 
     local coords = GetEntityCoords(cache.ped)
     local nearest, nearestDistance
@@ -296,14 +308,60 @@ RegisterCommand('outpostsdebug', function()
             nearest, nearestDistance = outpost, distance
         end
     end
+    local tracked = NoirOutposts.Entities.tracked()
+
     if nearest then
         lines[#lines + 1] = ('outpost mais próximo: %s (%s), dono %s'):format(
             nearest.id, nearest.status, nearest.ownerOrganizationId or 'nenhum')
         lines[#lines + 1] = ('corredores no snapshot: %d'):format(#(nearest.dealers or {}))
+
+        -- Elenco completo do posto, direto do servidor: inclui quem não tem ped nenhum, que é
+        -- justamente quem some da varredura por net ID abaixo.
+        local roster = lib.callback.await(C.Callbacks.DEBUG_OUTPOST, false, { outpostId = nearest.id })
+        if roster and roster.ok then
+            local data = roster.data
+            lines[#lines + 1] = ('elenco no servidor: %d de %d | varredura a cada %ds')
+                :format(#data.dealers, data.maxDealers, data.auditSeconds)
+            lines[#lines + 1] = ('interior: bucket %s | %s ocupante(s)')
+                :format(tostring(data.interiorBucket), tostring(data.occupants))
+
+            for index = 1, #data.dealers do
+                local d = data.dealers[index]
+                local state = d.holdupState and ('%s + %s'):format(d.status, d.holdupState) or d.status
+                lines[#lines + 1] = ('  #%s %s (%s) esquina %s | %s'):format(
+                    d.dealerId, d.name, d.profileKey, tostring(d.cornerIndex), state)
+
+                if not d.hasEntity then
+                    lines[#lines + 1] = '    SEM PED no servidor (a varredura deve recriar)'
+                else
+                    lines[#lines + 1] = ('    ped netId %s | %s | %s'):format(
+                        d.netId,
+                        d.alive and 'vivo' or 'vida 0 (pode ser só falta de dono de rede)',
+                        tracked[d.netId] and 'rastreado neste client' or 'NÃO rastreado aqui')
+                end
+
+                if d.recoversIn then
+                    lines[#lines + 1] = d.recoversIn > 0
+                        and ('    volta em %s'):format(countdown(d.recoversIn))
+                        or ('    prazo venceu há %s, esperando a varredura'):format(countdown(-d.recoversIn))
+                end
+                if d.nextSaleIn then
+                    lines[#lines + 1] = d.nextSaleIn > 0
+                        and ('    próxima venda em %s'):format(countdown(d.nextSaleIn))
+                        or '    venda liberada, esperando o scheduler'
+                end
+            end
+        elseif roster then
+            local hint = roster.code == 'admin_only'
+                and ' — falta o ACE noir.outposts.admin ou command'
+                or ''
+            lines[#lines + 1] = ('elenco do servidor indisponível: %s%s')
+                :format(tostring(roster.code), hint)
+        end
     end
 
     local targets = 0
-    for netId, dealerId in pairs(NoirOutposts.Entities.tracked()) do
+    for netId, dealerId in pairs(tracked) do
         targets = targets + 1
         local entity = NetworkDoesNetworkIdExist(netId) and NetworkGetEntityFromNetworkId(netId) or 0
         local _, _, status = NoirOutposts.Entities.readState(entity)

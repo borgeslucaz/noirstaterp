@@ -158,6 +158,51 @@ function Security.sameBucket(source, entity)
     return GetPlayerRoutingBucket(source) == GetEntityRoutingBucket(entity)
 end
 
+---Bucket em que uma ação presencial deste outpost é aceita.
+---@param outpostId string
+---@return integer
+function Security.expectedBucket(outpostId)
+    return config.buckets[outpostId] or 0
+end
+
+---Jogador no computador de um outpost: mesma instância e dentro da distância.
+---
+---As duas coisas juntas de propósito, e num ponto só. Distância sozinha aprova quem está parado
+---na mesma coordenada em outro routing bucket, que é exatamente o acesso que uma instância
+---privada daria ao painel alheio. Juntas aqui, é impossível acrescentar uma ação presencial
+---nova e lembrar de uma das duas.
+---
+---O bucket vem antes: a resposta que não muda por andar até lá é a que deve aparecer.
+---@param source number
+---@param outpostId string
+---@param maxDistance number
+---@return boolean ok, string? code
+function Security.atComputer(source, outpostId, maxDistance)
+    local definition = shared.outposts[outpostId]
+    if not definition then return false, 'unknown_outpost' end
+
+    if GetPlayerRoutingBucket(source) ~= Security.expectedBucket(outpostId) then
+        return false, 'invalid_bucket'
+    end
+
+    -- O computador vive dentro do interior, e a planta é compartilhada entre postos: a coordenada
+    -- do `pier` e a do `docks` são a mesma. Quem os separa é o bucket, checado logo acima — sem
+    -- ele, esta distância aprovaria o painel do posto errado.
+    local shell = shared.shells[definition.shell]
+    if not shell then return false, 'internal_error' end
+
+    -- E a presença: o servidor só aceita como dentro quem ele mesmo colocou lá. Um número de
+    -- bucket que coincida por acaso, vindo de outro resource, não vale como acesso.
+    if NoirOutposts.Services.Interior.outpostOf(source) ~= outpostId then
+        return false, 'invalid_bucket'
+    end
+
+    if not Security.isNear(source, shell.computer, maxDistance) then
+        return false, 'too_far'
+    end
+    return true
+end
+
 -- Payload -------------------------------------------------------------------------
 
 ---@param value any

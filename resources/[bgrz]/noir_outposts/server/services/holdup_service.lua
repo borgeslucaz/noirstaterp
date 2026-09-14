@@ -235,16 +235,29 @@ function Service.releaseForSource(source)
     for index = 1, #ids do release(ids[index], 'source_gone') end
 end
 
----Zera tudo que é transitório de um corredor: abordagem em curso, cooldown de abordagem e medo.
----Chamado quando o ped é recriado, porque o corredor novo não pode herdar nada do ped anterior —
----uma abordagem em curso que sobrevive ao ped recusa toda abordagem seguinte até vencer sozinha,
+---Zera o que é do PED quando ele é recriado: a abordagem em curso e a encenação de medo.
+---Uma abordagem em curso que sobrevive ao ped recusa toda abordagem seguinte até vencer sozinha,
 ---e foi isso que fez o "já está sendo abordado" aparecer sem ninguém abordando.
----O cooldown de roubo não está aqui: ele é do corredor, não do ped, e vive na linha do banco.
+---
+---**O cooldown de abordagem NÃO é zerado.** Ele é do corredor, não do ped — o mesmo argumento que
+---já mantinha o cooldown de roubo na linha do banco. Zerá-lo aqui abria um atalho: como matar tira
+---o corredor de circulação por menos tempo do que o cooldown de abordagem, executá-lo devolvia um
+---ped novo e limpo mais rápido do que esperar, e atirar virava a forma ótima de rolar o dado da
+---rendição de novo. O corredor morre, mas a memória de quem já apontou uma arma para ele não.
 ---@param dealerId integer
 function Service.resetDealer(dealerId)
     active[dealerId] = nil
-    cooldowns[dealerId] = nil
     shaken[dealerId] = nil
+
+    -- Ped novo herda o cooldown, então precisa herdar também a postura que o explica: sem isto ele
+    -- volta de pé, normal, e recusa a abordagem sem nenhuma pista visível do porquê.
+    if (cooldowns[dealerId] or 0) > os.time() then
+        local dealer = State.dealer(dealerId)
+        if dealer and dealer.status == C.DealerStatus.DEPLOYED then
+            shaken[dealerId] = true
+            publish(dealerId, C.HoldupState.SHAKEN)
+        end
+    end
 end
 
 ---Zera os cooldowns de abordagem. Uso administrativo.

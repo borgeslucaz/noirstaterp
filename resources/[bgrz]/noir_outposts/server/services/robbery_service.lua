@@ -19,6 +19,33 @@ local Repositories = NoirOutposts.Repositories
 local Notification = NoirOutposts.Services.Notification
 local Rotation = NoirOutposts.Services.Rotation
 
+---Detentores que um assalto deste ator tranca, com a duração de cada um.
+---
+---Membro de gang tranca os dois: a gang, porque a regra vale para todos os membros dela, e ele
+---mesmo — senão sair da organização, roubar de novo e voltar renderia um assalto extra.
+---@param actor OutpostActor
+---@return table[] holders { key, seconds }
+local function lockHolders(actor)
+    local organization = actor.organization
+    if organization then
+        return {
+            { key = 'gang:' .. organization.id, seconds = config.robbery.gangLockSeconds },
+            { key = 'citizen:' .. actor.citizenId, seconds = config.robbery.gangLockSeconds },
+        }
+    end
+    return { { key = 'citizen:' .. actor.citizenId, seconds = config.robbery.soloLockSeconds } }
+end
+
+---@param actor OutpostActor
+---@param dealerId integer
+---@return integer? lockedUntil
+local function robberyLock(actor, dealerId)
+    local holders = lockHolders(actor)
+    local keys = {}
+    for index = 1, #holders do keys[index] = holders[index].key end
+    return Repositories.Dealer.activeLock(dealerId, keys, os.time())
+end
+
 ---Revistar só é possível com o corredor rendido, e a rendição vem da abordagem armada.
 ---@param actor OutpostActor
 ---@param dealerId integer
@@ -32,6 +59,11 @@ local function validate(actor, dealerId, netId)
     local context, code = NoirOutposts.Services.Dealer.rivalTarget(
         actor, dealerId, netId, config.robbery.interactionDistance, anchor)
     if not context then return nil, code end
+
+    -- Antes do `not_surrendered`: render de novo não muda esta resposta, e a regra da casa é que a
+    -- recusa que não se resolve andando nem tentando é a que deve aparecer.
+    if robberyLock(actor, dealerId) then return nil, 'robbery_locked' end
+
     if not NoirOutposts.Services.Holdup.isSurrendered(dealerId) then
         return nil, 'not_surrendered'
     end
@@ -168,6 +200,15 @@ function Service.complete(actor, sessionId)
         return { ok = false, code = 'invalid_state' }
     end
 
+    -- Trava por identidade, gravada no ponto em que o assalto virou fato: o `UPDATE` acima já
+    -- debitou a carteira. A entrega vem depois e pode falhar por espaço — mas o que consome a vez
+    -- é ter assaltado, não ter conseguido carregar.
+    local holders = lockHolders(actor)
+    for index = 1, #holders do
+        local holder = holders[index]
+        Repositories.Dealer.lockRobbery(dealer.id, holder.key, now + holder.seconds, now)
+    end
+
     local operationId = Rotation.uuid()
     Repositories.Operation.insert({
         id = operationId,
@@ -222,7 +263,7 @@ function Service.complete(actor, sessionId)
         title = locale('phone.robbery_title'),
         body = locale('phone.robbery_body', State.dealerName(dealer), definition.label),
     })
-    Notification.broadcastPublicSnapshot()
+    Notification.broadcastOutpost(dealer.outpost_id)
     Notification.refreshPanels(dealer.outpost_id)
     Notification.maybeDispatch(dealer, 'robbery', config.robbery.dispatchChance)
 

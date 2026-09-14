@@ -166,7 +166,8 @@ function BGRZ.RemoveEntityTarget(entityOrNetId, optionNames)
     return removeOwnedEntity(caller, kind, entity, optionNames, false)
 end
 
-local function normalizeSphereZone(definition, caller)
+---Validação comum a toda zona: nome, coords, flags de debug e options.
+local function normalizeZone(definition, caller)
     if type(definition) ~= 'table' or type(definition.name) ~= 'string'
         or definition.name == '' or #definition.name > 64
         or not definition.name:match('^[%w_:%-%.]+$') then
@@ -176,9 +177,6 @@ local function normalizeSphereZone(definition, caller)
     if (type(coords) ~= 'table' and type(coords) ~= 'vector3')
         or not finite(coords.x) or not finite(coords.y) or not finite(coords.z) then
         return nil, 'invalid_coords'
-    end
-    if not finite(definition.radius) or definition.radius < 0.1 or definition.radius > 50.0 then
-        return nil, 'invalid_radius'
     end
     if definition.debug ~= nil and type(definition.debug) ~= 'boolean' then
         return nil, 'invalid_zone'
@@ -197,6 +195,52 @@ local function normalizeSphereZone(definition, caller)
     return normalized
 end
 
+local function normalizeSphereZone(definition, caller)
+    local normalized, err = normalizeZone(definition, caller)
+    if not normalized then return nil, err end
+    if not finite(definition.radius) or definition.radius < 0.1 or definition.radius > 50.0 then
+        return nil, 'invalid_radius'
+    end
+    return normalized
+end
+
+local function normalizeBoxZone(definition, caller)
+    local normalized, err = normalizeZone(definition, caller)
+    if not normalized then return nil, err end
+
+    local size = definition.size
+    if (type(size) ~= 'table' and type(size) ~= 'vector3')
+        or not finite(size.x) or not finite(size.y) or not finite(size.z)
+        or size.x <= 0 or size.y <= 0 or size.z <= 0
+        or size.x > 100.0 or size.y > 100.0 or size.z > 100.0 then
+        return nil, 'invalid_size'
+    end
+    if definition.rotation ~= nil and not finite(definition.rotation) then
+        return nil, 'invalid_rotation'
+    end
+    return normalized
+end
+
+---Registra a zona no provider e passa a responder por ela. `method` fica guardado
+---porque a re-hidratação precisa saber se recria a zona como esfera ou caixa.
+local function addOwnedZone(caller, definition, normalized, method)
+    zoneOwnership[caller] = zoneOwnership[caller] or {}
+    if zoneOwnership[caller][definition.name] then return false, 'already_exists' end
+
+    local provider = BGRZ.Provider.name('target')
+    if not BGRZ.Provider.isAvailable('target') then return false, 'provider_unavailable' end
+    local ok, providerId = callProvider(provider, method, normalized)
+    if not ok then return false, providerId end
+
+    zoneOwnership[caller][definition.name] = {
+        name = definition.name,
+        definition = normalized,
+        method = method,
+        providerId = providerId or normalized.name,
+    }
+    return true
+end
+
 ---@param definition table
 ---@return boolean ok
 ---@return string? errorCode
@@ -205,20 +249,18 @@ function BGRZ.AddSphereZoneTarget(definition)
     if not caller then return false, 'invalid_caller' end
     local normalized, normalizeError = normalizeSphereZone(definition, caller)
     if not normalized then return false, normalizeError end
+    return addOwnedZone(caller, definition, normalized, 'addSphereZone')
+end
 
-    zoneOwnership[caller] = zoneOwnership[caller] or {}
-    if zoneOwnership[caller][definition.name] then return false, 'already_exists' end
-    local provider = BGRZ.Provider.name('target')
-    if not BGRZ.Provider.isAvailable('target') then return false, 'provider_unavailable' end
-    local ok, providerId = callProvider(provider, 'addSphereZone', normalized)
-    if not ok then return false, providerId end
-
-    zoneOwnership[caller][definition.name] = {
-        name = definition.name,
-        definition = normalized,
-        providerId = providerId or normalized.name,
-    }
-    return true
+---@param definition table { name, coords, size, rotation?, options, debug?, drawSprite? }
+---@return boolean ok
+---@return string? errorCode
+function BGRZ.AddBoxZoneTarget(definition)
+    local caller = invokingResource()
+    if not caller then return false, 'invalid_caller' end
+    local normalized, normalizeError = normalizeBoxZone(definition, caller)
+    if not normalized then return false, normalizeError end
+    return addOwnedZone(caller, definition, normalized, 'addBoxZone')
 end
 
 local function removeOwnedZone(caller, name, cleanup)
@@ -283,7 +325,7 @@ local function rehydrateProvider(resource)
     end
     for _, zones in pairs(zoneOwnership) do
         for _, entry in pairs(zones) do
-            local ok, providerId = callProvider(provider, 'addSphereZone', entry.definition)
+            local ok, providerId = callProvider(provider, entry.method or 'addSphereZone', entry.definition)
             if ok then entry.providerId = providerId or entry.definition.name end
         end
     end
@@ -292,6 +334,7 @@ end
 exports('AddEntityTarget', BGRZ.AddEntityTarget)
 exports('RemoveEntityTarget', BGRZ.RemoveEntityTarget)
 exports('AddSphereZoneTarget', BGRZ.AddSphereZoneTarget)
+exports('AddBoxZoneTarget', BGRZ.AddBoxZoneTarget)
 exports('RemoveZoneTarget', BGRZ.RemoveZoneTarget)
 
 AddEventHandler('onClientResourceStart', rehydrateProvider)

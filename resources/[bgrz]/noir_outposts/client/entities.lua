@@ -1,5 +1,5 @@
--- Entidades do client: alvos dos dealers (peds criados pelo servidor) e o atendente
--- local do terminal, que existe apenas para dar um alvo visível enquanto não há MLO.
+-- Entidades do client: alvos dos corredores (peds criados pelo servidor) e a porta que leva
+-- ao interior de cada posto.
 NoirOutposts = NoirOutposts or {}
 
 local Entities = {}
@@ -11,9 +11,6 @@ local C = NoirOutposts.Constants
 
 local tracked = {}
 local trackedEntity = {}
-local terminals = {}
----@type table<string, boolean>
-local wantedTerminals = {}
 ---Falha de criação se repete a cada volta do laço. O aviso não.
 local terminalWarned = {}
 
@@ -62,7 +59,7 @@ end
 
 ---Estado da caminhada por net ID. Um único loop conduz todos, em vez de uma thread por ped.
 ---@type table<integer, { anchor: vector3, target: vector3?, taskedAt: integer, nextAt: integer,
----holding: boolean?, returning: boolean?, lastPosition: vector3?, stalled: integer? }>
+---holding: boolean? }>
 local walks = {}
 
 -- Corredor fixado no lugar porque não está caminhando: em recuperação, ou em serviço mas sem
@@ -84,64 +81,57 @@ local reactions = {}
 local reactionApplied = {}
 local applyReaction
 
----Põe um ponto no chão. Boa parte do mapa não tem malha de navegação de pedestre, docas e
----pátios industriais inclusive, então a malha é a primeira opção e não a única: sem ela vale
----o chão bruto, e o corredor caminha em linha reta em vez de usar rotas.
+-- Dicionário da rendição, carregado uma vez e mantido residente.
+-- Pedir o dicionário dentro da reação cedia até três segundos com o ped ainda na tarefa anterior,
+-- e era isso que fazia o corredor continuar a animação de antes depois de já ter se rendido. Pior:
+-- `RemoveAnimDict` devolvia o dicionário logo após tarefar, então toda rendição pagava a espera de
+-- novo, não só a primeira. Um dicionário residente custa menos que isso.
+local surrenderDictReady = false
+
+CreateThread(function()
+    local anim = clientConfig.holdup.surrenderAnim
+    surrenderDictReady = lib.requestAnimDict(anim.dict, 10000) and true or false
+    if not surrenderDictReady then
+        lib.print.warn(('[noir_outposts] dicionário de rendição indisponível: %s'):format(anim.dict))
+    end
+end)
+
+---Ponto que o jogo sabe rotear para um pedestre. Só a malha responde: onde ela não existe não
+---há destino, e o corredor fica de pé na esquina em vez de sair em linha reta contra a parede.
+---
+---A malha mais próxima nem sempre é a do mesmo piso. No píer, um ponto sobre o deck resolve para
+---a areia onze metros abaixo, e o corredor sai andando dentro do mar com a sonda respondendo
+---"navegável" o tempo todo — ela achou malha, só que a do andar de baixo. Por isso um salto de
+---altura recusa o ponto. O afastamento horizontal não: esse é a malha encostando o ponto no
+---lugar caminhável mais próximo do mesmo piso, que é justamente o que se quer dela.
 ---@param x number
 ---@param y number
 ---@param z number
----@return vector3? point, boolean navigable
-local function groundedPoint(x, y, z)
+---@return vector3? point
+local function navigablePoint(x, y, z)
     local found, safe = GetSafeCoordForPed(x, y, z, true, 16)
-    if found and safe then return vector3(safe.x, safe.y, safe.z), true end
-
-    local hasGround, groundZ = GetGroundZFor_3dCoord(x, y, z + 3.0, false)
-    -- Sem chão o ponto é água ou vazio, e aí não serve como destino.
-    if hasGround then return vector3(x, y, groundZ), false end
-
-    return nil, false
+    if not found or not safe then return nil end
+    if math.abs(safe.z - z) > shared.dealerWander.maxHeightOffset then return nil end
+    return vector3(safe.x, safe.y, safe.z)
 end
 
----Há caminho livre entre dois pontos, na altura do peito. Sem malha de navegação não há
----rota a calcular, então é isto que impede o corredor de sair andando contra a parede.
----@param entity integer ped que deve ser ignorado no teste
----@param from vector3
----@param to vector3
----@return boolean
-local function hasClearPath(entity, from, to)
-    -- Mundo, veículos e objetos. Peds ficam de fora: outro corredor no caminho não é parede.
-    local handle = StartExpensiveSynchronousShapeTestLosProbe(
-        from.x, from.y, from.z + 0.9,
-        to.x, to.y, to.z + 0.9,
-        1 + 2 + 16, entity, 4)
-    local _, hit = GetShapeTestResult(handle)
-    return hit == 0 or hit == false
-end
-
----Ponto aleatório dentro do raio, a pelo menos `minimalLength` da posição atual.
----@param entity integer
+---Ponto navegável aleatório dentro do raio, a pelo menos `minimalLength` da posição atual.
 ---@param anchor vector3
 ---@param from vector3
----@return vector3? destination, boolean navigable
-local function pickDestination(entity, anchor, from)
+---@return vector3? destination
+local function pickDestination(anchor, from)
     local wander = shared.dealerWander
     for _ = 1, 10 do
         local angle = math.random() * math.pi * 2
         local distance = wander.minimalLength
             + math.random() * math.max(0.0, wander.radius - wander.minimalLength)
-        local point, navigable = groundedPoint(
+        local point = navigablePoint(
             anchor.x + math.cos(angle) * distance,
             anchor.y + math.sin(angle) * distance,
             anchor.z)
-
-        if point and #(point - from) >= wander.minimalLength then
-            -- Com rota o jogo contorna sozinho; em linha reta o caminho precisa estar limpo.
-            if navigable or hasClearPath(entity, from, point) then
-                return point, navigable
-            end
-        end
+        if point and #(point - from) >= wander.minimalLength then return point end
     end
-    return nil, false
+    return nil
 end
 
 ---Blindagem contra fuga, reaplicada a cada troca de estado. Trocar de dono de rede, de tarefa
@@ -208,9 +198,13 @@ local function startWander(entity)
         return false
     end
 
-    -- Encaixa a esquina no chão. Onde há malha de navegação usa ela; onde não há, o chão bruto.
-    local grounded = groundedPoint(anchor.x, anchor.y, anchor.z)
-    if grounded then anchor = grounded end
+    -- Esquina sem malha não tem caminhada: o corredor fica de pé onde nasceu. É o preço de só
+    -- andar por rota, e é melhor que o que havia antes — linha reta contra a parede mais próxima.
+    anchor = navigablePoint(anchor.x, anchor.y, anchor.z)
+    if not anchor then
+        wanderReport[netId] = 'esquina sem malha de navegação'
+        return false
+    end
 
     -- Andando, o bloqueio de eventos fica no que o config mandar, que é false: ligado ele cancela
     -- a tarefa de destino junto com a reação ao susto. Quem segura a fuga enquanto ele anda é
@@ -240,17 +234,6 @@ local function playerNearby(position)
     return false
 end
 
----Sorteia um cenário de ócio, ou nil quando o corredor não para desta vez.
----Quem toca o cenário é `holdGround`: parar e bloquear evento são a mesma decisão, e separar as
----duas deixava o ped com cenário tocando e a fuga liberada.
----@return string?
-local function pickIdleScenario()
-    local idle = shared.dealerWander.idle
-    if type(idle) ~= 'table' or #idle.scenarios == 0 then return nil end
-    if math.random(100) > idle.chance then return nil end
-    return idle.scenarios[math.random(#idle.scenarios)]
-end
-
 ---Avança um passo da caminhada. Chamado pelo loop de manutenção, um ped por vez.
 ---@param netId integer
 ---@param entity integer
@@ -272,19 +255,11 @@ local function advanceWalk(netId, entity)
     -- Com gente por perto ele fica no posto. Isso mantém a posição estável para o servidor
     -- validar assalto e abordagem, além de ficar melhor do que ele passar andando por você.
     if playerNearby(position) and not strayed then
-        if walk.target then
-            walk.target = nil
-            walk.returning = nil
-            walk.stalled = 0
-        end
+        walk.target = nil
         if not walk.holding then
             walk.holding = true
-            local scenario = pickIdleScenario() or shared.dealerWander.idle.scenarios[1]
-            holdGround(entity, scenario)
-            wanderReport[netId] = scenario
-                and ('parado com jogador perto: %s')
-                    :format(scenario:lower():gsub('world_human_', ''))
-                or 'parado com jogador perto'
+            holdGround(entity, clientConfig.dealerScenario)
+            wanderReport[netId] = 'parado com jogador perto'
         end
         walk.nextAt = now + 1000
         return
@@ -292,56 +267,27 @@ local function advanceWalk(netId, entity)
     walk.holding = nil
 
     if walk.target then
+        -- Chegou, ou o trecho estourou o teto. Com rota o jogo contorna obstáculo sozinho, então
+        -- não há mais o caso de ficar de cara na parede para detectar.
         local arrived = #(position - walk.target) <= 1.5
-
-        -- Encostou em algo que o teste não pegou: parado dois tiques seguidos com destino
-        -- pendente. Abandonar cedo é melhor do que esperar o teto e ficar de cara na parede.
-        local moved = walk.lastPosition and #(position - walk.lastPosition) or 999.0
-        walk.lastPosition = position
-        walk.stalled = moved < 0.15 and (walk.stalled or 0) + 1 or 0
-        local blocked = walk.stalled >= 2 and now - walk.taskedAt > 1500
-
-        local expired = now - walk.taskedAt > 20000
-        if arrived or blocked or expired then
-            local returning = walk.returning
+        if arrived or now - walk.taskedAt > 20000 then
             walk.target = nil
-            walk.returning = nil
-            walk.stalled = 0
-
-            local pause = math.floor(shared.dealerWander.timeBetweenWalks * 1000)
-            local scenario = arrived and pickIdleScenario() or nil
-            -- Parado é parado, com cenário sorteado ou sem: a pausa entre trechos também precisa
-            -- do bloqueio, senão ela vira a janela em que o corredor ainda foge.
-            holdGround(entity, scenario)
-            if scenario then
-                local duration = shared.dealerWander.idle.durationSeconds
-                pause = math.random(duration.min, duration.max) * 1000
-                wanderReport[netId] = ('parado: %s'):format(scenario:lower():gsub('world_human_', ''))
-            else
-                wanderReport[netId] = arrived and (returning and 'voltou para a esquina' or 'chegou, aguardando')
-                    or blocked and 'caminho bloqueado, trocando'
-                    or 'trecho expirou'
-            end
-
-            walk.nextAt = now + pause
+            -- A pausa entre trechos também precisa do bloqueio, senão ela vira a janela em que o
+            -- corredor ainda foge.
+            holdGround(entity, clientConfig.dealerScenario)
+            wanderReport[netId] = arrived and 'chegou, aguardando' or 'trecho expirou'
+            walk.nextAt = now + math.floor(shared.dealerWander.timeBetweenWalks * 1000)
         end
         return
     end
 
     if now < walk.nextAt then return end
 
-    local destination, navigable
-    if strayed then
-        -- Longe demais: o destino não é sorteado, é a esquina. Sem ponto navegável ali ele volta
-        -- em linha reta, que é o mesmo tratamento dos pátios sem malha de navegação.
-        local point, nav = groundedPoint(walk.anchor.x, walk.anchor.y, walk.anchor.z)
-        destination, navigable = point or walk.anchor, nav
-    else
-        destination, navigable = pickDestination(entity, walk.anchor, position)
-    end
+    -- Longe demais: o destino não é sorteado, é a esquina. Ela já veio navegável de `startWander`.
+    local destination = strayed and walk.anchor or pickDestination(walk.anchor, position)
     if not destination then
         walk.nextAt = now + 5000
-        wanderReport[netId] = 'sem destino livre no raio'
+        wanderReport[netId] = 'sem destino navegável no raio'
         return
     end
 
@@ -349,20 +295,10 @@ local function advanceWalk(netId, entity)
     releaseHold(entity)
     ClearPedTasks(entity)
     walk.target = destination
-    walk.returning = strayed or nil
     walk.taskedAt = now
-    walk.lastPosition = nil
-    walk.stalled = 0
-    if navigable then
-        TaskGoToCoordAnyMeans(entity, destination.x, destination.y, destination.z, 1.0, 0, false, 786603, 0.0)
-    else
-        -- Sem malha não há rota a calcular: o corredor vai em linha reta, que é o suficiente
-        -- num pátio aberto e evita ele ficar imóvel esperando um caminho que não existe.
-        TaskGoStraightToCoord(entity, destination.x, destination.y, destination.z, 1.0, 20000, 0.0, 0.0)
-    end
-    wanderReport[netId] = ('%s para %.1f, %.1f (%s)'):format(
-        strayed and 'voltando' or 'andando',
-        destination.x, destination.y, navigable and 'rota' or 'linha reta')
+    TaskGoToCoordAnyMeans(entity, destination.x, destination.y, destination.z, 1.0, 0, false, 786603, 0.0)
+    wanderReport[netId] = ('%s para %.1f, %.1f'):format(
+        strayed and 'voltando' or 'andando', destination.x, destination.y)
 end
 
 ---O ped é criado pelo servidor, que não consegue configurar comportamento de IA.
@@ -488,163 +424,68 @@ function Entities.readState(entity)
     return state[C.StateBag.OUTPOST], state[C.StateBag.DEALER], state[C.StateBag.DEALER_STATE]
 end
 
--- Atendente do terminal -----------------------------------------------------------------
+-- Porta do interior ----------------------------------------------------------------------
+-- O atendente NPC que ficava aqui foi removido junto com o laço que o mantinha de pé, as flags de
+-- blindagem e a ressalva do `addGlobalPed`. Ele existia para dar um alvo visível a céu aberto; com
+-- o interior, o alvo é a porta, que é um lugar de verdade.
+
+---@type table<string, boolean>
+local doors = {}
 
 ---@param outpostId string
-local function removeTerminal(outpostId)
-    terminalWarned[outpostId] = nil
-    local terminal = terminals[outpostId]
-    if not terminal then return end
-    terminals[outpostId] = nil
-    if DoesEntityExist(terminal.ped) then
-        exports.bgrz_core:RemoveEntityTarget(terminal.ped, { 'terminal:open' })
-        SetEntityAsMissionEntity(terminal.ped, true, true)
-        DeleteEntity(terminal.ped)
-    end
+local function removeDoor(outpostId)
+    if not doors[outpostId] then return end
+    doors[outpostId] = nil
+    exports.bgrz_core:RemoveZoneTarget(('door:%s'):format(outpostId))
 end
 
----Chama um nativo opcional. Um nome que não existe nesta build chega aqui como `nil`, e
----chamar `nil` derruba o resource inteiro no client. Já derrubou: `SetPedDiesFromLowHealth`
----não existe e eu o escrevi de cabeça. Endurecer o atendente é acumular garantias, então uma
----garantia indisponível deve ser ignorada, nunca custar as outras.
----@param native any
----@return boolean called
-local function optional(native, ...)
-    if type(native) ~= 'function' then return false end
-    return (pcall(native, ...))
-end
-
----Deixa o atendente imune e imóvel. Ele é mobília com voz: não morre, não cambaleia, não
----reage a tiro, explosão ou carro, e não sai do lugar por nada.
----@param ped integer
-local function hardenTerminal(ped)
-    -- Estes já são usados por outros resources do servidor, então existem.
-    SetEntityAsMissionEntity(ped, true, true)
-    SetEntityInvincible(ped, true)
-    SetEntityCanBeDamaged(ped, false)
-    SetBlockingOfNonTemporaryEvents(ped, true)
-    SetPedFleeAttributes(ped, 0, false)
-    SetPedCanRagdoll(ped, false)
-    SetPedSuffersCriticalHits(ped, false)
-    SetPedCanBeTargetted(ped, false)
-
-    -- Estes reforçam, mas não são essenciais. Se a build não tiver algum, o atendente continua
-    -- imune e parado pelos de cima.
-    optional(SetPedDiesWhenInjured, ped, false)
-    optional(SetPedDiesInWater, ped, false)
-    optional(SetPedCanRagdollFromPlayerImpact, ped, false)
-    optional(SetEntityProofs, ped, true, true, true, true, true, true, true, true)
-
-    -- O congelamento é o que de fato prende a posição.
-    FreezeEntityPosition(ped, true)
-
-    if shared.terminalNpc.scenario then
-        TaskStartScenarioInPlace(ped, shared.terminalNpc.scenario, 0, true)
-    end
-end
-
----Cria o atendente local do terminal. Ped não networked: é só âncora de interação,
----nenhuma autoridade passa por ele.
 ---@param outpostId string
----@return boolean created
-local function createTerminal(outpostId)
-    if terminals[outpostId] then return true end
-
+local function createDoor(outpostId)
+    if doors[outpostId] then return end
     local definition = shared.outposts[outpostId]
-    local coords = definition.computer
-    local model = joaat(shared.terminalNpc.model)
-    if not IsModelInCdimage(model) or not IsModelAPed(model) then
-        warnOnce(outpostId, ('modelo de atendente inválido: %s'):format(shared.terminalNpc.model))
-        return false
-    end
-    if not lib.requestModel(model, 5000) then
-        warnOnce(outpostId, ('timeout carregando o atendente de %s'):format(outpostId))
-        return false
-    end
+    if not definition then return end
 
-    -- `computer` é usada como está, sem procurar chão e sem corrigir altura. O ped fica
-    -- congelado exatamente aí, então a coordenada cadastrada é a posição final.
-    local ped = CreatePed(4, model, coords.x, coords.y, coords.z, coords.w, false, false)
-    SetModelAsNoLongerNeeded(model)
-    if not ped or ped == 0 or not DoesEntityExist(ped) then return false end
-
-    hardenTerminal(ped)
-
-    local ok, err = exports.bgrz_core:AddEntityTarget(ped, {
-        {
-            name = 'terminal:open',
-            icon = clientConfig.target.icons.operator,
-            label = locale('target.talk_operator'),
-            distance = shared.interaction.computerDistance,
-            onSelect = function() NoirOutposts.Interaction.openComputer(outpostId) end,
+    -- O export recebe UMA tabela, e ele mesmo prefixa o nome com o resource: passar
+    -- `noir_outposts:...` aqui geraria `noir_outposts:noir_outposts:...`.
+    local ok, err = exports.bgrz_core:AddSphereZoneTarget({
+        name = ('door:%s'):format(outpostId),
+        coords = vector3(definition.entrance.x, definition.entrance.y, definition.entrance.z),
+        radius = shared.interaction.doorDistance,
+        drawSprite = true,
+        options = {
+            {
+                name = 'enter',
+                icon = clientConfig.target.icons.door,
+                label = locale('target.enter_outpost'),
+                onSelect = function()
+                    NoirOutposts.Interior.enter(outpostId)
+                end,
+            },
         },
     })
     if not ok then
-        warnOnce(outpostId, ('target do atendente de %s falhou: %s'):format(outpostId, tostring(err)))
-        SetEntityAsMissionEntity(ped, true, true)
-        DeleteEntity(ped)
-        return false
+        warnOnce(outpostId, ('porta de %s falhou: %s'):format(outpostId, tostring(err)))
+        return
     end
-
     terminalWarned[outpostId] = nil
-    terminals[outpostId] = { ped = ped }
-    return true
+    doors[outpostId] = true
 end
 
----Declara em quais locais deve haver atendente. A criação em si fica no laço abaixo.
+---Declara em quais locais deve haver porta.
 ---@param activeIds table<string, boolean>
 function Entities.syncTerminals(activeIds)
-    wantedTerminals = activeIds
-end
-
--- O atendente é a única porta de entrada do terminal, então uma falha não pode deixar o local
--- inacessível até o próximo snapshot. Streaming de modelo falha, e o engine remove o ped em
--- algumas situações; as duas coisas se resolvem tentando de novo.
-CreateThread(function()
-    while true do
-        local stale = {}
-        for outpostId, terminal in pairs(terminals) do
-            if not wantedTerminals[outpostId] or not DoesEntityExist(terminal.ped) then
-                stale[#stale + 1] = outpostId
-            end
-        end
-        for index = 1, #stale do
-            if wantedTerminals[stale[index]] then
-                -- Ped sumiu mas o local continua ativo: solta o registro para recriar abaixo.
-                terminals[stale[index]] = nil
-            else
-                removeTerminal(stale[index])
-            end
-        end
-
-        for outpostId in pairs(wantedTerminals) do
-            if createTerminal(outpostId) then
-                local terminal = terminals[outpostId]
-                -- Reafirma a cada volta. Uma explosão perto, ou outro resource mexendo em peds
-                -- por perto, pode soltar a animação ou o congelamento sem apagar o ped.
-                if not shared.terminalNpc.scenario then
-                    -- Sem cenário não há estado observável para comparar, e reafirmar as flags
-                    -- é barato. Sai mais em conta que deixar o ped solto entre as voltas.
-                    hardenTerminal(terminal.ped)
-                elseif type(IsPedUsingScenario) == 'function'
-                    and not IsPedUsingScenario(terminal.ped, shared.terminalNpc.scenario) then
-                    -- `IsPedUsingScenario` não é usado por nenhum outro resource daqui, então
-                    -- não confio que exista. Sem ele, o congelamento sozinho segura o ped.
-                    hardenTerminal(terminal.ped)
-                end
-            end
-        end
-
-        Wait(shared.terminalNpc.checkIntervalMs)
+    for outpostId in pairs(doors) do
+        if not activeIds[outpostId] then removeDoor(outpostId) end
     end
-end)
+    for outpostId in pairs(activeIds) do createDoor(outpostId) end
+end
 
 function Entities.clearTerminals()
-    wantedTerminals = {}
     local ids = {}
-    for outpostId in pairs(terminals) do ids[#ids + 1] = outpostId end
-    for index = 1, #ids do removeTerminal(ids[index]) end
+    for outpostId in pairs(doors) do ids[#ids + 1] = outpostId end
+    for index = 1, #ids do removeDoor(ids[index]) end
 end
+
 
 function Entities.clear()
     local netIds = {}
@@ -882,23 +723,18 @@ function applyReaction(entity, payload)
 
     if payload.state == C.HoldupState.SURRENDERED then
         local anim = clientConfig.holdup.surrenderAnim
-        -- O dicionário é pedido antes de cortar as tarefas: se o streaming demorasse com o ped
-        -- já zerado, ele ficaria parado sem pose nenhuma no meio da rendição.
-        local loaded = lib.requestAnimDict(anim.dict, 3000)
-
         ClearPedTasksImmediately(entity)
         denyFlee(entity)
         SetBlockingOfNonTemporaryEvents(entity, true)
         RemoveAllPedWeapons(entity, true)
 
-        if loaded then
+        if surrenderDictReady then
             -- Um frame para a limpeza imediata assentar antes de dar a tarefa nova.
             Wait(0)
             if not DoesEntityExist(entity) then return end
             -- Corpo inteiro em loop. A flag 49 é de animação secundária de tronco: as pernas
             -- ficam livres, e o corredor continuava andando de mãos para o alto.
             TaskPlayAnim(entity, anim.dict, anim.clip, 8.0, -8.0, -1, 1, 0, false, false, false)
-            RemoveAnimDict(anim.dict)
         end
         return
     end

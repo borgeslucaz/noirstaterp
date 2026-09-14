@@ -36,6 +36,7 @@ client_scripts {
     'client/main.lua',
     'client/entities.lua',
     'client/interaction.lua',
+    'client/interior.lua',
     'client/ui.lua',
     'client/phone.lua',
 }
@@ -56,6 +57,7 @@ server_scripts {
     'server/sessions.lua',
     'server/entity_manager.lua',
     'server/services/notification_service.lua',
+    'server/services/interior_service.lua',
     'server/services/rotation_service.lua',
     'server/services/claim_service.lua',
     'server/services/dealer_service.lua',
@@ -75,5 +77,6 @@ dependencies {
     'ox_lib',
     'oxmysql',
     'bgrz_core',
+    'noir_shell',
     'peuren_minigames',
 }

@@ -147,6 +147,67 @@ function Repo.applySale(sale)
     return (affected or 0) > 0
 end
 
+-- Travas de assalto por identidade ------------------------------------------------------
+-- Separadas de `robbed_until`, que é a janela em que o corredor não vende. Aqui mora quem já o
+-- roubou e ainda não pode de novo.
+
+---Trava mais distante entre os detentores informados, ou nil se nenhum está preso.
+---@param dealerId integer
+---@param holders string[]
+---@param now integer
+---@return integer? lockedUntil
+function Repo.activeLock(dealerId, holders, now)
+    if #holders == 0 then return nil end
+    local params = { dealerId }
+    for index = 1, #holders do params[#params + 1] = holders[index] end
+    params[#params + 1] = now
+
+    local row = Db.single(([[
+        SELECT MAX(locked_until) AS locked_until FROM noir_outpost_dealer_locks
+        WHERE dealer_id = ? AND holder IN (%s) AND locked_until > ?
+    ]]):format(string.rep('?', #holders, ', ')), params)
+
+    local until_ = row and tonumber(row.locked_until) or nil
+    if not until_ or until_ <= now then return nil end
+    return until_
+end
+
+---Grava a trava de um detentor. Repetir o mesmo detentor atualiza a linha, não cria outra.
+---@param dealerId integer
+---@param holder string
+---@param lockedUntil integer
+---@param now integer
+function Repo.lockRobbery(dealerId, holder, lockedUntil, now)
+    return Db.insert([[
+        INSERT INTO noir_outpost_dealer_locks (dealer_id, holder, locked_until, locked_at)
+        VALUES (?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE locked_until = VALUES(locked_until), locked_at = VALUES(locked_at)
+    ]], { dealerId, holder, lockedUntil, now })
+end
+
+---Remove travas vencidas. O CASCADE já limpa o que morre com o corredor; isto cobre o resto.
+---@param now integer
+---@param limit integer
+---@return integer? removed
+function Repo.pruneLocks(now, limit)
+    return Db.update('DELETE FROM noir_outpost_dealer_locks WHERE locked_until <= ? LIMIT ?',
+        { now, limit })
+end
+
+---Travas vivas dos corredores de um outpost, para o diagnóstico.
+---@param outpostId string
+---@param now integer
+---@return table[] rows { dealer_id, holder, locked_until }
+function Repo.listLocks(outpostId, now)
+    return Db.rows([[
+        SELECT l.dealer_id, l.holder, l.locked_until
+        FROM noir_outpost_dealer_locks l
+        JOIN noir_outpost_dealers d ON d.id = l.dealer_id
+        WHERE d.outpost_id = ? AND l.locked_until > ?
+        ORDER BY l.dealer_id, l.locked_until DESC
+    ]], { outpostId, now }) or {}
+end
+
 ---Roubo atômico: debita carteira (e opcionalmente estoque) e coloca o dealer em recuperação.
 ---@param robbery table { dealerId, dealerVersion, outpostId, purseLoot, item?, stockLoot, robbedUntil, nextSaleAt }
 ---@return boolean applied

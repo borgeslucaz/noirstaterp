@@ -1,6 +1,14 @@
 NoirOutposts = NoirOutposts or {}
 
 NoirOutposts.Constants = {
+    -- Marcador de versão dos arquivos em execução. Aparece no `/outpostsdebug` e no log de start
+    -- do servidor, e serve para uma coisa só: saber se o que está rodando é o que está em disco.
+    -- Sem ele, um `restart` esquecido se lê como mudança que não funcionou.
+    --
+    -- INCREMENTAR A CADA MUDANÇA NO RESOURCE. Vive aqui, em `shared_scripts`, porque client e
+    -- servidor carregam este mesmo arquivo no mesmo restart: um número só responde pelos dois.
+    Iteration = 19,
+
     OutpostStatus = {
         INACTIVE = 'inactive',
         AVAILABLE = 'available',
@@ -76,9 +84,15 @@ NoirOutposts.Constants = {
 
     Events = {
         SYNC = 'noir_outposts:client:syncOutposts',
+        -- Um posto só. Quase toda mudança é de um posto, e mandar a lista inteira para o servidor
+        -- inteiro a cada corredor que morre ou volta era o evento mais falador do resource.
+        SYNC_OUTPOST = 'noir_outposts:client:syncOutpost',
         PANEL_UPDATE = 'noir_outposts:client:panelUpdate',
         PANEL_CLOSE = 'noir_outposts:client:panelClose',
         SESSION_ABORTED = 'noir_outposts:client:sessionAborted',
+        -- Servidor mandando o jogador sair do interior: queda do resource, expiração do controle,
+        -- perda de acesso. O client desmonta o shell e se teleporta de volta.
+        INTERIOR_EVICT = 'noir_outposts:client:interiorEvict',
         DEALER_REACTION = 'noir_outposts:client:dealerReaction',
         -- Client -> servidor: o dono de rede informa onde os corredores dele estão.
         DEALER_POSITION = 'noir_outposts:server:dealerPosition',
@@ -101,7 +115,10 @@ NoirOutposts.Constants = {
         ROBBERY_START = 'noir_outposts:server:robberyStart',
         ROBBERY_COMPLETE = 'noir_outposts:server:robberyComplete',
         ROBBERY_CANCEL = 'noir_outposts:server:robberyCancel',
+        ENTER_INTERIOR = 'noir_outposts:server:enterInterior',
+        LEAVE_INTERIOR = 'noir_outposts:server:leaveInterior',
         DEBUG_TARGET = 'noir_outposts:server:debugTarget',
+        DEBUG_OUTPOST = 'noir_outposts:server:debugOutpost',
         PHONE_STATE = 'noir_outposts:server:phoneState',
         PHONE_FEED = 'noir_outposts:server:phoneFeed',
         PHONE_FEED_CLEAR = 'noir_outposts:server:phoneFeedClear',

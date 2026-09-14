@@ -2,6 +2,22 @@
 return {
     adminAce = 'noir.outposts.admin',
 
+    -- Routing bucket do interior de cada outpost. A faixa 7100-7199 é reservada para este
+    -- resource: sete resources deste servidor movem jogadores entre buckets, e repetir número com
+    -- um deles entregaria o painel para quem estiver dentro da instância do outro.
+    --
+    -- Precisam ser distintos entre si e diferentes de zero. Vários postos compartilham a mesma
+    -- planta de interior — a coordenada do computador do `pier` é a mesma do `docks` —, então o
+    -- bucket é a ÚNICA coisa separando um do outro lá dentro. Repetir número daria a um jogador o
+    -- painel do posto errado, e `0` é o mundo compartilhado, onde todo mundo está. O `config_spec`
+    -- recusa as duas coisas.
+    buckets = {
+        docks = 7101,
+        cypress = 7102,
+        lamesa = 7103,
+        pier = 7104,
+    },
+
     rotation = {
         -- TESTE: fixa a rotação nestes postos, ignorando o sorteio e a rotação já persistida
         -- do ciclo. Todo posto fora desta lista é desativado. Esvazie antes de abrir para os
@@ -73,11 +89,9 @@ return {
         -- de tirar um posto de operação. Quem só atira devolve um corredor em um minuto, então
         -- a sabotagem por tiro não compensa e o roubo continua sendo o caminho.
         downCooldownSeconds = 60,
-        -- Morte depois de um assalto. Aqui o corredor já tinha sido rendido e revistado, e a
-        -- execução fecha o episódio: substitui o que restava do roubo pelo prazo cheio. Precisa
-        -- ser maior que `robbery.cooldownSeconds`, senão executar o rendido o devolveria mais
-        -- cedo do que deixá-lo vivo.
-        downAfterRobberyCooldownSeconds = 1200,
+        -- Não existe prazo próprio para a morte depois de um assalto: quem já foi revistado
+        -- continua no cooldown do roubo, e executá-lo não acrescenta tempo nenhum. O episódio é
+        -- um só, e quem já pagou por ser assaltado não paga de novo por levar um tiro depois.
         -- Chance de a morte de um corredor virar chamado para a polícia. Alta de propósito:
         -- executar gente na rua é mais visível que vender na esquina, e sem chamado nenhum três
         -- rivais limpam os quatro corredores e vão embora em silêncio. O cooldown de dispatch é
@@ -120,6 +134,15 @@ return {
         -- Depois de assaltado o corredor sai de operação por este tempo, e nesse período
         -- também não pode ser assaltado de novo. As duas coisas são a mesma janela.
         cooldownSeconds = 600,
+        -- Trava por identidade, separada do `cooldownSeconds` acima. Aquele diz por quanto tempo o
+        -- corredor fica fora de operação — dez minutos, valendo para todo mundo. Este diz por
+        -- quanto tempo QUEM JÁ ROUBOU não pode roubar o mesmo corredor de novo.
+        --
+        -- Uma gang tranca a gang inteira: assaltar vira evento, não farm, e o corredor continua
+        -- disponível para as outras. Jogador sem gang espera mais, porque não tem ninguém com quem
+        -- dividir o alvo nem a quem responder.
+        gangLockSeconds = 3600,
+        soloLockSeconds = 5400,
         pursePercent = { min = 10, max = 25 },
         stockPercent = { min = 5, max = 15 },
         maxStockUnits = 10,

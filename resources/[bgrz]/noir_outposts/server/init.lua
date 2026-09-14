@@ -25,12 +25,13 @@ local REQUIRED_TABLES = {
     'noir_outpost_rotations',
     'noir_outpost_organizations',
     'noir_outpost_player_settings',
+    'noir_outpost_dealer_locks',
 }
 
 -- Numeradas e imutáveis depois de aplicadas. Toda nova migration entra aqui.
 local MIGRATIONS = {
     '001_initial', '002_operation_feed', '003_player_settings', '004_dealer_identity',
-    '005_operation_retention', '006_claim_dealer_roster',
+    '005_operation_retention', '006_claim_dealer_roster', '007_dealer_robbery_locks',
 }
 
 ---Só DDL não destrutivo passa. Qualquer outra coisa aborta o start.
@@ -126,8 +127,10 @@ local function validateConfiguration()
             Log.error('config_invalid_corners', { outpostId = id })
             return false
         end
-        if not definition.computer or not definition.entrance then
-            Log.error('config_invalid_coords', { outpostId = id })
+        -- O computador mora na planta do interior, não no posto. O que o posto precisa é da porta
+        -- e da planta para onde ela leva.
+        if not definition.entrance or not shared.shells[definition.shell] then
+            Log.error('config_invalid_coords', { outpostId = id, shell = definition.shell })
             return false
         end
     end
@@ -159,6 +162,7 @@ end
 
 local REQUIRED_SERVICES = {
     'Notification', 'Rotation', 'Claim', 'Dealer', 'Stock', 'Sale', 'Holdup', 'Robbery', 'Feed', 'Settings',
+    'Interior',
 }
 
 ---Um módulo que não entrou na lista de carga do manifest não quebra a sintaxe: ele só
@@ -208,11 +212,13 @@ local function bootstrap()
     end
 
     Entities.syncAll()
+    Services.Interior.configureBuckets()
     Scheduler.start()
     NoirOutposts.Ready = true
 
     Services.Notification.broadcastPublicSnapshot()
     Log.info('started', {
+        iteration = C.Iteration,
         outposts = #ids,
         cycle = rotation.cycleKey,
         products = #State.productIds,
@@ -244,6 +250,7 @@ AddEventHandler('bgrz_core:server:playerUnloaded', function(playerSource)
     local character = Integration.getCharacter(playerSource)
     if character then Services.Settings.forget(character.citizenId) end
     if Services.Holdup then Services.Holdup.releaseForSource(playerSource) end
+    if Services.Interior then Services.Interior.leave(playerSource, 'player_unloaded') end
     Sessions.abortForSource(playerSource, 'player_unloaded')
     Sessions.closePanel(playerSource, 'player_unloaded')
 end)
@@ -251,12 +258,15 @@ end)
 AddEventHandler('playerDropped', function()
     local src = source
     if Services.Holdup then Services.Holdup.releaseForSource(src) end
+    if Services.Interior then Services.Interior.leave(src, 'player_dropped') end
     Sessions.abortForSource(src, 'player_dropped')
     Sessions.closePanel(src, 'player_dropped')
 end)
 
 -- Trocar de organização/grade invalida sessões e painéis em andamento.
 AddEventHandler('noir_outposts:server:organizationChanged', function(playerSource)
+    -- Quem perdeu o acesso ao posto não pode continuar dentro dele.
+    if Services.Interior then Services.Interior.leave(playerSource, 'organization_changed') end
     Sessions.abortForSource(playerSource, 'organization_changed')
     Sessions.closePanel(playerSource, 'organization_changed')
 end)
@@ -264,6 +274,9 @@ end)
 AddEventHandler('onResourceStop', function(resource)
     if resource ~= GetCurrentResourceName() then return end
     Scheduler.stop()
+    -- Antes de tudo: quem está no interior precisa voltar à superfície enquanto ainda há client
+    -- script para desmontar o shell. Sem isto, o ocupante fica num bucket sem chão.
+    if Services.Interior then Services.Interior.clear('resource_stop') end
     Sessions.abortAll('resource_stop')
     Entities.despawnAll()
     if Services.Notification then Services.Notification.clear() end
@@ -307,7 +320,7 @@ RegisterCommand('outposts', function(source, args)
         local outpostId = Security.outpostId(args[2])
         if not outpostId then return reply('Outpost inválido.') end
         Services.Rotation.releaseExpired(outpostId)
-        Services.Notification.broadcastPublicSnapshot()
+        Services.Notification.broadcastOutpost(outpostId)
         Log.info('admin_release', { outpostId = outpostId, source = source })
         return reply(('Controle de %s liberado.'):format(outpostId))
     end
@@ -341,7 +354,7 @@ RegisterCommand('outposts', function(source, args)
         local outpostId = Security.outpostId(args[2])
         if not outpostId then return reply('Outpost inválido.') end
         State.reload(outpostId)
-        Services.Notification.broadcastPublicSnapshot()
+        Services.Notification.broadcastOutpost(outpostId)
         Entities.syncAll()
         return reply(('Estado de %s recarregado do banco.'):format(outpostId))
     end

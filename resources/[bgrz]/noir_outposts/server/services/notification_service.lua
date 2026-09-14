@@ -144,8 +144,18 @@ end
 
 -- Sincronização de clients ----------------------------------------------------------------
 
+---Lista inteira para todo mundo. Só vale quando vários postos mudam de uma vez: rotação de ciclo
+---e boot. Para mudança de um posto existe `broadcastOutpost`, que é o caso comum.
 function Service.broadcastPublicSnapshot()
     TriggerClientEvent(C.Events.SYNC, -1, State.publicSnapshot())
+end
+
+---Um posto só, para todos os clients.
+---@param outpostId string
+function Service.broadcastOutpost(outpostId)
+    local outpost = State.outpostPublic(outpostId)
+    if not outpost then return end
+    TriggerClientEvent(C.Events.SYNC_OUTPOST, -1, outpost)
 end
 
 ---@param source number

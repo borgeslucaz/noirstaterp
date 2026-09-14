@@ -49,6 +49,13 @@ local function pruneOperations(now)
             retentionDays = retention.days,
         })
     end
+
+    -- Travas de assalto vencidas. O CASCADE já apaga as do corredor que deixou de existir; aqui
+    -- saem as que venceram com o corredor ainda em campo. Mesmo lote, mesma janela.
+    local locks = Repositories.Dealer.pruneLocks(now, retention.batchSize)
+    if locks and locks > 0 then
+        Log.info('robbery_locks_pruned', { removed = locks })
+    end
 end
 
 ---Dealers com venda vencida. Limita o catch-up após restart a uma venda por dealer.
@@ -142,7 +149,7 @@ local function processLifecycle(now)
                         body = locale('phone.expired_body', shared.outposts[outpostId].label),
                     })
                 end
-                Services.Notification.broadcastPublicSnapshot()
+                Services.Notification.broadcastOutpost(outpostId)
                 Services.Notification.refreshPanels(outpostId)
             elseif row.expires_at and now >= warningAt and not row.expiry_warned_at then
                 Repositories.Outpost.setExpiryWarned(outpostId, now)

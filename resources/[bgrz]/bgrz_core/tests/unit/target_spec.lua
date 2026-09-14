@@ -30,6 +30,12 @@ function provider:addSphereZone(definition)
     return nextZoneId
 end
 
+function provider:addBoxZone(definition)
+    nextZoneId = nextZoneId + 1
+    calls[#calls + 1] = { action = 'addBoxZone', definition = definition, id = nextZoneId }
+    return nextZoneId
+end
+
 function provider:removeZone(id, suppressWarning)
     calls[#calls + 1] = { action = 'removeZone', id = id, suppressWarning = suppressWarning }
 end
@@ -151,5 +157,52 @@ caller = 'noir_outposts'
 ok, err = BGRZ.AddEntityTarget(42, options)
 T.equal(ok, false, 'stopped target rejected')
 T.equal(err, 'provider_unavailable', 'stopped target code')
+
+-- Zonas de caixa -------------------------------------------------------------------------
+-- Mesma dona, mesmo `RemoveZoneTarget` e mesma re-hidratação das esferas; só a geometria
+-- muda. O que não pode é a zona voltar como esfera depois de o provider reiniciar.
+state = 'started'
+caller = 'noir_gangs'
+ok, err = BGRZ.AddBoxZoneTarget({
+    name = 'gang:box',
+    coords = { x = 1.0, y = 2.0, z = 3.0 },
+    size = { x = 1.5, y = 1.5, z = 1.5 },
+    rotation = 90.0,
+    options = { { name = 'manage', label = 'Gerenciar' } },
+})
+T.truthy(ok, 'box zone aceita: ' .. tostring(err))
+T.equal(calls[#calls].action, 'addBoxZone', 'box usa o método de caixa do provider')
+T.equal(calls[#calls].definition.name, caller .. ':gang:box', 'nome da zona recebe prefixo da dona')
+T.equal(calls[#calls].definition.options[1].name, caller .. ':manage', 'option também é prefixada')
+
+ok, err = BGRZ.AddBoxZoneTarget({
+    name = 'gang:box',
+    coords = { x = 1.0, y = 2.0, z = 3.0 },
+    size = { x = 1.5, y = 1.5, z = 1.5 },
+    options = { { name = 'manage' } },
+})
+T.falsy(ok, 'nome de zona não se repete por dona')
+T.equal(err, 'already_exists', 'e o erro diz qual foi o problema')
+
+for _, bad in ipairs({
+    { label = 'sem size', zone = { name = 'b1', coords = { x = 0, y = 0, z = 0 }, options = { { name = 'o' } } } },
+    { label = 'size zerado', zone = { name = 'b2', coords = { x = 0, y = 0, z = 0 }, size = { x = 0, y = 1, z = 1 }, options = { { name = 'o' } } } },
+    { label = 'size negativo', zone = { name = 'b3', coords = { x = 0, y = 0, z = 0 }, size = { x = 1, y = -1, z = 1 }, options = { { name = 'o' } } } },
+    { label = 'rotação inválida', zone = { name = 'b4', coords = { x = 0, y = 0, z = 0 }, size = { x = 1, y = 1, z = 1 }, rotation = 0 / 0, options = { { name = 'o' } } } },
+}) do
+    local rejected = BGRZ.AddBoxZoneTarget(bad.zone)
+    T.falsy(rejected, bad.label .. ' precisa ser recusado')
+end
+
+-- Provider reinicia: a caixa tem que voltar como caixa.
+local before = #calls
+T.fire(handlers, 'onClientResourceStart', 'ox_target')
+local rehydratedBox
+for index = before + 1, #calls do
+    if calls[index].action == 'addBoxZone' then rehydratedBox = calls[index] end
+end
+T.truthy(rehydratedBox, 'a caixa volta como caixa, não como esfera')
+
+T.truthy(BGRZ.RemoveZoneTarget('gang:box'), 'a mesma remoção serve para os dois tipos')
 
 print('target_spec: ok')

@@ -1,6 +1,8 @@
 {
     "target": {
-        "talk_operator": "Falar com o operador",
+        "open_terminal": "Acessar o terminal",
+        "enter_outpost": "Entrar no posto",
+        "leave_outpost": "Sair do posto",
         "inspect_dealer": "Observar corredor",
         "rob_dealer": "Roubar corredor"
     },
@@ -78,6 +80,7 @@
         "own_outpost": "Você não pode roubar o próprio corredor.",
         "owner_offline": "Não há ninguém da organização dona por perto. Este corredor não é alvo agora.",
         "too_far": "Aproxime-se para continuar.",
+        "invalid_bucket": "Você não está na mesma instância deste local.",
         "not_enough_players": "Não há movimento suficiente na cidade.",
         "not_enough_police": "Não há policiamento suficiente na cidade.",
         "organization_cooldown": "Sua organização precisa esperar antes de tomar outro local.",
@@ -93,6 +96,7 @@
         "holdup_done": "Este corredor já foi abordado.",
         "not_surrendered": "Renda o corredor antes de revistar.",
         "dealer_cooldown": "Este corredor já foi roubado há pouco tempo.",
+        "robbery_locked": "Este corredor já foi roubado pelos seus recentemente. Procure outro.",
         "holdup_cooldown": "Este corredor já foi abordado há pouco tempo.",
         "invalid_entity": "Não foi possível confirmar o alvo.",
         "amount_too_large": "Quantidade acima do permitido.",
