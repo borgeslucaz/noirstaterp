@@ -39,6 +39,12 @@ files {
 	'web/build/**/*',
 }
 
+-- Nível do vendedor vem do noir_skills (habilidade `trafico`). Dependência dura de propósito:
+-- sem ele, toda venda pagaria sem bônus e sem progressão, em silêncio.
+dependencies {
+	'noir_skills',
+}
+
 escrow_ignore {
 	'client/**',
 	'config/**',

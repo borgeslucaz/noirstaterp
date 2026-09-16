@@ -180,7 +180,7 @@ RegisterNUICallback('startActivity', function(data, cb)
     end
 
     if activityId == 'drugSales' then
-        if GetResourceState('op-drugselling') ~= 'started' then
+        if GetResourceState('noir_drugselling') ~= 'started' then
             notify('Esse canal está indisponível.', 'error')
             cb({ ok = false })
             return

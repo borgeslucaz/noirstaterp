@@ -1,6 +1,16 @@
 -- Bridge server-side para o Qbox.
 BGRZ = BGRZ or {}
 
+---Identificador estável do personagem carregado. É o que os resources guardam no banco:
+---o source muda a cada reconexão, o citizenid não.
+---@param source number
+---@return string|nil
+function BGRZ.GetCitizenId(source)
+    local player = exports.qbx_core:GetPlayer(source)
+    if not player then return nil end
+    return player.PlayerData.citizenid
+end
+
 ---@param source number
 ---@return table|nil job { name, label, grade, onDuty }
 function BGRZ.GetJob(source)
@@ -138,6 +148,7 @@ function BGRZ.SpawnVehicle(source, model, coords, warp, plate)
     return netId, veh
 end
 
+exports('GetCitizenId', BGRZ.GetCitizenId)
 exports('GetJob', BGRZ.GetJob)
 exports('HasJob', BGRZ.HasJob)
 exports('AddMoney', BGRZ.AddMoney)

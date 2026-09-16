@@ -39,10 +39,12 @@ export function ProfileView({ playerData, language, xp }: Props) {
             <h2>{t('recent_deliveries', 'Entregas recentes')}</h2>
           </div>
         </div>
-        {history.length === 0 && <p className="history-empty">{t('no_history', 'Nenhuma entrega registrada ainda.')}</p>}
-        {history.map((entry) => (
-          <HistoryRow entry={entry} key={`${entry.sessionId ?? entry.label}-${entry.date}`} language={language} />
-        ))}
+        <div className="history-list">
+          {history.length === 0 && <p className="history-empty">{t('no_history', 'Nenhuma entrega registrada ainda.')}</p>}
+          {history.map((entry) => (
+            <HistoryRow entry={entry} key={`${entry.sessionId ?? entry.label}-${entry.date}`} language={language} />
+          ))}
+        </div>
       </section>
     </div>
   )

@@ -28,7 +28,6 @@ Config.Fuel = 'ox_fuel'
 
 Config.Debug               = false
 Config.EnableGhostMode     = true    -- if true players can't collide with each other in the vehicle spawn area
-Config.DefaultImage        = './assets/images/test-pp.png'
 Config.JobName             = 'all'   -- 'all' to allow everyone, or a specific job name
 Config.VehicleDeleteTimeout = 10000
 -- Missões diárias, mercado global, economia e Routes: shared/contract_config.lua

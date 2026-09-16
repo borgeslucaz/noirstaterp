@@ -33,10 +33,6 @@ function Translate(str, ...) -- Translate string
     end
 end
 
-function levelFromExp(exp)
-    return 1 + math.floor((exp or 0) / Config.Leveling.LevelEXP)
-end
-
 function debugPrint(...)
     if not Config.Debug then return end
     local args <const> = { ... }

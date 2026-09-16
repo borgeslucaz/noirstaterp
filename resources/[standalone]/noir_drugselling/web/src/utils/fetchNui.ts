@@ -27,11 +27,13 @@ export async function fetchNui<T = unknown>(
 
   if (isEnvBrowser() && mockData) return mockData;
 
-  //const resourceName = (window as any).GetParentResourceName
-  //  ? (window as any).GetParentResourceName()
-  //  : "nui-frame-app";
+  // O vendor tinha comentado isto e cravado o nome do resource na URL, o que quebrava a NUI
+  // inteira ao renomear a pasta. Voltou ao normal: o CEF informa o nome certo em runtime.
+  const resourceName = (window as any).GetParentResourceName
+    ? (window as any).GetParentResourceName()
+    : "noir_drugselling";
 
-  const resp = await fetch(`https://op-drugselling/${eventName}`, options);
+  const resp = await fetch(`https://${resourceName}/${eventName}`, options);
 
   const respFormatted = await resp.json();
 

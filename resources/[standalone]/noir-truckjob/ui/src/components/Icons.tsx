@@ -22,6 +22,26 @@ export function TruckIcon({ className }: IconProps) {
   )
 }
 
+export function DashboardIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.7" />
+      <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.7" />
+      <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.7" />
+      <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.7" />
+    </Icon>
+  )
+}
+
+export function TrophyIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M7 6H4v2a4 4 0 0 0 4 4M17 6h3v2a4 4 0 0 1-4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </Icon>
+  )
+}
+
 export function RouteIcon({ className }: IconProps) {
   return (
     <Icon className={className}>

@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Noir Graffiti</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400&family=Plus+Jakarta+Sans:wght@600&display=swap" rel="stylesheet">
+<style>
+/* As mesmas famílias declaradas em web/scene.html. O preview só vale alguma coisa se
+   desenhar com a fonte que vai parar na parede. Estas são conteúdo, não interface: o guia
+   de design manda em tudo que é NUI, e a letra do graffiti é o produto. */
+@font-face { font-family: Mostwasted; src: url(scene-assets/fonts/Mostwasted.ttf) }
+@font-face { font-family: Drippin; src: url(scene-assets/fonts/RuthlessDrippin1.ttf) }
+@font-face { font-family: Wreckin; src: url(scene-assets/fonts/RuthlessWreckin1.ttf) }
+@font-face { font-family: Ghang; src: url(scene-assets/fonts/No_License_Ghang.ttf) }
+@font-face { font-family: "Ghang Plain"; src: url(scene-assets/fonts/No_License_Ghang_Plain.ttf) }
+@font-face { font-family: Bubble; src: url(scene-assets/fonts/ElfontBubble.ttf) }
+@font-face { font-family: Whoa; src: url(scene-assets/fonts/Whoa.ttf) }
+@font-face { font-family: Marsneveneksk; src: url(scene-assets/fonts/MARSNEVENEKSK.otf) }
+@font-face { font-family: "Urban Calligraphy"; src: url(scene-assets/fonts/UrbanCalligraphy.ttf) }
+@font-face { font-family: Creepster; src: url(scene-assets/fonts/Creepster-Regular.ttf) }
+@font-face { font-family: "Help Me"; src: url(scene-assets/fonts/HelpMe.ttf) }
+@font-face { font-family: Quantico; src: url(scene-assets/fonts/Quantico-Regular.ttf) }
+@font-face { font-family: Geist; src: url(scene-assets/fonts/Geist-Regular.woff2) }
+
+/* Tokens do guia v2 (resources/docs/DESIGN_v2.MD, seção 3). Replicados por nome, nunca
+   por literal espalhado. */
+:root {
+  --noir-white: #fff;
+  --noir-text-strong: rgba(255, 255, 255, 0.96);
+  --noir-text: rgba(255, 255, 255, 0.72);
+  --noir-text-dim: rgba(255, 255, 255, 0.50);
+  --noir-text-faint: rgba(255, 255, 255, 0.30);
+  --noir-text-ghost: rgba(255, 255, 255, 0.15);
+
+  --noir-hairline: rgba(255, 255, 255, 0.06);
+  --noir-hairline-hover: rgba(255, 255, 255, 0.18);
+  --noir-border: rgba(255, 255, 255, 0.12);
+  --noir-border-hover: rgba(255, 255, 255, 0.30);
+
+  --noir-panel: rgba(10, 10, 12, 0.88);
+  --noir-panel-border: rgba(255, 255, 255, 0.08);
+  --noir-backdrop: rgba(0, 0, 0, 0.50);
+
+  --noir-danger: #ff8282;
+  --noir-text-shadow: 0 1px 2px rgb(0 0 0), 0 2px 6px rgba(0, 0, 0, 0.85);
+  /* O guia define o gradiente para o lado esquerdo e manda espelhar com `to left` quando o
+     texto mora na direita, que é o caso da ajuda do posicionamento. */
+  --noir-gradient-side-right: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0.52) 0%,
+    rgba(0, 0, 0, 0.28) 45%,
+    transparent 100%
+  );
+
+  --noir-radius: 2px;
+  --noir-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --noir-ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --noir-transition-fast: 150ms var(--noir-ease-out);
+  --noir-transition: 250ms var(--noir-ease-out);
+}
+
+* { box-sizing: border-box; margin: 0 }
+
+/* Raiz transparente: o jogo é o fundo. Só o backdrop do modal escurece a cena, e ele some
+   junto com o modal. */
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent !important;
+}
+body {
+  font: 600 1.45vh/1.4 "Plus Jakarta Sans", Inter, sans-serif;
+  color: var(--noir-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Modal ------------------------------------------------------------------------------
+   Painel é exceção no guia, e esta é a exceção prevista: a janela bloqueia o fluxo e pede
+   uma decisão. Sem backdrop-filter — no FiveM ele pinta a cena de preto. */
+#backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--noir-backdrop);
+  animation: fade 300ms var(--noir-ease-soft);
+}
+#backdrop[hidden] { display: none }
+
+.panel {
+  width: 63vh;
+  max-width: 92vw;
+  padding: 3vh 3.5vh;
+  border: 1px solid var(--noir-panel-border);
+  border-radius: var(--noir-radius);
+  background: var(--noir-panel);
+  animation: rise 300ms var(--noir-ease-soft);
+}
+
+h1 {
+  margin-bottom: 2.2vh;
+  font-size: 1.8vh;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--noir-text-strong);
+}
+
+@keyframes fade { from { opacity: 0 } }
+@keyframes rise { from { opacity: 0; transform: translateY(12px) } }
+
+/* Label · valor (guia, seção 5): o separador é tipográfico e o valor vem um degrau acima
+   do label. */
+.label {
+  display: block;
+  margin: 2.2vh 0 0.9vh;
+  font-size: 0.95vh;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--noir-text-faint);
+}
+.label:first-child { margin-top: 0 }
+.label .value {
+  margin-left: 0.5vh;
+  font-size: 1.1vh;
+  letter-spacing: 0.06em;
+  color: var(--noir-text);
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+}
+.label .value::before {
+  content: "·";
+  margin-right: 0.5vh;
+  color: var(--noir-text-ghost);
+}
+
+/* Duas colunas: controles à esquerda, lista de fontes à direita. A altura é ditada pela
+   coluna esquerda, e a lista rola dentro do que sobrar. */
+.body { display: flex; gap: 2.2vh; align-items: stretch }
+.main { flex: 1; min-width: 0 }
+.side { display: flex; flex-direction: column; width: 17vh }
+
+/* O texto preenche a faixa, que é o que ele faz na parede. A superfície existe para dar
+   contraste à letra em qualquer cor — é tela de desenho, não card de interface. */
+.preview {
+  position: relative;
+  height: 16vh;
+  overflow: hidden;
+  border: 1px solid var(--noir-hairline);
+  border-radius: var(--noir-radius);
+  background: rgba(255, 255, 255, 0.04);
+}
+.layer {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  white-space: pre;
+  text-align: center;
+  color: #fff;
+  transform-origin: center center;
+  paint-order: stroke fill;
+}
+
+textarea {
+  width: 100%;
+  min-height: 7vh;
+  padding: 1.1vh 1.2vh;
+  border: 1px solid var(--noir-border);
+  border-radius: var(--noir-radius);
+  background: transparent;
+  color: var(--noir-text-strong);
+  font: 600 1.45vh/1.5 "Plus Jakarta Sans", Inter, sans-serif;
+  outline: none;
+  resize: none;
+  transition: border-color var(--noir-transition);
+}
+textarea:hover { border-color: var(--noir-border-hover) }
+textarea:focus { border-color: var(--noir-border-hover) }
+
+.hint {
+  margin-top: 0.9vh;
+  font: 300 1.15vh/1.5 Inter, sans-serif;
+  letter-spacing: 0.02em;
+  color: var(--noir-text-faint);
+}
+/* Erro não se distingue só pela cor: ganha um sinal antes do texto. */
+.hint.invalid { color: var(--noir-danger) }
+.hint.invalid::before {
+  content: "!";
+  display: inline-block;
+  width: 1.4vh;
+  margin-right: 0.4vh;
+  text-align: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 0.85vh;
+  line-height: 1.3vh;
+}
+
+.row { display: flex; gap: 1.1vh; align-items: center; flex-wrap: wrap }
+
+/* Lista de fontes: linha fantasma do guia (seção 8). Sem fundo, sem caixa, sem escala — o
+   hover e a seleção mexem só na cor e no hairline da própria linha. Cada nome escrito na
+   própria fonte, que é o melhor jeito de escolher. */
+.fonts {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.5vh;
+}
+.fonts button {
+  display: block;
+  width: 100%;
+  padding: 1.1vh 0;
+  border: none;
+  border-bottom: 1px solid var(--noir-hairline);
+  background: transparent;
+  color: var(--noir-text);
+  font-size: 1.6vh;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: color var(--noir-transition), border-color var(--noir-transition);
+}
+.fonts button:hover { color: var(--noir-white); border-bottom-color: var(--noir-hairline-hover) }
+.fonts button.on { color: var(--noir-text-strong); border-bottom-color: var(--noir-border-hover) }
+.fonts::-webkit-scrollbar { width: 0.4vh }
+.fonts::-webkit-scrollbar-track { background: transparent }
+.fonts::-webkit-scrollbar-thumb { background: var(--noir-hairline-hover) }
+
+/* Cor é conteúdo, não estado de interface: as amostras guardam a própria cor, e a
+   seleção aparece como anel, não como pintura nova. */
+input[type=color] {
+  width: 4.2vh;
+  height: 2.8vh;
+  padding: 0;
+  border: 1px solid var(--noir-border);
+  border-radius: var(--noir-radius);
+  background: transparent;
+  cursor: pointer;
+}
+input[type=color]:hover { border-color: var(--noir-border-hover) }
+.swatch {
+  width: 2.6vh;
+  height: 2.6vh;
+  padding: 0;
+  border: 1px solid var(--noir-border);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.swatch.on { outline: 1px solid var(--noir-white); outline-offset: 2px }
+
+input[type=range] {
+  flex: 1;
+  height: 0.3vh;
+  accent-color: var(--noir-text);
+  background: var(--noir-hairline);
+  cursor: pointer;
+}
+
+/* Ações: ghost, uma primária por contexto. O hover mexe em borda e cor, nunca em fundo. */
+.actions { display: flex; gap: 1vh; justify-content: flex-end; margin-top: 3vh }
+.actions button {
+  padding: 0.9vh 2.2vh;
+  border: 1px solid var(--noir-border);
+  border-radius: var(--noir-radius);
+  background: transparent;
+  font: 400 1.15vh Inter, sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color var(--noir-transition-fast), color var(--noir-transition-fast);
+}
+#cancel { color: var(--noir-text-dim) }
+#confirm { color: var(--noir-text-strong) }
+.actions button:hover { border-color: var(--noir-border-hover); color: var(--noir-white) }
+.actions button:disabled { opacity: 0.32; cursor: not-allowed }
+.actions button:disabled:hover { border-color: var(--noir-border); color: var(--noir-text-strong) }
+
+button:focus-visible, textarea:focus-visible, input:focus-visible {
+  outline: 1px solid rgba(255, 255, 255, 0.70);
+  outline-offset: 3px;
+}
+
+/* Ajuda do posicionamento ------------------------------------------------------------
+   Widget de HUD sobre a cena, com o jogo em foco: nada de painel. Texto flutuando com
+   sombra, encostado na direita, alinhado à direita — sem régua, como manda o guia para
+   cards ancorados nesse canto.
+
+   O contêiner ocupa a tela inteira mas é transparente e não recebe clique: ele existe só
+   para ancorar o gradiente lateral, que precisa ir de topo a base. Centralizar com `grid`
+   em vez de `translateY` não é gosto — elemento transformado vira contêiner de posição
+   fixa, e o gradiente ficaria preso ao tamanho do texto em vez de acompanhar a tela. */
+#help {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  align-items: center;
+  justify-items: end;
+  padding-right: 2.2vh;
+  pointer-events: none;
+  animation: fade 350ms var(--noir-ease-out);
+}
+#help[hidden] { display: none }
+
+/* Gradiente lateral (guia, seção 7): escurece só a faixa que contém texto, e some antes da
+   metade da tela. É o recurso mais leve que resolve o contraste — véu na tela inteira e
+   painel atrás da ajuda estão os dois fora, com o jogo em foco. */
+#help::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 34vh;
+  background: var(--noir-gradient-side-right);
+}
+
+.help-rows {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0.9vh 1.1vh;
+  align-items: center;
+  justify-items: end;
+  text-shadow: var(--noir-text-shadow);
+}
+.help-rows kbd {
+  padding: 0.2vh 0.7vh;
+  border: 1px solid var(--noir-border);
+  border-radius: var(--noir-radius);
+  font: 600 0.95vh/1.6 "Plus Jakarta Sans", Inter, sans-serif;
+  letter-spacing: 0.12em;
+  color: var(--noir-text-dim);
+}
+.help-rows span {
+  font-size: 1.15vh;
+  letter-spacing: 0.02em;
+  color: var(--noir-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+</style>
+</head>
+<body>
+<div id="backdrop" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-label="Graffiti">
+    <h1>Graffiti</h1>
+
+    <div class="body">
+      <div class="main">
+        <div class="preview"><span class="layer" id="back"></span><span class="layer" id="front"></span></div>
+
+        <label class="label" for="text">Texto</label>
+        <textarea id="text" rows="3" autocomplete="off" spellcheck="false"
+          aria-describedby="hint"></textarea>
+        <div class="hint" id="hint" role="status"></div>
+
+        <label class="label" for="thickness">Espessura<span class="value" id="thicknessValue"></span></label>
+        <div class="row">
+          <input type="range" id="thickness" />
+        </div>
+
+        <span class="label">Cor</span>
+        <div class="row">
+          <input type="color" id="color" aria-label="Cor do graffiti" />
+          <div class="row" id="presets"></div>
+        </div>
+      </div>
+
+      <div class="side">
+        <span class="label">Fonte</span>
+        <div class="fonts" id="fonts" role="listbox" aria-label="Fonte do graffiti"></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="cancel" type="button">Cancelar</button>
+      <button id="confirm" type="button">Aplicar</button>
+    </div>
+  </div>
+</div>
+
+<div id="help" hidden>
+  <div class="help-rows" id="helpRows"></div>
+</div>
+
+<script src="measure.js"></script>
+<script>
+const resource = window.GetParentResourceName ? GetParentResourceName() : 'noir_graffiti';
+const post = (name, body) => fetch(`https://${resource}/${name}`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body || {}),
+}).catch(() => {});
+
+const el = (id) => document.getElementById(id);
+const backdrop = el('backdrop'), textInput = el('text');
+const help = el('help'), helpRows = el('helpRows');
+const back = el('back'), front = el('front');
+const fontsBox = el('fonts'), presetsBox = el('presets'), colorInput = el('color');
+const thicknessInput = el('thickness'), thicknessValue = el('thicknessValue');
+const confirmBtn = el('confirm'), hint = el('hint');
+
+let config = { minLength: 2, maxLength: 32 };
+let font = '';
+
+// Mesma mecânica de web/scene.html: desenha num corpo de referência, mede com a sobra do
+// traço, e escala para encher a faixa. O preview mostra o texto como ele vai sair na
+// parede — mudar a conta aqui sem mudar lá faz o preview mentir.
+const REFERENCE = 200;
+const OUTLINE = 6;
+const LINE_HEIGHT = 1.05;
+
+// Mesmas regras de NoirValidation.text no servidor: colapsa espaços por linha, descarta
+// linha vazia, e conta caracteres visíveis sem as quebras. Se divergirem, o jogador vê
+// "Aplicar" liberado e leva erro do servidor depois da barra de 5s.
+function normalize(raw) {
+  return raw.replace(/\r\n?/g, '\n').split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .filter((line) => line !== '');
+}
+
+function render() {
+  const lines = normalize(textInput.value);
+  const text = lines.join('\n');
+  const length = lines.reduce((total, line) => total + [...line].length, 0);
+  const color = colorInput.value;
+  const thickness = Number(thicknessInput.value) || 0;
+
+  for (const node of [back, front]) {
+    node.textContent = text;
+    node.style.fontFamily = `"${font}", Arial, sans-serif`;
+    node.style.color = color;
+    node.style.fontSize = `${REFERENCE}px`;
+    node.style.lineHeight = LINE_HEIGHT;
+    node.style.transform = 'translate(-50%, -50%)';
+  }
+  back.style.webkitTextStroke = `${thickness + OUTLINE}px #000`;
+  front.style.webkitTextStroke = thickness > 0 ? `${thickness}px ${color}` : '';
+  thicknessValue.textContent = thickness;
+
+  const box = back.parentElement.getBoundingClientRect();
+  const bleed = (thickness + OUTLINE) / 2;
+  const ink = NoirMeasure.inkOverflow(lines, font, REFERENCE,
+    REFERENCE * LINE_HEIGHT, back.offsetWidth, back.offsetHeight);
+  const width = back.offsetWidth + ink.left + ink.right + bleed * 2;
+  const height = back.offsetHeight + ink.top + ink.bottom + bleed * 2;
+  if (width && height) {
+    const fit = Math.min(box.width / width, box.height / height);
+    const shiftX = (ink.right - ink.left) / 2;
+    const shiftY = (ink.bottom - ink.top) / 2;
+    const transform = `translate(-50%, -50%) scale(${fit}) translate(${-shiftX}px, ${-shiftY}px)`;
+    back.style.transform = transform;
+    front.style.transform = transform;
+  }
+
+  const valid = length >= config.minLength && length <= config.maxLength
+    && lines.length <= config.maxLines && !/[<>]/.test(text);
+  confirmBtn.disabled = !valid;
+
+  if (lines.length > config.maxLines) {
+    hint.textContent = `Máximo de ${config.maxLines} linhas`;
+  } else if (length > config.maxLength) {
+    hint.textContent = `Máximo de ${config.maxLength} caracteres`;
+  } else {
+    hint.textContent = `${length}/${config.maxLength} · ${lines.length}/${config.maxLines} linhas · Enter quebra a linha`;
+  }
+  // Campo vazio não é erro: é o começo. O aviso só acende depois que se escreveu algo.
+  hint.classList.toggle('invalid', length > 0 && !valid);
+}
+
+function pickFont(id) {
+  font = id;
+  for (const button of fontsBox.children) {
+    const on = button.dataset.id === id;
+    button.classList.toggle('on', on);
+    button.setAttribute('aria-selected', on ? 'true' : 'false');
+  }
+  render();
+  // Medir antes de a fonte carregar devolve a métrica do Arial; remede quando ela chegar.
+  document.fonts.load(`${REFERENCE}px "${id}"`).then(render).catch(() => {});
+}
+
+function pickColor(hex) {
+  colorInput.value = hex;
+  for (const swatch of presetsBox.children) swatch.classList.toggle('on', swatch.dataset.color === hex);
+  render();
+}
+
+function open(payload) {
+  config = payload;
+  sending = false;
+  const previous = payload.previous || {};
+  textInput.value = previous.text || '';
+  // Folga para as quebras, que não contam no limite de caracteres visíveis.
+  textInput.maxLength = payload.maxLength + payload.maxLines;
+  thicknessInput.min = payload.thickness.min;
+  thicknessInput.max = payload.thickness.max;
+  thicknessInput.step = payload.thickness.step;
+  thicknessInput.value = previous.thickness != null ? previous.thickness : payload.thickness.default;
+
+  fontsBox.replaceChildren(...payload.fonts.map((entry) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.id = entry.id;
+    button.textContent = entry.label;
+    button.style.fontFamily = `"${entry.id}", Arial, sans-serif`;
+    button.setAttribute('role', 'option');
+    button.onclick = () => pickFont(entry.id);
+    return button;
+  }));
+
+  presetsBox.replaceChildren(...payload.presets.map((entry) => {
+    const swatch = document.createElement('button');
+    swatch.type = 'button';
+    swatch.className = 'swatch';
+    swatch.dataset.color = entry.color;
+    swatch.title = entry.label;
+    swatch.style.background = entry.color;
+    swatch.onclick = () => pickColor(entry.color);
+    return swatch;
+  }));
+
+  pickFont(previous.font || payload.defaultFont || payload.fonts[0].id);
+  pickColor(previous.color || payload.defaultColor || '#FFFFFF');
+  backdrop.hidden = false;
+  textInput.focus();
+  // Avisa que a janela subiu inteira. Sem este aviso o Lua devolve o foco ao jogo em vez
+  // de deixar o jogador preso numa página que não carregou.
+  post('graffiti:opened');
+}
+
+let sending = false;
+
+function submit() {
+  if (sending || confirmBtn.disabled) return;
+  sending = true;
+  confirmBtn.disabled = true;
+  post('graffiti:submit', {
+    text: normalize(textInput.value).join('\n'),
+    font,
+    color: colorInput.value.toUpperCase(),
+    thickness: Number(thicknessInput.value) || 0,
+  });
+}
+
+const cancel = () => post('graffiti:cancel');
+
+function showHelp(rows) {
+  helpRows.replaceChildren(...(rows || []).flatMap((row) => {
+    const key = document.createElement('kbd');
+    key.textContent = row.key;
+    const label = document.createElement('span');
+    label.textContent = row.label;
+    return [key, label];
+  }));
+  help.hidden = false;
+}
+
+textInput.addEventListener('input', render);
+thicknessInput.addEventListener('input', render);
+colorInput.addEventListener('input', () => pickColor(colorInput.value.toUpperCase()));
+confirmBtn.addEventListener('click', submit);
+el('cancel').addEventListener('click', cancel);
+// Setas andam pela lista de fontes quando o foco está nela: lista se navega com seta, e
+// não só com Tab.
+fontsBox.addEventListener('keydown', (event) => {
+  const step = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
+  if (!step) return;
+  event.preventDefault();
+
+  const buttons = [...fontsBox.children];
+  const index = buttons.indexOf(document.activeElement);
+  const next = buttons[(index + step + buttons.length) % buttons.length];
+  if (!next) return;
+
+  next.focus();
+  pickFont(next.dataset.id);
+});
+
+document.addEventListener('keydown', (event) => {
+  if (backdrop.hidden) return;
+  if (event.key === 'Escape') cancel();
+  // Enter quebra a linha dentro da área de texto, então aplicar precisa de Ctrl.
+  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) submit();
+});
+
+window.addEventListener('message', (event) => {
+  let data = event.data;
+  if (typeof data === 'string') {
+    try { data = JSON.parse(data); } catch (e) { return; }
+  }
+  if (!data) return;
+  if (data.action === 'open') open(data.payload);
+  if (data.action === 'close') backdrop.hidden = true;
+  if (data.action === 'help') showHelp(data.payload);
+  if (data.action === 'hideHelp') help.hidden = true;
+});
+</script>
+</body>
+</html>

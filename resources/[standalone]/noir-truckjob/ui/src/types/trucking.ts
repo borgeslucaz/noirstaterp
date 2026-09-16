@@ -1,4 +1,4 @@
-export type Page = 'main' | 'routes' | 'leaderboard' | 'profile'
+export type Page = 'main' | 'routes' | 'leaderboard'
 
 export type Tier = 'low' | 'medium' | 'high'
 
@@ -187,7 +187,6 @@ export type HistoryEntry = {
 
 export type PlayerData = {
   name?: string
-  avatar?: string
   level?: number
   xp?: number
   points?: Record<string, number>
@@ -216,7 +215,6 @@ export type JobInfo = {
 export type LeaderboardEntry = {
   rank: number
   name: string
-  avatar?: string
   level: number
   globalCompleted: number
   isMe?: boolean

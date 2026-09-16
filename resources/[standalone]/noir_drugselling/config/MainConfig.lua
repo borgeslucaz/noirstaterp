@@ -29,9 +29,9 @@ Config.dispatchScript = "none"
 
 Config.CurrencySettings = {
     -- https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/NumberFormat
-    currency = "BRL",
+    currency = "USD",
     style = "currency",
-    format = "pt-BR"
+    format = "en-US"
 }
 
 Config.Misc = {
@@ -98,11 +98,11 @@ Config.DrugSelling = {
 }
 
 -- Venda ao mirar qualquer pedestre do mundo, via target.
--- Desligado: a opção era registrada com `addGlobalPed`, que vale para todo ped do mapa, e por
--- isso aparecia também em NPCs de outros scripts, como o atendente do noir_outposts. Com isto
--- em false só sobra a venda de esquina, que procura o cliente e já ignora entidade de missão.
+-- `addGlobalPed` vale para todo ped do mapa e o ox_target não deixa excluir entidade da lista,
+-- então a opção também alcança NPCs de outros scripts, como o atendente do noir_outposts. O que
+-- segura isso é o canInteract em client/client.lua: sem droga no inventário a opção não aparece.
 Config.GlobalPedDealing = {
-    Enable = false,
+    Enable = true,
     Distance = 1.7,
 }
 
@@ -125,15 +125,19 @@ Config.DealLimits = {
     },
 }
 
+-- O nível do vendedor vem do noir_skills, não de uma coluna própria: o XP fica na habilidade
+-- `trafico` e aparece no painel /skills junto com o resto. Cada venda fechada concede o
+-- `saleEXP` do tipo de ped (5 a 50) pelo export AddXp.
 Config.Leveling = {
-    Enable = true,
-    LevelEXP = 50, -- One level == 500 exp.
+    Skill = 'trafico', -- habilidade do noir_skills (shared/config.lua de lá)
+
+    -- Nível -> bônus percentual no preço da venda. Nível acima do último item da lista recebe
+    -- o maior bônus dela. O noir_skills está com maxLevel 15 para trafico, o que dá 2920 XP
+    -- no total (~117 vendas em ped comum) para chegar ao topo.
     LevelsList = {
-        [1] = 1, -- 1% Boost for level.
-        [2] = 2, -- 2% Boost for level.
-        [3] = 3, -- 3% Boost for level.
-        [4] = 4, -- 4% Boost for level.
-        [5] = 5, -- 5% Boost for level.
+        [1] = 1,  [2] = 1,  [3] = 2,  [4] = 2,  [5] = 3,
+        [6] = 3,  [7] = 4,  [8] = 5,  [9] = 5,  [10] = 6,
+        [11] = 7, [12] = 8, [13] = 8, [14] = 9, [15] = 10,
     }
 }
 

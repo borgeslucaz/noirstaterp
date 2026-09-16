@@ -177,10 +177,10 @@ function PlayerStats({
   return (
     <section className="stats-row">
       <div className="stats-row__player">
-        <img src={playerData.avatar ?? './assets/images/test-pp.png'} alt="" />
         <div>
-          <strong>{playerData.name ?? t('driver', 'Motorista')}</strong>
-          <span>{t('level', 'Nível')} {level}</span>
+          <p className="eyebrow">CENTRAL DE FRETES</p>
+          <strong>{t('welcome_driver', 'Boa viagem')}, {(playerData.name ?? t('driver', 'Motorista')).split(' ')[0]}</strong>
+          <span>{t('level', 'Nível')} {level} · {t('professional_driver', 'Caminhoneiro')}</span>
         </div>
       </div>
 

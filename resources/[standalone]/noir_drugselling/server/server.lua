@@ -1,15 +1,19 @@
 stolenDrugs = {}
-playersEXP = {}
 
 while Framework == nil do Wait(5) end
 
+-- Nível e XP do vendedor moram no noir_skills. Ele é dependency no fxmanifest, então os
+-- exports existem sempre que este resource está de pé — não há caminho alternativo aqui de
+-- propósito: um fallback silencioso faria o jogador vender sem progredir e ninguém notaria.
+local SKILL = Config.Leveling.Skill
+
+local function getDrugLevel(source)
+    return exports.noir_skills:GetLevel(source, SKILL)
+end
+
 if Config.LevelCommand then
     RegisterCommand(Config.LevelCommand, function(source)
-        if not playersEXP[tostring(source)] then
-            loadPlayerBySrc(source)
-        end
-
-        local lvl = levelFromExp(playersEXP[tostring(source)].exp)
+        local lvl = getDrugLevel(source)
         local boost = GetLevelBoost(lvl)
 
         TriggerClientEvent('op-drugselling:sendNotify', source, TranslateIt('level_command', lvl, boost .. "%"), "info", 5)
@@ -50,12 +54,7 @@ local function adjustSellChanceByPrice(baseChance, pricePerGram, cfgDrug)
 end
 
 Fr.RegisterServerCallback('op-drugselling:getlvl', function(source, cb)
-    if not playersEXP[tostring(source)] then
-        loadPlayerBySrc(source)
-    end
-
-    local lvl = levelFromExp(playersEXP[tostring(source)].exp)
-    return cb(lvl)
+    return cb(getDrugLevel(source))
 end)
 
 Fr.RegisterServerCallback('op-drugselling:sellDrug', function(source, cb, drugName, pricePerGram, pedType, cornerSelling)
@@ -86,10 +85,7 @@ Fr.RegisterServerCallback('op-drugselling:sellDrug', function(source, cb, drugNa
     local maxCanSell = math.max(1, math.min(hasItem.amount, maxPerPed))
     local amountSell = math.random(1, maxCanSell)
 
-    if not playersEXP[tostring(source)] then
-        loadPlayerBySrc(source)
-    end
-    local playerLevel = levelFromExp(playersEXP[tostring(source)].exp)
+    local playerLevel = getDrugLevel(source)
 
     local multiplier = 1.0 + (GetLevelBoost(playerLevel) / 100.0)
     local finalPrice = math.floor((pricePerGram or 0) * amountSell * multiplier)
@@ -139,9 +135,8 @@ Fr.RegisterServerCallback('op-drugselling:sellDrug', function(source, cb, drugNa
                 end
             end
         end
-        playersEXP[tostring(source)].exp = playersEXP[tostring(source)].exp + cfgPed.saleEXP 
-        playersEXP[tostring(source)].changed = true
-        local newLevel = levelFromExp(playersEXP[tostring(source)].exp)
+        exports.noir_skills:AddXp(source, SKILL, cfgPed.saleEXP)
+        local newLevel = getDrugLevel(source)
 
         finalPrice = math.floor(finalPrice)
 
@@ -166,60 +161,3 @@ Fr.RegisterServerCallback('op-drugselling:sellDrug', function(source, cb, drugNa
     end
 end)
 
-function loadPlayerBySrc(source)
-    local ident = Fr.GetIndentifier(source)
-    local row = MySQL.single.await('SELECT expdrugs FROM `'.. Fr.usersTable ..'` WHERE `'.. Fr.identificatorTable ..'` = ?', {ident})
-    
-    if row then 
-        playersEXP[tostring(source)] = {
-            exp = row.expdrugs,
-            changed = false
-        }
-        return playersEXP[tostring(source)]
-    else
-        playersEXP[tostring(source)] = {
-            exp = 0,
-            changed = false
-        }
-        return playersEXP[tostring(source)]
-    end
-end
-
-function SavePlayerXP(src)
-    local ident = Fr.GetIndentifier(tonumber(src))
-    if not ident then return end
-
-    local st = playersEXP[tostring(src)]
-    if not st then return end
-
-    MySQL.update.await([[
-        UPDATE `]] .. Fr.usersTable .. [[`
-        SET expdrugs = ?
-        WHERE `]] .. Fr.identificatorTable .. [[` = ?
-    ]], { st.exp, ident })
-
-    playersEXP[tostring(src)].changed = false
-end
-
-CreateThread(function()
-    while true do
-        Wait(120000)
-        for src, st in pairs(playersEXP) do
-            if st.changed then 
-                SavePlayerXP(src) 
-                debugPrint('Saved Player:', src)
-            else
-                debugPrint('Skipping', src, json.encode(st))      
-            end
-        end
-    end
-end)
-
-AddEventHandler('playerDropped', function()
-    local src = tostring(source)
-    if playersEXP[src] and playersEXP[src].changed then 
-        SavePlayerXP(source)
-        playersEXP[src] = nil
-        debugPrint('Saved Player:', src)
-    end
-end)

@@ -32,7 +32,7 @@ import { JobHud } from './components/JobHud'
 import { NotificationStack } from './components/NotificationStack'
 import { PhoneCall } from './components/PhoneCall'
 import { DeliveryReport } from './components/DeliveryReport'
-import { TruckIcon } from './components/Icons'
+import { DashboardIcon, TrophyIcon, TruckIcon } from './components/Icons'
 
 type SyncPayload = {
   key: keyof PlayerData
@@ -68,6 +68,7 @@ const REPORT_AUTO_CLOSE_MS = 18000
 
 export default function App() {
   const [isOpen, setIsOpen] = useState(initialOpen)
+  const [railOpen, setRailOpen] = useState(false)
   const [activePage, setActivePage] = useState<Page>('main')
   const [trucks, setTrucks] = useState<Truck[]>(isFiveM() ? [] : mockTrucks)
   const [trucksCopy, setTrucksCopy] = useState<Truck[]>(isFiveM() ? [] : mockTrucks)
@@ -123,6 +124,7 @@ export default function App() {
 
   useNuiEvent<void>('open', useCallback(() => {
     setIsOpen(true)
+    setRailOpen(false)
     setActivePage('main')
     setSnapshotLoading(true)
   }, []))
@@ -282,11 +284,28 @@ export default function App() {
   const visibleTrucks = useMemo(() => (trucks.length ? trucks : trucksCopy), [trucks, trucksCopy])
 
   const nav = [
-    ['main', t('nts_main', 'PRINCIPAL')],
-    ['routes', t('missions', 'MISSÕES')],
-    ['leaderboard', t('leaderboard', 'CLASSIFICAÇÃO')],
-    ['profile', t('profile', 'PERFIL')],
-  ] as const
+    { page: 'main' as Page, label: t('central', 'Central'), Icon: DashboardIcon },
+    { page: 'routes' as Page, label: t('missions', 'Fretes'), Icon: TruckIcon },
+    { page: 'leaderboard' as Page, label: t('leaderboard', 'Ranking'), Icon: TrophyIcon },
+  ]
+
+  const closeMenu = () => {
+    setIsOpen(false)
+    void fetchNui('close')
+  }
+
+  const moveRailFocus = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const last = nav.length - 1
+    let next = index
+    if (event.key === 'ArrowDown') next = index === last ? 0 : index + 1
+    else if (event.key === 'ArrowUp') next = index === 0 ? last : index - 1
+    else if (event.key === 'Home') next = 0
+    else if (event.key === 'End') next = last
+    else return
+    event.preventDefault()
+    setActivePage(nav[next].page)
+    document.getElementById(`truck-nav-${nav[next].page}`)?.focus()
+  }
 
   return (
     <>
@@ -306,32 +325,82 @@ export default function App() {
       )}
 
       {isOpen && (
-        <main className="app-shell">
-          <header className="app-header">
-            <div className="brand">
+        <main className="app-shell" data-service="trucker" data-rail={railOpen ? 'open' : 'closed'}>
+          <aside className="app-rail" aria-label="Navegação da central de fretes">
+            <div className="app-rail__brand">
               <TruckIcon />
-              <div>
-                <span>Noir Truckjob</span>
-                <strong>{t('freight_ops', 'Operações de frete')}</strong>
-              </div>
+              <span className="app-rail__brand-copy" aria-hidden="true">
+                <strong>NOIR FREIGHT</strong>
+                <small>CENTRAL DE FRETES</small>
+              </span>
             </div>
-            <nav>
-              {nav.map(([page, label]) => (
-                <button className={activePage === page ? 'is-active' : ''} key={page} onClick={() => setActivePage(page)}>
-                  {label}
+
+            <button
+              className="app-rail__toggle"
+              type="button"
+              aria-controls="truck-navigation"
+              aria-expanded={railOpen}
+              aria-label={railOpen ? 'Fechar menu lateral' : 'Abrir menu lateral'}
+              onClick={() => setRailOpen((current) => !current)}
+            >
+              <span className="app-rail__chevron" aria-hidden="true" />
+            </button>
+
+            <nav id="truck-navigation" role="tablist" aria-label="Seções da central" aria-orientation="vertical">
+              {nav.map(({ page, label, Icon }, index) => (
+                <button
+                  className={`app-rail__item ${activePage === page ? 'is-active' : ''}`}
+                  id={`truck-nav-${page}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={activePage === page}
+                  aria-label={label}
+                  data-tooltip={label}
+                  tabIndex={activePage === page ? 0 : -1}
+                  key={page}
+                  onClick={() => setActivePage(page)}
+                  onKeyDown={(event) => moveRailFocus(event, index)}
+                >
+                  <Icon />
+                  <span className="app-rail__label">{label}</span>
                 </button>
               ))}
             </nav>
-            <div className="driver-mini">
-              <div>
-                <strong>{playerData.name ?? t('driver', 'Motorista')}</strong>
-                <span>{t('level_short', 'Nv.')} {playerData.level ?? 1}</span>
+
+            <div className="app-rail__status" aria-label="Central de fretes online">
+              <span className="app-rail__status-dot" aria-hidden="true" />
+              <span className="app-rail__status-text" aria-hidden="true">Central online</span>
+            </div>
+          </aside>
+
+          <header className="app-header">
+            <div className="app-brand">
+              <span className="app-brand__eyebrow">SERVIÇO DE TRANSPORTE</span>
+              <span className="app-brand__name">NOIR LOGISTICS</span>
+              <span className="app-brand__context">CENTRAL · LOS SANTOS</span>
+            </div>
+
+            <div className="app-header__actions">
+              <span className={`header-shift ${jobInfo.started ? 'is-active' : ''}`}>
+                <span className="header-shift__dot" aria-hidden="true" />
+                {jobInfo.started ? t('status_in_progress', 'EM ENTREGA') : t('status_available', 'DISPONÍVEL')}
+              </span>
+              <div className="driver-mini">
+                <span className="driver-mini__indicator" aria-hidden="true" />
+                <div>
+                  <strong>{playerData.name ?? t('driver', 'Motorista')}</strong>
+                  <span>{t('level', 'Nível')} {playerData.level ?? 1} · {t('professional_driver', 'Caminhoneiro')}</span>
+                </div>
               </div>
-              <img src={playerData.avatar ?? './assets/images/test-pp.png'} alt="" />
+              <span className="app-header__sep" aria-hidden="true" />
+              <button className="app-close" type="button" onClick={closeMenu}>
+                <kbd>ESC</kbd>
+                <span>FECHAR</span>
+              </button>
             </div>
           </header>
 
-          <section className="app-body">
+          <section className="app-body" role="tabpanel" aria-labelledby={`truck-nav-${activePage}`} data-page={activePage}>
             {activePage === 'main' && <ProfileView playerData={playerData} language={language} xp={xp} />}
             {activePage === 'routes' && (
               <DispatchView
@@ -356,9 +425,13 @@ export default function App() {
                 notify={notify}
               />
             )}
-            {activePage === 'profile' && <ProfileView playerData={playerData} language={language} xp={xp} />}
             {activePage === 'leaderboard' && <LeaderboardView language={language} />}
           </section>
+
+          <footer className="app-footer">
+            <span>NOIR LOGISTICS · CARGA EM MOVIMENTO</span>
+            <span>ROTAS, CONFIANÇA E RESULTADOS.</span>
+          </footer>
         </main>
       )}
     </>

@@ -34,7 +34,7 @@ Analyze my server files, identify dependencies, and perform all necessary config
 
 **Step 5: Final Validation**
 - Review `fxmanifest.lua` to ensure all script paths are correct.
-- Review `server/server-config.lua` and confirm `ServerConfig.DiscordBotToken` is left empty unless I want Discord avatar lookups in the leaderboard.
+- Review `server/server-config.lua` and keep the Discord webhook empty unless server-side logging is desired.
 - Check for any potential conflicts with other trucking or job scripts.
 - Perform a final syntax check on all modified files.
 

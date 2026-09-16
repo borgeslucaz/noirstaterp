@@ -184,7 +184,6 @@ export const mockResult: JobResult = {
 
 export const mockPlayerData: PlayerData = {
   name: 'Alex Morgan',
-  avatar: './assets/images/test-pp.png',
   level: 12,
   xp: 3200,
   totalEarnings: 85600,

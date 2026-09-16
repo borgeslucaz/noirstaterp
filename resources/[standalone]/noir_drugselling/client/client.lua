@@ -158,9 +158,6 @@ end)
 
 while Framework == nil do Wait(5) end
 
-local scriptName = GetCurrentResourceName()
-if scriptName ~= "op-drugselling" then return print('[OTHERPLANET.DEV] Required resource name: op-drugselling (needed for proper functionality)') end
-
 if Config.LevelCommand then
     TriggerEvent('chat:addSuggestion', ('/%s'):format(Config.LevelCommand), TranslateIt('level_command_helper'), {})
 end
@@ -170,8 +167,8 @@ end
 ----
 
 -- `addGlobalPed` registra a opção para todo ped do mapa, inclusive NPCs criados por outros
--- scripts, e o ox_target não permite excluir uma entidade dessa lista. Por isso a venda global
--- virou opcional: com `Config.GlobalPedDealing.Enable = false` sobra só a venda de esquina.
+-- scripts, e o ox_target não permite excluir uma entidade dessa lista. Quem segura isso é o
+-- canInteract abaixo: sem droga no inventário a opção não aparece em ped nenhum.
 if Config.GlobalPedDealing and Config.GlobalPedDealing.Enable then
 addGlobalPeds("global_peds_drugselling", tonumber(Config.GlobalPedDealing.Distance) or 1.7, TranslateIt('target_selldrug_icon'), TranslateIt('target_selldrug'), function(entity)
     dealingPed = entity
@@ -181,6 +178,10 @@ end, function(entity)
     if isDrugDealing then return false end
     local pedModel = GetEntityModel(entity)
     if Config.BlackListPeds[pedModel] then return end
+    -- NPC fixo de outro script (noir-truckjob, noir_outposts) continua marcado como mission
+    -- entity, porque quem cria com CreatePed não solta com SetEntityAsNoLongerNeeded. Blacklist
+    -- por modelo não resolveria: eles usam modelo comum, que o jogo também spawna na rua.
+    if IsEntityAMissionEntity(entity) then return false end
     local inventoryItems = ScriptFunctions.GetInventoryDrugs()
     if #inventoryItems < 1 then return false end
     if soldPedsList[entity] then return false end

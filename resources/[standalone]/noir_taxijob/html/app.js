@@ -207,11 +207,6 @@
         internal_error: "Não foi possível concluir a solicitação. Tente novamente.",
     }
 
-    const RETURN_ERRORS = {
-        not_near: "Estacione o táxi no ponto da central para devolvê-lo.",
-        not_yours: "Você não possui um táxi alugado no momento.",
-    }
-
     const LOCK_SVG =
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>'
 
@@ -223,17 +218,18 @@
 
     const m = {
         root: $("taxi-menu"),
+        shell: document.querySelector("#taxi-menu .window"),
         main: $("wnd-main"),
         brand: $("menu-brand"),
         context: $("menu-context"),
         close: $("menu-close"),
+        railToggle: $("rail-toggle"),
         nav: Array.from(document.querySelectorAll(".nav-item")),
         drvName: $("drv-name"),
         drvLevel: $("drv-level"),
         // hero
         greeting: $("hero-greeting"),
         heroShift: $("hero-shift"),
-        heroCta: $("hero-cta"),
         heroStatus: $("hero-status"),
         statEarned: $("stat-earned"),
         statRides: $("stat-rides"),
@@ -255,7 +251,6 @@
         vehSub: $("veh-sub"),
         vehNotice: $("veh-notice"),
         vehList: $("veh-list"),
-        vehMessage: $("veh-message"),
         vehRentMessage: $("veh-rent-message"),
         // ranking
         rankLoading: $("rank-loading"),
@@ -282,9 +277,11 @@
         tab: "overview",
         selected: null,
         ranking: null, // null | "loading" | { generatedAt, entries, self } | "error"
+        railOpen: false,
         openedAt: 0,
         timers: [],
     }
+    let modalReturnFocus = null
 
     const later = (fn, ms) => {
         const id = setTimeout(fn, reducedMotion ? 0 : ms)
@@ -320,12 +317,6 @@
     function renderShift(data) {
         const active = !!(data && data.activeRental)
         m.heroShift.dataset.state = active ? "active" : "idle"
-        m.heroCta.className = active ? "btn" : "btn btn--fill"
-        const returning = menu.state === "returning"
-        m.heroCta.disabled = returning
-        m.heroCta.setAttribute("aria-disabled", String(returning))
-        m.heroCta.dataset.pending = returning ? "true" : "false"
-        m.heroCta.textContent = returning ? "DEVOLVENDO VEÍCULO" : active ? "DEVOLVER VEÍCULO" : "ALUGAR VEÍCULO"
         m.heroStatus.textContent = active ? "EM SERVIÇO" : "FORA DE SERVIÇO"
     }
 
@@ -399,7 +390,8 @@
     }
 
     function renderVehicleList() {
-        const list = (menu.data && menu.data.vehicles) || []
+        const allVehicles = (menu.data && menu.data.vehicles) || []
+        const list = menu.tab === "overview" ? allVehicles.slice(0, 3) : allVehicles
         m.vehList.innerHTML = ""
         show(m.vehNotice, !!(menu.data && menu.data.activeRental))
         list.forEach((v) => {
@@ -586,9 +578,20 @@
 
     // ───────────── navegação ─────────────
 
-    const SECTIONS = ["tab-overview", "veh-section", "tab-ranking"]
+    function renderRail() {
+        m.shell.dataset.rail = menu.railOpen ? "open" : "closed"
+        m.railToggle.setAttribute("aria-expanded", String(menu.railOpen))
+        m.railToggle.setAttribute("aria-label", menu.railOpen ? "Fechar menu lateral" : "Abrir menu lateral")
+    }
+
+    function toggleRail() {
+        menu.railOpen = !menu.railOpen
+        renderRail()
+    }
+
+    const SECTIONS = ["tab-overview", "overview-progression", "veh-section", "tab-ranking"]
     const TAB_SECTIONS = {
-        overview: ["tab-overview", "veh-section"],
+        overview: ["tab-overview", "overview-progression", "veh-section"],
         vehicles: ["veh-section"],
         ranking: ["tab-ranking"],
     }
@@ -620,9 +623,11 @@
             tab === "vehicles"
                 ? "Escolha um veículo liberado pelo seu Nível de Confiança."
                 : "Escolha um veículo para iniciar o turno."
-        if (tab === "vehicles" && !menu.selected) {
-            const first = firstAvailableVehicle()
-            if (first) menu.selected = first.id
+        if (tab === "overview" || tab === "vehicles") {
+            if (!menu.selected || !vehicleById(menu.selected)) {
+                const first = firstAvailableVehicle()
+                if (first) menu.selected = first.id
+            }
             renderVehicleList()
         }
         updateVehActions()
@@ -668,7 +673,6 @@
         menu.tab = "overview"
         menu.selected = null
         menu.ranking = null
-        hideMessage(m.vehMessage)
         hideMessage(m.vehRentMessage)
         show(m.modal, false)
         document.getElementById("root").dataset.mode = "menu"
@@ -676,6 +680,7 @@
         applyBootstrap(data || {})
         m.root.hidden = false
         m.root.dataset.anim = "enter"
+        renderRail()
         setTab("overview", false)
         later(() => m.nav[0].focus(), 50)
     }
@@ -703,7 +708,7 @@
     }
 
     function requestClose() {
-        if (!menu.open || menu.state === "closing" || menu.state === "renting" || menu.state === "returning") return
+        if (!menu.open || menu.state === "closing" || menu.state === "renting") return
         if (!m.modal.hidden) {
             closeModal()
             return
@@ -756,6 +761,7 @@
     }
 
     function openModal(v) {
+        modalReturnFocus = document.activeElement
         m.modalTitle.textContent = "ALUGAR " + String(v.label).toUpperCase()
         m.modalText.textContent = "O aluguel custa " + moneyInt(v.rentalFee) + " e será cobrado da sua conta definida pela central."
         m.modal.dataset.vehicle = v.id
@@ -765,8 +771,14 @@
 
     function closeModal() {
         show(m.modal, false)
+        if (modalReturnFocus && modalReturnFocus.isConnected) {
+            modalReturnFocus.focus()
+            modalReturnFocus = null
+            return
+        }
         const card = m.vehList.querySelector('[aria-selected="true"]')
         if (card) card.focus()
+        modalReturnFocus = null
     }
 
     function onRentClick(id) {
@@ -774,35 +786,6 @@
         if (!canRent(v)) return
         if (Number(v.rentalFee) > 0) openModal(v)
         else startRent(v.id)
-    }
-
-    function requestReturn() {
-        if (menu.state !== "ready" || !(menu.data && menu.data.activeRental)) return
-        menu.state = "returning"
-        hideMessage(m.vehMessage)
-        renderShift(menu.data)
-        updateVehActions()
-        post("returnVehicle").then((res) => {
-            if (!menu.open) return
-            if (res && res.ok) {
-                menu.state = "ready"
-                if (res.data) {
-                    applyBootstrap(res.data)
-                } else {
-                    menu.data.activeRental = null
-                    renderShift(menu.data)
-                    renderSide(menu.data)
-                    renderVehicleList()
-                }
-                showMessage(m.vehMessage, "Veículo devolvido. Turno finalizado.", "success")
-                return
-            }
-            menu.state = "ready"
-            const code = (res && res.code) || "internal_error"
-            showMessage(m.vehMessage, RETURN_ERRORS[code] || ERROR_TEXT[code] || ERROR_TEXT.internal_error)
-            renderShift(menu.data)
-            updateVehActions()
-        })
     }
 
     // ───────────── retry do bootstrap ─────────────
@@ -836,18 +819,8 @@
     // ───────────── eventos DOM ─────────────
 
     m.nav.forEach((btn) => btn.addEventListener("click", () => setTab(btn.dataset.tab, true)))
+    m.railToggle.addEventListener("click", toggleRail)
     m.close.addEventListener("click", requestClose)
-    m.heroCta.addEventListener("click", () => {
-        if (menu.data && menu.data.activeRental) {
-            requestReturn()
-            return
-        }
-        const first = firstAvailableVehicle()
-        if (first) menu.selected = first.id
-        setTab("vehicles", false)
-        renderVehicleList()
-        if (first) selectVehicle(first.id, true)
-    })
     m.modalCancel.addEventListener("click", closeModal)
     m.modalConfirm.addEventListener("click", () => {
         const id = m.modal.dataset.vehicle
@@ -865,13 +838,26 @@
             else requestClose()
             return
         }
-        if (modalOpen || menu.state !== "ready") return
+        if (modalOpen) {
+            if (ev.key === "Tab") {
+                const modalControls = [m.modalCancel, m.modalConfirm].filter((node) => !node.disabled)
+                const current = modalControls.indexOf(document.activeElement)
+                const next = ev.shiftKey
+                    ? (current <= 0 ? modalControls.length - 1 : current - 1)
+                    : (current >= modalControls.length - 1 ? 0 : current + 1)
+                ev.preventDefault()
+                modalControls[next].focus()
+            }
+            return
+        }
+        if (menu.state !== "ready") return
 
         const inList = ev.target && ev.target.classList && ev.target.classList.contains("veh-card")
         const inNav = ev.target && ev.target.classList && ev.target.classList.contains("nav-item")
-        if (ev.key === "ArrowLeft") { ev.preventDefault(); moveTab(-1) }
-        else if (ev.key === "ArrowRight") { ev.preventDefault(); moveTab(1) }
-        else if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+        if (inNav && (ev.key === "Home" || ev.key === "End")) {
+            ev.preventDefault()
+            setTab(ev.key === "Home" ? "overview" : "ranking", true)
+        } else if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
             if (inNav) { ev.preventDefault(); moveTab(ev.key === "ArrowDown" ? 1 : -1) }
             else if (menu.tab !== "ranking" && (inList || ev.target === document.body)) {
                 ev.preventDefault()
