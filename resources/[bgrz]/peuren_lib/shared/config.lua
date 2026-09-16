@@ -246,7 +246,10 @@ Config.Logger = 'discord' -- Logger system resource name
 
 Config.SkillMenu = { -- Configuration for skill menu.
     Enabled = true, -- Should the Skill Menu be enabled
-    Command = "skills" -- The comand which opens the skill menu. Set this to false to disable it. Skill menu can be also opened by using exports["peuren_lib"]:OpenSkillMenu()
+    -- Sem comando: `/skills` é do noir_skills. Este menu só lista skill de peuren_fishing e
+    -- peuren_burglary, que não existem neste servidor, então ele abria vazio. Continua
+    -- acessível por exports["peuren_lib"]:OpenSkillMenu() se algum dia esses entrarem.
+    Command = false -- The comand which opens the skill menu. Set this to false to disable it. Skill menu can be also opened by using exports["peuren_lib"]:OpenSkillMenu()
 }
 
 Config.Groups = { -- Configuration for multiplier jobs (peuren only)

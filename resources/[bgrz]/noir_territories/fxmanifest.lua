@@ -4,20 +4,41 @@ lua54 'yes'
 
 name 'noir_territories'
 author 'Noir State'
-description 'Gang territory entry alerts backed by Zone Manager'
-version '1.0.0'
+description 'Áreas de gang: alertas por zona do Zone Manager e domínio por graffiti'
+version '1.1.0'
 
-shared_script '@ox_lib/init.lua'
+shared_scripts {
+    '@ox_lib/init.lua',
+    'shared/config.lua',
+    'shared/claims.lua',
+}
 
 client_scripts {
     '@qbx_core/modules/playerdata.lua',
     'client/main.lua',
+    'client/claims.lua',
+    'client/zones.lua',
+    'client/map.lua',
 }
 
-server_script 'server/main.lua'
+ui_page 'web/map.html'
+
+files {
+    'web/map.html',
+    'web/leaflet.js',
+    'web/leaflet.css',
+    'web/tiles/**/*.png',
+}
+
+server_scripts {
+    'server/main.lua',
+    'server/claims.lua',
+    'server/zones.lua',
+}
 
 dependencies {
     'qbx_core',
+    'bgrz_core',
     'ox_lib',
     'zonemanager',
 }

@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Territórios</title>
+<link rel="stylesheet" href="leaflet.css" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400&family=Plus+Jakarta+Sans:wght@600&display=swap" rel="stylesheet">
+<style>
+/* Tokens do guia v2 (resources/docs/DESIGN_v2.MD). */
+:root {
+  --noir-white: #fff;
+  --noir-text-strong: rgba(255, 255, 255, 0.96);
+  --noir-text: rgba(255, 255, 255, 0.72);
+  --noir-text-faint: rgba(255, 255, 255, 0.30);
+  --noir-text-ghost: rgba(255, 255, 255, 0.15);
+  --noir-hairline: rgba(255, 255, 255, 0.06);
+  --noir-border: rgba(255, 255, 255, 0.12);
+  --noir-panel: rgba(10, 10, 12, 0.88);
+  --noir-panel-border: rgba(255, 255, 255, 0.08);
+  --noir-backdrop: rgba(0, 0, 0, 0.50);
+  --noir-radius: 2px;
+  --noir-ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+* { box-sizing: border-box; margin: 0 }
+html, body { width: 100%; height: 100%; overflow: hidden; background: transparent !important }
+body { font: 600 1.45vh/1.4 "Plus Jakarta Sans", Inter, sans-serif; color: var(--noir-text) }
+
+#screen {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--noir-backdrop);
+  animation: fade 300ms var(--noir-ease-soft);
+}
+#screen[hidden] { display: none }
+@keyframes fade { from { opacity: 0 } }
+
+.panel {
+  position: relative;
+  width: 82vh;
+  max-width: 94vw;
+  height: 82vh;
+  max-height: 94vh;
+  padding: 2.2vh;
+  border: 1px solid var(--noir-panel-border);
+  border-radius: var(--noir-radius);
+  background: var(--noir-panel);
+  display: flex;
+  flex-direction: column;
+  gap: 1.6vh;
+}
+
+header { display: flex; align-items: baseline; justify-content: space-between }
+h1 {
+  font-size: 1.8vh;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--noir-text-strong);
+}
+.hint { font: 300 1.15vh Inter, sans-serif; color: var(--noir-text-faint) }
+
+/* O mapa é o conteúdo: fundo próprio, porque tile de mapa não é interface. */
+#map {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--noir-hairline);
+  border-radius: var(--noir-radius);
+  background: #0b0b0d;
+}
+.leaflet-container { background: #0b0b0d; outline: none }
+.leaflet-control-attribution { display: none }
+
+/* Legenda: linha fantasma, uma por gang presente no mapa. */
+.legend { display: flex; flex-wrap: wrap; gap: 0.9vh 2.2vh }
+.legend div { display: flex; align-items: center; gap: 0.7vh }
+.legend i {
+  width: 1.1vh;
+  height: 1.1vh;
+  border-radius: 50%;
+  border: 1px solid var(--noir-border);
+}
+.legend span {
+  font-size: 0.95vh;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--noir-text-faint);
+}
+
+.zone-label {
+  font: 600 1.1vh/1.5 "Plus Jakarta Sans", Inter, sans-serif;
+  letter-spacing: 0.06em;
+  text-align: center;
+  color: var(--noir-white);
+  text-shadow: 0 1px 2px rgb(0 0 0), 0 2px 6px rgba(0, 0, 0, 0.85);
+  background: none;
+  border: none;
+  box-shadow: none;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important }
+}
+</style>
+</head>
+<body>
+<div id="screen" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-label="Mapa de territórios">
+    <header>
+      <h1>Territórios</h1>
+      <span class="hint">ESC para fechar</span>
+    </header>
+    <div id="map"></div>
+    <div class="legend" id="legend"></div>
+  </div>
+</div>
+
+<script src="leaflet.js"></script>
+<script>
+const resource = window.GetParentResourceName ? GetParentResourceName() : 'noir_territories';
+
+// Mapa do GTA em tiles, com a conversão mundo -> mapa. As três constantes vêm do
+// PolyZoneCreator e descrevem onde o (0,0) do jogo cai na pirâmide de tiles; não são
+// ajustáveis a olho, são as que fazem o polígono cair em cima da rua certa.
+const MAX_ZOOM = 7, MAX_RESOLUTION = 0.25;
+const MIN_RESOLUTION = Math.pow(2, MAX_ZOOM) * MAX_RESOLUTION;
+const CENTER_LAT = -5525, CENTER_LNG = 3755, GTA_OFFSET = 0.66;
+
+const crs = L.CRS.Simple;
+crs.scale = (zoom) => Math.pow(2, zoom) / MIN_RESOLUTION;
+
+// Onde a pirâmide de tiles acaba. Sem isto o Leaflet pede linhas que não existem — `y=4` num
+// zoom que vai até 3 — e cada uma vira um 404 no console do FiveM.
+//
+// A conta: no zoom 4 são 16 tiles de 256px, ou seja 4096px, e a escala ali é 16/32 = 0,5
+// pixel por unidade. Logo o mapa inteiro tem 8192 unidades de lado. Em CRS.Simple a latitude
+// cresce para cima, então o mundo vai de -8192 a 0.
+const WORLD = Math.pow(2, MAX_ZOOM) * 256 / (Math.pow(2, MAX_ZOOM) / MIN_RESOLUTION);
+const MAP_BOUNDS = L.latLngBounds([[-WORLD, 0], [0, WORLD]]);
+
+const gtaToLatLng = (x, y) => L.latLng(y * GTA_OFFSET + CENTER_LAT, x * GTA_OFFSET + CENTER_LNG);
+
+/// Bairro sem dono mostra quanto falta; com dono, de quem é. A contagem é a informação que
+/// decide se vale atacar, então ela fica no mapa e não escondida num tooltip de hover.
+function label(zone) {
+  const lines = [pretty(zone.name)];
+
+  if (zone.state === 'controlled') {
+    lines.push(`${pretty(zone.gang)} · ${zone.counts[zone.gang]}/${zone.required}`);
+  } else if (zone.state === 'contested') {
+    lines.push(`EM DISPUTA · ${(zone.gangs || []).map(pretty).join(' / ')}`);
+  } else if (zone.total > 0) {
+    const best = Object.entries(zone.counts).sort((a, b) => b[1] - a[1])[0];
+    lines.push(`SEM DONO · ${pretty(best[0])} ${best[1]}/${zone.required}`);
+  } else {
+    lines.push(`SEM DONO · 0/${zone.required}`);
+  }
+
+  return lines.join('<br>');
+}
+
+const screenEl = document.getElementById('screen');
+const legendEl = document.getElementById('legend');
+let map, layer;
+
+function initMap() {
+  if (map) return;
+  map = L.map('map', {
+    crs,
+    center: [CENTER_LAT, CENTER_LNG],
+    zoom: 3,
+    minZoom: 2,
+    maxZoom: MAX_ZOOM,
+    zoomControl: false,
+    attributionControl: false,
+    maxBounds: MAP_BOUNDS,
+    maxBoundsViscosity: 1.0,
+    layers: [L.tileLayer('tiles/{z}/{x}/{y}.png', {
+      minZoom: 0, maxZoom: MAX_ZOOM, maxNativeZoom: 4, noWrap: true, tms: true,
+      bounds: MAP_BOUNDS,
+    })],
+  });
+  layer = L.featureGroup().addTo(map);
+}
+
+const NEUTRAL = '#7a7a7a';
+
+// Nome de bairro vem em minúsculo com underline: `chamberlain_hills` vira algo legível.
+const pretty = (name) => String(name).replace(/_/g, ' ').toUpperCase();
+
+function draw(zones) {
+  initMap();
+  layer.clearLayers();
+
+  const seen = new Map();
+
+  for (const zone of zones || []) {
+    if (!zone.points || zone.points.length < 3) continue;
+
+    const owned = zone.state === 'controlled';
+    const disputed = zone.state === 'contested';
+    const color = owned || disputed ? (zone.color || NEUTRAL) : NEUTRAL;
+    const ring = zone.points.map((p) => gtaToLatLng(p.x, p.y));
+
+    L.polygon(ring, {
+      color,
+      weight: disputed ? 3 : 2,
+      opacity: 0.9,
+      // Tracejado em disputa: dois donos possíveis não podem parecer um dono só.
+      dashArray: disputed ? '8 6' : null,
+      fillColor: color,
+      fillOpacity: owned ? 0.45 : disputed ? 0.30 : 0.12,
+    })
+      .bindTooltip(label(zone), {
+        permanent: true, direction: 'center', className: 'zone-label',
+      })
+      .addTo(layer);
+
+    if (owned) seen.set(zone.gang, color);
+    else if (disputed) for (const g of zone.gangs || []) seen.set(g, color);
+  }
+
+  legendEl.replaceChildren(...[...seen].map(([name, color]) => {
+    // nome de gang, não de bairro
+    const row = document.createElement('div');
+    const dot = document.createElement('i');
+    dot.style.background = color;
+    const text = document.createElement('span');
+    text.textContent = pretty(name);
+    row.append(dot, text);
+    return row;
+  }));
+
+  // Enquadra o que existe; sem zona, fica no centro do mapa.
+  const bounds = layer.getBounds();
+  if (bounds.isValid()) map.fitBounds(bounds, { padding: [40, 40] });
+}
+
+function close() {
+  screenEl.hidden = true;
+  fetch(`https://${resource}/territoryMap:close`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+  }).catch(() => {});
+}
+
+document.addEventListener('keydown', (event) => {
+  if (!screenEl.hidden && event.key === 'Escape') close();
+});
+
+window.addEventListener('message', (event) => {
+  let data = event.data;
+  if (typeof data === 'string') {
+    try { data = JSON.parse(data); } catch (e) { return; }
+  }
+  if (!data) return;
+
+  if (data.action === 'open') {
+    screenEl.hidden = false;
+    // Leaflet mede o contêiner na criação: aberto com a tela escondida, ele nasce com
+    // tamanho zero e não desenha tile nenhum.
+    requestAnimationFrame(() => {
+      draw(data.zones);
+      if (map) map.invalidateSize();
+    });
+  } else if (data.action === 'close') {
+    screenEl.hidden = true;
+  }
+});
+</script>
+</body>
+</html>

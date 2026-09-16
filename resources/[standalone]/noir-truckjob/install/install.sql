@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS `noir_truckjob_players` (
   `totalEarnings` BIGINT NOT NULL DEFAULT 0, `completedJobs` INT NOT NULL DEFAULT 0,
   `failedJobs` INT NOT NULL DEFAULT 0, `globalCompleted` INT NOT NULL DEFAULT 0,
   `globalFailed` INT NOT NULL DEFAULT 0, `name` VARCHAR(128) DEFAULT NULL,
-  `avatar` VARCHAR(512) DEFAULT NULL, PRIMARY KEY (`identifier`)
+  PRIMARY KEY (`identifier`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `noir_truckjob_offers` (

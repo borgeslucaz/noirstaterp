@@ -59,6 +59,22 @@ exports('IsLoggedIn', BGRZ.IsLoggedIn)
 exports('GetMetadata', BGRZ.GetMetadata)
 exports('Notify', BGRZ.Notify)
 
+local lastGangName, lastGangGrade, lastJobName, lastJobGrade
+
+local function emitGangUpdate()
+    local gang = currentGang()
+    lastGangName = gang and gang.name or nil
+    lastGangGrade = gang and gang.grade or nil
+    TriggerEvent('bgrz_core:client:gangUpdated', gang or {})
+end
+
+local function emitJobUpdate()
+    local job = currentJob()
+    lastJobName = job and job.name or nil
+    lastJobGrade = job and job.grade or nil
+    TriggerEvent('bgrz_core:client:jobUpdated', job or {})
+end
+
 -- Re-emite eventos do Qbox com nomes próprios, para os resources não dependerem do framework.
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     local gang, job = currentGang(), currentJob()
@@ -75,22 +91,6 @@ end)
 RegisterNetEvent('QBCore:Client:OnJobUpdate', function()
     emitJobUpdate()
 end)
-
-local lastGangName, lastGangGrade, lastJobName, lastJobGrade
-
-local function emitGangUpdate()
-    local gang = currentGang()
-    lastGangName = gang and gang.name or nil
-    lastGangGrade = gang and gang.grade or nil
-    TriggerEvent('bgrz_core:client:gangUpdated', gang or {})
-end
-
-local function emitJobUpdate()
-    local job = currentJob()
-    lastJobName = job and job.name or nil
-    lastJobGrade = job and job.grade or nil
-    TriggerEvent('bgrz_core:client:jobUpdated', job or {})
-end
 
 RegisterNetEvent('QBCore:Client:OnGangUpdate', function()
     emitGangUpdate()

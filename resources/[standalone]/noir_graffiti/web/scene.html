@@ -1,14 +1,127 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Noir Graffiti Renderer</title>
-    <script type="module" crossorigin src="./assets/scene-3WrmnHde.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/runtime-dom.esm-bundler-Qw1wrYxG.js">
-    <link rel="stylesheet" crossorigin href="./assets/scene-Dy4jgsKN.css">
-  </head>
-  <body>
-    <div id="scene-app"></div>
-  </body>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Noir Graffiti Renderer</title>
+<style>
+/* Um @font-face por fonte de Config.Fonts. O nome aqui é o `id` do config e o que fica
+   gravado na coluna `font`: mudar um sem o outro derruba a fonte no Arial. */
+@font-face { font-family: Mostwasted; src: url(scene-assets/fonts/Mostwasted.ttf) }
+@font-face { font-family: Drippin; src: url(scene-assets/fonts/RuthlessDrippin1.ttf) }
+@font-face { font-family: Wreckin; src: url(scene-assets/fonts/RuthlessWreckin1.ttf) }
+@font-face { font-family: Ghang; src: url(scene-assets/fonts/No_License_Ghang.ttf) }
+@font-face { font-family: "Ghang Plain"; src: url(scene-assets/fonts/No_License_Ghang_Plain.ttf) }
+@font-face { font-family: Bubble; src: url(scene-assets/fonts/ElfontBubble.ttf) }
+@font-face { font-family: Whoa; src: url(scene-assets/fonts/Whoa.ttf) }
+@font-face { font-family: Marsneveneksk; src: url(scene-assets/fonts/MARSNEVENEKSK.otf) }
+@font-face { font-family: "Urban Calligraphy"; src: url(scene-assets/fonts/UrbanCalligraphy.ttf) }
+@font-face { font-family: Creepster; src: url(scene-assets/fonts/Creepster-Regular.ttf) }
+@font-face { font-family: "Help Me"; src: url(scene-assets/fonts/HelpMe.ttf) }
+@font-face { font-family: Quantico; src: url(scene-assets/fonts/Quantico-Regular.ttf) }
+@font-face { font-family: Geist; src: url(scene-assets/fonts/Geist-Regular.woff2) }
+
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent }
+
+/* Duas camadas sobrepostas. A de trás pinta o contorno preto, a da frente pinta um
+   contorno da própria cor do texto por cima — o que sobra de preto entre as duas é o
+   contorno, e o que a da frente cobre é a espessura. Uma camada só não faria as duas
+   coisas: o CSS tem um traço por elemento. */
+.layer {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  white-space: pre;
+  text-align: center;
+  transform-origin: center center;
+  paint-order: stroke fill;
+}
+</style>
+</head>
+<body>
+<span class="layer" id="back"></span><span class="layer" id="front"></span>
+<script src="measure.js"></script>
+<script>
+const back = document.getElementById('back');
+const front = document.getElementById('front');
+
+// Corpo só de medição: o texto é escrito neste tamanho, medido, e depois encaixado na
+// textura.
+const REFERENCE = 200;
+// Espessura do contorno preto, em px sobre o corpo de referência. Constante: a espessura
+// escolhida pelo jogador engorda a letra, não o contorno.
+const OUTLINE = 6;
+// Folga entre linhas: com 1.0 e traço grosso, uma linha encosta na de baixo. Fica no JS,
+// e não no CSS, porque a medição da tinta precisa do mesmo número.
+const LINE_HEIGHT = 1.05;
+
+// O Lua repete a mensagem algumas vezes como seguro contra entrega perdida — mensagem
+// mandada antes de o CEF subir não chega a lugar nenhum. Redesenhar a cada repetição era a
+// tag piscando na parede, então conteúdo igual ao que já está na tela não toca no DOM.
+let painted = null;
+
+async function render(data) {
+  const text = data.text || '';
+  const color = data.color || '#FFFFFF';
+  const thickness = Math.max(0, Math.min(64, Number(data.thickness) || 0));
+  const font = data.font || '';
+
+  const key = [text, font, color, thickness].join('\u0000');
+  if (key === painted) return;
+  painted = key;
+
+  for (const node of [back, front]) {
+    node.style.transform = 'translate(-50%, -50%)';
+    node.style.fontFamily = `"${font}", Arial, sans-serif`;
+    node.style.fontSize = `${REFERENCE}px`;
+    node.style.lineHeight = LINE_HEIGHT;
+    node.style.color = color;
+    node.textContent = text;
+  }
+  back.style.webkitTextStroke = `${thickness + OUTLINE}px #000`;
+  front.style.webkitTextStroke = thickness > 0 ? `${thickness}px ${color}` : '';
+
+  // Medir antes de a fonte carregar devolve a métrica do Arial e o encaixe sai errado.
+  try { await document.fonts.load(`${REFERENCE}px "${font}"`); } catch (e) {}
+  // Um tick de timer antes de medir. Era requestAnimationFrame, que só dispara se o CEF
+  // estiver produzindo frames — e num DUI offscreen ele pode nunca chegar. Quando não
+  // chegava, render() ficava parado exatamente aqui, com o texto escrito mas sem escala.
+  // Timer o CEF sempre entrega, e a leitura de offsetWidth logo abaixo já força o layout.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  // Duas sobras saem da caixa de layout: o traço, metade para cada lado, e a própria
+  // tinta da fonte, que em letra de graffiti passa longe da caixa da linha. Somar as duas
+  // antes de escalar é o que impede pingo e contorno de serem cortados na borda.
+  const bleed = (thickness + OUTLINE) / 2;
+  const ink = NoirMeasure.inkOverflow(text.split('\n'), font, REFERENCE,
+    REFERENCE * LINE_HEIGHT, back.offsetWidth, back.offsetHeight);
+  const width = back.offsetWidth + ink.left + ink.right + bleed * 2;
+  const height = back.offsetHeight + ink.top + ink.bottom + bleed * 2;
+  if (!width || !height) return;
+
+  // A tinta raramente é simétrica em volta da caixa de layout, então o elemento é
+  // deslocado para o centro dela cair no centro da textura antes de escalar.
+  const shiftX = (ink.right - ink.left) / 2;
+  const shiftY = (ink.bottom - ink.top) / 2;
+
+  // Encaixe uniforme: a letra guarda a proporção com que foi escrita e a sobra em volta
+  // fica transparente. Esticar para encher a textura só fazia sentido quando o quad no
+  // mundo tinha o formato do texto e desfazia o esticão do outro lado — o que dependia de
+  // a medida daqui chegar até lá, por um canal que este build não entrega.
+  const fit = Math.min(window.innerWidth / width, window.innerHeight / height);
+  const transform = `translate(-50%, -50%) scale(${fit}) translate(${-shiftX}px, ${-shiftY}px)`;
+  back.style.transform = transform;
+  front.style.transform = transform;
+}
+
+window.addEventListener('message', (event) => {
+  // SendDuiMessage entrega a mensagem como string JSON, ao contrário do SendNUIMessage,
+  // que entrega o objeto já decodificado. Sem este parse nada aqui roda.
+  let data = event.data;
+  if (typeof data === 'string') {
+    try { data = JSON.parse(data); } catch (e) { return; }
+  }
+  if (data && data.action === 'setSceneData' && data.payload) render(data.payload);
+});
+</script>
+</body>
 </html>

@@ -74,12 +74,14 @@ local function pay(player)
     config.sendPaycheck(player, payment)
 end
 
-CreateThread(function()
-    local interval = 60000 * config.money.paycheckTimeout
-    while true do
-        Wait(interval)
-        forEachPlayerStaggered(function(_, player)
-            pay(player)
-        end)
-    end
-end)
+if config.money.paycheckEnabled then
+    CreateThread(function()
+        local interval = 60000 * config.money.paycheckTimeout
+        while true do
+            Wait(interval)
+            forEachPlayerStaggered(function(_, player)
+                pay(player)
+            end)
+        end
+    end)
+end

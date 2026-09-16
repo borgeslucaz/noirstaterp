@@ -26,6 +26,7 @@ return {
         close = true,
         consume = 0,
         description = 'Produto usado para remover graffiti.',
+        client = { export = 'noir_graffiti.useRemover' },
     },
 
     ['illegal_box'] = {

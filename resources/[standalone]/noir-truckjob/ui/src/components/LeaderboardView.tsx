@@ -36,50 +36,68 @@ export function LeaderboardView({ language }: Props) {
     }
   }, [metric])
 
-  const valueOf = (driver: LeaderboardEntry) =>
-    metric === 'global'
-      ? `${driver.globalCompleted} ${t('deliveries', 'entregas')}`
-      : `${t('level', 'Nível')} ${driver.level}`
+  const selfFromList = drivers.find((driver) => driver.isMe)
+  const selfPosition = me?.position ?? (selfFromList ? drivers.indexOf(selfFromList) + 1 : null)
+  const self = me ?? (selfFromList
+    ? {
+        position: selfPosition,
+        name: selfFromList.name,
+        level: selfFromList.level,
+        globalCompleted: selfFromList.globalCompleted,
+        ranked: true,
+      }
+    : null)
 
-  const meInTop = drivers.some((driver) => driver.isMe)
+  const row = (driver: LeaderboardEntry, index: number, selfRow = false) => (
+    <div
+      className={`rank-row ${driver.isMe || selfRow ? 'is-me' : ''} ${index === 0 && !selfRow ? 'rank-row--first' : ''}`}
+      key={selfRow ? 'self' : `${driver.name}-${index}`}
+    >
+      <strong className="rank-row__position">{selfRow ? (selfPosition ? `${selfPosition}º` : '—') : `${index + 1}º`}</strong>
+      <span className="rank-row__name">{driver.name}</span>
+      <span className="rank-row__level">{t('level', 'Nível')} {driver.level}</span>
+      <p className="rank-row__deliveries">{driver.globalCompleted} {t('deliveries', 'entregas')}</p>
+    </div>
+  )
 
   return (
     <div className="leaderboard-view">
       <div className="leaderboard-toolbar">
-        <button className={metric === 'level' ? 'is-active' : ''} onClick={() => setMetric('level')}>{t('metric_level', 'Nível')}</button>
-        <button className={metric === 'global' ? 'is-active' : ''} onClick={() => setMetric('global')}>{t('metric_global', 'Entregas globais')}</button>
-        {me && !meInTop && (
-          <span className="leaderboard-me">
-            {t('your_position', 'Sua posição')}: {me.ranked && me.position ? `#${me.position}` : '—'}
-          </span>
-        )}
+        <div>
+          <p className="eyebrow">CLASSIFICAÇÃO DA CENTRAL</p>
+          <h2>{t('leaderboard_intro', 'Caminhoneiros em destaque')}</h2>
+        </div>
+        <div className="leaderboard-filters" role="group" aria-label="Critério do ranking">
+          <button className={metric === 'level' ? 'is-active' : ''} onClick={() => setMetric('level')}>{t('metric_level', 'Nível')}</button>
+          <button className={metric === 'global' ? 'is-active' : ''} onClick={() => setMetric('global')}>{t('metric_global', 'Entregas globais')}</button>
+        </div>
       </div>
-      {!loading && drivers.length === 0 ? (
+
+      {self && (
+        <section className="leaderboard-self" aria-label={t('your_position', 'Sua posição')}>
+          <span className="leaderboard-self__label">{t('your_position', 'SUA POSIÇÃO')}</span>
+          {row({
+            rank: selfPosition ?? 0,
+            name: self.name ?? t('driver', 'Motorista'),
+            level: self.level ?? 1,
+            globalCompleted: self.globalCompleted ?? 0,
+            isMe: true,
+          }, Math.max(0, (selfPosition ?? 1) - 1), true)}
+        </section>
+      )}
+
+      {loading ? (
+        <div className="board-empty board-empty--tall">
+          <strong>{t('board_loading', 'Carregando classificação...')}</strong>
+        </div>
+      ) : drivers.length === 0 ? (
         <div className="board-empty board-empty--tall">
           <strong>{t('leaderboard_empty', 'Nenhum motorista classificado ainda.')}</strong>
         </div>
       ) : (
-        <>
-          <section className="podium">
-            {drivers.slice(0, 3).map((driver, index) => (
-              <article className={`podium-driver podium-driver--${index + 1} ${driver.isMe ? 'is-me' : ''}`} key={`${driver.name}-${index}`}>
-                <img src={driver.avatar ?? './assets/images/test-pp.png'} alt="" />
-                <span>#{index + 1}</span>
-                <h2>{driver.name}</h2>
-                <p>{valueOf(driver)}</p>
-              </article>
-            ))}
-          </section>
-          <section className="rank-list">
-            {drivers.map((driver, index) => (
-              <div className={`rank-row ${driver.isMe ? 'is-me' : ''}`} key={`${driver.name}-${index}`}>
-                <strong>#{index + 1}</strong>
-                <span>{driver.name}</span>
-                <p>{valueOf(driver)}</p>
-              </div>
-            ))}
-          </section>
-        </>
+        <section className="rank-list" aria-label={t('leaderboard', 'Ranking')}>
+          {drivers.map((driver, index) => row(driver, index))}
+        </section>
       )}
     </div>
   )

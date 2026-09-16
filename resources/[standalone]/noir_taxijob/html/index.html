@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Noir Taxi</title>
+    <!-- Transparência crítica da NUI: evita o canvas preto antes do CSS externo carregar. -->
+    <style>html,body,#root{background:rgba(0,0,0,0)!important}</style>
     <link rel="stylesheet" href="main.css" />
 </head>
 <body>
@@ -95,54 +97,78 @@
 
         <!-- ═══════════════════════ Central do táxi (menu com foco) ═══════════════════════ -->
         <div class="menu" id="taxi-menu" hidden data-anim="idle" data-status="ready">
-            <div class="window">
+            <div class="window" data-service="taxi" data-rail="closed">
+
+                <aside class="window__rail" aria-label="Navegação da central">
+                    <div class="rail__mark">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 17h-2v-5l2-5h14l2 5v5h-2" /><path d="M7 17a2 2 0 1 0 4 0 2 2 0 1 0-4 0" /><path d="M13 17a2 2 0 1 0 4 0 2 2 0 1 0-4 0" /><path d="M9 7v-2h6v2" /><path d="M3 12h18" />
+                        </svg>
+                        <span class="rail__brand-copy" aria-hidden="true">
+                            <strong>NOIR CAB</strong>
+                            <small>CENTRAL DE TÁXI</small>
+                        </span>
+                    </div>
+
+                    <button class="rail__toggle" id="rail-toggle" type="button" aria-controls="taxi-navigation" aria-expanded="false" aria-label="Abrir menu lateral">
+                        <span class="rail__chevron" aria-hidden="true"></span>
+                    </button>
+
+                    <nav class="menu__nav" id="taxi-navigation" aria-label="Seções da central" role="tablist" aria-orientation="vertical">
+                        <button class="nav-item" type="button" role="tab" data-tab="overview" id="nav-overview" aria-label="Central" data-tooltip="Central" aria-selected="true" aria-controls="tab-overview">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                            <span class="nav-item__text">Central</span>
+                        </button>
+                        <button class="nav-item" type="button" role="tab" data-tab="vehicles" id="nav-vehicles" aria-label="Veículos" data-tooltip="Veículos" aria-selected="false" aria-controls="veh-section" tabindex="-1">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 17H3v-5l2-5h14l2 5v5h-2"/><circle cx="9" cy="17" r="2"/><circle cx="15" cy="17" r="2"/><path d="M3 12h18M7 7l1.2 5M17 7l-1.2 5"/></svg>
+                            <span class="nav-item__text">Veículos</span>
+                        </button>
+                        <button class="nav-item" type="button" role="tab" data-tab="ranking" id="nav-ranking" aria-label="Ranking" data-tooltip="Ranking" aria-selected="false" aria-controls="tab-ranking" tabindex="-1">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4v2a4 4 0 0 0 4 4M17 6h3v2a4 4 0 0 1-4 4"/></svg>
+                            <span class="nav-item__text">Ranking</span>
+                        </button>
+                    </nav>
+
+                    <div class="rail__status" aria-label="Central de táxi online">
+                        <span class="rail__status-dot" aria-hidden="true"></span>
+                        <span class="rail__status-text" aria-hidden="true">Central online</span>
+                    </div>
+                </aside>
 
                 <header class="window__header menu__fx menu__fx--left" style="--i: 0">
                     <div class="brand">
-                        <svg class="brand__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M5 17h-2v-5l2-5h14l2 5v5h-2" /><path d="M7 17a2 2 0 1 0 4 0 2 2 0 1 0-4 0" /><path d="M13 17a2 2 0 1 0 4 0 2 2 0 1 0-4 0" /><path d="M9 7v-2h6v2" /><path d="M3 12h18" />
-                        </svg>
                         <span class="brand__stack">
+                            <span class="brand__eyebrow">SERVIÇO DE TÁXI</span>
                             <span class="brand__name" id="menu-brand">NOIR CAB CO.</span>
                             <span class="brand__sub" id="menu-context">CENTRAL · LOS SANTOS</span>
                         </span>
                     </div>
 
-                    <nav class="menu__nav" aria-label="Seções da central" role="tablist">
-                        <button class="nav-item" type="button" role="tab" data-tab="overview" id="nav-overview" aria-selected="true" aria-controls="tab-overview">CENTRAL</button>
-                        <button class="nav-item" type="button" role="tab" data-tab="vehicles" id="nav-vehicles" aria-selected="false" aria-controls="veh-section" tabindex="-1">VEÍCULOS</button>
-                        <button class="nav-item" type="button" role="tab" data-tab="ranking" id="nav-ranking" aria-selected="false" aria-controls="tab-ranking" tabindex="-1">RANKING</button>
-                    </nav>
-
-                    <div class="window__profile">
-                        <span class="profile__stack">
-                            <span class="profile__name" id="drv-name">—</span>
-                            <span class="profile__level" id="drv-level">NÍVEL 1</span>
+                    <div class="window__actions">
+                        <span class="header-shift" id="hero-shift" data-state="idle">
+                            <span class="header-shift__dot" aria-hidden="true"></span>
+                            <span class="header-shift__text" id="hero-status">FORA DE SERVIÇO</span>
                         </span>
-                        <span class="window__sep" aria-hidden="true"></span>
-                        <button class="menu__close" id="menu-close" type="button" aria-label="Fechar a central"><kbd>ESC</kbd> FECHAR</button>
+                        <div class="window__profile">
+                            <span class="profile__indicator" aria-hidden="true"></span>
+                            <span class="profile__stack">
+                                <span class="profile__name" id="drv-name">—</span>
+                                <span class="profile__level" id="drv-level">NÍVEL 1</span>
+                            </span>
+                            <span class="window__sep" aria-hidden="true"></span>
+                            <button class="menu__close" id="menu-close" type="button" aria-label="Fechar a central"><kbd>ESC</kbd> FECHAR</button>
+                        </div>
                     </div>
                 </header>
 
                 <main class="window__main menu__fx menu__fx--left" style="--i: 1" id="wnd-main" data-tab="overview">
 
-                    <!-- Hero: saudação, estado do turno e estatísticas -->
+                    <!-- Hero: saudação e estatísticas -->
                     <section class="hero tab" id="tab-overview" role="tabpanel" aria-labelledby="nav-overview" aria-label="Resumo do turno">
                         <div class="hero__main">
                             <p class="hero__eyebrow">CENTRAL DO TÁXI</p>
                             <h1 class="hero__greeting" id="hero-greeting">BEM-VINDO</h1>
                             <p class="hero__note">Pronto para mais um dia nas ruas de Los Santos?</p>
-                                                        <div class="hero__shift" id="hero-shift" data-state="idle">
-                                <button class="btn btn--fill" type="button" id="hero-cta">ALUGAR VEÍCULO</button>
-                                <span class="hero__status">
-                                    <span class="hero__status-dot" aria-hidden="true"></span>
-                                    <span class="hero__status-text" id="hero-status">FORA DE SERVIÇO</span>
-                                </span>
-                                <span class="hero__alert" id="veh-message" role="alert" hidden>
-                                    <span class="hero__alert-dot" aria-hidden="true"></span>
-                                    <span class="hero__alert-text"></span>
-                                </span>
-                            </div>
                         </div>
                         <div class="hero__stats">
                             <div class="stat">
@@ -161,7 +187,7 @@
                     </section>
 
                     <!-- Progressão -->
-                    <section class="progression" aria-label="Progressão do motorista">
+                    <section class="progression" id="overview-progression" aria-label="Progressão do motorista">
                         <div class="prog__level">
                             <span class="level-ring" id="lvl-ring" role="img" aria-label="Progresso do nível atual">
                                 <span class="level-ring__inner"><span class="level-ring__num" id="lvl-ring-num">1</span></span>
@@ -191,7 +217,7 @@
                             <p class="data-label">VEÍCULOS DISPONÍVEIS</p>
                             <p class="veh-section__sub" id="veh-sub">Escolha um veículo para iniciar o turno.</p>
                         </header>
-                        <p class="tab__notice" id="veh-notice" hidden>Devolva seu táxi atual antes de alugar outro.</p>
+                        <p class="tab__notice" id="veh-notice" hidden>Use a opção Devolver táxi no atendente antes de alugar outro.</p>
                         <div class="veh-list" id="veh-list" role="listbox" aria-label="Veículos da central"></div>
                         <p class="veh-message" id="veh-rent-message" role="status" hidden></p>
                     </section>
@@ -202,11 +228,11 @@
                         <div class="rank-loading" id="rank-loading" hidden>CARREGANDO RANKING</div>
                         <p class="tab__notice" id="rank-error" hidden>Não foi possível carregar o ranking. Tente novamente.</p>
                         <p class="tab__notice" id="rank-empty" hidden>O ranking ainda não possui corridas registradas.</p>
-                        <ol class="rank-list" id="rank-list"></ol>
                         <div class="rank-self" id="rank-self" hidden>
                             <span class="data-label rank-self__label">SUA POSIÇÃO</span>
                             <div class="rank-row rank-row--self" id="rank-self-row"></div>
                         </div>
+                        <ol class="rank-list" id="rank-list"></ol>
                         <p class="rank-updated" id="rank-updated" hidden></p>
                     </section>
 

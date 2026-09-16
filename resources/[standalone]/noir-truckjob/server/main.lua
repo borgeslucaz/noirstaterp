@@ -4,7 +4,6 @@
 
 Core = nil
 local playerJobDataCache = {}
-local discordAvatarCache = {}
 
 -- ============================================================
 -- RPC (request/response por eventos, independente de framework)
@@ -110,7 +109,6 @@ local function ProfileProjection(profile)
     return {
         identifier = nil, -- nunca exposto
         name = profile.name,
-        avatar = profile.avatar or Config.DefaultImage,
         level = profile.level,
         xp = profile.xp,
         totalEarnings = profile.totalEarnings,
@@ -167,64 +165,6 @@ function SyncRecentDeliveries(playerId, profile)
 end
 
 -- ============================================================
--- DISCORD AVATAR (assíncrono)
--- ============================================================
-
-function DiscordRequest(method, endpoint, body, cb)
-    local token = ServerConfig and ServerConfig.DiscordBotToken or ''
-    if token == '' then
-        if cb then cb({ data = nil, code = 0, headers = {} }) end
-        return
-    end
-
-    PerformHttpRequest('https://discordapp.com/api/' .. endpoint, function(code, data, headers)
-        if cb then cb({ data = data, code = code, headers = headers }) end
-    end, method, #body > 0 and json.encode(body) or '', {
-        ['Content-Type'] = 'application/json',
-        ['Authorization'] = 'Bot ' .. token,
-    })
-end
-
-function GetDiscordAvatar(playerId)
-    local discordId = nil
-    for _, identifier in ipairs(GetPlayerIdentifiers(playerId)) do
-        if string.match(identifier, 'discord:') then
-            discordId = string.gsub(identifier, 'discord:', '')
-            break
-        end
-    end
-    if not discordId then return Config.DefaultImage end
-
-    if discordAvatarCache[discordId] ~= nil then
-        return discordAvatarCache[discordId] or Config.DefaultImage
-    end
-
-    DiscordRequest('GET', ('users/%s'):format(discordId), {}, function(response)
-        local avatarUrl = nil
-        if response and response.code == 200 and response.data then
-            local userData = json.decode(response.data)
-            if userData and userData.avatar then
-                local ext = userData.avatar:sub(2, 2) == '_' and '.gif' or '.png'
-                avatarUrl = 'https://media.discordapp.net/avatars/' .. discordId .. '/' .. userData.avatar .. ext
-            end
-        end
-        avatarUrl = avatarUrl or Config.DefaultImage
-        discordAvatarCache[discordId] = avatarUrl
-
-        local pData = GetPlayerJobData(playerId)
-        if pData and pData.avatar ~= avatarUrl then
-            pData.avatar = avatarUrl
-            SyncPlayerDataByKey(playerId, 'avatar', avatarUrl)
-            ExecuteSqlAsync('UPDATE noir_truckjob_players SET `avatar` = :avatar WHERE `identifier` = :identifier', {
-                avatar = avatarUrl, identifier = pData.identifier,
-            })
-        end
-    end)
-
-    return Config.DefaultImage
-end
-
--- ============================================================
 -- CICLO DE VIDA DO JOGADOR
 -- ============================================================
 
@@ -240,7 +180,6 @@ function CreatePlayerData(playerId)
 
     local newPlayerData = {
         identifier = identifier,
-        avatar = GetDiscordAvatar(playerId),
         name = GetPlayerRPName(playerId),
         dailymissions = DailyMissions.NewSet(),
         totalEarnings = 0,
@@ -253,13 +192,12 @@ function CreatePlayerData(playerId)
     }
 
     local inserted = ExecuteSqlUpdate(
-        'INSERT IGNORE INTO noir_truckjob_players (identifier, dailymissions, xp, level, totalEarnings, completedJobs, failedJobs, globalCompleted, globalFailed, name, avatar) VALUES (:identifier, :dailymissions, :xp, :level, :totalEarnings, :completedJobs, 0, 0, 0, :name, :avatar)',
+        'INSERT IGNORE INTO noir_truckjob_players (identifier, dailymissions, xp, level, totalEarnings, completedJobs, failedJobs, globalCompleted, globalFailed, name) VALUES (:identifier, :dailymissions, :xp, :level, :totalEarnings, :completedJobs, 0, 0, 0, :name)',
         {
             identifier = identifier,
             dailymissions = json.encode(newPlayerData.dailymissions),
             xp = 0, level = 1, totalEarnings = 0, completedJobs = 0,
             name = newPlayerData.name,
-            avatar = newPlayerData.avatar or Config.DefaultImage,
         }
     )
     if inserted == nil then
@@ -284,7 +222,6 @@ function LoadPlayerData(playerId)
         ExecuteSqlAsync('UPDATE noir_truckjob_players SET `name` = :name WHERE `identifier` = :id', { name = rpName, id = profile.identifier })
     end
 
-    profile.avatar = GetDiscordAvatar(playerId)
     DailyMissions.CheckReset(playerId, profile)
     Contracts.ResolveSuspended(playerId, profile.identifier)
     SyncRecentDeliveries(playerId, profile)
@@ -337,7 +274,7 @@ RegisterRpc('getLeaderboard', function(src, data)
     if not cached or (now - cached.at) >= 60 then
         local order = metric == 'global' and 'globalCompleted DESC, level DESC, xp DESC, identifier ASC' or 'level DESC, xp DESC, globalCompleted DESC, identifier ASC'
         local rows = ExecuteSqlSafe(
-            'SELECT identifier, name, avatar, level, xp, globalCompleted FROM noir_truckjob_players WHERE completedJobs > 0 OR globalCompleted > 0 ORDER BY ' .. order .. ' LIMIT 8'
+            'SELECT identifier, name, level, xp, globalCompleted FROM noir_truckjob_players WHERE completedJobs > 0 OR globalCompleted > 0 ORDER BY ' .. order .. ' LIMIT 8'
         ) or {}
         local entries = {}
         for i, row in ipairs(rows) do
@@ -345,7 +282,6 @@ RegisterRpc('getLeaderboard', function(src, data)
                 rank = i,
                 identifier = row.identifier,
                 name = row.name or 'Driver',
-                avatar = row.avatar or Config.DefaultImage,
                 level = tonumber(row.level) or 1,
                 xp = tonumber(row.xp) or 0,
                 globalCompleted = tonumber(row.globalCompleted) or 0,
@@ -385,7 +321,6 @@ RegisterRpc('getLeaderboard', function(src, data)
         data[#data + 1] = {
             rank = e.rank,
             name = e.name,
-            avatar = e.avatar,
             level = e.level,
             xp = e.xp,
             globalCompleted = e.globalCompleted,

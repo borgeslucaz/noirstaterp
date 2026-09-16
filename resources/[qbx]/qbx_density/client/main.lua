@@ -15,6 +15,51 @@ SetRelationshipBetweenGroups(1, `COP`, `PLAYER`)
 SetRelationshipBetweenGroups(1, `PRISONER`, `PLAYER`)
 
 local density = lib.load('config.client')
+local activeDensity = {
+    parked = density.parked,
+    vehicle = density.vehicle,
+    randomvehicles = density.randomvehicles,
+    peds = density.peds,
+    scenario = density.scenario,
+}
+
+local blockedPedModels = {}
+for i = 1, #(density.blockedPedModels or {}) do
+    blockedPedModels[joaat(density.blockedPedModels[i])] = true
+end
+
+AddEventHandler('populationPedCreating', function(_, _, _, model)
+    if blockedPedModels[model] then
+        CancelEvent()
+    end
+end)
+
+local function applyDensityProfile(profile)
+    activeDensity.parked = profile.parked or density.parked
+    activeDensity.vehicle = profile.vehicle or density.vehicle
+    activeDensity.randomvehicles = profile.randomvehicles or density.randomvehicles
+    activeDensity.peds = profile.peds or density.peds
+    activeDensity.scenario = profile.scenario or density.scenario
+end
+
+CreateThread(function()
+    while true do
+        local coords = GetEntityCoords(PlayerPedId())
+        local profile = density
+
+        for i = 1, #(density.zones or {}) do
+            local zone = density.zones[i]
+            local delta = coords - zone.coords
+            if delta.x * delta.x + delta.y * delta.y + delta.z * delta.z <= zone.radius * zone.radius then
+                profile = zone.density or density
+                break
+            end
+        end
+
+        applyDensityProfile(profile)
+        Wait(500)
+    end
+end)
 
 local function setDensity(type, value)
     if type == 'parked' then
@@ -28,17 +73,19 @@ local function setDensity(type, value)
     elseif type == 'scenario' then
         density.scenario = value
     end
+
+    applyDensityProfile(density)
 end
 
 exports('SetDensity', setDensity)
 
 CreateThread(function()
     while true do
-        SetParkedVehicleDensityMultiplierThisFrame(density.parked)
-        SetVehicleDensityMultiplierThisFrame(density.vehicle)
-        SetRandomVehicleDensityMultiplierThisFrame(density.randomvehicles)
-        SetPedDensityMultiplierThisFrame(density.peds)
-        SetScenarioPedDensityMultiplierThisFrame(density.scenario, density.scenario) -- Walking NPC Density
+        SetParkedVehicleDensityMultiplierThisFrame(activeDensity.parked)
+        SetVehicleDensityMultiplierThisFrame(activeDensity.vehicle)
+        SetRandomVehicleDensityMultiplierThisFrame(activeDensity.randomvehicles)
+        SetPedDensityMultiplierThisFrame(activeDensity.peds)
+        SetScenarioPedDensityMultiplierThisFrame(activeDensity.scenario, activeDensity.scenario) -- Walking NPC Density
         Wait(0)
     end
 end)
