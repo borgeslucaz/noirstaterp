@@ -1,4 +1,5 @@
 Locales['en'] = {
+  ["territory_alert_body"] = "Someone is dealing in %s, and they are not one of ours.",
   ["dealing_welcometext_1"] = "Wat do you have for me, brother?",
   ["dealing_welcometext_2"] = "You got something that actually hits?",
   ["dealing_welcometext_3"] = "Need somethin' that keeps the night loud.",

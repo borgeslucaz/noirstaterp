@@ -143,6 +143,8 @@ Fr.RegisterServerCallback('op-drugselling:sellDrug', function(source, cb, drugNa
         Fr.removeItem(xPlayer, drugName, amountSell)
         Fr.ManageDirtyMoney(xPlayer, "add", finalPrice)
 
+        NoirDrugTerritory.onSale(source)
+
         local ident = Fr.GetIndentifier(source)
         local message = formatWebHook("**Drug Name:**", drugName or "None", "\n**Price per gram:**", pricePerGram, "\n**Player Identificator:**", ident, "\n**Price:**", finalPrice, "\n**Corner Selling:**", cornerSelling and "True" or "False")
         SendWebHook("DRUG SOLD", 706333, message)

@@ -1,4 +1,5 @@
 Locales['pt-br'] = {
+  ["territory_alert_body"] = "Tem gente vendendo na %s, e não é dos nossos.",
   ["dealing_welcometext_1"] = "O que você tem para mim, parceiro?",
   ["dealing_welcometext_2"] = "Tem alguma coisa que bate de verdade?",
   ["dealing_welcometext_3"] = "Preciso de algo para agitar a noite.",

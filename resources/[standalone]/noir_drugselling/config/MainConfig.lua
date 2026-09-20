@@ -128,6 +128,20 @@ Config.DealLimits = {
 -- O nível do vendedor vem do noir_skills, não de uma coluna própria: o XP fica na habilidade
 -- `trafico` e aparece no painel /skills junto com o resto. Cada venda fechada concede o
 -- `saleEXP` do tipo de ped (5 a 50) pelo export AddXp.
+-- Venda dentro de bairro dominado por gang alheia avisa a dona pelo celular, com o pino do
+-- lugar. Bairro em disputa ou neutro não avisa ninguém: não há dono para ser passado para
+-- trás. O aviso depende de noir_territories e sd-phone estarem de pé; sem eles a venda
+-- acontece normal, só em silêncio.
+Config.TerritoryAlert = {
+    Enable = true,
+    SenderNumber = '0800',  -- remetente que aparece na conversa
+    SenderName = 'Rua',
+
+    -- Por gang e bairro. O mesmo invasor vendendo a tarde inteira gera um aviso a cada
+    -- cinco minutos, não um por venda — aí o alerta ainda significa alguma coisa.
+    CooldownSeconds = 300,
+}
+
 Config.Leveling = {
     Skill = 'trafico', -- habilidade do noir_skills (shared/config.lua de lá)
 
