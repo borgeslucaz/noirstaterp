@@ -148,6 +148,28 @@ function BGRZ.SpawnVehicle(source, model, coords, warp, plate)
     return netId, veh
 end
 
+---Classe do veículo (numeração do GTA) a partir do hash do modelo.
+---
+---O provider monta esse mapa uma vez perguntando a um cliente e o mantém em cache,
+---então a primeira chamada pode ceder a thread e falha sem ninguém online. O erro
+---vira `provider_unavailable` em vez de subir para quem chamou.
+---@param model number hash do modelo
+---@return integer? class
+---@return string? errorCode
+function BGRZ.GetVehicleClass(model)
+    if type(model) ~= 'number' or model ~= model or model % 1 ~= 0 then
+        return nil, 'invalid_model'
+    end
+    if not BGRZ.Provider.isStarted('qbx_core') then return nil, 'provider_unavailable' end
+
+    local called, class = pcall(function()
+        return exports.qbx_core:GetVehicleClass(model)
+    end)
+    if not called or type(class) ~= 'number' then return nil, 'provider_unavailable' end
+    return math.floor(class)
+end
+
+exports('GetVehicleClass', BGRZ.GetVehicleClass)
 exports('GetCitizenId', BGRZ.GetCitizenId)
 exports('GetJob', BGRZ.GetJob)
 exports('HasJob', BGRZ.HasJob)
