@@ -2,6 +2,11 @@ BGRZ = BGRZ or {}
 
 local entityOwnership = {}
 local zoneOwnership = {}
+local modelOwnership = {}
+
+-- Declarada aqui porque o cleanup e a re-hidratação, que vêm antes da API de
+-- model neste arquivo, precisam chamá-la.
+local removeOwnedModel
 
 local function invokingResource()
     local caller = type(GetInvokingResource) == 'function' and GetInvokingResource() or nil
@@ -57,6 +62,39 @@ end
 
 local function entityKey(kind, entity)
     return ('%s:%d'):format(kind, entity)
+end
+
+---Normaliza models para uma lista de hashes uint32, sem repetição.
+---
+---Tudo vira hash, inclusive o que chegou como nome: é o que o próprio ox_target
+---guarda internamente, e passar sempre a mesma forma é o que garante que o
+---`removeModel` encontre o que o `addModel` registrou. Nome e hash do MESMO model
+---também deixam de ser duas entradas na nossa contabilidade de posse.
+---@param models any string|number|(string|number)[]
+---@return number[]? hashes
+local function normalizeModels(models)
+    if type(models) == 'string' or type(models) == 'number' then models = { models } end
+    if type(models) ~= 'table' or #models == 0 or #models > 128 then return nil end
+
+    local hashes, seen = {}, {}
+    for index = 1, #models do
+        local model = models[index]
+        local hash
+        if type(model) == 'string' and model ~= '' and #model <= 64 then
+            hash = joaat(model)
+        elseif type(model) == 'number' and model == model and model % 1 == 0 then
+            hash = model
+        end
+        if not hash then return nil end
+        -- joaat devolve uint32; um hash que chegou como inteiro com sinal aponta
+        -- para o mesmo model e não pode virar uma segunda chave de posse.
+        hash = hash % 0x100000000
+        if not seen[hash] then
+            seen[hash] = true
+            hashes[#hashes + 1] = hash
+        end
+    end
+    return hashes
 end
 
 local function callProvider(provider, method, ...)
@@ -309,6 +347,15 @@ local function cleanupCaller(caller)
         for index = 1, #names do removeOwnedZone(caller, names[index], true) end
         zoneOwnership[caller] = nil
     end
+
+    local models = modelOwnership[caller]
+    if models then
+        local hashes = {}
+        for hash in pairs(models) do hashes[#hashes + 1] = hash end
+        table.sort(hashes)
+        for index = 1, #hashes do removeOwnedModel(caller, hashes[index], nil, true) end
+        modelOwnership[caller] = nil
+    end
 end
 
 local function rehydrateProvider(resource)
@@ -329,8 +376,156 @@ local function rehydrateProvider(resource)
             if ok then entry.providerId = providerId or entry.definition.name end
         end
     end
+    for _, models in pairs(modelOwnership) do
+        for _, entry in pairs(models) do
+            local options = {}
+            for _, option in pairs(entry.options) do options[#options + 1] = option end
+            table.sort(options, function(a, b) return a.name < b.name end)
+            callProvider(provider, 'addModel', entry.model, options)
+        end
+    end
 end
 
+---Target em uma entidade explicitamente LOCAL (prop que o próprio client criou).
+---
+---Existe separado de `AddEntityTarget` por um motivo concreto: aquela resolve o
+---handle testando `NetworkDoesNetworkIdExist` primeiro, e o handle de um objeto
+---local pode coincidir com um netId válido de OUTRA entidade — o target iria parar
+---no lugar errado. Quando quem chama sabe que a entidade é local, dizer isso ao
+---provider elimina o palpite.
+---@param entity number handle local
+---@param options table
+---@return boolean ok
+---@return string? errorCode
+function BGRZ.AddLocalEntityTarget(entity, options)
+    local caller = invokingResource()
+    if not caller then return false, 'invalid_caller' end
+    if type(entity) ~= 'number' or entity <= 0 or entity % 1 ~= 0
+        or not DoesEntityExist(entity) then
+        return false, 'invalid_entity'
+    end
+    local normalized, names = normalizeOptions(options, caller)
+    if not normalized then return false, 'invalid_options' end
+
+    local provider = BGRZ.Provider.name('target')
+    if not BGRZ.Provider.isAvailable('target') then return false, 'provider_unavailable' end
+    local ok, err = callProvider(provider, 'addLocalEntity', entity, normalized)
+    if not ok then return false, err end
+
+    entityOwnership[caller] = entityOwnership[caller] or {}
+    local key = entityKey('local', entity)
+    local entry = entityOwnership[caller][key]
+    if not entry then
+        entry = { kind = 'local', entity = entity, options = {} }
+        entityOwnership[caller][key] = entry
+    end
+    for name, option in pairs(names) do entry.options[name] = option end
+    return true
+end
+
+---@param entity number handle local
+---@param optionNames? string|string[]
+---@return boolean ok
+---@return string? errorCode
+function BGRZ.RemoveLocalEntityTarget(entity, optionNames)
+    local caller = invokingResource()
+    if not caller then return false, 'invalid_caller' end
+    if type(entity) ~= 'number' or entity <= 0 or entity % 1 ~= 0 then
+        return false, 'invalid_entity'
+    end
+    -- Sem checar DoesEntityExist: o caso normal é remover o target de um prop que
+    -- acabou de ser deletado, e recusar aí deixaria a posse pendurada para sempre.
+    return removeOwnedEntity(caller, 'local', entity, optionNames, true)
+end
+
+---Target em todo objeto de um MODEL, incluindo os que vêm do mapa.
+---
+---Existe porque prop de mapa — parquímetro, lixeira, caixa de correio — não é uma
+---entidade que alguém criou: ela não tem netId, não existe no servidor e o handle
+---local muda conforme o streaming carrega e descarrega a região. Não há o que
+---passar para `AddEntityTarget` nem para `AddLocalEntityTarget`, e varrer o pool de
+---objetos num loop para registrar um a um seria caro e ainda perderia os que
+---entram depois. O provider já resolve isso por model; o que faltava era a porta.
+---@param models string|number|(string|number)[]
+---@param options table
+---@return boolean ok
+---@return string? errorCode
+function BGRZ.AddModelTarget(models, options)
+    local caller = invokingResource()
+    if not caller then return false, 'invalid_caller' end
+    local hashes = normalizeModels(models)
+    if not hashes then return false, 'invalid_model' end
+    local normalized, names = normalizeOptions(options, caller)
+    if not normalized then return false, 'invalid_options' end
+
+    local provider = BGRZ.Provider.name('target')
+    if not BGRZ.Provider.isAvailable('target') then return false, 'provider_unavailable' end
+    local ok, err = callProvider(provider, 'addModel', hashes, normalized)
+    if not ok then return false, err end
+
+    modelOwnership[caller] = modelOwnership[caller] or {}
+    for index = 1, #hashes do
+        local hash = hashes[index]
+        local entry = modelOwnership[caller][hash]
+        if not entry then
+            entry = { model = hash, options = {} }
+            modelOwnership[caller][hash] = entry
+        end
+        for name, option in pairs(names) do entry.options[name] = option end
+    end
+    return true
+end
+
+function removeOwnedModel(caller, hash, optionNames, cleanup)
+    local byCaller = modelOwnership[caller]
+    local entry = byCaller and byCaller[hash]
+    if not entry then return false, 'not_owner' end
+    local names, namesError = requestedNames(optionNames, entry)
+    if not names then return false, namesError end
+
+    local providerNames = {}
+    for index = 1, #names do providerNames[index] = entry.options[names[index]].name end
+    local provider = BGRZ.Provider.name('target')
+    if not BGRZ.Provider.isAvailable('target') then
+        if cleanup then byCaller[hash] = nil end
+        return false, 'provider_unavailable'
+    end
+    local ok, err = callProvider(provider, 'removeModel', hash, providerNames)
+    if not ok and not cleanup then return false, err end
+
+    for index = 1, #names do entry.options[names[index]] = nil end
+    if next(entry.options) == nil then byCaller[hash] = nil end
+    if next(byCaller) == nil then modelOwnership[caller] = nil end
+    return ok, err
+end
+
+---@param models string|number|(string|number)[]
+---@param optionNames? string|string[]
+---@return boolean ok
+---@return string? errorCode
+function BGRZ.RemoveModelTarget(models, optionNames)
+    local caller = invokingResource()
+    if not caller then return false, 'invalid_caller' end
+    local hashes = normalizeModels(models)
+    if not hashes then return false, 'invalid_model' end
+
+    -- Um model da lista pode já ter sido removido antes; isso não pode impedir a
+    -- remoção dos outros. O primeiro erro é o que volta, e o laço segue.
+    local ok, err = true, nil
+    for index = 1, #hashes do
+        local removed, removeError = removeOwnedModel(caller, hashes[index], optionNames, false)
+        if not removed then
+            ok = false
+            err = err or removeError
+        end
+    end
+    return ok, err
+end
+
+exports('AddModelTarget', BGRZ.AddModelTarget)
+exports('RemoveModelTarget', BGRZ.RemoveModelTarget)
+exports('AddLocalEntityTarget', BGRZ.AddLocalEntityTarget)
+exports('RemoveLocalEntityTarget', BGRZ.RemoveLocalEntityTarget)
 exports('AddEntityTarget', BGRZ.AddEntityTarget)
 exports('RemoveEntityTarget', BGRZ.RemoveEntityTarget)
 exports('AddSphereZoneTarget', BGRZ.AddSphereZoneTarget)
@@ -343,9 +538,11 @@ AddEventHandler('onClientResourceStop', function(resource)
         local callers = {}
         for caller in pairs(entityOwnership) do callers[caller] = true end
         for caller in pairs(zoneOwnership) do callers[caller] = true end
+        for caller in pairs(modelOwnership) do callers[caller] = true end
         for caller in pairs(callers) do cleanupCaller(caller) end
         entityOwnership = {}
         zoneOwnership = {}
+        modelOwnership = {}
         return
     end
     cleanupCaller(resource)

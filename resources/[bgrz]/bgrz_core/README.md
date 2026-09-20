@@ -57,9 +57,15 @@ local ok, err = exports.bgrz_core:AddSphereZoneTarget({
     options = options,
 })
 local ok, err = exports.bgrz_core:RemoveZoneTarget('computer:docks')
+local ok, err = exports.bgrz_core:AddLocalEntityTarget(entity, options)
+local ok, err = exports.bgrz_core:RemoveLocalEntityTarget(entity, optionNames)
+local ok, err = exports.bgrz_core:AddModelTarget(models, options)
+local ok, err = exports.bgrz_core:RemoveModelTarget(models, optionNames)
 ```
 
-Cada option e cada zona precisam de `name`. O bridge cria nomes internos por caller, impede remoção cruzada, reidrata registros após restart do provider e remove automaticamente opções e zonas quando o resource dono para. A autorização da ação permanece server-side no consumidor.
+Cada option e cada zona precisam de `name`. O bridge cria nomes internos por caller, impede remoção cruzada, reidrata registros após restart do provider e remove automaticamente opções, zonas e models quando o resource dono para. A autorização da ação permanece server-side no consumidor.
+
+`AddModelTarget` cobre o que as outras não cobrem: **prop de mapa**. Parquímetro, lixeira e caixa de correio não são entidades que alguém criou — não têm netId, não existem no servidor, e o handle local muda conforme o streaming carrega a região. `models` aceita nome, hash ou uma lista dos dois; tudo é normalizado para hash uint32 antes de ir ao provider, então nome e hash do mesmo model contam como um registro só. O target é um convite à interação: a distância e a permissão continuam sendo conferidas no servidor do consumidor, que no caso de prop de mapa não consegue resolver a entidade e precisa validar por coordenada.
 
 ## Phone (client/server)
 

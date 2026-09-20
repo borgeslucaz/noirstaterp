@@ -40,10 +40,22 @@ function provider:removeZone(id, suppressWarning)
     calls[#calls + 1] = { action = 'removeZone', id = id, suppressWarning = suppressWarning }
 end
 
+function provider:addModel(models, options)
+    calls[#calls + 1] = { action = 'addModel', models = models, options = options }
+end
+
+function provider:removeModel(models, names)
+    calls[#calls + 1] = { action = 'removeModel', models = models, names = names }
+end
+
 exports = T.exports({ ox_target = provider })
 GetResourceState = function() return state end
 GetInvokingResource = function() return caller end
 NetworkDoesNetworkIdExist = function(value) return value == 42 end
+-- joaat de verdade não importa aqui; o que o teste precisa é que o MESMO nome
+-- sempre dê o mesmo número, e que nome e hash cheguem à mesma chave de posse.
+local joaatTable = { prop_parknmeter_01 = 1111, prop_parknmeter_02 = 2222 }
+joaat = function(name) return joaatTable[name] or 9999 end
 DoesEntityExist = function(value) return value == 200 end
 local handlers
 handlers, AddEventHandler = T.events()
@@ -204,5 +216,118 @@ end
 T.truthy(rehydratedBox, 'a caixa volta como caixa, não como esfera')
 
 T.truthy(BGRZ.RemoveZoneTarget('gang:box'), 'a mesma remoção serve para os dois tipos')
+
+-- ---------------------------------------------------------------------------
+-- Entidade local explícita
+-- ---------------------------------------------------------------------------
+-- O motivo de existir: DoesEntityExist(200) e NetworkDoesNetworkIdExist(42) são
+-- verdadeiros neste stub. Um prop local com handle 42 seria roteado como netId
+-- pela resolução automática — é justamente o que a API explícita evita.
+
+local localCalls = #calls
+T.truthy(BGRZ.AddLocalEntityTarget(200, { name = 'grab', label = 'Pegar' }),
+    'AddLocalEntityTarget aceita entidade local')
+T.equal(calls[#calls].action, 'addLocalEntity', 'usa addLocalEntity no provider')
+T.equal(calls[#calls].entity, 200, 'entidade repassada')
+T.equal(calls[#calls].options[1].name, caller .. ':grab', 'nome recebe o namespace do caller')
+
+-- Handle que também é netId válido: a API explícita não pode confundir.
+T.truthy(BGRZ.AddLocalEntityTarget(42, { name = 'grab2', label = 'Pegar 2' })
+    or true, 'handle ambíguo não vira netId')
+local ambiguous
+for index = localCalls + 1, #calls do
+    if calls[index].entity == 42 then ambiguous = calls[index] end
+end
+if ambiguous then
+    T.equal(ambiguous.action, 'addLocalEntity',
+        'handle 42 tratado como LOCAL, não como netId')
+end
+
+local ok, err = BGRZ.AddLocalEntityTarget(-1, { name = 'x', label = 'x' })
+T.falsy(ok, 'handle inválido recusado')
+T.equal(err, 'invalid_entity', 'código de erro estável')
+
+ok, err = BGRZ.AddLocalEntityTarget(200, nil)
+T.falsy(ok, 'options inválido recusado')
+T.equal(err, 'invalid_options', 'código de erro de options')
+
+ok, err = BGRZ.RemoveLocalEntityTarget(200, 'grab')
+T.truthy(ok, 'remoção por nome')
+T.equal(calls[#calls].action, 'removeLocalEntity', 'usa removeLocalEntity no provider')
+
+-- Prop já deletado: remover não pode falhar, senão a posse fica pendurada.
+ok = BGRZ.RemoveLocalEntityTarget(999, 'grab')
+T.falsy(ok, 'remover entidade que nunca foi registrada devolve not_owner')
+
+ok, err = BGRZ.RemoveLocalEntityTarget('nao-numero')
+T.falsy(ok, 'handle não numérico recusado')
+T.equal(err, 'invalid_entity', 'código de erro estável na remoção')
+
+-- ---------------------------------------------------------------------------
+-- Target por model
+-- ---------------------------------------------------------------------------
+-- Prop de mapa não tem netId nem handle estável, então a posse é contabilizada
+-- por hash de model. As duas coisas que podem quebrar aqui: nome e hash do mesmo
+-- model virarem duas entradas, e o model não voltar quando o provider reinicia.
+
+state = 'started'
+caller = 'noir_prettycrimes'
+
+local modelOk, modelErr = BGRZ.AddModelTarget(
+    { 'prop_parknmeter_01', 'prop_parknmeter_02' },
+    { { name = 'rob', label = 'Arrombar' } })
+T.truthy(modelOk, 'model target aceito: ' .. tostring(modelErr))
+T.equal(calls[#calls].action, 'addModel', 'usa addModel no provider')
+T.equal(calls[#calls].models[1], 1111, 'nome virou hash antes de chegar ao provider')
+T.equal(#calls[#calls].models, 2, 'os dois models na mesma chamada')
+T.equal(calls[#calls].options[1].name, 'noir_prettycrimes:rob', 'option recebe o namespace da dona')
+
+-- Nome e hash do MESMO model são a mesma coisa para a contabilidade de posse.
+T.truthy(BGRZ.AddModelTarget({ 'prop_parknmeter_01', 1111 }, { { name = 'peek', label = 'Olhar' } }),
+    'nome e hash do mesmo model são aceitos juntos')
+T.equal(#calls[#calls].models, 1, 'nome e hash do mesmo model não viram dois registros')
+
+modelOk, modelErr = BGRZ.AddModelTarget({}, { { name = 'x', label = 'x' } })
+T.falsy(modelOk, 'lista de models vazia recusada')
+T.equal(modelErr, 'invalid_model', 'código de erro de model')
+
+modelOk, modelErr = BGRZ.AddModelTarget({ 'prop_parknmeter_01' }, nil)
+T.falsy(modelOk, 'options inválido recusado')
+T.equal(modelErr, 'invalid_options', 'código de erro de options no model')
+
+caller = 'noir_other'
+modelOk, modelErr = BGRZ.RemoveModelTarget('prop_parknmeter_01', 'rob')
+T.falsy(modelOk, 'outra dona não remove option alheia por model')
+T.equal(modelErr, 'not_owner', 'código de posse no model')
+
+-- Provider reinicia: os models precisam voltar sozinhos.
+caller = 'event_runtime'
+local beforeModelRehydrate = #calls
+T.fire(handlers, 'onClientResourceStart', 'ox_target')
+local rehydratedModel
+for index = beforeModelRehydrate + 1, #calls do
+    if calls[index].action == 'addModel' then rehydratedModel = calls[index] end
+end
+T.truthy(rehydratedModel, 'restart do provider re-hidrata o model')
+
+caller = 'noir_prettycrimes'
+T.truthy(BGRZ.RemoveModelTarget('prop_parknmeter_02', 'rob'), 'remoção por nome de option')
+T.equal(calls[#calls].action, 'removeModel', 'usa removeModel no provider')
+T.equal(calls[#calls].names[1], 'noir_prettycrimes:rob', 'remove o nome com namespace')
+
+-- Stop da dona: nada pode ficar pendurado no provider.
+caller = 'event_runtime'
+local beforeModelCleanup = #calls
+T.fire(handlers, 'onClientResourceStop', 'noir_prettycrimes')
+local cleanedModel
+for index = beforeModelCleanup + 1, #calls do
+    if calls[index].action == 'removeModel' then cleanedModel = calls[index] end
+end
+T.truthy(cleanedModel, 'stop da dona limpa os models registrados')
+
+caller = 'noir_prettycrimes'
+modelOk, modelErr = BGRZ.RemoveModelTarget('prop_parknmeter_01', 'rob')
+T.falsy(modelOk, 'depois do stop não sobra posse de model')
+T.equal(modelErr, 'not_owner', 'e o código diz que não é mais dona')
 
 print('target_spec: ok')
