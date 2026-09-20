@@ -51,5 +51,24 @@ Config.GangColors = {
 }
 
 -- ---------------------------------------------------------------------------
--- Pintura dos bairros no mapa
+-- Projeção do mapa
 -- ---------------------------------------------------------------------------
+-- Onde o (0,0) do jogo cai na pirâmide de tiles. Os números vêm do PolyZoneCreator e não
+-- são ajustáveis a olho: são eles que fazem o polígono cair em cima da rua certa.
+--
+-- Moram aqui, e não no JavaScript da página, porque já existe mais de uma tela desenhando
+-- este mesmo mapa — o `/territorymap` e o menu do `noir_gangs`. Duas cópias das constantes
+-- divergiriam no dia em que os tiles fossem trocados, e a que divergisse desenharia a
+-- fronteira certa sobre a rua errada, sem erro nenhum no console.
+--
+-- Quem consome de fora não lê esta tabela: pede `GetTerritoryMap`, que já devolve o
+-- caminho dos tiles resolvido para o nome real do resource.
+Config.Map = {
+    tilesPath = 'web/tiles/{z}/{x}/{y}.png',
+    maxZoom = 7,
+    maxNativeZoom = 4,
+    maxResolution = 0.25,
+    centerLat = -5525,
+    centerLng = 3755,
+    offset = 0.66,
+}

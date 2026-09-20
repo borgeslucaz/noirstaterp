@@ -121,26 +121,18 @@ h1 {
 <script>
 const resource = window.GetParentResourceName ? GetParentResourceName() : 'noir_territories';
 
-// Mapa do GTA em tiles, com a conversão mundo -> mapa. As três constantes vêm do
-// PolyZoneCreator e descrevem onde o (0,0) do jogo cai na pirâmide de tiles; não são
-// ajustáveis a olho, são as que fazem o polígono cair em cima da rua certa.
-const MAX_ZOOM = 7, MAX_RESOLUTION = 0.25;
-const MIN_RESOLUTION = Math.pow(2, MAX_ZOOM) * MAX_RESOLUTION;
-const CENTER_LAT = -5525, CENTER_LNG = 3755, GTA_OFFSET = 0.66;
+// Mapa do GTA em tiles, com a conversão mundo -> mapa. As constantes descrevem onde o (0,0)
+// do jogo cai na pirâmide de tiles e chegam prontas do Lua (`Config.Map`): elas andam junto
+// com os tiles, e a mesma projeção é usada pelo menu do noir_gangs. Escrever de novo aqui
+// criaria uma segunda verdade que só se descobre errada olhando a rua.
+const FALLBACK_MAP = {
+  tiles: "tiles/{z}/{x}/{y}.png",
+  maxZoom: 7, maxNativeZoom: 4, maxResolution: 0.25,
+  centerLat: -5525, centerLng: 3755, offset: 0.66,
+};
 
-const crs = L.CRS.Simple;
-crs.scale = (zoom) => Math.pow(2, zoom) / MIN_RESOLUTION;
-
-// Onde a pirâmide de tiles acaba. Sem isto o Leaflet pede linhas que não existem — `y=4` num
-// zoom que vai até 3 — e cada uma vira um 404 no console do FiveM.
-//
-// A conta: no zoom 4 são 16 tiles de 256px, ou seja 4096px, e a escala ali é 16/32 = 0,5
-// pixel por unidade. Logo o mapa inteiro tem 8192 unidades de lado. Em CRS.Simple a latitude
-// cresce para cima, então o mundo vai de -8192 a 0.
-const WORLD = Math.pow(2, MAX_ZOOM) * 256 / (Math.pow(2, MAX_ZOOM) / MIN_RESOLUTION);
-const MAP_BOUNDS = L.latLngBounds([[-WORLD, 0], [0, WORLD]]);
-
-const gtaToLatLng = (x, y) => L.latLng(y * GTA_OFFSET + CENTER_LAT, x * GTA_OFFSET + CENTER_LNG);
+let cfg = FALLBACK_MAP;
+let gtaToLatLng = () => L.latLng(0, 0);
 
 /// Bairro sem dono mostra quanto falta; com dono, de quem é. A contagem é a informação que
 /// decide se vale atacar, então ela fica no mapa e não escondida num tooltip de hover.
@@ -167,19 +159,35 @@ let map, layer;
 
 function initMap() {
   if (map) return;
+
+  const minResolution = Math.pow(2, cfg.maxZoom) * cfg.maxResolution;
+  const crs = L.CRS.Simple;
+  crs.scale = (zoom) => Math.pow(2, zoom) / minResolution;
+
+  // Onde a pirâmide de tiles acaba. Sem isto o Leaflet pede linhas que não existem — `y=4`
+  // num zoom que vai até 3 — e cada uma vira um 404 no console do FiveM.
+  //
+  // A conta: no zoom 4 são 16 tiles de 256px, ou seja 4096px, e a escala ali é 16/32 = 0,5
+  // pixel por unidade. Logo o mapa inteiro tem 8192 unidades de lado. Em CRS.Simple a
+  // latitude cresce para cima, então o mundo vai de -8192 a 0.
+  const world = Math.pow(2, cfg.maxZoom) * 256 / (Math.pow(2, cfg.maxZoom) / minResolution);
+  const bounds = L.latLngBounds([[-world, 0], [0, world]]);
+
+  gtaToLatLng = (x, y) => L.latLng(y * cfg.offset + cfg.centerLat, x * cfg.offset + cfg.centerLng);
+
   map = L.map('map', {
     crs,
-    center: [CENTER_LAT, CENTER_LNG],
+    center: [cfg.centerLat, cfg.centerLng],
     zoom: 3,
     minZoom: 2,
-    maxZoom: MAX_ZOOM,
+    maxZoom: cfg.maxZoom,
     zoomControl: false,
     attributionControl: false,
-    maxBounds: MAP_BOUNDS,
+    maxBounds: bounds,
     maxBoundsViscosity: 1.0,
-    layers: [L.tileLayer('tiles/{z}/{x}/{y}.png', {
-      minZoom: 0, maxZoom: MAX_ZOOM, maxNativeZoom: 4, noWrap: true, tms: true,
-      bounds: MAP_BOUNDS,
+    layers: [L.tileLayer(cfg.tiles, {
+      minZoom: 0, maxZoom: cfg.maxZoom, maxNativeZoom: cfg.maxNativeZoom, noWrap: true, tms: true,
+      bounds: bounds,
     })],
   });
   layer = L.featureGroup().addTo(map);
@@ -257,6 +265,9 @@ window.addEventListener('message', (event) => {
   if (!data) return;
 
   if (data.action === 'open') {
+    // A projeção só pode ser trocada antes do mapa existir: depois disso o Leaflet já
+    // segurou o CRS e os tiles.
+    if (data.map && !map) cfg = Object.assign({}, FALLBACK_MAP, data.map);
     screenEl.hidden = false;
     // Leaflet mede o contêiner na criação: aberto com a tela escondida, ele nasce com
     // tamanho zero e não desenha tile nenhum.
