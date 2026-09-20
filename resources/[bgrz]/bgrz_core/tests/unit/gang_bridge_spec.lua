@@ -27,7 +27,27 @@ local groupRows = {
 
 local addCalls, primaryCalls, removeCalls, queryCount = {}, {}, {}, 0
 
+local created = { gangs = nil, commitToFile = nil }
+local commits = 0
+
 local qbx = {}
+
+---Modela o provider de verdade: `CreateGangs` ATRIBUI a entrada (a escada some), e só
+---depois grava. Sem isso o teste não enxergaria a diferença entre ele e o upsert.
+function qbx:CreateGangs(payload, commitToFile)
+    created.gangs, created.commitToFile = payload, commitToFile
+    for name, gang in pairs(payload) do gangs[name] = gang end
+    if commitToFile then commits = commits + 1 end
+end
+
+function qbx:UpsertGangData(name, data, commitToFile)
+    if gangs[name] then
+        gangs[name].label = data.label
+    else
+        gangs[name] = { label = data.label, grades = {} }
+    end
+    if commitToFile then commits = commits + 1 end
+end
 function qbx:GetGang(name) return gangs[name] end
 function qbx:GetGangs() return gangs end
 function qbx:GetGroupMembers() return groupRows end
@@ -139,5 +159,49 @@ T.equal(err, 'invalid_gang', 'com o erro certo')
 T.truthy(BGRZ.RemoveFromGang('ONLINE1', 'ballas'), 'remoção válida passa')
 T.equal(#removeCalls, 1, 'o provider foi chamado uma vez')
 T.falsy(BGRZ.RemoveFromGang('ONLINE1', 'none'), 'não dá para remover da gang vazia')
+
+-- RegisterGangs -----------------------------------------------------------------------------
+-- O provider guarda as gangs em memória; quem é dono da lista registra a cada start. Sem
+-- isto, o login descarta a gang do personagem com um aviso e a pessoa entra sem gang.
+local ok, err = BGRZ.RegisterGangs({ { name = 'nova', label = 'Nova Gang' }, { name = 'outra' } })
+T.truthy(ok, 'lista válida registra')
+T.equal(created.commitToFile, false, 'sem gravar no arquivo do provider: a verdade é de quem chamou')
+T.equal(created.gangs.nova.label, 'Nova Gang', 'o rótulo vai junto')
+T.equal(created.gangs.outra.label, 'outra', 'sem rótulo, o nome serve de rótulo')
+T.truthy(created.gangs.nova.grades, 'a gang nasce com a tabela de cargos vazia')
+T.falsy(next(created.gangs.nova.grades), 'e sem nenhum cargo: eles chegam por UpsertGangGrade')
+
+created = { gangs = nil }
+ok, err = BGRZ.RegisterGangs({ { name = 'none' } })
+T.falsy(ok, 'a gang vazia do provider não é registrável')
+T.equal(err, 'empty_list', 'e a lista vira vazia')
+T.falsy(created.gangs, 'nada foi enviado ao provider')
+
+T.falsy(BGRZ.RegisterGangs('nao é lista'), 'entrada inválida é recusada')
+
+-- UpsertGangData e a diferença que ele existe para ter ------------------------------------
+-- Renomear uma gang não pode custar a escada de cargos das outras. É a armadilha do
+-- `CreateGangs`: ele atribui a entrada inteira, então uma lista com `grades = {}` zera todo
+-- mundo. Um teste aqui porque o erro é silencioso: só aparece quando alguém tenta entrar.
+gangs.comcargos = { label = 'Com Cargos', grades = { [0] = { name = 'Base' }, [1] = { name = 'Topo' } } }
+
+T.truthy(BGRZ.UpsertGangData('comcargos', 'Renomeada'), 'renomear uma gang existente funciona')
+T.equal(gangs.comcargos.label, 'Renomeada', 'o rótulo muda')
+T.truthy(gangs.comcargos.grades[0], 'e os cargos continuam lá')
+T.truthy(gangs.comcargos.grades[1], 'todos eles')
+
+T.truthy(BGRZ.UpsertGangData('inexistente', 'Nova'), 'gang que não existe é criada')
+T.falsy(next(gangs.inexistente.grades), 'nascendo sem cargo, que é o esperado')
+
+T.falsy(BGRZ.UpsertGangData('none', 'X'), 'a gang vazia do provider não é renomeável')
+T.falsy(BGRZ.UpsertGangData('comcargos', ''), 'rótulo vazio é recusado')
+
+-- CommitGangsToFile grava sem mexer em nada.
+local before = gangs.comcargos.label
+commits = 0
+T.truthy(BGRZ.CommitGangsToFile(), 'o commit responde')
+T.equal(commits, 1, 'e gravou uma vez')
+T.equal(gangs.comcargos.label, before, 'sem alterar o dicionário')
+T.truthy(gangs.comcargos.grades[0], 'e sem encostar nos cargos')
 
 print('gang_bridge_spec: ok')

@@ -405,6 +405,69 @@ function BGRZ.RemoveFromGang(citizenId, gangName)
     return true
 end
 
+---Registra a lista inteira de gangs no provider, **substituindo** o que ele tem.
+---
+---`CreateGangs` atribui a entrada, não mescla: cada gang aqui volta com a escada de cargos
+---zerada. Por isso esta função é só para dicionário vazio — o start do provider, ou o
+---restart dele — e sempre vem seguida da republicação dos cargos. Para mexer numa gang que
+---já existe, use `UpsertGangData`, que preserva os cargos.
+---
+---Não grava em arquivo: quem chamou é dono da lista e decide quando gravar, com
+---`CommitGangsToFile`, depois que os cargos já estiverem publicados.
+---@param list { name: string, label: string }[]
+---@return boolean ok
+---@return string? errorCode
+function BGRZ.RegisterGangs(list)
+    if type(list) ~= 'table' then return false, 'invalid_list' end
+
+    local payload, total = {}, 0
+    for i = 1, #list do
+        local entry = list[i]
+        local name = type(entry) == 'table' and entry.name or nil
+        if type(name) == 'string' and name ~= '' and name ~= 'none' then
+            -- Os cargos não entram aqui: eles chegam um a um por `UpsertGangGrade`, que é
+            -- quem sabe o rótulo, o `isboss` e o `bankAuth` de cada nível. Uma gang nasce
+            -- sem grade nenhum e os recebe logo em seguida.
+            payload[name] = { label = type(entry.label) == 'string' and entry.label or name, grades = {} }
+            total = total + 1
+        end
+    end
+    if total == 0 then return false, 'empty_list' end
+
+    exports.qbx_core:CreateGangs(payload, false)
+    return true
+end
+
+---Cria ou renomeia **uma** gang, preservando os cargos que ela já tem no provider.
+---
+---É a diferença que importa em relação a `RegisterGangs`: renomear uma gang com aquela
+---apagaria a escada de cargos de todas as outras junto.
+---@param gangName string
+---@param label string
+---@return boolean ok
+---@return string? errorCode
+function BGRZ.UpsertGangData(gangName, label)
+    if type(gangName) ~= 'string' or gangName == '' or gangName == 'none' then return false, 'invalid_gang' end
+    if type(label) ~= 'string' or label == '' then return false, 'invalid_label' end
+
+    exports.qbx_core:UpsertGangData(gangName, { label = label }, false)
+    return true
+end
+
+---Grava o `shared/gangs.lua` a partir do que o provider tem em memória, sem mudar nada.
+---
+---A lista vazia é de propósito: `CreateGangs` percorre o que recebe — nada — e só então
+---grava. É a única forma de pedir "grave agora" pela API dele.
+---
+---O momento importa mais que a chamada. O arquivo sai com gangs E cargos, e o provider
+---apaga do `player_groups` toda linha cujo CARGO não exista no boot seguinte. Gravar antes
+---dos cargos publicados escreveria escadas vazias e apagaria a membresia de todo mundo.
+---@return boolean ok
+function BGRZ.CommitGangsToFile()
+    exports.qbx_core:CreateGangs({}, true)
+    return true
+end
+
 ---Publica um cargo no provider. O rótulo precisa existir lá porque é de
 ---`PlayerData.gang.grade.name` que o resto do servidor lê o nome do cargo, e porque
 ---`AddPlayerToGang` recusa nível que a gang não tenha. Permissões não entram: o provider
@@ -432,6 +495,9 @@ function BGRZ.UpsertGangGrade(gangName, level, data)
 end
 
 exports('GetGangInfo', BGRZ.GetGangInfo)
+exports('RegisterGangs', BGRZ.RegisterGangs)
+exports('UpsertGangData', BGRZ.UpsertGangData)
+exports('CommitGangsToFile', BGRZ.CommitGangsToFile)
 exports('UpsertGangGrade', BGRZ.UpsertGangGrade)
 exports('GetGangList', BGRZ.GetGangList)
 exports('GetGangMembers', BGRZ.GetGangMembers)
