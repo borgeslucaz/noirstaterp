@@ -12,12 +12,15 @@ ox_lib notifications/progress/locales, and a validated server-side sync path.
 - Weapon check, bulletproof tire check, cancellable progress bar
 - Works on parked/unowned vehicles and on vehicles being driven by another player
 - Server-side validation (distance, tire index, per-player cooldown)
+- Smoke/air venting from the slashed wheel (several emitters), skipped cleanly if the ptfx asset is missing from the build
+- Puncture sound played from the vehicle for everyone nearby, through `mana_audio` when it is running
 - Locales via ox_lib (`en`, `pt-br`)
 
 ## Dependencies
 
 - [ox_lib](https://github.com/overextended/ox_lib)
 - [ox_target](https://github.com/overextended/ox_target)
+- `mana_audio` (optional — without it the slash is simply silent)
 
 ## Installation
 

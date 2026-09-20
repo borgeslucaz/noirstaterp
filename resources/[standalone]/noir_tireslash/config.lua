@@ -13,6 +13,10 @@ Config.burstOnRim = false
 -- Respect bulletproof tyres (vehicles with tyre burst disabled cannot be slashed).
 Config.respectBulletproofTyres = true
 
+-- Tempo que o personagem tem para girar de frente para a roda antes do corte
+-- começar (ms). O giro acontece antes da progress, nunca junto.
+Config.turnDuration = 750
+
 -- Server-side anti-spam: minimum delay between two slash requests from the same player (ms).
 Config.cooldown = 1500
 
@@ -60,4 +64,44 @@ Config.anim = {
     dict = 'melee@knife@streamed_core_fps',
     clip = 'ground_attack_on_spot',
     flag = 1,
+}
+
+-- Fumaça saindo do pneu depois do corte. É enfeite: se o asset não existir neste
+-- build, o pneu fura do mesmo jeito e só o efeito fica de fora. O nome do efeito
+-- não tem native que valide, então um nome errado simplesmente não aparece.
+-- Alternativas: 'ent_amb_smoke_foundry' (mais densa), 'exp_grd_bzgas_smoke'.
+-- Defina Config.ptfx = false para desligar.
+Config.ptfx = {
+    asset = 'core',
+    effect = 'ent_sht_steam',
+    scale = 0.7,
+    duration = 3000,
+    rotation = vec3(0.0, 0.0, 0.0),
+
+    -- Cada offset é um emissor próprio em volta do osso da roda. É assim que se
+    -- engrossa a nuvem: o jogo não deixa pedir "mais partículas" de um efeito, então
+    -- mais partículas no ar = mais emissores. Cada um custa, não exagere na lista.
+    emitters = {
+        vec3(0.0, 0.0, 0.0),
+        vec3(0.0, 0.12, -0.06),
+        vec3(0.0, -0.12, 0.06),
+        vec3(0.06, 0.0, 0.10),
+        vec3(-0.06, 0.06, -0.02),
+    },
+}
+
+-- Liga o comando /tiresound (cliente) para caçar o nome do áudio em jogo, e faz o
+-- servidor avisar no console cada vez que manda tocar. Desligue depois de achar.
+Config.debug = true
+
+-- Som do pneu furando, tocado a partir do veículo para todo mundo por perto
+-- (via mana_audio). Defina Config.sound = false para desligar.
+-- ATENÇÃO: nome/ref errado não dá erro nenhum, só não sai som.
+-- Outros candidatos de pneu confirmados no dump do gta_sound_tester:
+--   audioName = 'CAR_STEAL_3_AGENT_TYRE_BURST',  audioRef = 'CAR_STEAL_3_AGENT'
+--   audioName = 'TAKINGS_TIRES_PEELAWAY_master', audioRef = '0'
+Config.sound = {
+    audioName = 'tyre_burst',
+    audioRef = 'DLC_sum20_Open_Wheel_Racing_Sounds',
+    audioBank = nil,
 }
