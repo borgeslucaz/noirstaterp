@@ -31,6 +31,10 @@ CREATE TABLE IF NOT EXISTS `noir_gang_products` (
  PRIMARY KEY (`gang_name`, `product_type`),
  INDEX `idx_noir_gang_products_type` (`product_type`)
 );
+-- `noir_gang_state` deixou de ser só o placar da gang: ela é o registro de quais gangs
+-- existem. O rótulo e a cor entram por ALTER porque a tabela já está em produção.
+ALTER TABLE `noir_gang_state` ADD COLUMN IF NOT EXISTS `label` VARCHAR(64) NOT NULL DEFAULT '';
+ALTER TABLE `noir_gang_state` ADD COLUMN IF NOT EXISTS `color` VARCHAR(16) NOT NULL DEFAULT '';
 CREATE TABLE IF NOT EXISTS `noir_gang_ranks` (
  `gang_name` VARCHAR(64) NOT NULL, `level` INT NOT NULL, `label` VARCHAR(64) NOT NULL,
  `is_boss` TINYINT(1) NOT NULL DEFAULT 0, `bank_auth` TINYINT(1) NOT NULL DEFAULT 0,

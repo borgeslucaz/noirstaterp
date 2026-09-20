@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Noir Gangs</title>
+    <!-- Transparência crítica da NUI: evita o canvas preto antes do CSS externo carregar. -->
+    <style>html,body,#root{background:rgba(0,0,0,0)!important}</style>
+    <link rel="stylesheet" href="vendor/leaflet.css" />
+    <link rel="stylesheet" href="main.css" />
+</head>
+<body>
+    <div id="root" data-mode="closed">
+        <div class="menu" id="gang-menu" hidden data-anim="idle">
+            <div class="window" data-service="gang" data-rail="closed" id="gang-window">
+
+                <!-- ═══════════════════════ Rail ═══════════════════════ -->
+                <aside class="window__rail" aria-label="Navegação da gestão">
+                    <div class="rail__mark">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="9" cy="12" r="1" /><circle cx="15" cy="12" r="1" />
+                            <path d="M8 20v2h8v-2" /><path d="m12.5 17-.5-1-.5 1h1Z" />
+                            <path d="M16 20a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20" />
+                        </svg>
+                        <span class="rail__brand-copy" aria-hidden="true">
+                            <strong id="rail-gang">GANG</strong>
+                            <small>GESTÃO INTERNA</small>
+                        </span>
+                    </div>
+
+                    <button class="rail__toggle" id="rail-toggle" type="button" aria-controls="gang-navigation" aria-expanded="false" aria-label="Abrir menu lateral">
+                        <span class="rail__chevron" aria-hidden="true"></span>
+                    </button>
+
+                    <nav class="menu__nav" id="gang-navigation" aria-label="Seções da gestão" role="tablist" aria-orientation="vertical">
+                        <button class="nav-item" type="button" role="tab" data-tab="overview" id="nav-overview" data-tooltip="Central" aria-label="Central" aria-selected="true" aria-controls="tab-overview">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                            <span class="nav-item__text">Central</span>
+                        </button>
+                        <button class="nav-item" type="button" role="tab" data-tab="members" id="nav-members" data-tooltip="Membros" aria-label="Membros" aria-selected="false" aria-controls="tab-members" tabindex="-1">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            <span class="nav-item__text">Membros</span>
+                        </button>
+                        <button class="nav-item" type="button" role="tab" data-tab="ranks" id="nav-ranks" data-tooltip="Cargos" aria-label="Cargos" aria-selected="false" aria-controls="tab-ranks" tabindex="-1" hidden>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4v2a4 4 0 0 0 4 4"/><path d="M17 6h3v2a4 4 0 0 1-4 4"/></svg>
+                            <span class="nav-item__text">Cargos</span>
+                        </button>
+                        <button class="nav-item" type="button" role="tab" data-tab="territory" id="nav-territory" data-tooltip="Território" aria-label="Território" aria-selected="false" aria-controls="tab-territory" tabindex="-1">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3Z"/><path d="M9 3v15"/><path d="M15 6v15"/></svg>
+                            <span class="nav-item__text">Território</span>
+                        </button>
+                        <button class="nav-item" type="button" role="tab" data-tab="activity" id="nav-activity" data-tooltip="Atividade" aria-label="Atividade" aria-selected="false" aria-controls="tab-activity" tabindex="-1">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+                            <span class="nav-item__text">Atividade</span>
+                        </button>
+                    </nav>
+
+                    <!-- Ação de consequência, separada da navegação e no fim do rail. -->
+                    <button class="rail__leave" id="rail-leave" type="button" data-tooltip="Sair da gang" aria-label="Sair da gang">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+                        <span class="nav-item__text">Sair da gang</span>
+                    </button>
+                </aside>
+
+                <!-- ═══════════════════════ Cabeçalho ═══════════════════════ -->
+                <header class="window__header menu__fx" style="--i: 0">
+                    <div class="brand">
+                        <span class="brand__stack">
+                            <span class="brand__eyebrow">GESTÃO DE GANG</span>
+                            <span class="brand__name" id="gang-label">—</span>
+                            <span class="brand__sub" id="gang-context">—</span>
+                        </span>
+                    </div>
+
+                    <div class="window__actions">
+                        <div class="window__profile">
+                            <span class="profile__indicator" aria-hidden="true"></span>
+                            <span class="profile__stack">
+                                <span class="profile__name" id="me-name">—</span>
+                                <span class="profile__level" id="me-rank">—</span>
+                            </span>
+                            <span class="window__sep" aria-hidden="true"></span>
+                            <button class="menu__close" id="menu-close" type="button" aria-label="Fechar a gestão"><kbd>ESC</kbd> FECHAR</button>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- ═══════════════════════ Conteúdo ═══════════════════════ -->
+                <main class="window__main menu__fx" style="--i: 1" id="wnd-main" data-tab="overview">
+
+                    <!-- CENTRAL -->
+                    <section class="tab tab--overview" id="tab-overview" role="tabpanel" aria-labelledby="nav-overview" aria-label="Resumo da gang">
+                        <div class="hero__stats">
+                            <div class="stat" id="stat-reputation-card">
+                                <span class="data-label">REPUTAÇÃO</span>
+                                <span class="stat__value" id="stat-reputation">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="data-label">MEMBROS ATIVOS</span>
+                                <span class="stat__value" id="stat-active">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="data-label">BAIRROS</span>
+                                <span class="stat__value" id="stat-territory">—</span>
+                            </div>
+                            <div class="stat">
+                                <span class="data-label">TOTAL DE MEMBROS</span>
+                                <span class="stat__value" id="stat-members">0</span>
+                            </div>
+                        </div>
+
+                        <div class="cards">
+                            <section class="card" aria-labelledby="card-operation-title">
+                                <header class="card__head">
+                                    <h2 class="card__title" id="card-operation-title">OPERAÇÃO</h2>
+                                    <p class="card__sub" id="operation-sub">O que a gang movimenta.</p>
+                                </header>
+                                <div class="chips" id="operation-chips"></div>
+                                <div class="card__group">
+                                    <p class="data-label">BAIRROS SOB DOMÍNIO</p>
+                                    <ul class="mini-list" id="overview-zones"></ul>
+                                </div>
+                            </section>
+
+                            <section class="card" aria-labelledby="card-ranks-title">
+                                <header class="card__head">
+                                    <h2 class="card__title" id="card-ranks-title">CARGOS</h2>
+                                    <p class="card__sub">Do topo para a base, com quem ocupa cada um.</p>
+                                </header>
+                                <ul class="ranks" id="ranks-list"></ul>
+                            </section>
+
+                            <section class="card" aria-labelledby="card-online-title">
+                                <header class="card__head">
+                                    <h2 class="card__title" id="card-online-title">ACORDADOS</h2>
+                                    <p class="card__sub">Quem está acordado agora. A lista completa fica em Membros.</p>
+                                </header>
+                                <div class="preview" id="online-preview"></div>
+                            </section>
+                        </div>
+                    </section>
+
+                    <!-- MEMBROS -->
+                    <section class="tab tab--members" id="tab-members" role="tabpanel" aria-labelledby="nav-members" hidden aria-label="Membros da gang">
+                        <header class="members__head">
+                            <div class="members__headings">
+                                <p class="data-label">MEMBROS DA GANG</p>
+                                <p class="members__sub" id="members-sub">—</p>
+                            </div>
+                            <div class="members__tools">
+                                <label class="search">
+                                    <span class="sr-only" id="members-search-label">Buscar membro pelo nome</span>
+                                    <svg class="search__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                                    <input class="field search__input" id="members-search" type="search" autocomplete="off" placeholder="Nome do membro" aria-labelledby="members-search-label" />
+                                </label>
+                                <button class="btn btn--fill" id="members-invite" type="button" hidden>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg>
+                                    CONVIDAR QUEM ESTÁ AO LADO
+                                </button>
+                            </div>
+                        </header>
+
+                        <p class="inline-message" id="members-message" role="status" hidden></p>
+
+                        <div class="table" role="table" aria-label="Membros da gang">
+                            <div class="table__head" role="row">
+                                <span class="data-label" role="columnheader">MEMBRO</span>
+                                <span class="data-label" role="columnheader">CARGO</span>
+                                <span class="data-label" role="columnheader">SITUAÇÃO</span>
+                                <span class="data-label table__actions-head" role="columnheader">AÇÕES</span>
+                            </div>
+                            <div class="table__body" id="members-list" role="rowgroup"></div>
+                        </div>
+                    </section>
+
+                    <!-- CARGOS -->
+                    <section class="tab tab--ranks" id="tab-ranks" role="tabpanel" aria-labelledby="nav-ranks" hidden aria-label="Cargos da gang">
+                        <header class="section-head">
+                            <div class="section-head__text">
+                                <p class="data-label">CARGOS DA GANG</p>
+                                <p class="section-head__sub" id="ranks-sub">—</p>
+                            </div>
+                            <button class="btn btn--fill" id="rank-create" type="button">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                CRIAR CARGO
+                            </button>
+                        </header>
+
+                        <p class="inline-message" id="ranks-message" role="status" hidden></p>
+
+                        <div class="editor">
+                            <div class="editor__list" id="rank-list" role="listbox" aria-label="Cargos, do topo para a base"></div>
+
+                            <div class="editor__form">
+                                <div class="editor__locked" id="rank-locked" hidden>
+                                    <p class="empty__title" id="rank-locked-title">—</p>
+                                    <p class="empty__note" id="rank-locked-note">—</p>
+                                </div>
+
+                                <form class="form" id="rank-editor" hidden>
+                                    <div class="form__row">
+                                        <label class="form__label" for="rank-label">NOME DO CARGO</label>
+                                        <input class="field" id="rank-label" type="text" autocomplete="off" maxlength="32" />
+                                        <p class="form__error" id="rank-label-error" hidden>
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                                            <span id="rank-label-error-text"></span>
+                                        </p>
+                                    </div>
+
+                                    <div class="form__row form__row--grow">
+                                        <span class="form__label" id="rank-perms-label">O QUE ESTE CARGO PODE</span>
+                                        <div class="perms" id="rank-perms" role="group" aria-labelledby="rank-perms-label"></div>
+                                    </div>
+
+                                    <div class="form__row">
+                                        <span class="form__label">DINHEIRO DA GANG</span>
+                                        <label class="check check--standalone">
+                                            <input type="checkbox" id="rank-bank" />
+                                            <span class="check__box" aria-hidden="true"></span>
+                                            <span class="check__text">
+                                                <span class="check__title">Acesso ao banco da gang</span>
+                                                <span class="check__note">Movimenta o dinheiro da organização</span>
+                                            </span>
+                                        </label>
+                                    </div>
+
+                                    <div class="form__actions">
+                                        <button class="btn btn--quiet-danger" id="rank-delete" type="button">EXCLUIR CARGO</button>
+                                        <button class="btn btn--fill" id="rank-save" type="submit">SALVAR ALTERAÇÕES</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- TERRITÓRIO -->
+                    <section class="tab tab--territory" id="tab-territory" role="tabpanel" aria-labelledby="nav-territory" hidden aria-label="Mapa de territórios">
+                        <div class="territory">
+                            <div class="territory__map" id="territory-map" role="img" aria-label="Mapa de Los Santos com os bairros dominados por cada gang"></div>
+                            <aside class="territory__side">
+                                <div class="territory__summary">
+                                    <p class="data-label">SOB SEU DOMÍNIO</p>
+                                    <p class="territory__count" id="territory-count">0</p>
+                                    <p class="territory__hint" id="territory-hint">—</p>
+                                </div>
+                                <div class="territory__scroll">
+                                    <p class="data-label territory__group">BAIRROS</p>
+                                    <ul class="zone-list" id="zone-list"></ul>
+                                </div>
+                                <div class="legend" id="territory-legend" aria-label="Cores por gang"></div>
+                            </aside>
+                        </div>
+                        <p class="inline-message inline-message--warning" id="territory-empty" hidden></p>
+                    </section>
+
+                    <!-- ATIVIDADE -->
+                    <section class="tab tab--activity" id="tab-activity" role="tabpanel" aria-labelledby="nav-activity" hidden aria-label="Histórico de gestão">
+                        <p class="tab__intro">Tudo que foi feito na gestão da gang, do mais recente para o mais antigo.</p>
+                        <ol class="history" id="history-list"></ol>
+                    </section>
+                </main>
+
+                <footer class="window__footer menu__fx" style="--i: 2">
+                    <span class="footer__brand" id="footer-brand">NOIR STATE · GESTÃO DE GANG</span>
+                    <span class="footer__motto">A RUA LEMBRA DE QUEM MANDA NELA.</span>
+                </footer>
+            </div>
+
+            <!-- ═══════════════════════ Administração (/gangsetup) ═══════════════════════ -->
+            <!-- Mesma página, outro modo: um resource tem um ui_page só. O acento é o
+                 neutro de propósito — ferramenta de admin não é a tela da gang, e vestir as
+                 duas de vermelho faria uma passar pela outra. -->
+            <div class="window" data-service="admin" data-rail="closed" id="setup-window" hidden>
+
+                <aside class="window__rail" aria-label="Navegação da administração">
+                    <div class="rail__mark">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                        </svg>
+                        <span class="rail__brand-copy" aria-hidden="true">
+                            <strong>GANG SETUP</strong>
+                            <small>ADMINISTRAÇÃO</small>
+                        </span>
+                    </div>
+
+                    <button class="rail__toggle" id="setup-rail-toggle" type="button" aria-controls="setup-navigation" aria-expanded="false" aria-label="Abrir menu lateral">
+                        <span class="rail__chevron" aria-hidden="true"></span>
+                    </button>
+
+                    <nav class="menu__nav" id="setup-navigation" aria-label="Seções da administração" role="tablist" aria-orientation="vertical">
+                        <button class="nav-item" type="button" role="tab" data-setup-tab="gangs" id="setup-nav-gangs" data-tooltip="Gangs" aria-label="Gangs" aria-selected="true" aria-controls="setup-tab-gangs">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            <span class="nav-item__text">Gangs</span>
+                        </button>
+                        <button class="nav-item" type="button" role="tab" data-setup-tab="points" id="setup-nav-points" data-tooltip="Pontos de gestão" aria-label="Pontos de gestão" aria-selected="false" aria-controls="setup-tab-points" tabindex="-1">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                            <span class="nav-item__text">Pontos</span>
+                        </button>
+                    </nav>
+                </aside>
+
+                <header class="window__header menu__fx" style="--i: 0">
+                    <div class="brand">
+                        <span class="brand__stack">
+                            <span class="brand__eyebrow">ADMINISTRAÇÃO</span>
+                            <span class="brand__name">GANG SETUP</span>
+                            <span class="brand__sub" id="setup-context">—</span>
+                        </span>
+                    </div>
+                    <div class="window__actions">
+                        <div class="window__profile">
+                            <button class="menu__close" id="setup-close" type="button" aria-label="Fechar a administração"><kbd>ESC</kbd> FECHAR</button>
+                        </div>
+                    </div>
+                </header>
+
+                <main class="window__main menu__fx" style="--i: 1" id="setup-main" data-tab="gangs">
+
+                    <!-- REGISTRO DE GANGS -->
+                    <section class="tab tab--ranks" id="setup-tab-gangs" role="tabpanel" aria-labelledby="setup-nav-gangs" aria-label="Registro de gangs">
+                        <header class="section-head">
+                            <div class="section-head__text">
+                                <p class="data-label">GANGS DO SERVIDOR</p>
+                                <p class="section-head__sub" id="setup-gangs-sub">—</p>
+                            </div>
+                            <button class="btn btn--fill" id="setup-create" type="button">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                CRIAR GANG
+                            </button>
+                        </header>
+
+                        <p class="inline-message" id="setup-message" role="status" hidden></p>
+
+                        <div class="editor">
+                            <div class="editor__list" id="setup-gang-list" role="listbox" aria-label="Gangs do servidor"></div>
+
+                            <div class="editor__form">
+                                <div class="editor__locked" id="setup-empty" hidden>
+                                    <p class="empty__title">Escolha uma gang</p>
+                                    <p class="empty__note">Ou crie uma nova. O identificador é definido só na criação.</p>
+                                </div>
+
+                                <form class="form" id="setup-form" hidden>
+                                    <div class="form__row">
+                                        <label class="form__label" for="setup-name">IDENTIFICADOR</label>
+                                        <input class="field" id="setup-name" type="text" autocomplete="off" />
+                                        <p class="form__hint" id="setup-name-hint">Minúsculo, sem espaço. É por ele que cada personagem aponta para a gang, então ele não muda depois.</p>
+                                        <p class="form__error" id="setup-name-error" hidden>
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                                            <span id="setup-name-error-text"></span>
+                                        </p>
+                                    </div>
+
+                                    <div class="form__row">
+                                        <label class="form__label" for="setup-label">NOME EXIBIDO</label>
+                                        <input class="field" id="setup-label" type="text" autocomplete="off" />
+                                    </div>
+
+                                    <div class="form__row">
+                                        <span class="form__label" id="setup-archetype-label">ARQUÉTIPO</span>
+                                        <div class="choice" id="setup-archetype" role="radiogroup" aria-labelledby="setup-archetype-label"></div>
+                                        <p class="form__hint" id="setup-archetype-hint">Define a escada de cargos da gang.</p>
+                                    </div>
+
+                                    <div class="form__row">
+                                        <span class="form__label" id="setup-color-label">COR</span>
+                                        <div class="swatches" id="setup-color" role="radiogroup" aria-labelledby="setup-color-label"></div>
+
+                                        <div class="picker" id="setup-picker" hidden>
+                                            <div class="picker__preview" id="setup-picker-preview" aria-hidden="true"></div>
+                                            <div class="picker__controls">
+                                                <label class="picker__row">
+                                                    <span class="picker__label">MATIZ</span>
+                                                    <input class="picker__range picker__range--hue" id="setup-hue" type="range" min="0" max="360" step="1" />
+                                                </label>
+                                                <label class="picker__row">
+                                                    <span class="picker__label">SATURAÇÃO</span>
+                                                    <input class="picker__range" id="setup-sat" type="range" min="0" max="100" step="1" />
+                                                </label>
+                                                <label class="picker__row">
+                                                    <span class="picker__label">BRILHO</span>
+                                                    <input class="picker__range" id="setup-lig" type="range" min="0" max="100" step="1" />
+                                                </label>
+                                                <label class="picker__row picker__row--hex">
+                                                    <span class="picker__label" for="setup-hex">HEX</span>
+                                                    <input class="field picker__hex" id="setup-hex" type="text" autocomplete="off" maxlength="7" spellcheck="false" />
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <p class="form__error" id="setup-color-error" hidden>
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                                            <span id="setup-color-error-text"></span>
+                                        </p>
+                                    </div>
+
+                                    <div class="form__actions">
+                                        <button class="btn btn--quiet" type="button" id="setup-add-point">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                                            ADICIONAR PONTO
+                                        </button>
+                                        <button class="btn" type="button" id="setup-cancel" hidden>CANCELAR</button>
+                                        <button class="btn btn--fill" id="setup-save" type="submit">SALVAR ALTERAÇÕES</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- PONTOS DE GESTÃO -->
+                    <section class="tab tab--ranks" id="setup-tab-points" role="tabpanel" aria-labelledby="setup-nav-points" hidden aria-label="Pontos de gestão">
+                        <header class="section-head">
+                            <div class="section-head__text">
+                                <p class="data-label">PONTOS DE GESTÃO</p>
+                                <p class="section-head__sub" id="setup-points-sub">Onde o menu da gang abre no mundo.</p>
+                            </div>
+                        </header>
+
+                        <p class="inline-message" id="setup-points-message" role="status" hidden></p>
+
+                        <div class="table">
+                            <div class="table__head" role="row">
+                                <span class="data-label" role="columnheader">GANG</span>
+                                <span class="data-label" role="columnheader">COORDENADAS</span>
+                                <span class="data-label table__actions-head" role="columnheader">AÇÕES</span>
+                            </div>
+                            <div class="table__body" id="setup-point-list" role="rowgroup"></div>
+                        </div>
+                    </section>
+                </main>
+
+                <footer class="window__footer menu__fx" style="--i: 2">
+                    <span class="footer__brand">NOIR STATE · FERRAMENTA DE ADMINISTRAÇÃO</span>
+                    <span class="footer__motto" id="setup-footer-hint">TODA AÇÃO AQUI É VALIDADA NO SERVIDOR.</span>
+                </footer>
+            </div>
+
+            <!-- Confirmação de ação com consequência -->
+            <div class="backdrop" id="gang-modal" hidden role="dialog" aria-modal="true" aria-labelledby="modal-title">
+                <div class="confirm-box">
+                    <h2 class="confirm-box__title" id="modal-title">CONFIRMAR</h2>
+                    <p id="modal-text">—</p>
+                    <div class="confirm-box__field" id="modal-field" hidden>
+                        <label class="form__label" for="modal-input">NOME DO CARGO</label>
+                        <input class="field" id="modal-input" type="text" autocomplete="off" maxlength="32" />
+                    </div>
+                    <div class="confirm-box__actions">
+                        <button class="btn" type="button" id="modal-cancel">VOLTAR</button>
+                        <button class="btn btn--fill" type="button" id="modal-confirm">CONFIRMAR</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="vendor/leaflet.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
