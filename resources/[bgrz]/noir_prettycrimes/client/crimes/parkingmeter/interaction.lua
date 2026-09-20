@@ -47,7 +47,9 @@ local CODE_LOCALE = {
     too_far = 'pm_reason_too_far',
     reserved = 'pm_reason_reserved',
     already_taken = 'pm_reason_already_taken',
-    not_eligible = 'pm_reason_not_eligible',
+    bad_model = 'pm_reason_bad_model',
+    bad_coords = 'pm_reason_bad_coords',
+    out_of_area = 'pm_reason_out_of_area',
     no_tool = 'pm_reason_no_tool',
     too_much_heat = 'pm_reason_too_much_heat',
     too_soon = 'pm_reason_too_soon',
@@ -55,6 +57,7 @@ local CODE_LOCALE = {
     invalid_player = 'pm_failed',
     provider_unavailable = 'pm_reason_provider_unavailable',
     mismatch = 'pm_failed',
+    server_error = 'pm_reason_server_error',
 }
 
 ---@return table? anim
@@ -94,10 +97,58 @@ local function watchProgress(entity)
     end)
 end
 
+---Recusas que fazem parte do jogo.
+---
+---Chegar num poste que outro acabou de esvaziar, estar sem a ferramenta ou no
+---cooldown não é defeito de nada: é o sistema funcionando. Isso vai para o
+---`DebugPrint` e some com `Config.debug` desligado.
+---
+---O que NÃO está nesta lista continua saindo em `warn` mesmo em produção,
+---porque significa que alguma coisa precisa de conserto — e a diferença entre
+---"o jogo te disse não" e "o jogo quebrou" é exatamente o que um console
+---silencioso apaga.
+local EXPECTED_CODES = {
+    busy = true,
+    cooldown = true,
+    too_far = true,
+    reserved = true,
+    already_taken = true,
+    no_tool = true,
+    too_much_heat = true,
+    too_soon = true,
+    expired = true,
+    -- Os dois abaixo o SERVIDOR já registra em `warn`, com a chave e o hash.
+    -- Repetir no client seria a mesma notícia em dois consoles.
+    bad_model = true,
+    out_of_area = true,
+}
+
+---Mostra a recusa ao jogador e registra o motivo no console.
 ---@param code string?
 local function refuse(code)
-    DebugPrint('recusado:', code)
-    Integrations.notify(locale(CODE_LOCALE[code] or 'pm_failed'), 'error')
+    -- `nil` não é recusa: é o servidor não tendo respondido dentro do prazo.
+    -- Tratar os dois como a mesma coisa esconde a diferença entre "uma regra me
+    -- barrou" e "a mensagem não chegou" — problemas de natureza oposta.
+    if code == nil then
+        lib.print.warn(('parquímetro: servidor não respondeu em %dms')
+            :format(CrimeConfig.callbackTimeout))
+        return Integrations.notify(locale('pm_reason_no_answer'), 'error')
+    end
+
+    local key = CODE_LOCALE[code]
+    if not key then
+        -- Código que o servidor devolveu e este mapa não conhece. O jogador vê a
+        -- frase genérica, mas o console diz qual é — senão some.
+        lib.print.warn(('parquímetro: código de recusa desconhecido "%s"'):format(code))
+        return Integrations.notify(locale('pm_failed'), 'error')
+    end
+
+    if EXPECTED_CODES[code] then
+        DebugPrint('recusado:', code)
+    else
+        lib.print.warn(('parquímetro recusado pelo servidor: %s'):format(code))
+    end
+    Integrations.notify(locale(key), 'error')
 end
 
 ---O payload do pedido: coordenada e model, nada mais.
@@ -121,9 +172,20 @@ local function pickLock()
     return lib.skillCheck(config.difficulty, config.keys) == true
 end
 
----@param entity number
+---@param entity number handle do poste, JÁ extraído do payload do ox_target
 function Interaction.rob(entity)
     if busy then return end
+
+    -- A guarda é contra quem chama, não contra o jogador. O `onSelect` do
+    -- ox_target entrega uma tabela, e quem esquecer de tirar o `.entity` dela
+    -- chegava aqui e só descobria o engano dentro de um native, com uma
+    -- mensagem que não cita este arquivo. Falhar na porta é mais barato.
+    if type(entity) ~= 'number' or not DoesEntityExist(entity) then
+        lib.print.error(('Interaction.rob recebeu %s em vez de um handle de entidade')
+            :format(type(entity)))
+        return
+    end
+
     busy = true
 
     local coords, model = payloadFor(entity)

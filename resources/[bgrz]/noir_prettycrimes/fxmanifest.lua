@@ -52,11 +52,10 @@ files {
 -- passa pelo `bgrz_core`, e os providers são dependência DELE. É o que o §6.2 do
 -- SCRIPT_GOOD_PRACTICES pede do consumidor.
 --
--- `ox_target` é a exceção, e está declarado porque virou dependência de verdade:
--- o alvo por model do parquímetro chama `exports.ox_target:addModel` direto, por
--- decisão do dono do servidor. Dependência que se usa se declara — omiti-la aqui
--- para "parecer" conforme o §6.2 seria pior que a exceção, porque esconderia uma
--- ordem de start que o servidor precisa respeitar.
+-- `ox_target` é a exceção do §2.5, e está declarado porque virou dependência de
+-- verdade: o alvo por model do parquímetro chama `exports.ox_target:addModel`
+-- direto. Declarar é obrigação de quem usa a exceção — omitir para "parecer"
+-- conforme o §6.2 esconderia uma ordem de start que o servidor precisa respeitar.
 dependencies {
     '/onesync',
     'ox_lib',

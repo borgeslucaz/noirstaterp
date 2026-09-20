@@ -37,12 +37,16 @@
     "pm_reason_too_far": "You're too far away.",
     "pm_reason_reserved": "Someone is already working on that one.",
     "pm_reason_already_taken": "That one's already been emptied.",
-    "pm_reason_not_eligible": "You can't break into that here.",
     "pm_reason_no_tool": "You need a screwdriver for this.",
     "pm_reason_too_much_heat": "Too many meters for one day. The city noticed.",
     "pm_reason_too_soon": "Too fast. Do it properly.",
     "pm_reason_expired": "You took too long.",
     "pm_reason_provider_unavailable": "You can't do that right now. Try again in a moment.",
     "pm_dispatch_title": "Parking meter break-in",
-    "pm_dispatch_message": "Report of damage to a parking meter on the street"
+    "pm_dispatch_message": "Report of damage to a parking meter on the street",
+    "pm_reason_bad_model": "That isn't a parking meter.",
+    "pm_reason_bad_coords": "Couldn't get a proper angle on that one.",
+    "pm_reason_out_of_area": "That meter isn't mapped. Tell an admin.",
+    "pm_reason_no_answer": "The server didn't answer. Try again.",
+    "pm_reason_server_error": "Something broke on the server. Tell an admin."
 }

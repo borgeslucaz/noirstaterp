@@ -84,13 +84,24 @@ local function attachTarget()
             icon = CrimeConfig.icon,
             label = locale('pm_target_rob'),
             distance = CrimeConfig.targetDistance,
+            -- As duas assinaturas do ox_target são DIFERENTES, e confundi-las
+            -- não dá erro de carregamento — dá erro no clique:
+            --
+            --   canInteract(entity, distance, coords, name, bone)  <- entity cru
+            --   onSelect(response)                                 <- TABELA
+            --
+            -- O `response` é um clone da option com `entity`, `coords`,
+            -- `distance` e `zone` acrescentados. Passá-lo inteiro adiante faz o
+            -- `GetEntityModel` receber uma tabela e o cliente cospe
+            -- "Failed to parse integer from string" — mensagem que não aponta
+            -- para lugar nenhum perto daqui.
             canInteract = function(entity)
                 local key = Interaction.keyFor(entity)
                 if State.isEmptied(key) then return false end
                 return Interaction.canStart(key)
             end,
-            onSelect = function(entity)
-                Interaction.rob(entity)
+            onSelect = function(response)
+                Interaction.rob(type(response) == 'table' and response.entity or response)
             end,
         },
     })
@@ -183,15 +194,11 @@ end
 ---Como o `/dumpmeters`, é ferramenta de setup: não depende de `Config.debug` e
 ---quem chama é o servidor, atrás de `debugAce`.
 local function diagnose()
-    local coreState = GetResourceState('bgrz_core')
-    local targetState = GetResourceState('ox_target')
-
-    -- Pergunta ao runtime se o export existe, em vez de deduzir pelo sintoma.
-    -- É o `addModel` do ox_target que interessa: o alvo por model fala com ele
-    -- direto, sem passar pelo bridge.
-    local hasExport = pcall(function()
-        return exports.ox_target.addModel
-    end)
+    -- Tudo pelas sondas do `integrations.lua`: este arquivo não cita outro
+    -- resource pelo nome, nem para diagnosticar.
+    local coreState = Integrations.coreState()
+    local targetState = Integrations.targetState()
+    local hasExport = Integrations.hasModelTarget()
 
     local nearby = nearbyMeters(50.0)
     local nearest = nearby[1]

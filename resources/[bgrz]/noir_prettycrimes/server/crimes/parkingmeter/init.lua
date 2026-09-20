@@ -17,15 +17,18 @@
 ---  3. a coordenada precisa ser um número plausível;
 ---  4. o JOGADOR precisa estar nela — medido com a posição server-side do ped,
 ---     que é a única coordenada desta troca em que se pode confiar;
----  5. a coordenada precisa cair numa área onde parquímetro existe, ou na
----     allowlist estrita de `positions` quando ela estiver preenchida;
+---  5. a chave precisa estar em `positions`, **só quando** essa allowlist
+---     estrita estiver preenchida (opt-in, vazia por padrão);
 ---  6. o poste não pode estar vazio nem reservado por outro;
 ---  7. o jogador precisa estar abaixo do teto por hora e fora do cooldown;
 ---  8. a ferramenta precisa estar no inventário, conferida no servidor.
 ---
----O passo 4 é o que sustenta os outros: sem ele, coordenada seria só um número no
----payload. Com ele, o cheater precisa estar fisicamente onde diz que está, e o
----passo 7 limita quanto isso vale.
+---Os passos 4 e 7 são os que sustentam o resto, e não por acaso são os dois que
+---**não dependem de saber onde o mapa põe os postes**. O passo 4 obriga o
+---cheater a estar fisicamente onde diz que está; o passo 7 limita o quanto isso
+---vale a pena. Houve uma allowlist por área aqui, adivinhada sem dado de mapa, e
+---ela foi removida: recusava poste de verdade em rua não cadastrada, protegendo
+---algo que o teto por hora já protege melhor.
 
 local Constants = require 'shared.constants'
 local Utils = require 'shared.utils'
@@ -75,15 +78,28 @@ local strictPositions = type(CrimeServerConfig.positions) == 'table'
 ---@return string? errorCode
 local function resolveMeter(source, coords, model)
     if not Security.isValidPlayer(source) then return nil, 'invalid_player' end
+    -- Os três motivos abaixo tinham o MESMO código, e o jogador via a mesma
+    -- frase nos três. Do lado de fora, "não dá para arrombar isso aqui" cobria
+    -- desde prop errado até área não cadastrada — e descobrir qual era exigia
+    -- ligar o debug. Códigos distintos custam três linhas de locale e devolvem
+    -- a diferença entre "isso não é um parquímetro" e "esta rua não está no
+    -- mapa do crime", que são problemas de dono diferente.
     if not Rules.isAllowedModel(model) then
-        DebugPrint(('model fora da allowlist de %s: %s'):format(source, tostring(model)))
-        return nil, 'not_eligible'
+        -- `warn` e não `DebugPrint`: se o alvo apareceu, o ox_target já casou o
+        -- model do lado do client, então uma recusa aqui quer dizer que as duas
+        -- allowlists discordam — e isso é defeito de código ou config, não
+        -- jogador tentando algo. Com o hash recebido e o esperado lado a lado,
+        -- a divergência se explica sozinha em vez de virar "não dá pra roubar".
+        lib.print.warn(('parquímetro: model %s não está na allowlist (esperados: %s)')
+            :format(tostring(Rules.normalizeHash(model) or model),
+                table.concat(Rules.expectedHashes(), ', ')))
+        return nil, 'bad_model'
     end
 
     local key = Rules.meterKey(coords)
     if not key then
         DebugPrint(('coordenada inválida de %s'):format(source))
-        return nil, 'not_eligible'
+        return nil, 'bad_coords'
     end
 
     -- A distância é medida com a coordenada que o SERVIDOR tem do jogador contra
@@ -96,14 +112,26 @@ local function resolveMeter(source, coords, model)
         return nil, 'too_far'
     end
 
-    if strictPositions then
-        if not CrimeServerConfig.positions[key] then
-            DebugPrint(('poste fora da allowlist estrita: %s'):format(key))
-            return nil, 'not_eligible'
-        end
-    elseif not Rules.inAnyArea(coords, CrimeServerConfig.areas) then
-        DebugPrint(('poste fora das áreas permitidas: %s'):format(key))
-        return nil, 'not_eligible'
+    -- Só a allowlist ESTRITA filtra por lugar, e ela é opt-in. Não há mais
+    -- allowlist por área.
+    --
+    -- Ela existia para barrar poste imaginário no meio do deserto, mas era uma
+    -- lista de esferas escritas de cabeça, sem dado de mapa. O modo de falha
+    -- dela não era deixar cheater passar: era recusar parquímetro DE VERDADE
+    -- numa rua que ninguém tinha cadastrado, e o jogador honesto levava a culpa
+    -- de um palpite errado na config.
+    --
+    -- O que sustenta o crime sem ela: o passo anterior exige que o jogador
+    -- esteja fisicamente na coordenada, e o `maxPerHour` limita o quanto
+    -- inventar coordenada vale a pena. Essas duas não dependem de adivinhar
+    -- onde o mapa põe os postes.
+    --
+    -- Quem quiser o filtro por lugar de volta preenche `positions` com
+    -- `/dumpmeters`: allowlist exata, levantada do mapa real, em vez de
+    -- aproximada.
+    if strictPositions and not CrimeServerConfig.positions[key] then
+        lib.print.warn(('parquímetro fora da allowlist estrita: %s'):format(key))
+        return nil, 'out_of_area'
     end
 
     return key
@@ -150,6 +178,26 @@ end
 -- ---------------------------------------------------------------------------
 -- Pedidos
 -- ---------------------------------------------------------------------------
+
+---`lib.callback.register` com rede de segurança: o handler que quebrar vira uma
+---resposta, e não um silêncio.
+---
+---O `onError` é por callback porque as respostas têm formas diferentes: os três
+---pedidos devolvem o envelope `{ ok, code }`, e o `sync` devolve um snapshot ou
+---nada. Mandar envelope no lugar do snapshot faria o client tratar `ok` e
+---`code` como se fossem chaves de poste.
+---@param name string
+---@param handler fun(source: number, ...: any): any
+---@param onError any resposta a devolver quando o handler levantar erro
+local function registerCallback(name, handler, onError)
+    lib.callback.register(name, function(source, ...)
+        local ok, result = pcall(handler, source, ...)
+        if ok then return result end
+
+        lib.print.error(('%s quebrou para %s: %s'):format(name, tostring(source), tostring(result)))
+        return onError
+    end)
+end
 
 ---O client acabou de entrar e quer saber quais postes já estão vazios.
 ---@param source number
@@ -331,7 +379,6 @@ local function registerSetupCommands()
         lib.print.info('--- meterdiag (servidor) ---')
         lib.print.info(('  allowlist: %s'):format(
             strictPositions and 'estrita (positions)' or 'por área'))
-        lib.print.info(('  áreas configuradas: %d'):format(#CrimeServerConfig.areas))
         lib.print.info(('  postes vazios: %d | reservas: %d | jogadores com histórico: %d')
             :format(emptiedCount, Sessions.counts(), players))
         lib.print.info(('  ferramenta exigida: %s'):format(
@@ -344,12 +391,9 @@ local function registerSetupCommands()
             return
         end
 
-        local playerCoords = GetEntityCoords(GetPlayerPed(source))
         lib.print.info(('  %s: %d/%s na janela, cooldown %ds')
             :format(citizenId, Registry.heatCount(citizenId),
                 tostring(CrimeServerConfig.maxPerHour), Registry.claimCooldownLeft(citizenId)))
-        lib.print.info(('  está em área permitida: %s'):format(
-            tostring(Rules.inAnyArea(playerCoords, CrimeServerConfig.areas))))
         lib.print.info(('  tem a ferramenta: %s'):format(
             tostring(Integrations.firstItemOwned(source, CrimeServerConfig.tool.items) or false)))
     end)
@@ -394,10 +438,21 @@ end
 -- ---------------------------------------------------------------------------
 
 function module.start()
-    lib.callback.register(EVENT_SYNC, handleSync)
-    lib.callback.register(EVENT_RESERVE, handleReserve)
-    lib.callback.register(EVENT_RELEASE, handleRelease)
-    lib.callback.register(EVENT_CLAIM, handleClaim)
+    -- Todo callback responde, inclusive quando o handler quebra.
+    --
+    -- `lib.callback.register` não devolve nada se o handler levanta erro, e o
+    -- client fica pendurado até o prazo. O sintoma vira "servidor não
+    -- respondeu", que é indistinguível de rede caída — enquanto o erro de
+    -- verdade fica só no console do servidor, onde ninguém procura porque a
+    -- pista apareceu no client.
+    --
+    -- Isso não é hipotético aqui: nenhuma chamada ao bridge neste resource é
+    -- protegida, e `GetCitizenId` ou `GetItemCount` levantando derruba o
+    -- `handleReserve` inteiro no meio.
+    registerCallback(EVENT_SYNC, handleSync, nil)
+    registerCallback(EVENT_RESERVE, handleReserve, { ok = false, code = 'server_error' })
+    registerCallback(EVENT_RELEASE, handleRelease, { ok = false, code = 'server_error' })
+    registerCallback(EVENT_CLAIM, handleClaim, { ok = false, code = 'server_error' })
 
     if strictPositions then
         lib.print.info(('parkingmeter: allowlist estrita com %d postes')

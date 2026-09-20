@@ -83,38 +83,7 @@ T.equal(Rules.flatDistance(vec3(0, 0, 0), vec3(3, 4, 0)), 5.0, 'pitágoras no pl
 T.equal(Rules.flatDistance(vec3(0, 0, 0), vec3(3, 4, 100)), 5.0, 'Z não conta')
 T.falsy(Rules.flatDistance(nil, vec3(0, 0, 0)), 'coordenada inválida devolve nil')
 
--- Áreas --------------------------------------------------------------------------------
-
-local areas = {
-    { coords = vec3(100.0, 100.0, 20.0), radius = 50.0 },
-    { coords = vec3(-500.0, 0.0, 30.0), radius = 10.0 },
-}
-
-T.truthy(Rules.inAnyArea(vec3(100.0, 100.0, 20.0), areas), 'o centro está dentro')
-T.truthy(Rules.inAnyArea(vec3(140.0, 100.0, 20.0), areas), 'dentro do raio')
-T.falsy(Rules.inAnyArea(vec3(200.0, 100.0, 20.0), areas), 'fora do raio')
-T.truthy(Rules.inAnyArea(vec3(-495.0, 0.0, 30.0), areas), 'a segunda área também vale')
-T.falsy(Rules.inAnyArea(vec3(-495.0, 0.0, 30.0), {}), 'sem áreas, nada passa')
-T.falsy(Rules.inAnyArea(nil, areas), 'coordenada inválida não passa')
-T.falsy(Rules.inAnyArea(vec3(0, 0, 0), nil), 'lista inválida não passa')
-
--- A esfera conta Z, e isso importa: um poste numa garagem 60m abaixo do centro
--- da área não é o mesmo lugar que a calçada em cima dela.
-T.falsy(Rules.inAnyArea(vec3(100.0, 100.0, 200.0), areas), 'a esfera é 3D')
-
--- Área com raio inválido não pode virar "passa tudo".
-T.falsy(Rules.inAnyArea(vec3(0, 0, 0), { { coords = vec3(0, 0, 0) } }),
-    'área sem raio não aceita nada')
-T.falsy(Rules.inAnyArea(vec3(0, 0, 0), { { radius = 10.0 } }),
-    'área sem coordenada não aceita nada')
-
--- Áreas reais do config de servidor: uma coordenada do centro de Los Santos
--- precisa passar, e uma do deserto não.
 local ServerConfig = require 'config.parkingmeter_server'
-T.truthy(Rules.inAnyArea(vec3(215.0, -880.0, 30.0), ServerConfig.areas),
-    'Legion Square está coberta')
-T.falsy(Rules.inAnyArea(vec3(1700.0, 3700.0, 34.0), ServerConfig.areas),
-    'Sandy Shores não tem parquímetro')
 
 -- Duração ------------------------------------------------------------------------------
 

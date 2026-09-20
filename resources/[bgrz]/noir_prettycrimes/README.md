@@ -73,8 +73,8 @@ o jogador chega perto e mira
         ↓
 ox_target: [ Arrombar parquímetro ]
         ↓
-o servidor confere ANTES de qualquer animação: distância, área,
-ferramenta, cooldown, teto por hora, e se o poste já foi esvaziado
+o servidor confere ANTES de qualquer animação: distância, ferramenta,
+cooldown, teto por hora, e se o poste já foi esvaziado
         ↓
 minigame de fechadura (lib.skillCheck)
         ↓
@@ -135,23 +135,37 @@ custo:
 | 2 | model na allowlist (§7.4) | arrombar "qualquer prop" |
 | 3 | coordenada finita e dentro do mapa | payload lixo |
 | 4 | **o jogador está na coordenada**, medido com a posição server-side do ped | saque à distância |
-| 5 | a coordenada cai numa área onde parquímetro existe | poste imaginário no deserto |
+| 5 | a chave está em `positions` — **só se** essa allowlist estiver preenchida (opt-in) | coordenada inventada |
 | 6 | o poste não está vazio nem reservado por outro | duplicação e corrida |
 | 7 | cooldown e teto por hora, por `citizenId` | farm |
 | 8 | ferramenta no inventário, conferida no servidor | `items` do target é só UI |
 | 9 | tempo decorrido entre `reserve` e `claim` (§17.4) | pular as animações |
 
-O passo 4 é o que sustenta os outros: sem ele, coordenada seria só um número no
-payload. Com ele, o cheater precisa estar fisicamente onde diz que está.
+Os passos 4 e 7 sustentam o resto, e não por acaso são os dois que **não
+dependem de saber onde o mapa põe os postes**. O passo 4 obriga o cheater a estar
+fisicamente onde diz que está; o passo 7 limita o quanto isso rende.
 
-**O buraco que sobra, dito na cara:** quem está numa rua com postes de verdade
-pode inventar coordenadas vizinhas e arrombar postes que não existem. O passo 5
-não pega isso, porque a rua está dentro da área. Quem pega é o passo 7: com
-`maxPerHour = 8`, o cheater ganha no máximo o que um jogador honesto ganharia
-achando oito postes. Ele economiza a caminhada, não o dinheiro — e essa é a
-diferença entre um exploit e um atalho sem graça.
+**O buraco que sobra, dito na cara:** com `positions` vazia, quem está numa rua
+com postes de verdade pode inventar coordenadas vizinhas e arrombar postes que
+não existem. Quem segura isso é o passo 7: com `maxPerHour = 8`, o cheater ganha
+no máximo o que um jogador honesto ganharia achando oito postes. Ele economiza a
+caminhada, não o dinheiro — e essa é a diferença entre um exploit e um atalho sem
+graça.
 
-Para fechar de vez, existe a allowlist estrita:
+### A camada que foi removida
+
+Houve aqui uma allowlist **por área**: oito esferas cobrindo os bairros com
+parquímetro. Ela foi removida, e vale registrar por quê, porque a lição é
+reaproveitável.
+
+O problema não era ela deixar cheater passar. Era o contrário: as esferas foram
+escritas sem dado de mapa, de memória, e recusavam parquímetro **de verdade** em
+rua não cadastrada. O jogador honesto levava `não dá para arrombar isso aqui` por
+causa de um palpite errado na config, e não tinha como saber disso.
+
+Uma camada que erra contra quem joga certo, para proteger algo que o teto por
+hora já protege melhor e sem adivinhar nada, custa mais do que entrega. O filtro
+por lugar continua disponível — só que exato, levantado do mapa real:
 
 ```lua
 -- config/parkingmeter_server.lua
@@ -161,21 +175,23 @@ positions = {
 }
 ```
 
-Preenchida, ela passa a ser a única palavra. O jeito de levantá-la é o comando
-`/dumpmeters`, que imprime no console as chaves de todos os postes em volta,
-prontas para colar. Rode por alguns bairros e cole a saída.
+Vazia (o padrão), não há filtro por lugar nenhum. Preenchida, ela passa a ser a
+única palavra, e o crime deixa de aceitar coordenada inventada. O jeito de
+levantá-la é o comando `/dumpmeters`, que imprime no F8 as chaves de todos os
+postes em volta, prontas para colar. Rode por alguns bairros e cole a saída.
 
 ### Configuração
 
 `config/parkingmeter.lua` (**enviada ao cliente** — models, grade, durações,
-minigame, animações) e `config/parkingmeter_server.lua` (**não enviada** — áreas,
-ferramenta, cooldowns, teto, recompensa, dispatch).
+minigame, animações) e `config/parkingmeter_server.lua` (**não enviada** —
+ferramenta, cooldowns, teto, recompensa, dispatch, `positions`).
 
 Os números que mais mudam o jogo:
 
 | Chave | Onde | Padrão | O que faz |
 | --- | --- | --- | --- |
-| `maxPerHour` | servidor | `8` | teto por jogador na janela deslizante; é a trava que segura a economia |
+| `maxPerHour` | servidor | `8` | teto por jogador na janela deslizante; **é a trava que segura a economia** |
+| `positions` | servidor | vazia | allowlist exata por poste; vazia, não há filtro por lugar |
 | `meterCooldown` | servidor | `1800` s | quanto tempo um poste fica vazio |
 | `playerCooldown` | servidor | `45` s | espera entre dois arrombamentos **concluídos** |
 | `attemptInterval` | servidor | `1500` ms | anti-spam, cobrado em toda tentativa |
@@ -215,9 +231,9 @@ providers são dependência dele. É o que o §2.1 e o §6.2 do
 
 ### A exceção do `ox_target`
 
-O alvo **por model** do parquímetro chama `exports.ox_target:addModel` direto, por
-decisão do dono do servidor. É uma exceção consciente ao §2.1, e vale registrar o
-que ela custa e o que ela devolve:
+O alvo **por model** do parquímetro chama `exports.ox_target:addModel` direto.
+Isso é permitido pelo **§2.5** do `SCRIPT_GOOD_PRACTICES` — a exceção nasceu aqui
+e foi promovida a regra do projeto. O que ela custa e o que devolve:
 
 | | |
 | --- | --- |
@@ -228,9 +244,11 @@ A chamada mora em `client/integrations.lua`, junto com as que passam pelo bridge
 e não escondida dentro do módulo do crime. O arquivo continua sendo o único lugar
 do client que cita outro resource pelo nome: a regra e a exceção moram juntas.
 
-O `manifest_spec` acompanha essa decisão em vez de brigar com ela — ele exige que
-`ox_target` **esteja** declarado enquanto o `integrations.lua` o chamar direto, e
-continua barrando os outros providers.
+O `manifest_spec` cobre as quatro obrigações que o §2.5 impõe a quem usa a
+exceção: `ox_target` declarado em `dependencies{}`, chamadas concentradas num
+arquivo só, options no namespace do resource, e nenhum outro provider chamado
+direto. Os três primeiros são testados; o quarto continua barrando `qbx_core`,
+`ox_inventory` e `qbx_vehiclekeys`.
 
 `bgrz_core` é dependência dura, e de propósito: com o bridge fora do ar o servidor
 **recusa** a ação e avisa uma vez no boot, em vez de seguir por um segundo caminho
@@ -302,7 +320,7 @@ noir_prettycrimes/
 │   ├── smashgrab.lua           smash & grab, ENVIADA (prop, assento, janela)
 │   ├── smashgrab_server.lua    smash & grab, NÃO enviada (loot, cooldown)
 │   ├── parkingmeter.lua        parquímetro, ENVIADA (models, grade, durações)
-│   └── parkingmeter_server.lua parquímetro, NÃO enviada (áreas, teto, recompensa)
+│   └── parkingmeter_server.lua parquímetro, NÃO enviada (teto, recompensa, positions)
 ├── shared/
 │   ├── constants.lua           nomes de evento, state bags, lista de crimes
 │   ├── utils.lua               DebugPrint, sorteio, validação de tipo
@@ -859,8 +877,8 @@ quando o alvo não aparece: em qual elo a cadeia quebrou.
 O módulo tem cinco dependências em série — `bgrz_core` de pé, export presente,
 `ox_target` de pé, alvo registrado, personagem carregado — e quando qualquer uma
 falha o sintoma é o mesmo: nada acontece ao mirar o poste. O comando imprime o
-estado de cada elo no F8 de quem chamou, a parte de servidor (área, teto,
-ferramenta, reservas) no console do servidor, e fecha com um veredito apontando
+estado de cada elo no F8 de quem chamou, a parte de servidor (teto, ferramenta,
+reservas, modo da allowlist) no console do servidor, e fecha com um veredito apontando
 o **primeiro** elo quebrado — os seguintes são consequência.
 
 O veredito aponta o primeiro elo quebrado. Repare que `bgrz_core não está
@@ -905,6 +923,31 @@ exatamente estes passos, e serve de modelo pronto para copiar.
 7. **Rode os testes**: `lua tests/unit/manifest_spec.lua` confere os passos 1, 5 e
    6 e, principalmente, que nenhum config de servidor vazou para o cliente.
 
+### A pegadinha do `onSelect`
+
+As duas callbacks de uma option do ox_target recebem coisas **diferentes**:
+
+```lua
+canInteract = function(entity, distance, coords, name, bone)  -- entity CRU
+onSelect    = function(response)                              -- TABELA
+```
+
+O `response` é um clone da option com `entity`, `coords`, `distance` e `zone`
+acrescentados — o handle está em `response.entity`, não no próprio argumento.
+
+Confundir os dois não dá erro de carregamento nem aparece no boot. Dá erro no
+clique, e a mensagem não cita o seu arquivo:
+
+```
+Script error in Native GetEntityModel: arg[0]: Failed to parse integer from string.
+```
+
+O smashgrab nunca esbarrou nisso porque os `onSelect` dele são closures sobre o
+`entry` e ignoram o argumento. O parquímetro precisa do handle e esbarrou na
+primeira vez que alguém clicou. Hoje o `Interaction.rob` recusa argumento que não
+seja handle e diz isso no console, mas o jeito certo continua sendo tirar o
+`.entity` no `onSelect`.
+
 | Função               | Lado     | Quando                        |
 | -------------------- | -------- | ----------------------------- |
 | `start()`            | ambos    | obrigatória; no boot          |
@@ -926,8 +969,8 @@ ox_lib, `os.time` e `GetGameTimer`, então cooldown de meia hora e teto por hora
 são testados movendo o relógio em vez de esperando.
 
 - `parkingmeter_rules_spec`: identidade do poste — allowlist de model,
-  arredondamento simétrico da grade, distância horizontal, áreas, e a coerência
-  entre o config do client e o do servidor;
+  arredondamento simétrico da grade, distância horizontal, e a coerência entre o
+  config do client e o do servidor;
 - `parkingmeter_registry_spec`: cooldown do poste, cooldown do jogador e janela
   deslizante do teto, incluindo a volta do jogador quando a janela desliza;
 - `parkingmeter_sessions_spec`: dois jogadores no mesmo poste, um jogador em dois
@@ -954,7 +997,7 @@ restart noir_prettycrimes
 1. **Ache um poste.** Vá a Legion Square, Del Perro ou Vinewood e rode
    `/dumpmeters 100` (funciona sem `Config.debug`, atrás de `debugAce`). Ele
    lista no seu F8 os parquímetros em volta com a chave de cada um. Zero
-   resultados quer dizer que você não está numa área com postes.
+   resultados quer dizer que não há parquímetro carregado em volta de você.
 2. **Pegue a ferramenta**: `/giveitem <id> screwdriver 1`.
 3. **Mire e arrombe.** O alvo só aparece a pé, vivo e logado.
 4. **Confirme que o servidor decidiu**, não o client: `/meterstate` mostra
@@ -974,8 +1017,8 @@ O que vale a pena quebrar de propósito:
 | `/meterreset` | depois de esvaziar vários | todos voltam a ter moedas na hora, em todos os clients |
 
 `/meterinfo` responde "por que esse não dá para arrombar" pelo que o **client**
-sabe. Ele não sabe tudo de propósito: área, teto e ferramenta são do servidor, e
-aparecem no console dele com `Config.debug` ligado.
+sabe. Ele não sabe tudo de propósito: teto, ferramenta e `positions` são do
+servidor, e aparecem no console dele.
 
 ## Progressão criminal (opcional)
 
@@ -1007,10 +1050,10 @@ Sem isso o core recusa a chamada, e a recusa é silenciosa para o jogador. Com
 
 Do parquímetro:
 
-* **O servidor não vê o poste.** Ele valida a posição do jogador, a área e o teto
-  por hora, mas não consegue confirmar que existe um parquímetro na coordenada.
-  Quem está numa rua com postes pode inventar coordenadas vizinhas; o teto por
-  hora é o que torna isso irrelevante. A allowlist `positions` fecha de vez.
+* **O servidor não vê o poste.** Ele valida a posição do jogador e o teto por
+  hora, mas não consegue confirmar que existe um parquímetro na coordenada. Quem
+  está numa rua com postes pode inventar coordenadas vizinhas; o teto por hora é
+  o que torna isso irrelevante. A allowlist `positions` fecha de vez.
 * **O restart esquece quais postes estavam vazios.** A memória vive em RAM. Depois
   de um restart, todos os postes voltam a ter moedas — inclusive os arrombados
   cinco minutos antes.
@@ -1022,9 +1065,10 @@ Do parquímetro:
 * **Dois jogadores no mesmo poste só descobrem ao tentar.** Sem state bag, não há
   como esconder o alvo de um poste que outro acabou de reservar. A recusa chega no
   primeiro round-trip, antes de qualquer animação, então o custo é um aviso.
-* **As áreas são grossas.** As esferas de `areas` cobrem a cidade por bairro, não
-  por calçada. Um poste dentro de um MLO na borda de uma esfera pode ficar de fora,
-  e um lugar sem poste dentro dela fica dentro.
+* **Sem `positions`, não há filtro por lugar.** A allowlist por área foi removida
+  (o motivo está em "A camada que foi removida"). Até alguém levantar as posições
+  com `/dumpmeters`, a única barreira geográfica é o jogador ter de estar
+  fisicamente na coordenada.
 
 ## Conformidade com `SCRIPT_GOOD_PRACTICES.md`
 
@@ -1032,10 +1076,11 @@ Auditado contra `resources/docs/SCRIPT_GOOD_PRACTICES.md`.
 
 | Seção | Como é atendida |
 | --- | --- |
-| §2.1 ponte obrigatória | nenhuma chamada a `qbx_core` ou `ox_inventory`; tudo pelo `bgrz_core`, **exceto** o alvo por model do parquímetro, que chama o `ox_target` direto por decisão do dono do servidor (documentada em Dependências) |
+| §2.1 ponte obrigatória | nenhuma chamada a `qbx_core` ou `ox_inventory`; tudo pelo `bgrz_core` |
+| §2.5 exceção do `ox_target` | o alvo por model chama o provider direto, concentrado em `client/integrations.lua`, com `ox_target` declarado e options no namespace do resource — as quatro obrigações do §2.5, com teste |
 | §3.4 lacunas do bridge | 6 exports acrescentados ao `bgrz_core`, com teste, antes de serem consumidos |
 | §5.5 / §19.1 config | dividida por sigilo; loot e rate limit fora de `files{}` |
-| §6.2 manifest | sem `lua54`; só `ox_target` como provider declarado, porque é chamado direto e dependência usada se declara |
+| §6.2 manifest | sem `lua54`; só `ox_target` como provider declarado, como o §2.5 exige de quem o chama direto |
 | §7 autoridade | client manda netId/coordenada + intenção; o servidor decide tudo, spawn e recompensa incluídos |
 | §7.5 rate limit | por jogador e ação, cobrado no pedido, limpo no `playerDropped` |
 | §7.6 idempotência | `claimed` é final; `claim` repetido devolve `already_taken` |

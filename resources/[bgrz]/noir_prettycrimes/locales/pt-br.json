@@ -37,12 +37,16 @@
     "pm_reason_too_far": "Você está longe demais.",
     "pm_reason_reserved": "Alguém já está mexendo nesse.",
     "pm_reason_already_taken": "Esse já foi esvaziado.",
-    "pm_reason_not_eligible": "Não dá para arrombar isso aqui.",
     "pm_reason_no_tool": "Você precisa de uma chave de fenda para isso.",
     "pm_reason_too_much_heat": "Parquímetro demais por hoje. A cidade já reparou.",
     "pm_reason_too_soon": "Rápido demais. Faça direito.",
     "pm_reason_expired": "Você demorou demais.",
     "pm_reason_provider_unavailable": "Não dá para fazer isso agora. Tente de novo em instantes.",
     "pm_dispatch_title": "Arrombamento de parquímetro",
-    "pm_dispatch_message": "Denúncia de dano a parquímetro na via pública"
+    "pm_dispatch_message": "Denúncia de dano a parquímetro na via pública",
+    "pm_reason_bad_model": "Isso não é um parquímetro.",
+    "pm_reason_bad_coords": "Não consegui mirar direito nesse poste.",
+    "pm_reason_out_of_area": "Esse poste não está mapeado. Avise um admin.",
+    "pm_reason_no_answer": "O servidor não respondeu. Tente de novo.",
+    "pm_reason_server_error": "Algo quebrou no servidor. Avise um admin."
 }

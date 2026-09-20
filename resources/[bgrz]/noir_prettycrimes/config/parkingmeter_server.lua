@@ -4,8 +4,8 @@
 ---jogador. É onde ficam as coisas que o §19.1 do SCRIPT_GOOD_PRACTICES manda manter
 ---fora do shared: recompensa real, regra anti-exploit, áreas aceitas e limites.
 ---
----**Leia `areas` e `maxPerHour` antes de mexer em qualquer outra coisa.** Eles são
----a defesa deste crime, e o motivo está escrito lá.
+---**Leia `maxPerHour` antes de mexer em qualquer outra coisa.** Ele é a defesa
+---deste crime, e o motivo está escrito lá.
 
 return {
     -- =======================================================================
@@ -14,46 +14,42 @@ return {
     --
     -- O servidor NÃO consegue ver prop de mapa: ele não existe do lado de cá, e
     -- não há entidade para resolver. Quando o client diz "estou arrombando o
-    -- poste em tal coordenada", o servidor não tem como conferir que há um poste
-    -- ali. O que ele consegue conferir é tudo em volta: que o JOGADOR está
-    -- naquela coordenada (posição server-side), que ela cai numa área onde
-    -- parquímetro existe, e quantos o jogador já arrombou na última hora.
+    -- poste em tal coordenada", o servidor não tem como conferir que há um
+    -- poste ali.
     --
-    -- Estas esferas são a allowlist grossa do §7.4 aplicada ao que dá para
-    -- aplicar. Elas cobrem a cidade; fora delas o pedido é recusado, o que tira
-    -- do mapa o cheater que quer arrombar postes imaginários no meio do deserto,
-    -- sozinho, sem ninguém para ver.
+    -- O que ele confere, e é o que sustenta o crime:
     --
-    -- Elas NÃO impedem quem está numa rua com postes de verdade de inventar
-    -- coordenadas vizinhas. Quem fecha essa porta é o `maxPerHour`: com teto por
-    -- hora, o cheater ganha no máximo o que um jogador honesto ganharia achando
-    -- a mesma quantidade de postes. Ele economiza a caminhada, não o dinheiro.
+    --   1. que o JOGADOR está naquela coordenada, medido com a posição
+    --      server-side do ped. O cheater precisa estar fisicamente onde diz
+    --      que está;
+    --   2. `maxPerHour`, logo abaixo. É o teto que torna inútil inventar
+    --      coordenada: quem inventa ganha no máximo o que um jogador honesto
+    --      ganharia achando a mesma quantidade de postes. Economiza a
+    --      caminhada, não o dinheiro.
     --
-    -- Para fechar de vez, preencha `positions` (logo abaixo).
-    areas = {
-        { coords = vec3(180.0, -900.0, 30.0), radius = 700.0 },    -- Legion / Pillbox / centro
-        { coords = vec3(300.0, 200.0, 90.0), radius = 700.0 },     -- Vinewood / Hawick
-        { coords = vec3(-600.0, -100.0, 40.0), radius = 700.0 },   -- Rockford Hills / Burton
-        { coords = vec3(-1300.0, -900.0, 12.0), radius = 800.0 },  -- Del Perro / Vespucci
-        { coords = vec3(-600.0, -1000.0, 20.0), radius = 600.0 },  -- Little Seoul / Textile
-        { coords = vec3(1100.0, -600.0, 57.0), radius = 700.0 },   -- Mirror Park / East LS
-        { coords = vec3(800.0, -1600.0, 30.0), radius = 600.0 },   -- La Mesa / Cypress Flats
-        { coords = vec3(-1200.0, -400.0, 35.0), radius = 500.0 },  -- Morningwood
-    },
+    -- **Houve uma terceira camada aqui, e ela foi removida.** Era uma lista de
+    -- esferas cobrindo os bairros com parquímetro, escrita sem dado de mapa. O
+    -- problema não era deixar cheater passar — era recusar poste DE VERDADE em
+    -- rua não cadastrada, com o jogador honesto pagando por um palpite errado
+    -- na config. Uma camada que erra contra quem joga certo, para proteger algo
+    -- que o teto por hora já protege melhor, não valia o que custava.
 
-    -- Allowlist ESTRITA, por poste. Vazia, só as áreas acima valem.
+    -- Allowlist ESTRITA, por poste. Vazia, não há filtro por lugar nenhum.
     --
-    -- Preenchida, ela passa a ser a única palavra: uma chave que não estiver aqui
-    -- é recusada, e o crime deixa de aceitar coordenada inventada. As chaves são
-    -- as que `Rules.meterKey` produz, e o jeito de levantá-las é o comando de
-    -- debug `/dumpmeters`, que imprime no console do jogador as chaves de todos
-    -- os postes carregados em volta dele. Rode por alguns bairros, junte a saída
-    -- e cole aqui.
+    -- Preenchida, ela passa a ser a única palavra: uma chave que não estiver
+    -- aqui é recusada, e o crime deixa de aceitar coordenada inventada. É o
+    -- filtro por lugar de volta, só que EXATO — levantado do seu mapa em vez de
+    -- adivinhado.
+    --
+    -- As chaves são as que `Rules.meterKey` produz, e o jeito de levantá-las é
+    -- `/dumpmeters` (comando de servidor, atrás de `debugAce`), que imprime no
+    -- F8 de quem chamou as chaves de todos os postes carregados em volta. Rode
+    -- por alguns bairros, junte a saída e cole aqui.
     --
     -- Elas dependem do `gridSize` de `config/parkingmeter.lua`: mudar aquele
     -- número invalida esta lista.
     positions = {
-        -- ['360:-1800:58'] = true,
+        -- ['720:-3601:59'] = true,
     },
 
     -- =======================================================================

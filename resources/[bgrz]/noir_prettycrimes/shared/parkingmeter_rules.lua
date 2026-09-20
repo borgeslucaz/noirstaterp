@@ -20,21 +20,50 @@ local CrimeConfig = require 'config.parkingmeter'
 
 local Rules = {}
 
+---Hash de model numa forma canônica: uint32, sempre.
+---
+---**Toda** entrada e toda consulta da allowlist passam por aqui, e é a única
+---razão de esta função existir. A versão anterior normalizava só a CONSULTA e
+---guardava a chave crua do `joaat` — o que funciona enquanto o `joaat` devolve
+---uint32 e quebra em silêncio quando ele devolve int32 com sinal.
+---
+---Quebra só para metade dos models, ainda por cima: um hash abaixo de 2^31 é
+---igual nas duas formas, então `prop_parknmeter_02` (2108567945) passava e
+---`prop_parknmeter_01` (2354728673) era recusado pela mesma allowlist. Meio
+---sistema funcionando é bem pior que nenhum, porque parece configuração errada.
+---@param value any
+---@return number? hash
+function Rules.normalizeHash(value)
+    if not Utils.isFinite(value) then return nil end
+    return math.floor(value) % 0x100000000
+end
+
 ---Models aceitos, por hash. Allowlist do §7.4: o client manda o hash do model que
 ---mirou, e um hash fora daqui é recusado antes de qualquer outro trabalho.
 ---@type table<number, boolean>
 Rules.modelHashes = {}
 for index = 1, #CrimeConfig.models do
-    Rules.modelHashes[joaat(CrimeConfig.models[index])] = true
+    Rules.modelHashes[Rules.normalizeHash(joaat(CrimeConfig.models[index]))] = true
 end
 
 ---@param model any
 ---@return boolean
 function Rules.isAllowedModel(model)
-    if not Utils.isFinite(model) then return false end
-    -- joaat devolve uint32; um hash que atravessou a rede como inteiro com sinal
-    -- aponta para o mesmo model e não pode ser recusado por causa do sinal.
-    return Rules.modelHashes[math.floor(model) % 0x100000000] == true
+    local hash = Rules.normalizeHash(model)
+    return hash ~= nil and Rules.modelHashes[hash] == true
+end
+
+---Os hashes aceitos, em texto e em ordem, para mensagem de erro.
+---
+---Ordenado porque a saída vai para log: duas execuções do mesmo servidor
+---precisam imprimir a mesma linha, senão comparar dois relatos vira trabalho.
+---@return string[]
+function Rules.expectedHashes()
+    local list = {}
+    for hash in pairs(Rules.modelHashes) do list[#list + 1] = hash end
+    table.sort(list)
+    for index = 1, #list do list[index] = ('%d'):format(list[index]) end
+    return list
 end
 
 ---Aceita vector3 ou a tabela `{ x, y, z }` que sobrevive ao json de um callback.
@@ -91,31 +120,6 @@ function Rules.flatDistance(a, b)
     if not ax or not bx then return nil end
     local dx, dy = ax - bx, ay - by
     return math.sqrt(dx * dx + dy * dy)
-end
-
----O poste cai em alguma área onde parquímetro existe?
----
----A lista vem do config de SERVIDOR, mas a função mora aqui porque é geometria
----pura e é testável assim. O client nunca a chama: ele não recebe as áreas.
----@param coords any
----@param areas table[]
----@return boolean
-function Rules.inAnyArea(coords, areas)
-    local x, y, z = Rules.readCoords(coords)
-    if not x or type(areas) ~= 'table' then return false end
-
-    for index = 1, #areas do
-        local area = areas[index]
-        local ax, ay, az = Rules.readCoords(area and area.coords)
-        if ax and Utils.isFinite(area.radius) then
-            local dx, dy, dz = x - ax, y - ay, z - az
-            if (dx * dx + dy * dy + dz * dz) <= (area.radius * area.radius) then
-                return true
-            end
-        end
-    end
-
-    return false
 end
 
 ---Soma das duas barras. É a duração que o servidor mede contra o tempo decorrido

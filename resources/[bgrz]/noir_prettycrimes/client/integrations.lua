@@ -3,11 +3,11 @@
 ---Quase tudo passa pelo `bgrz_core`, como manda o §2.1 do
 ---SCRIPT_GOOD_PRACTICES: notificação, login e target de entidade.
 ---
----**A exceção é o target por MODEL**, que fala com o `ox_target` direto, por
----decisão do dono do servidor. O ponto de manter a exceção NESTE arquivo é que
----ele continua sendo o único lugar do client que cita outro resource pelo nome:
----a regra e a exceção moram juntas, e trocar de provider de target continua
----sendo mexer em um arquivo só.
+---**A exceção é o target por MODEL**, que fala com o `ox_target` direto — o que
+---o §2.5 permite. O ponto de manter a exceção NESTE arquivo é que ele continua
+---sendo o único lugar do client que cita outro resource pelo nome: a regra e a
+---exceção moram juntas, e trocar de provider de target continua sendo mexer em
+---um arquivo só.
 
 local Utils = require 'shared.utils'
 
@@ -65,14 +65,12 @@ end
 ---netId nem handle estável, então não há entidade para passar às duas funções
 ---acima. Registrando por model, o alvo vale também para os postes que o streaming
 ---trouxer depois — sem thread de varredura nenhuma.
----@param models string|string[]
----@param options table[]
----@return boolean ok
----@return string? errorCode
----**Esta é a única chamada do resource que NÃO passa pelo `bgrz_core`**, por
----decisão do dono do servidor. É exceção consciente ao §2.1, e está escrita aqui
----em vez de escondida dentro do módulo do crime de propósito: quem for auditar
----encontra a exceção no mesmo arquivo em que encontraria a regra.
+---
+---**Esta é a única chamada do resource que NÃO passa pelo `bgrz_core`**, e é
+---permitida pelo §2.5 do SCRIPT_GOOD_PRACTICES. Ela está escrita aqui, e não
+---escondida dentro do módulo do crime, porque é o que o próprio §2.5 exige:
+---chamadas diretas ao target ficam concentradas no arquivo de integrações, para
+---que quem audite encontre a exceção no mesmo lugar em que encontraria a regra.
 ---
 ---Duas consequências práticas de chamar direto:
 ---
@@ -83,6 +81,10 @@ end
 ---  * o namespace da option passa a ser por nossa conta. O bridge prefixava com
 ---    o nome do caller; aqui `OPTION_ROB` já nasce como
 ---    `noir_prettycrimes:parkingmeter:rob`, que cumpre o mesmo papel.
+---@param models string|string[]
+---@param options table[]
+---@return boolean ok
+---@return string? errorCode
 function Integrations.addModelTarget(models, options)
     if GetResourceState(TARGET) ~= 'started' then
         DebugPrint('ox_target não está started; alvo por model não registrado')

@@ -119,11 +119,9 @@ end
 -- Dependências -------------------------------------------------------------------------
 -- O §6.2 é explícito: o consumidor declara o bridge, nunca os providers dele.
 --
--- `ox_target` saiu desta lista por decisão do dono do servidor: o alvo por model
--- do parquímetro chama `exports.ox_target:addModel` direto, então ele é
--- dependência de verdade e precisa estar declarado. A exceção está registrada
--- aqui, e não apagada, para que a próxima pessoa saiba que foi escolha e não
--- descuido — e para que os OUTROS providers continuem barrados.
+-- `ox_target` saiu desta lista pelo §2.5, que permite chamá-lo direto. Ele virou
+-- dependência de verdade e precisa estar declarado — é uma das quatro obrigações
+-- que o §2.5 impõe a quem usa a exceção. Os OUTROS providers continuam barrados.
 
 local forbidden = { qbx_core = true, ox_inventory = true, qbx_vehiclekeys = true }
 local hasCore = false
@@ -147,6 +145,29 @@ if usesTargetDirectly then
     end
     T.truthy(hasTarget,
         'client/integrations.lua chama o ox_target direto, então ele precisa estar em dependencies{}')
+end
+
+-- Ponto único de contato ----------------------------------------------------------------
+-- O README promete que ninguém fala com outro resource fora de `integrations.lua`.
+-- Sem teste, essa promessa envelhece: a exceção do ox_target já vazou uma vez para
+-- dentro do módulo do crime, numa sonda de diagnóstico que parecia inofensiva.
+
+local contactHandle = assert(io.popen(
+    'find client server shared config -name "*.lua" | grep -v integrations | sort'))
+local moduleFiles = {}
+for line in contactHandle:lines() do moduleFiles[#moduleFiles + 1] = line end
+contactHandle:close()
+
+for index = 1, #moduleFiles do
+    local path = moduleFiles[index]
+    local body = assert(io.open(path)):read('a')
+
+    -- `exports('Nome', fn)` é REGISTRAR um export próprio, e é permitido.
+    -- `exports.algo` / `exports['algo']` é CHAMAR o de outro resource.
+    T.falsy(body:find('exports%s*%.') or body:find('exports%s*%['),
+        ('%s chama export de outro resource; isso pertence a integrations.lua'):format(path))
+    T.falsy(body:find('GetResourceState%s*%('),
+        ('%s consulta estado de outro resource; use uma sonda de integrations.lua'):format(path))
 end
 
 -- Locales ------------------------------------------------------------------------------
