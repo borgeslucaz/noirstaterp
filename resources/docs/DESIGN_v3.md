@@ -2,7 +2,7 @@
 
 > Padrão visual para NUIs operacionais, painéis administrativos, cadastros, listas, formulários, modais e ferramentas de configuração. A v3 consolida os fundamentos de `DESIGN.md` e `DESIGN_v2.MD` com a linguagem visual das três referências fornecidas: superfícies grafite, tipografia geométrica, controles compactos, navegação clara e preservação da cena do jogo.
 
-> Revisão aplicada: este documento também incorpora os padrões validados no `noir_taxijob`: rail expansível contextual, logo visível somente no estado aberto, conteúdo separado por aba, resumos com no máximo três itens e rolagem restrita às regiões que realmente crescem.
+> Revisão aplicada: este documento também incorpora os padrões validados no `noir_taxijob`: rail expansível contextual, logo visível somente no estado aberto, conteúdo separado por aba, resumos com no máximo três itens e rolagem restrita às regiões que realmente crescem. Do `noir_gangs` veio o tratamento da barra de rolagem (6.5).
 
 ## 0. Escopo e precedência
 
@@ -167,6 +167,8 @@ Todos os frontends devem centralizar os valores. O nome do token descreve a fun�
   --noir-border: rgba(255, 255, 255, 0.11);
   --noir-border-strong: rgba(255, 255, 255, 0.22);
   --noir-divider: rgba(255, 255, 255, 0.075);
+  --noir-scroll-thumb: rgba(255, 255, 255, 0.13);
+  --noir-scroll-thumb-hover: rgba(255, 255, 255, 0.28);
 
   /* Marca e semântica */
   /* Tema do serviço — sobrescrever no resource */
@@ -406,12 +408,57 @@ Para uma Central sem rolagem global, organize as seções em linhas previsíveis
 .ranking-list,
 .history-list {
   min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: thin;
+  overflow-y: auto; /* a aparência da barra vem da regra global de 6.5 */
 }
 ```
 
 Se a altura for curta, reduza padding, gaps, mídia e metadados secundários antes de remover nomes, estados ou ações essenciais. Em uma prévia compacta de 720p, descrição e preço auxiliar podem ser ocultados; nome, disponibilidade e ação principal permanecem visíveis.
+
+### 6.5 Barra de rolagem
+
+A barra é parte da interface, não do sistema. Sem tratamento, o que aparece no CEF é a barra larga do Chromium — com setas, calha clara e cantos retos — encostada em painéis grafite.
+
+Estilize **apenas pelos pseudo-elementos `::-webkit-scrollbar`**, e declare a regra uma vez para o documento inteiro:
+
+```css
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* A borda transparente com `background-clip` afina o polegar dentro da calha: ele fica com
+   4px visíveis e não encosta no conteúdo. */
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: var(--radius-pill);
+  background-color: var(--noir-scroll-thumb);
+  background-clip: content-box;
+  transition: background-color var(--duration-control) var(--ease-soft);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--noir-scroll-thumb-hover);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+```
+
+**Não declare `scrollbar-width` nem `scrollbar-color`.** A partir do Chromium 121, qualquer uma das duas num elemento faz o navegador desligar o `::-webkit-scrollbar` dele e desenhar a barra do sistema. Como a versão do CEF varia entre builds do FiveM, manter as duas famílias produz uma barra em cada máquina — e a do padrão não aceita raio, recuo nem hover. Uma NUI tem um alvo só; escolha o que dá controle.
+
+Regras:
+
+- a regra é global no documento, não por região: uma barra diferente por aba é inconsistência sem defesa, e quem adiciona a próxima lista não precisa lembrar de estilizá-la;
+- polegar neutro. A cor do serviço vive no rail e em indicadores pequenos; pintar a barra com ela é acento decorativo;
+- calha transparente, sem setas, sem borda e sem fundo próprio;
+- o polegar responde ao hover, porque ele é arrastável;
+- a barra ocupa espaço no fluxo: a coluna encolhe quando a lista passa a rolar, então textos truncáveis precisam de `text-overflow: ellipsis` de qualquer forma;
+- barra visível não substitui `min-height: 0` na região que cresce — sem isso ela não rola, ela estoura.
 
 ## 7. Navegação
 
@@ -809,7 +856,7 @@ Comportamento:
 
 - a aba dedicada contém apenas o catálogo e seus estados de loading, erro ou vazio;
 - use `grid-template-columns: repeat(3, minmax(210px, 1fr))` quando houver espaço;
-- a lista recebe `min-height: 0`, `overflow-y: auto` e scrollbar fina;
+- a lista recebe `min-height: 0` e `overflow-y: auto`; a aparência da barra é a de 6.5;
 - imagens usam uma caixa de altura definida, `overflow: hidden` e `object-fit: contain` para nunca invadir nome, descrição ou ação;
 - itens bloqueados continuam legíveis, mas imagem, descrição e ação podem receber menor opacidade;
 - a ação principal permanece no fim do card para alinhar cartões com descrições diferentes;
@@ -839,7 +886,6 @@ A posição do jogador é contexto persistente, não uma linha perdida no meio d
   min-height: 0;
   flex: 1;
   overflow-y: auto;
-  scrollbar-width: thin;
 }
 ```
 
@@ -1023,6 +1069,7 @@ Regras críticas:
 - o shell (`.command-window` ou `.split-workspace`) recebe o fundo escuro;
 - backdrop fullscreen existe somente enquanto um modal bloqueador estiver aberto;
 - não use `backdrop-filter` em elementos fullscreen transparentes; no FiveM ele pode renderizar a cena como preto;
+- a barra de rolagem é outra em que a versão do CEF muda o resultado: estilize pelos pseudo-elementos e não declare `scrollbar-width`/`scrollbar-color` (6.5);
 - feche a NUI e libere foco quando o usuário sair do fluxo.
 
 ## 23. Modelo base de componentes
@@ -1077,6 +1124,8 @@ Não use:
 - logo compacto persistente no rail recolhido; nesse estado, preserve somente o controle `>` e os ícones de navegação;
 - seta de recolher solta abaixo do logo quando o rail estiver aberto; integre `<` ao lado direito da faixa de identidade;
 - scrollbar em toda a área central para resolver o crescimento de uma única lista;
+- `scrollbar-width`/`scrollbar-color` junto com `::-webkit-scrollbar`; no Chromium 121+ a primeira desliga a segunda e a barra muda de aparência conforme o build;
+- barra de rolagem com a cor do serviço, setas ou calha visível;
 - progressão, saudação ou métricas repetidas dentro das abas de catálogo e ranking;
 - mais de três itens de catálogo na prévia da Central.
 
@@ -1102,6 +1151,7 @@ Não use:
 - [ ] respeita HUD, safe zone e áreas roláveis;
 - [ ] a área central não possui scrollbar global quando apenas uma coleção cresce;
 - [ ] catálogos e rankings longos rolam internamente;
+- [ ] a barra de rolagem usa os pseudo-elementos, é global e não declara `scrollbar-width`/`scrollbar-color`;
 - [ ] a Central mostra no máximo três itens de prévia e a aba dedicada mostra a coleção completa;
 - [ ] “Sua posição” permanece acima e fora da lista rolável do ranking;
 - [ ] foi testada em 720p, 1080p, 1440p e ultrawide;
