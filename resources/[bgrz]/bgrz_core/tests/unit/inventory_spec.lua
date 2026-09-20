@@ -71,4 +71,36 @@ count, countErr = BGRZ.GetItemCount(12, 'weed_brick')
 T.equal(count, nil, 'provider exception count')
 T.equal(countErr, 'provider_unavailable', 'provider exception normalized')
 
+-- ---------------------------------------------------------------------------
+-- GetItemLabel
+-- ---------------------------------------------------------------------------
+state = 'started'
+provider.Items = function(_, item)
+    if item == 'weed_brick' then return { label = 'Tijolo de Maconha' } end
+    return nil
+end
+
+local label, labelErr = BGRZ.GetItemLabel('weed_brick')
+T.equal(label, 'Tijolo de Maconha', 'GetItemLabel devolve o rótulo do provider')
+T.equal(labelErr, nil, 'GetItemLabel sem erro no caminho feliz')
+
+label, labelErr = BGRZ.GetItemLabel('item_que_nao_existe')
+T.equal(label, 'item_que_nao_existe', 'item desconhecido cai para o próprio nome')
+T.equal(labelErr, 'unknown_item', 'item desconhecido é sinalizado')
+
+label, labelErr = BGRZ.GetItemLabel(42)
+T.equal(label, nil, 'item não-string recusado')
+T.equal(labelErr, 'invalid_item', 'código de erro estável')
+
+state = 'stopped'
+label, labelErr = BGRZ.GetItemLabel('weed_brick')
+T.equal(label, 'weed_brick', 'provider parado ainda devolve algo legível')
+T.equal(labelErr, 'provider_unavailable', 'provider parado é sinalizado')
+state = 'started'
+
+provider.Items = function() error('provider exploded') end
+label, labelErr = BGRZ.GetItemLabel('weed_brick')
+T.equal(label, 'weed_brick', 'exceção do provider não sobe')
+T.equal(labelErr, 'unknown_item', 'exceção vira código tratado')
+
 print('inventory_spec: ok')

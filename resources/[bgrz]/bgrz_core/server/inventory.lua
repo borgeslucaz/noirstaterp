@@ -126,6 +126,27 @@ function BGRZ.CanCarryItem(holder, item, amount, metadata)
     return true
 end
 
+---Rótulo de exibição de um item, para o resource montar texto sem conhecer o
+---provider. Item desconhecido devolve o próprio nome: quem chamou sempre tem algo
+---legível para mostrar.
+---@param item string
+---@return string? label
+---@return string? errorCode
+function BGRZ.GetItemLabel(item)
+    if type(item) ~= 'string' or #item == 0 or #item > 64 then return nil, 'invalid_item' end
+    local provider = BGRZ.Provider.name('inventory')
+    if not BGRZ.Provider.isAvailable('inventory') then return item, 'provider_unavailable' end
+
+    local called, data = pcall(function()
+        return exports[provider]:Items(item)
+    end)
+    if not called or type(data) ~= 'table' or type(data.label) ~= 'string' then
+        return item, 'unknown_item'
+    end
+    return data.label
+end
+
+exports('GetItemLabel', BGRZ.GetItemLabel)
 exports('AddItem', BGRZ.AddItem)
 exports('RemoveItem', BGRZ.RemoveItem)
 exports('GetItemCount', BGRZ.GetItemCount)
