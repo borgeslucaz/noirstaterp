@@ -97,6 +97,36 @@ function Integrations.addModelTarget(models, options)
     return true
 end
 
+-- ---------------------------------------------------------------------------
+-- Sondas, para o diagnóstico
+-- ---------------------------------------------------------------------------
+--
+-- Existem para que o `/meterdiag` possa relatar o estado da cadeia sem citar
+-- `bgrz_core` nem `ox_target` pelo nome. Sem elas, o diagnóstico virava o
+-- segundo arquivo do client a conhecer outro resource — justamente o arquivo
+-- que existe para explicar quando essa fiação quebra.
+
+---@return string
+function Integrations.coreState()
+    return GetResourceState(CORE)
+end
+
+---@return string
+function Integrations.targetState()
+    return GetResourceState(TARGET)
+end
+
+---O provider de target expõe mesmo a API por model?
+---
+---Pergunta ao runtime em vez de deduzir pelo sintoma: uma versão antiga do
+---ox_target sem `addModel` falharia igualzinho a um ox_target parado.
+---@return boolean
+function Integrations.hasModelTarget()
+    if GetResourceState(TARGET) ~= 'started' then return false end
+    local ok, api = pcall(function() return exports[TARGET].addModel end)
+    return ok and api ~= nil
+end
+
 ---@param models string|string[]
 ---@param names string|string[]
 function Integrations.removeModelTarget(models, names)

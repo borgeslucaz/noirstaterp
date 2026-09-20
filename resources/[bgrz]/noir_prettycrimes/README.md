@@ -201,16 +201,36 @@ cooldown, é uma limitação e não um bug. Está listado nas limitações conhe
 | Resource    | Para quê                                                       |
 | ----------- | -------------------------------------------------------------- |
 | `ox_lib`    | `require`, locale, progress, callbacks, `cache`, `lib.print`    |
-| `bgrz_core` | **tudo** o mais: notify, itens, dinheiro, dispatch, target, classe |
+| `bgrz_core` | **quase** tudo o mais: notify, itens, dinheiro, dispatch, target de entidade, classe |
+| `ox_target` | **só** o alvo por model do parquímetro, chamado direto |
 | OneSync     | state bags de entidade e resolução de netId no servidor          |
 
 O parquímetro não usa OneSync para nada: não há entidade para resolver nem state
-bag para escrever. Ele depende só de `ox_lib` e `bgrz_core`.
+bag para escrever. Ele depende de `ox_lib`, `bgrz_core` e `ox_target`.
 
-`ox_target`, `ox_inventory` e `qbx_core` **não** são dependências deste resource e
-não são chamados em lugar nenhum dele: toda interação passa pelo `bgrz_core`, e os
+`ox_inventory` e `qbx_core` **não** são dependências deste resource e não são
+chamados em lugar nenhum dele: toda interação passa pelo `bgrz_core`, e os
 providers são dependência dele. É o que o §2.1 e o §6.2 do
 `resources/docs/SCRIPT_GOOD_PRACTICES.md` pedem do consumidor.
+
+### A exceção do `ox_target`
+
+O alvo **por model** do parquímetro chama `exports.ox_target:addModel` direto, por
+decisão do dono do servidor. É uma exceção consciente ao §2.1, e vale registrar o
+que ela custa e o que ela devolve:
+
+| | |
+| --- | --- |
+| Custa | uma dependência a mais no manifest, e trocar de provider de target deixa de ser só mexer no bridge |
+| Devolve | um elo a menos na cadeia, e cleanup **nativo** do ox_target no stop (`GetInvokingResource()` passa a ser `noir_prettycrimes`) |
+
+A chamada mora em `client/integrations.lua`, junto com as que passam pelo bridge,
+e não escondida dentro do módulo do crime. O arquivo continua sendo o único lugar
+do client que cita outro resource pelo nome: a regra e a exceção moram juntas.
+
+O `manifest_spec` acompanha essa decisão em vez de brigar com ela — ele exige que
+`ox_target` **esteja** declarado enquanto o `integrations.lua` o chamar direto, e
+continua barrando os outros providers.
 
 `bgrz_core` é dependência dura, e de propósito: com o bridge fora do ar o servidor
 **recusa** a ação e avisa uma vez no boot, em vez de seguir por um segundo caminho
@@ -227,8 +247,8 @@ o §3.4 ("primeiro ampliar `bgrz_core`, depois consumir"):
 | `GetVehicleClass(model)`                  | servidor | classe do veículo (só com `classMultipliers`) |
 | `AddLocalEntityTarget(entity, options)`   | client   | target em prop local             |
 | `RemoveLocalEntityTarget(entity, names)`  | client   | remoção do target do prop        |
-| `AddModelTarget(models, options)`         | client   | target em prop de **mapa** (parquímetro) |
-| `RemoveModelTarget(models, names)`        | client   | remoção do target por model      |
+| `AddModelTarget(models, options)`         | client   | target em prop de **mapa** — **hoje sem consumidor** |
+| `RemoveModelTarget(models, names)`        | client   | remoção do target por model — **hoje sem consumidor** |
 
 `AddLocalEntityTarget` existe separado do `AddEntityTarget` genérico por um motivo
 concreto: aquele resolve o handle testando `NetworkDoesNetworkIdExist` primeiro, e o
@@ -242,6 +262,11 @@ para uma API baseada em entidade. Registrando por model, o alvo vale também par
 postes que entrarem no streaming depois — e o módulo inteiro fica **sem uma única
 thread**. Ele normaliza nome e hash para a mesma chave de posse, então
 `{ 'prop_parknmeter_01', joaat('prop_parknmeter_01') }` conta como um registro só.
+
+`AddModelTarget` e `RemoveModelTarget` continuam no bridge, testados, mas **não
+são usados por este resource**: o parquímetro passou a chamar o `ox_target`
+direto. Eles ficam disponíveis para o próximo consumidor que quiser prop de mapa
+pela ponte; se ninguém quiser, são candidatos a remoção.
 
 Cada export novo tem teste de sucesso e de falha em `bgrz_core/tests/unit/`.
 
@@ -838,9 +863,12 @@ estado de cada elo no F8 de quem chamou, a parte de servidor (área, teto,
 ferramenta, reservas) no console do servidor, e fecha com um veredito apontando
 o **primeiro** elo quebrado — os seguintes são consequência.
 
-O caso mais comum de longe: `export AddModelTarget: AUSENTE`, que quer dizer
-`restart bgrz_core` antes de `restart noir_prettycrimes`. Acontece em toda
-atualização em que só o consumidor é reiniciado.
+O veredito aponta o primeiro elo quebrado. Repare que `bgrz_core não está
+started` aparece **depois** de "alvo registrado": desde que o alvo por model
+fala com o ox_target direto, o bridge deixou de ser pré-requisito para o alvo
+APARECER — mas continua sendo para o roubo funcionar, porque notificação, item,
+dinheiro e dispatch passam por ele. O diagnóstico diz exatamente isso: "o alvo
+aparece, mas o roubo será recusado".
 
 `/spawnsmashloot` não é um atalho que mente: ele escreve a placa numa lista que os
 **dois lados** leem, então o objeto forçado é tão real quanto o sorteado — inclusive
@@ -1004,10 +1032,10 @@ Auditado contra `resources/docs/SCRIPT_GOOD_PRACTICES.md`.
 
 | Seção | Como é atendida |
 | --- | --- |
-| §2.1 ponte obrigatória | nenhuma chamada a `qbx_core`, `ox_target` ou `ox_inventory`; tudo pelo `bgrz_core` |
+| §2.1 ponte obrigatória | nenhuma chamada a `qbx_core` ou `ox_inventory`; tudo pelo `bgrz_core`, **exceto** o alvo por model do parquímetro, que chama o `ox_target` direto por decisão do dono do servidor (documentada em Dependências) |
 | §3.4 lacunas do bridge | 6 exports acrescentados ao `bgrz_core`, com teste, antes de serem consumidos |
 | §5.5 / §19.1 config | dividida por sigilo; loot e rate limit fora de `files{}` |
-| §6.2 manifest | sem `lua54`, sem provider nas dependências |
+| §6.2 manifest | sem `lua54`; só `ox_target` como provider declarado, porque é chamado direto e dependência usada se declara |
 | §7 autoridade | client manda netId/coordenada + intenção; o servidor decide tudo, spawn e recompensa incluídos |
 | §7.5 rate limit | por jogador e ação, cobrado no pedido, limpo no `playerDropped` |
 | §7.6 idempotência | `claimed` é final; `claim` repetido devolve `already_taken` |

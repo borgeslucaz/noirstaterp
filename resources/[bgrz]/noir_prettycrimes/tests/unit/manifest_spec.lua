@@ -118,8 +118,14 @@ end
 
 -- Dependências -------------------------------------------------------------------------
 -- O §6.2 é explícito: o consumidor declara o bridge, nunca os providers dele.
+--
+-- `ox_target` saiu desta lista por decisão do dono do servidor: o alvo por model
+-- do parquímetro chama `exports.ox_target:addModel` direto, então ele é
+-- dependência de verdade e precisa estar declarado. A exceção está registrada
+-- aqui, e não apagada, para que a próxima pessoa saiba que foi escolha e não
+-- descuido — e para que os OUTROS providers continuem barrados.
 
-local forbidden = { qbx_core = true, ox_target = true, ox_inventory = true, qbx_vehiclekeys = true }
+local forbidden = { qbx_core = true, ox_inventory = true, qbx_vehiclekeys = true }
 local hasCore = false
 for index = 1, #manifest.dependencies do
     local dependency = manifest.dependencies[index]
@@ -128,6 +134,20 @@ for index = 1, #manifest.dependencies do
     if dependency == 'bgrz_core' then hasCore = true end
 end
 T.truthy(hasCore, 'bgrz_core precisa ser dependência declarada')
+
+-- O contrapeso da exceção: se o alvo por model fala com o ox_target direto,
+-- então o ox_target TEM que estar declarado. Sem isto, a exceção viraria uma
+-- dependência oculta e o resource poderia subir antes do provider.
+local usesTargetDirectly = assert(io.open('client/integrations.lua')):read('a')
+    :find('exports%[TARGET%]')
+if usesTargetDirectly then
+    local hasTarget = false
+    for index = 1, #manifest.dependencies do
+        if manifest.dependencies[index] == 'ox_target' then hasTarget = true end
+    end
+    T.truthy(hasTarget,
+        'client/integrations.lua chama o ox_target direto, então ele precisa estar em dependencies{}')
+end
 
 -- Locales ------------------------------------------------------------------------------
 -- Uma chave que existe num idioma e não no outro não quebra nada: ela só aparece

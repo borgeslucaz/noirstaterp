@@ -4,10 +4,15 @@
 ---smash & grab, que precisa varrer o pool de veículos a cada 1,5 s para descobrir
 ---quais carros existem por perto.
 ---
----Aqui não há o que varrer: o alvo é registrado por MODEL no ox_target, pelo
----`bgrz_core`, e todo parquímetro que o streaming carregar — agora ou daqui a uma
----hora, na outra ponta do mapa — já nasce com a opção. O custo em `resmon` com o
----jogador parado é zero.
+---Aqui não há o que varrer: o alvo é registrado por MODEL no ox_target, e todo
+---parquímetro que o streaming carregar — agora ou daqui a uma hora, na outra
+---ponta do mapa — já nasce com a opção. O custo em `resmon` com o jogador parado
+---é zero.
+---
+---O registro do alvo é a ÚNICA parte do crime que fala com o ox_target direto,
+---sem passar pelo `bgrz_core`. O resto — notificação, item, dinheiro, dispatch —
+---continua pelo bridge. A chamada mora em `client/integrations.lua`, com o
+---motivo escrito lá.
 ---
 ---O que sobra para este arquivo: pendurar o alvo, manter a lista de postes já
 ---esvaziados em dia, e tirar tudo no stop.
@@ -170,11 +175,10 @@ end
 
 ---Percorre a cadeia inteira e diz em qual elo ela quebrou.
 ---
----Existe porque este módulo tem cinco dependências em série — bgrz_core de pé,
----export presente, ox_target de pé, alvo registrado, personagem carregado — e
----quando o alvo não aparece o sintoma é o mesmo nas cinco: nada. Sem isto, a
----investigação é reiniciar resources na sorte, que foi exatamente como este
----comando nasceu.
+---Existe porque este módulo tem dependências em série — ox_target de pé, export
+---presente, alvo registrado, bgrz_core de pé, personagem carregado — e quando o
+---alvo não aparece o sintoma é o mesmo em todas: nada. Sem isto, a investigação
+---é reiniciar resources na sorte, que foi exatamente como este comando nasceu.
 ---
 ---Como o `/dumpmeters`, é ferramenta de setup: não depende de `Config.debug` e
 ---quem chama é o servidor, atrás de `debugAce`.
