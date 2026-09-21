@@ -55,6 +55,7 @@ Os resources acima existem no repositório. A palavra “ativa” nesta tabela �
 | `noir_taxijob` | Próprio | Taxi V2: central, aluguel, taxímetro/dispatcher, perfil, Confiança e ranking server-authoritative. É atividade autônoma: não muda `PlayerData.job`. |
 | `noir_graffiti` | Próprio | Graffiti ligado ao domínio ilegal Noir. |
 | `noir_illegal_core` | Próprio | Serviço de progressão criminal server-authoritative. |
+| `noir_fazenda` | Próprio | Receita: ledger indexado de movimentação bancária e apuração de imposto de renda. `server_only`. Tributa só entradas. Cobrança desligada por config enquanto a economia é medida. |
 | `noir_gangs` | Próprio | Gestão de gangues Qbox. |
 | `noir_burnerphone` | Próprio | Burner phone para atividades ilegais. |
 | `noir_houserobbery` | Próprio, baseado em `qbx_houserobbery` | Contratos de roubo residencial Tier 1. |
@@ -150,6 +151,7 @@ Observações importantes:
 | Ilegal | `qbx_drugs`, `qbx_weed`, `op-drugselling`, `noir_illegal_core`, `noir_gangs`, `noir_graffiti`, `noir_burnerphone` |
 | Corridas/veículos | `qbx_lapraces`, `qbx_streetraces`, `qbx_binoculars`, `qbx_divegear`, `qbx_diving` |
 | Utilidades | `qbx_fireworks`, `qbx_idcard`, `qbx_properties`, `qbx_cityhall`, `qbx_management` |
+| Economia | `Renewed-Banking`, `noir_fazenda` |
 | Minigames | `mhacking`, `safecracker`, `ultra-voltlab`, `peuren_minigames` |
 
 ## Mapa, interiores e assets
