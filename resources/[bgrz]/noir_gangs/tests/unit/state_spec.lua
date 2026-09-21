@@ -7,7 +7,8 @@ function vec3(x, y, z) return { x = x, y = y, z = z } end
 dofile('shared/config.lua')
 
 -- Banco em memória ---------------------------------------------------------------------
-local tables = { noir_gang_ranks = {}, noir_gang_products = {}, noir_gang_state = {} }
+local tables = { noir_gang_ranks = {}, noir_gang_products = {}, noir_gang_state = {},
+    noir_gang_members = {} }
 local schemaStatements = {}
 
 local function key(row, columns)
@@ -68,6 +69,21 @@ local function execute(query, values)
         end
         return 1
     end
+    if query:find('INSERT INTO noir_gang_members', 1, true) then
+        tables.noir_gang_members[values[1]] =
+            { citizenid = values[1], gang_name = values[2], level = values[3] }
+        return 1
+    end
+    if query:find('DELETE FROM noir_gang_members WHERE citizenid', 1, true) then
+        tables.noir_gang_members[values[1]] = nil
+        return 1
+    end
+    if query:find('DELETE FROM noir_gang_members WHERE gang_name', 1, true) then
+        for id, row in pairs(tables.noir_gang_members) do
+            if row.gang_name == values[1] then tables.noir_gang_members[id] = nil end
+        end
+        return 1
+    end
     if query:find('INSERT IGNORE INTO noir_gang_state', 1, true) then
         local id = values[1]
         if not tables.noir_gang_state[id] then
@@ -88,6 +104,11 @@ local function execute(query, values)
     if query:find('UPDATE noir_gang_state SET label = ?, color = ?, archetype', 1, true) then
         local row = tables.noir_gang_state[values[4]]
         if row then row.label, row.color, row.archetype = values[1], values[2], values[3] end
+        return 1
+    end
+    if query:find('UPDATE noir_gang_state SET next_rank_level', 1, true) then
+        local row = tables.noir_gang_state[values[2]]
+        if row then row.next_rank_level = values[1] end
         return 1
     end
     if query:find('UPDATE noir_gang_state SET label', 1, true) then
@@ -126,7 +147,13 @@ MySQL = {
     insert = setmetatable({ await = execute }, { __call = function(_, q, v) return execute(q, v) end }),
     single = { await = function(q, v) return execute(q, v)[1] end },
     scalar = { await = function(q, v)
-        -- Só existe uma contagem no código: quantos cargos a gang já tem.
+        -- Marca d'água do próximo nível de cargo. Antes vinha do provider, que nunca
+        -- esquecia um grade publicado; com o Qbox fora, a memória é nossa.
+        if q:find('next_rank_level', 1, true) then
+            local row = tables.noir_gang_state[v[1]]
+            return row and row.next_rank_level or 0
+        end
+        -- A outra: quantos cargos a gang já tem.
         local gangName, total = v[1], 0
         for _, row in pairs(tables.noir_gang_ranks) do
             if row.gang_name == gangName then total = total + 1 end
@@ -151,12 +178,32 @@ local core = {}
 ---O provider recebe a lista de quem existe; o registro é nosso. O teste guarda o que foi
 ---enviado para conferir que a gang chega lá antes dos cargos dela.
 local registered = {}
+-- `PlayerData.gang` de quem está online, separado da membresia (que é o `player_groups`).
+-- Os dois existem aqui porque o bug que este bloco cobre mexe em um e não no outro.
+local onlineGang = {}
+
+-- Reproduz o que o qbx_core faz com quem está online sempre que a escada de uma gang
+-- muda: cada jogador procura o PRÓPRIO nível na escada nova e, não achando, é rebaixado
+-- para 0 com `isboss` e `bankAuth` desligados. É a regra real de `onGangUpdate`.
+local function notifyGangUpdate(gangName)
+    local grades = provider[gangName] and provider[gangName].grades or {}
+    for _, gang in pairs(onlineGang) do
+        if gang.name == gangName and not grades[gang.level] then gang.level = 0 end
+    end
+end
+
 function core:RegisterGangs(list)
     registered = {}
     for i = 1, #list do
         registered[list[i].name] = list[i].label
-        -- Igual ao provider: atribui a entrada, então a escada de cargos se perde.
-        provider[list[i].name] = { label = list[i].label, grades = {} }
+        -- Igual ao provider: ATRIBUI a entrada, não mescla. O que vier em `grades` é a
+        -- escada inteira daquela gang a partir daqui -- inclusive se vier vazia.
+        local grades = {}
+        for level, grade in pairs(list[i].grades or {}) do
+            grades[level] = { name = grade.label or grade.name, isboss = grade.isBoss == true }
+        end
+        provider[list[i].name] = { label = list[i].label, grades = grades }
+        notifyGangUpdate(list[i].name)
     end
     return true
 end
@@ -164,7 +211,20 @@ function core:UpsertGangGrade(gangName, level, data)
     published[#published + 1] = { gang = gangName, level = level, label = data.label, isBoss = data.isBoss }
     provider[gangName] = provider[gangName] or { label = gangName, grades = {} }
     provider[gangName].grades[level] = { name = data.label }
+    notifyGangUpdate(gangName)
     return true
+end
+
+-- O provider nunca esquece um grade: `deleteRank` deixa o órfão lá de propósito. É por
+-- isso que ele serve de marca d'água do maior nível que a gang já teve.
+function core:GetGangInfo(gangName)
+    local entry = provider[gangName]
+    if not entry then return nil end
+    local topGrade = 0
+    for level in pairs(entry.grades) do
+        if level > topGrade then topGrade = level end
+    end
+    return { name = gangName, label = entry.label, grades = entry.grades, topGrade = topGrade }
 end
 
 function core:UpsertGangData(gangName, label)
@@ -215,6 +275,9 @@ function core:GetGangMembers(gangName)
     return list
 end
 
+function core:GetCharacterSource() return nil end
+function core:GetCitizenId() return nil end
+
 function core:SetGangGrade(citizenId, gangName, grade)
     local entry = membership[citizenId]
     if not entry or entry.gang ~= gangName then return false end
@@ -248,11 +311,20 @@ LoadResourceFile = function(_, path)
     return content
 end
 
+-- O state bag é como o servidor publica a gang para o client. No teste basta existir.
+local published = published or {}
+Player = function(source)
+    return { state = { set = function(_, key, value) published[source] = { key = key, value = value } end } }
+end
+TriggerClientEvent = TriggerClientEvent or function() end
+AddEventHandler = AddEventHandler or function() end
+
 dofile('server/state.lua')
+dofile('server/members.lua')
 
 -- Schema ---------------------------------------------------------------------------------
 T.truthy(NoirGangs.bootstrap(), 'bootstrap completo: ' .. (errors[1] or ''))
-T.equal(#schemaStatements, 5, 'as cinco tabelas saem do migrations/.sql')
+T.equal(#schemaStatements, 6, 'as seis tabelas saem do migrations/.sql')
 
 -- Config -----------------------------------------------------------------------------------
 T.truthy(NoirGangs.validateConfig(), 'o config que vai para produção é válido')
@@ -283,10 +355,7 @@ T.equal(NoirGangs.rank('lostmc', 5).label, 'President', 'MC semeia o arquétipo 
 T.equal(NoirGangs.topLevel('lostmc'), 5, 'MC tem seis cargos, topo em 5')
 T.truthy(NoirGangs.rank('lostmc', 5).isBoss, 'o topo do MC é boss')
 
--- A gang é registrada no provider antes dos cargos dela: o `UpsertGangGrade` de cada nível
--- é recusado para gang que ele não conhece, e a gang nasceria sem escada nenhuma.
-T.equal(registered.ballas, 'Ballas', 'a gang foi registrada no provider, com rótulo')
-T.equal(registered.lostmc, 'The Lost MC', 'e o rótulo é o do nosso registro')
+-- A gang não é mais registrada no provider; o registro dela é a nossa própria tabela.
 
 -- Linha com arquétipo que não existe mais (versão antiga, edição à mão) cai no padrão em
 -- vez de derrubar o start.
@@ -330,15 +399,7 @@ Config.Gangs.ballas.products = savedProducts
 NoirGangs.bootstrap()
 T.equal(#NoirGangs.productsOf('ballas'), 1, 'tirar do config tira do banco')
 
--- Publicação do rótulo no provider ------------------------------------------------------------
--- Sem isto, `/gang` e qualquer resource de terceiro mostram o nome antigo, e o
--- AddPlayerToGang recusa um nível que só exista aqui.
-local publishedTop
-for i = 1, #published do
-    if published[i].gang == 'lostmc' and published[i].level == 5 then publishedTop = published[i] end
-end
-T.truthy(publishedTop, 'o cargo novo do MC foi publicado no provider')
-T.equal(publishedTop.label, 'President', 'com o rótulo da nossa tabela')
+-- O rótulo do cargo não viaja mais para o Qbox: quem lê cargo lê daqui.
 
 -- Reputação --------------------------------------------------------------------------------------
 T.equal(NoirGangs.reputationOf('ballas'), 0, 'gang nova começa em zero')
@@ -421,61 +482,78 @@ T.equal(NoirGangs.repairBossRanks(), 0, 'e rodar de novo não mexe em nada')
 -- O gueto entra aqui com 0..3, chefe em 3. Cada bloco confere uma das regras que protegem
 -- quem já está ocupando um cargo.
 
-membership.BOSS = { gang = 'ballas', grade = 3 }
-membership.SOLDADO = { gang = 'ballas', grade = 1 }
+-- A membresia é do resource agora, então a fixture entra pela API dele em vez de uma
+-- tabela paralela: é o mesmo caminho que o jogo usa.
+NoirGangs.setMember('BOSS', 'ballas', 3)
+NoirGangs.setMember('SOLDADO', 'ballas', 1)
 
--- Criar: o cargo nasce logo abaixo do chefe. Como 0..3 é contíguo, não há buraco, então o
--- chefe sobe um degrau e leva junto quem está nele.
+-- Criar: o cargo nasce logo abaixo do chefe NA ESCADA, mas com um identificador novo.
+--
+-- É a regressão que motivou separar `level` de `sort_order`. Antes, "abrir espaço abaixo
+-- do chefe" significava subir o chefe de NÍVEL, e isso obrigava a mover cada membro da
+-- chefia para outro grade nos dois lados do Qbox. Foi assim que um cargo criado no meio da
+-- escada do vagos dessincronizou `player_groups` e `players.gang`.
 local level, createErr = NoirGangs.createRank('ballas', '  Tenente  ')
 T.equal(createErr, nil, 'criar cargo válido não dá erro')
-T.equal(level, 3, 'o cargo novo fica onde o chefe estava')
-T.equal(NoirGangs.rank('ballas', 3).label, 'Tenente', 'com o rótulo já sem os espaços das pontas')
-T.equal(NoirGangs.topLevel('ballas'), 4, 'e o chefe subiu um degrau')
-T.truthy(NoirGangs.rank('ballas', 4).isBoss, 'o topo continua sendo o chefe')
-T.equal(membership.BOSS.grade, 4, 'quem estava na chefia foi junto com ela')
-T.equal(membership.SOLDADO.grade, 1, 'e ninguém mais mudou de nível')
-T.falsy(next(NoirGangs.rank('ballas', 3).permissions), 'cargo novo nasce sem permissão nenhuma')
-T.falsy(NoirGangs.rank('ballas', 3).isBoss, 'e nasce sem ser chefe')
+T.equal(level, 4, 'o cargo novo recebe o próximo identificador livre, não um lugar no meio')
+T.equal(NoirGangs.rank('ballas', 4).label, 'Tenente', 'com o rótulo já sem os espaços das pontas')
 
--- O chefe só sobe quando não sobrou buraco. Com o 3 livre de novo, criar reaproveita.
-T.truthy(NoirGangs.deleteRank('ballas', 3), 'cargo vazio sai sem discussão')
+-- As três asserções que importam: ninguém foi renumerado.
+T.equal(NoirGangs.gangOfCitizen('BOSS').grade, 3, 'quem está na chefia NÃO mudou de nível')
+T.equal(NoirGangs.gangOfCitizen('SOLDADO').grade, 1, 'e ninguém mais mudou de nível')
+T.equal(NoirGangs.rank('ballas', 3).level, 3, 'o chefe continua no nível em que nasceu')
+
+-- E a escada continua contando a história certa, agora por posição.
+T.equal(NoirGangs.topLevel('ballas'), 3, 'o topo da escada continua sendo o chefe')
+T.truthy(NoirGangs.rank('ballas', 3).isBoss, 'que segue sendo chefe')
+T.equal(NoirGangs.levelAbove('ballas', 4), 3, 'o cargo novo fica logo abaixo do chefe')
+T.equal(NoirGangs.levelBelow('ballas', 4), 2, 'e logo acima do que era o segundo')
+T.truthy(NoirGangs.rank('ballas', 3).sortOrder > NoirGangs.rank('ballas', 4).sortOrder,
+    'o chefe foi empurrado na ORDEM, que é de graça, não no nível')
+
+T.falsy(next(NoirGangs.rank('ballas', 4).permissions), 'cargo novo nasce sem permissão nenhuma')
+T.falsy(NoirGangs.rank('ballas', 4).isBoss, 'e nasce sem ser chefe')
+
+-- Identificador de cargo apagado NÃO volta a circular. Reaproveitar o número faria um
+-- membro antigo, com o grade velho gravado em algum lugar, reaparecer no cargo errado.
+T.truthy(NoirGangs.deleteRank('ballas', 4), 'cargo vazio sai sem discussão')
 local reused = NoirGangs.createRank('ballas', 'Tenente')
-T.equal(reused, 3, 'o buraco abaixo do chefe é reaproveitado')
-T.equal(NoirGangs.topLevel('ballas'), 4, 'e desta vez o chefe não precisou se mexer')
-T.equal(membership.BOSS.grade, 4, 'nem quem está nele')
+T.equal(reused, 5, 'o número do cargo apagado não é reaproveitado')
+T.equal(NoirGangs.topLevel('ballas'), 3, 'e o chefe segue onde sempre esteve')
+T.equal(NoirGangs.gangOfCitizen('BOSS').grade, 3, 'sem mover ninguém')
+T.equal(NoirGangs.levelAbove('ballas', 5), 3, 'o cargo novo também nasce abaixo do chefe')
 
 -- Rótulo: vazio, só espaço e longo demais são recusados antes de tocar o banco.
 for _, bad in ipairs({ '', '   ', string.rep('x', Config.Ranks.labelMaxLength + 1) }) do
-    local ok, err = NoirGangs.updateRank('ballas', 3, { label = bad, permissions = {} })
+    local ok, err = NoirGangs.updateRank('ballas', 5, { label = bad, permissions = {} })
     T.falsy(ok, 'rótulo inválido é recusado')
     T.equal(err, 'invalid_label', 'com o motivo certo')
 end
-T.equal(NoirGangs.rank('ballas', 3).label, 'Tenente', 'e o cargo fica como estava')
+T.equal(NoirGangs.rank('ballas', 5).label, 'Tenente', 'e o cargo fica como estava')
 
 -- Permissão fora do catálogo não entra em silêncio: a gravação inteira é recusada.
-local ok, err = NoirGangs.updateRank('ballas', 3, { label = 'Tenente', permissions = { 'view_members', 'voar' } })
+local ok, err = NoirGangs.updateRank('ballas', 5, { label = 'Tenente', permissions = { 'view_members', 'voar' } })
 T.falsy(ok, 'permissão inventada não passa')
 T.equal(err, 'invalid_permission', 'e diz que foi a permissão')
-T.falsy(NoirGangs.can('ballas', 3, 'view_members'), 'nem a permissão válida da mesma chamada entrou')
+T.falsy(NoirGangs.can('ballas', 5, 'view_members'), 'nem a permissão válida da mesma chamada entrou')
 
-ok = NoirGangs.updateRank('ballas', 3, { label = 'Tenente', permissions = { 'invite', 'view_members' }, bankAuth = true })
+ok = NoirGangs.updateRank('ballas', 5, { label = 'Tenente', permissions = { 'invite', 'view_members' }, bankAuth = true })
 T.truthy(ok, 'permissões do catálogo entram')
-T.truthy(NoirGangs.can('ballas', 3, 'invite'), 'e passam a valer na hora')
-T.truthy(NoirGangs.rank('ballas', 3).bankAuth, 'acesso ao banco acompanha')
+T.truthy(NoirGangs.can('ballas', 5, 'invite'), 'e passam a valer na hora')
+T.truthy(NoirGangs.rank('ballas', 5).bankAuth, 'acesso ao banco acompanha')
 
--- O rótulo e o bankAuth viajam para o provider: é de lá que o resto do servidor lê o nome
--- do cargo, e é lá que o banco decide quem move o dinheiro.
-local lastPublish
-for i = 1, #published do
-    if published[i].gang == 'ballas' and published[i].level == 3 then lastPublish = published[i] end
-end
-T.equal(lastPublish.label, 'Tenente', 'o provider recebeu o rótulo novo')
+-- O rótulo e o `bankAuth` ficam AQUI. Antes viajavam para o Qbox, porque era de lá que o
+-- resto do servidor lia o nome do cargo e o banco decidia quem move dinheiro. Agora quem
+-- pergunta, pergunta para este resource -- inclusive o `Renewed-Banking`, pelo bridge.
+T.equal(NoirGangs.rank('ballas', 5).label, 'Tenente', 'o rótulo novo vale na hora')
+T.truthy(NoirGangs.rank('ballas', 5).bankAuth, 'e o acesso ao banco sai do nosso cargo')
 
 -- O chefe é intocável pelo editor: é o `isBoss` dele que torna a chefia intocável.
-ok, err = NoirGangs.updateRank('ballas', 4, { label = 'Outro', permissions = {} })
+-- Ele continua no nível 3, onde nasceu -- criar cargo não o move mais.
+ok, err = NoirGangs.updateRank('ballas', 3, { label = 'Outro', permissions = {} })
 T.falsy(ok, 'o cargo de chefe não é editável')
 T.equal(err, 'boss_protected', 'com o motivo explícito')
-ok, err = NoirGangs.deleteRank('ballas', 4)
+ok, err = NoirGangs.deleteRank('ballas', 3)
 T.falsy(ok, 'nem excluído')
 T.equal(err, 'boss_protected', 'pelo mesmo motivo')
 
@@ -514,8 +592,8 @@ T.equal(NoirGangs.bottomLevel('lostmc'), 1, 'a porta passa a ser o próximo que 
 -- `Config.RanksFromConfig` existir como `false`.
 T.falsy(Config.RanksFromConfig, 'o padrão é o banco mandar')
 NoirGangs.bootstrap()
-T.equal(NoirGangs.rank('ballas', 3).label, 'Tenente', 'o cargo criado em jogo sobreviveu ao restart')
-T.truthy(NoirGangs.can('ballas', 3, 'invite'), 'com as permissões que receberam lá')
+T.equal(NoirGangs.rank('ballas', 5).label, 'Tenente', 'o cargo criado em jogo sobreviveu ao restart')
+T.truthy(NoirGangs.can('ballas', 5, 'invite'), 'com as permissões que receberam lá')
 T.equal(NoirGangs.bottomLevel('lostmc'), 1, 'e o cargo apagado continua apagado')
 
 -- Com a chave ligada, o config volta a mandar: é o caminho para desfazer uma bagunça.
@@ -523,33 +601,16 @@ Config.RanksFromConfig = true
 NoirGangs.bootstrap()
 T.equal(NoirGangs.topLevel('ballas'), 3, 'o arquétipo reescreveu a escada')
 T.equal(NoirGangs.rank('ballas', 3).label, 'Boss', 'e o topo voltou a ser o do config')
+T.falsy(NoirGangs.rank('ballas', 5), 'os cargos criados em jogo saíram com a reescrita')
 T.equal(NoirGangs.bottomLevel('lostmc'), 0, 'o cargo apagado voltou')
 Config.RanksFromConfig = false
 
--- Gravação do arquivo do provider -----------------------------------------------------------
--- A ordem é o que importa: gangs primeiro, cargos depois, e só então o arquivo. Gravar
--- junto do registro escreveria escadas vazias.
-assertNoEmptyLadderOnCommit('bootstrap')
+-- O bloco que cobria a republicação no provider saiu: nada mais é publicado lá. A
+-- regressão que ele protegia -- membro online rebaixado quando a escada chegava vazia --
+-- deixou de ser possível, porque o Qbox não tem mais escada nem membresia para rebaixar.
 
-commits = {}
-NoirGangs.republishToProvider()
-assertNoEmptyLadderOnCommit('restart do provider')
-
--- Renomear não pode custar a escada das outras: é a diferença entre `UpsertGangData` e
--- `RegisterGangs`, e o erro só apareceria quando alguém tentasse entrar numa gang.
-local ladderBefore = 0
-for _ in pairs(provider.ballas.grades) do ladderBefore = ladderBefore + 1 end
-T.truthy(ladderBefore > 0, 'ballas tem escada no provider antes da edição')
-
-commits = {}
-NoirGangs.updateGang('lostmc', { label = 'Lost Renomeado', color = 'cinza' })
-T.equal(provider.lostmc.label, 'Lost Renomeado', 'o rótulo novo chegou ao provider')
-
-local ladderAfter = 0
-for _ in pairs(provider.ballas.grades) do ladderAfter = ladderAfter + 1 end
-T.equal(ladderAfter, ladderBefore, 'e a escada das OUTRAS gangs ficou intacta')
-T.truthy(next(provider.lostmc.grades), 'inclusive a da própria gang renomeada')
-assertNoEmptyLadderOnCommit('edição de rótulo')
+-- O arquivo `shared/gangs.lua` não é mais escrito por este resource: o Qbox deixou de ser
+-- dono de gang. O bloco que verificava aquela gravação saiu junto com a funcionalidade.
 
 -- Registro de gangs -------------------------------------------------------------------------
 -- Criar, editar e o que o registro recusa. O identificador é o que vai para o provider e
@@ -566,14 +627,13 @@ local created, err = NoirGangs.createGang('  Nova_Gang  ', '  Gangue Nova  ', 'm
 T.equal(created, 'nova_gang', 'o identificador é normalizado: minúsculo e sem espaço nas pontas')
 T.equal(NoirGangs.gangInfo('nova_gang').label, 'Gangue Nova', 'o rótulo também')
 T.equal(NoirGangs.gangInfo('nova_gang').color, 'azul', 'a cor escolhida fica')
--- Criar publica SÓ a gang nova. Mandar a lista inteira zeraria a escada de todas as outras,
--- e ninguém mais conseguiria entrar em gang nenhuma até o próximo restart.
+-- Criar uma gang não pode encostar nas outras. Quando isto passava pelo Qbox, mandar a
+-- lista inteira zerava a escada de todas -- hoje o registro é nosso e a garantia é local.
 local balladLadder = 0
-for _ in pairs(provider.ballas.grades) do balladLadder = balladLadder + 1 end
-
-T.equal(provider.nova_gang.label, 'Gangue Nova', 'a gang nova chegou ao provider')
+for _ in pairs(NoirGangs.ranksOf('ballas')) do balladLadder = balladLadder + 1 end
+T.truthy(balladLadder > 0, 'ballas tem escada antes de criar a gang nova')
 local stillThere = 0
-for _ in pairs(provider.ballas.grades) do stillThere = stillThere + 1 end
+for _ in pairs(NoirGangs.ranksOf('ballas')) do stillThere = stillThere + 1 end
 T.equal(stillThere, balladLadder, 'e a escada das outras gangs ficou intacta')
 
 -- Criar já semeia a escada do arquétipo escolhido, senão a gang nasce sem porta de entrada.
@@ -595,13 +655,13 @@ T.equal(select(2, NoirGangs.createGang('outra', 'Outra', 'gueto', 'turquesa')), 
 T.truthy(NoirGangs.updateGang('nova_gang', { label = 'Renomeada', color = 'rosa', archetype = 'mc' }),
     'rótulo e cor mudam')
 T.equal(NoirGangs.gangInfo('nova_gang').label, 'Renomeada', 'o rótulo novo fica')
-T.equal(provider.nova_gang.label, 'Renomeada', 'e é republicado no provider, que é de onde o servidor lê')
+T.equal(NoirGangs.gangList()[1] ~= nil, true, 'e a lista pública reflete o registro')
 
 T.truthy(NoirGangs.updateGang('nova_gang', { label = 'Renomeada', color = 'rosa', archetype = 'gueto' }),
     'gang vazia troca de arquétipo')
 T.equal(NoirGangs.topLevel('nova_gang'), 3, 'e a escada é reescrita')
 
-membership.NOVATO = { gang = 'nova_gang', grade = 0 }
+NoirGangs.setMember('NOVATO', 'nova_gang', 0)
 local ok, updateErr, members = NoirGangs.updateGang('nova_gang', { label = 'Renomeada', color = 'rosa', archetype = 'mc' })
 T.falsy(ok, 'com gente dentro, o arquétipo não muda')
 T.equal(updateErr, 'gang_occupied', 'e o motivo é a ocupação')
@@ -610,7 +670,7 @@ T.equal(NoirGangs.topLevel('nova_gang'), 3, 'a escada ficou como estava')
 
 T.truthy(NoirGangs.updateGang('nova_gang', { label = 'Com Gente', color = 'verde' }),
     'mas rótulo e cor continuam editáveis')
-membership.NOVATO = nil
+NoirGangs.removeMember('NOVATO')
 
 T.equal(select(2, NoirGangs.updateGang('nao_existe', { label = 'X', color = 'roxo' })), 'gang_not_found',
     'gang desconhecida é recusada')
@@ -644,9 +704,7 @@ for name, color in pairs(Config.Colors) do
 end
 
 -- E a cor livre atravessa a criação e a leitura inteiras.
-commits = {}
 T.truthy(NoirGangs.createGang('livre', 'Cor Livre', 'gueto', '#00e5ff'), 'gang com cor livre é criada')
-assertNoEmptyLadderOnCommit('criação de gang')
 T.equal(NoirGangs.gangInfo('livre').color, '#00E5FF', 'guardada já canônica')
 T.equal(NoirGangs.gangColor('livre'), '#00E5FF', 'e devolvida em hexadecimal')
 

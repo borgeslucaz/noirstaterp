@@ -1343,6 +1343,14 @@ kbd {
 .choice__count { opacity: 0.6; font-size: 11px; }
 .choice label:has(input:disabled) { cursor: not-allowed; opacity: 0.38; }
 
+/* Primeiro chefe: o único <select> da página. O mínimo para ele não parecer um estranho no
+ * meio dos campos, sem inventar um seletor próprio para uma escolha que acontece uma vez
+ * na vida de cada gang. */
+.boss { display: flex; min-width: 0; flex-wrap: wrap; gap: 8px; align-items: center; }
+.boss__select { min-width: 0; flex: 1 1 200px; appearance: none; cursor: pointer; }
+.boss__select:disabled { cursor: not-allowed; opacity: 0.38; }
+.boss__select option { background: var(--noir-field); color: var(--noir-text-strong); }
+
 /* Amostra de cor: o quadrado mostra a cor, mas quem diz qual é escolhida é a borda e o
  * check — cor sozinha não pode ser o único indicador. */
 .swatches { display: flex; flex-wrap: wrap; gap: 8px; }

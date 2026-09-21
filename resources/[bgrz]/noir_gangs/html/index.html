@@ -363,6 +363,12 @@
                                     </div>
 
                                     <div class="form__row">
+                                        <span class="form__label" id="setup-products-label">PRODUTOS</span>
+                                        <div class="choice" id="setup-products" role="group" aria-labelledby="setup-products-label"></div>
+                                        <p class="form__hint">O que a gang opera. É isto que destrava craft, laboratório e tipo de missão nos outros resources.</p>
+                                    </div>
+
+                                    <div class="form__row">
                                         <span class="form__label" id="setup-color-label">COR</span>
                                         <div class="swatches" id="setup-color" role="radiogroup" aria-labelledby="setup-color-label"></div>
 
@@ -392,6 +398,15 @@
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
                                             <span id="setup-color-error-text"></span>
                                         </p>
+                                    </div>
+
+                                    <div class="form__row" id="setup-boss-row" hidden>
+                                        <label class="form__label" for="setup-boss">PRIMEIRO CHEFE</label>
+                                        <div class="boss">
+                                            <select class="field boss__select" id="setup-boss"></select>
+                                            <button class="btn" type="button" id="setup-boss-assign">DEFINIR CHEFE</button>
+                                        </div>
+                                        <p class="form__hint" id="setup-boss-hint"></p>
                                     </div>
 
                                     <div class="form__actions">
@@ -443,6 +458,10 @@
                     <div class="confirm-box__field" id="modal-field" hidden>
                         <label class="form__label" for="modal-input">NOME DO CARGO</label>
                         <input class="field" id="modal-input" type="text" autocomplete="off" maxlength="32" />
+                    </div>
+                    <div class="confirm-box__field" id="modal-rank-field" hidden>
+                        <label class="form__label" for="modal-rank">NOVO CARGO</label>
+                        <select class="field" id="modal-rank"></select>
                     </div>
                     <div class="confirm-box__actions">
                         <button class="btn" type="button" id="modal-cancel">VOLTAR</button>

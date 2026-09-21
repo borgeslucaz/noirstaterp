@@ -14,8 +14,10 @@ end
 local manifest = read('fxmanifest.lua')
 T.truthy(manifest:find("'bgrz_core'", 1, true), 'bridge declarado como dependência')
 T.truthy(manifest:find("'server/state.lua'", 1, true), 'o módulo de estado carrega antes do main')
-T.truthy(manifest:find("'server/state.lua', 'server/main.lua'", 1, true),
-    'state.lua precisa vir antes do main.lua, que depende do NoirGangs')
+-- state -> members -> main. `members.lua` usa `NoirGangs.rank`/`gangInfo` do state, e o
+-- main usa a membresia; qualquer outra ordem carrega função que ainda não existe.
+T.truthy(manifest:find("'server/state.lua', 'server/members.lua', 'server/main.lua'", 1, true),
+    'a ordem state -> members -> main precisa ser respeitada')
 for _, forbidden in ipairs({ "'qbx_core'", "'ox_target'" }) do
     T.falsy(manifest:find(forbidden, 1, true),
         ('%s é dependência do bgrz_core, não nossa'):format(forbidden))
@@ -229,6 +231,9 @@ T.truthy(Config.Invitation.maxDistance > 0, 'convite precisa de uma distância m
 T.truthy(Config.Invitation.duration > Config.Invitation.cooldown,
     'um convite precisa durar mais que o intervalo entre envios')
 T.truthy(Config.ActivityLimit > 0, 'o histórico precisa de um teto')
+T.truthy(Config.ActivityRetention == 0 or Config.ActivityRetention >= Config.ActivityLimit,
+    'guardar menos do que a tela mostra deixaria a tela mais curta do que o teto dela')
+T.truthy(Config.ActivityPruneInterval >= 0, 'a poda periódica não pode ter intervalo negativo')
 
 -- Schema -------------------------------------------------------------------------------
 -- Roda a cada start, então todo statement tem que ser idempotente e não destrutivo.
@@ -245,7 +250,8 @@ for rawStatement in schema:gmatch('([^;]+);') do
             'statement não idempotente: ' .. statement:sub(1, 60))
     end
 end
-T.equal(statements, 7, 'locations, activity, state, products, ranks e as duas colunas do registro')
+T.equal(statements, 12, 'locations, activity, state, products, ranks, membresia, as três colunas '
+    .. 'do registro, o índice do histórico, a ordem dos cargos e a marca d\'água de nível')
 
 
 

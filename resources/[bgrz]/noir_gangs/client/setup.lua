@@ -175,6 +175,24 @@ RegisterNUICallback('updateGang', function(data, cb)
     action('noir_gangs:server:updateGang', cb, data)
 end)
 
+---O primeiro chefe. Duas informações em vez de uma tabela só porque é assim que o
+---callback do servidor é: gang e quem assume.
+RegisterNUICallback('assignBoss', function(data, cb)
+    if Setup.state ~= 'READY' then return cb({ ok = false, code = 'busy' }) end
+    local gangName = type(data) == 'table' and data.gang or nil
+    local target = type(data) == 'table' and tonumber(data.target) or nil
+    if type(gangName) ~= 'string' or not target then return cb({ ok = false, code = 'invalid_member' }) end
+
+    Setup.state = 'BUSY'
+    local ok, code, name = lib.callback.await('noir_gangs:server:assignBoss', false, gangName, target)
+    if Setup.state ~= 'BUSY' then return cb({ ok = false, code = 'busy' }) end
+    Setup.state = 'READY'
+
+    local fresh = ok and fetch() or nil
+    if fresh then snapshot = fresh end
+    cb({ ok = ok == true, code = code, extra = name, data = fresh })
+end)
+
 RegisterNUICallback('placeLocation', function(data, cb)
     if Setup.state ~= 'READY' then return cb({ ok = false, code = 'busy' }) end
     local gangName = type(data) == 'table' and data.gang or nil

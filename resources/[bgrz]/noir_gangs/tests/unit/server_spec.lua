@@ -136,6 +136,68 @@ end
 -- aqui só precisamos que ele responda cargo, permissão e topo a partir do mundo.
 NoirGangs = {}
 
+-- Membresia: agora é do NoirGangs, não do bridge. O stub opera sobre o mesmo
+-- `world.membership` que os `core:` acima, para as fixtures do spec continuarem valendo.
+local function gangOf(citizenId)
+    for name, grade in pairs(world.membership[citizenId] or {}) do return name, grade end
+end
+
+function NoirGangs.gangOfCitizen(citizenId)
+    local name, grade = gangOf(citizenId)
+    if not name then return nil end
+    local info = world.gangs[name]
+    if not info then return nil end
+    local rank = info.ranks[grade]
+    return { name = name, label = info.label, grade = grade,
+        gradeName = rank and rank.label, isBoss = rank ~= nil and rank.isBoss == true,
+        bankAuth = rank ~= nil and rank.bankAuth == true }
+end
+
+function NoirGangs.gangOfSource(source)
+    local citizenId = world.online[source]
+    return citizenId and NoirGangs.gangOfCitizen(citizenId) or nil
+end
+
+function NoirGangs.hasAnyGang(citizenId)
+    return gangOf(citizenId) ~= nil
+end
+
+function NoirGangs.membersOf(gangName)
+    local members = {}
+    for citizenId, gangs in pairs(world.membership) do
+        if gangs[gangName] then members[#members + 1] = { citizenId = citizenId, grade = gangs[gangName] } end
+    end
+    table.sort(members, function(a, b) return a.citizenId < b.citizenId end)
+    return members
+end
+
+function NoirGangs.countAtLevel(gangName, level)
+    local total = 0
+    for _, entry in ipairs(NoirGangs.membersOf(gangName)) do
+        if entry.grade == level then total = total + 1 end
+    end
+    return total
+end
+
+function NoirGangs.setMember(citizenId, gangName, level)
+    local info = world.gangs[gangName]
+    if not info or not info.ranks[level] then return false, 'invalid_grade' end
+    world.membership[citizenId] = { [gangName] = level }
+    return true
+end
+
+function NoirGangs.removeMember(citizenId)
+    -- Tabela vazia em vez de nil: no banco a linha some, mas o spec indexa
+    -- `world.membership.X.gang` para conferir ausência, e nil quebraria a leitura.
+    world.membership[citizenId] = {}
+    return true
+end
+
+function NoirGangs.publishFor() end
+function NoirGangs.publishSource() end
+function NoirGangs.loadMembers() end
+
+
 function NoirGangs.bootstrap() return true end
 function NoirGangs.republishToProvider() end
 
@@ -191,33 +253,70 @@ function NoirGangs.ranksOf(gangName)
     return world.gangs[gangName] and world.gangs[gangName].ranks or {}
 end
 
-function NoirGangs.topLevel(gangName)
-    local top
-    for level in pairs(NoirGangs.ranksOf(gangName)) do
-        if not top or level > top then top = level end
+-- `level` é identidade e a escada é `sortOrder`. O stub reproduz isso: sem `sortOrder`
+-- gravado, a posição é o próprio nível -- que é exatamente o que o carregador real faz
+-- com linha antiga.
+--
+-- As três funções abaixo derivam da escada, como as de verdade. Um stub com algoritmo
+-- próprio testaria um comportamento que produção não tem.
+function NoirGangs.ladder(gangName)
+    local ordered = {}
+    for level, rank in pairs(NoirGangs.ranksOf(gangName)) do
+        rank.level = rank.level or level
+        ordered[#ordered + 1] = rank
     end
-    return top or 0
+    table.sort(ordered, function(a, b)
+        local sa, sb = a.sortOrder or a.level, b.sortOrder or b.level
+        if sa == sb then return a.level < b.level end
+        return sa < sb
+    end)
+    return ordered
+end
+
+function NoirGangs.topLevel(gangName)
+    local ordered = NoirGangs.ladder(gangName)
+    local top = ordered[#ordered]
+    return top and top.level or 0
 end
 
 function NoirGangs.levelAbove(gangName, level)
-    local best
-    for candidate in pairs(NoirGangs.ranksOf(gangName)) do
-        if candidate > level and (not best or candidate < best) then best = candidate end
+    local ordered = NoirGangs.ladder(gangName)
+    for i = 1, #ordered do
+        if ordered[i].level == level then return ordered[i + 1] and ordered[i + 1].level end
     end
-    return best
 end
 
 function NoirGangs.levelBelow(gangName, level)
-    local best
-    for candidate in pairs(NoirGangs.ranksOf(gangName)) do
-        if candidate < level and (not best or candidate > best) then best = candidate end
+    local ordered = NoirGangs.ladder(gangName)
+    for i = 1, #ordered do
+        if ordered[i].level == level then return ordered[i - 1] and ordered[i - 1].level end
     end
-    return best
 end
 
 function NoirGangs.can(gangName, level, permission)
     local r = NoirGangs.rank(gangName, level)
     return r ~= nil and r.permissions[permission] == true
+end
+
+function NoirGangs.bossRank(gangName)
+    for level, rank in pairs(NoirGangs.ranksOf(gangName)) do
+        if rank.isBoss then return { level = level, label = rank.label, isBoss = true } end
+    end
+    return nil
+end
+
+local productWrites = {}
+
+function NoirGangs.setProducts(gangName, list)
+    if not world.gangs[gangName] then return false, 'gang_not_found' end
+    local set = {}
+    for i = 1, #list do
+        if not Config.ProductTypes[list[i]] then return false, 'invalid_product' end
+        set[list[i]] = true
+    end
+    world.products[gangName] = set
+    productWrites[#productWrites + 1] = { gang = gangName, list = list }
+    return true
 end
 
 function NoirGangs.reputationOf(gangName) return world.reputation[gangName] or 0 end
@@ -276,7 +375,7 @@ AddEventHandler = registerEvent
 local callbacks, registerCallback = T.handlers()
 
 lib = {
-    print = { info = function() end, error = function() end },
+    print = { info = function() end, error = function() end, warn = function() end },
     callback = { register = registerCallback },
 }
 
@@ -284,16 +383,45 @@ json = { encode = function() return '{}' end, decode = function() return {} end 
 
 -- `MySQL.insert` é chamado como função (log) e como `.await` (locations), então o stub
 -- precisa ser uma tabela chamável, igual ao oxmysql.
-local insert = setmetatable({ await = function() return 1 end },
-    { __call = function() return 1 end })
+local locationWrites = {}
+local insert = setmetatable({ await = function(query, values)
+    if query:find('noir_gang_locations', 1, true) then
+        locationWrites[#locationWrites + 1] = { query = query, values = values }
+    end
+    return 1
+end }, { __call = function() return 1 end })
+
+-- A poda do histórico roda no start e volta de tempos em tempos. O stub registra o que
+-- ela pediu, para o teste conferir o corte em vez de só deixar o código passar.
+local activityPrunes, activityDeletes = {}, {}
 
 MySQL = {
     ready = function(fn) fn() end,
     insert = insert,
     query = { await = function() return {} end },
-    single = { await = function() return nil end },
-    update = { await = function() return true end },
+    single = { await = function(query)
+        if query:find('noir_gang_locations', 1, true) then return { gang_name = 'ballas' } end
+        return nil
+    end },
+    scalar = { await = function(query, params)
+        if not query:find('noir_gang_activity', 1, true) then return nil end
+        activityPrunes[#activityPrunes + 1] = { query = query, gang = params[1] }
+        return 1000
+    end },
+    update = { await = function(query, params)
+        if query:find('noir_gang_locations', 1, true) then
+            locationWrites[#locationWrites + 1] = { query = query, values = params }
+            return 1
+        end
+        if not query:find('DELETE FROM noir_gang_activity', 1, true) then return true end
+        activityDeletes[#activityDeletes + 1] = { gang = params[1], cutoff = params[2] }
+        return 7
+    end },
 }
+
+-- A poda periódica vive numa thread; aqui ela não roda, e o que o teste cobre é a do start.
+CreateThread = function() end
+Wait = function() end
 
 TriggerClientEvent = function() end
 RegisterCommand = function() end
@@ -305,6 +433,14 @@ LoadResourceFile = function(_, path)
     file:close()
     return content
 end
+---A tela de setup pergunta quem está online para oferecer o primeiro chefe.
+GetPlayers = function()
+    local list = {}
+    for src in pairs(world.online) do list[#list + 1] = tostring(src) end
+    table.sort(list)
+    return list
+end
+
 GetPlayerPed = function(source) return source end
 GetPlayerName = function(source) return 'jogador' .. tostring(source) end
 
@@ -328,6 +464,22 @@ local serverCode = serverSource:read('*a')
 serverSource:close()
 T.falsy(serverCode:upper():find('CREATE TABLE', 1, true), 'schema não pode voltar para o main')
 
+-- Retenção do histórico ---------------------------------------------------------------------
+-- A tabela só cresce, e a leitura fica cara junto. A poda entra no start, por gang, e corta
+-- pelo `id` — o mesmo caminho que o índice da leitura serve.
+local gangCount = #NoirGangs.gangList()
+if Config.ActivityRetention > 0 then
+    T.equal(#activityPrunes, gangCount, 'a poda roda no start, uma vez por gang')
+    T.truthy(activityPrunes[1].query:find('OFFSET ' .. math.floor(Config.ActivityRetention), 1, true),
+        'o corte é a linha que passa do teto de retenção')
+    T.truthy(activityPrunes[1].query:find('ORDER BY id DESC', 1, true),
+        'e é achado pelo id, para usar o índice da leitura')
+    T.equal(#activityDeletes, gangCount, 'cada gang com excedente perde o que passou do teto')
+    T.equal(activityDeletes[1].cutoff, 1000, 'apagando da linha de corte para trás')
+else
+    T.equal(#activityPrunes, 0, 'retenção zero guarda tudo: a poda não chega a consultar')
+end
+
 -- Helpers ------------------------------------------------------------------------------------
 local function callEvent(name, src, ...)
     source = src
@@ -340,6 +492,37 @@ end
 local function callAction(name, src, ...)
     local handler = assert(callbacks[name], 'callback nao registrado: ' .. name)
     return handler(src, ...)
+end
+
+---A tela manda o CARGO escolhido, não uma direção -- `setGrade` com o nível.
+---
+---Os cenários abaixo continuam escritos em "promover/rebaixar" porque é isso que eles
+---testam: quem pode mover quem. O helper traduz a intenção para o nível concreto, um
+---degrau acima ou abaixo na escada da gang de quem recebe.
+local function memberAction(source, citizenId, direction)
+    if direction == 'remove' then
+        return callAction('noir_gangs:server:memberAction', source, citizenId, 'remove')
+    end
+
+    local gangName, grade
+    for name, level in pairs(world.membership[citizenId] or {}) do gangName, grade = name, level end
+
+    local target
+    if gangName and world.gangs[gangName] then
+        local ladder = {}
+        for level in pairs(world.gangs[gangName].ranks) do ladder[#ladder + 1] = level end
+        table.sort(ladder)
+        for i = 1, #ladder do
+            if ladder[i] == grade then
+                target = direction == 'promote' and ladder[i + 1] or ladder[i - 1]
+                break
+            end
+        end
+    end
+
+    -- Sem degrau calculável (alvo sem gang, por exemplo) manda 0 mesmo: o cenário quer
+    -- chegar às checagens de permissão e de membresia, não parar na validação do payload.
+    return callAction('noir_gangs:server:memberAction', source, citizenId, 'setGrade', target or 0)
 end
 
 ---Quem age le o codigo de retorno; quem sofre a acao continua recebendo notificacao,
@@ -384,20 +567,20 @@ T.equal(state.products[1].id, 'drugs', 'com o id do produto')
 -- Regras de cargo -------------------------------------------------------------------------
 -- Não há comparação entre o cargo de quem age e o de quem recebe: quem tem a permissão,
 -- usa. A única barreira estrutural é o chefe.
-local ok, code = callAction('noir_gangs:server:memberAction', 2, 'BOSS', 'demote')
+local ok, code = memberAction(2, 'BOSS', 'demote')
 T.equal(world.membership.BOSS.ballas, 4, 'o chefe não muda de cargo')
 T.falsy(ok, 'e a tentativa é recusada')
 T.equal(code, 'boss_protected', 'com o motivo, para a tela dizer qual foi')
 
-callAction('noir_gangs:server:memberAction', 2, 'BOSS', 'remove')
+memberAction(2, 'BOSS', 'remove')
 T.equal(world.membership.BOSS.ballas, 4, 'o chefe não é desligado')
 
-ok, code = callAction('noir_gangs:server:memberAction', 2, 'RIGHT', 'promote')
+ok, code = memberAction(2, 'RIGHT', 'promote')
 T.equal(world.membership.RIGHT.ballas, 3, 'ninguém age sobre si mesmo')
 T.equal(code, 'self_action', 'e o motivo é esse')
 
 notifications = {}
-local _, _, newRank = callAction('noir_gangs:server:memberAction', 2, 'SOLDIER', 'promote')
+local _, _, newRank = memberAction(2, 'SOLDIER', 'promote')
 T.equal(world.membership.SOLDIER.ballas, 2, 'promoção normal sobe um cargo')
 T.equal(newRank, 'Tenente', 'o novo cargo volta junto, para a tela dizer qual é')
 T.equal(lastNotification().source, 3, 'quem mudou de cargo é avisado')
@@ -405,27 +588,62 @@ T.truthy(lastNotification().text:find('Tenente', 1, true), 'e a mensagem diz qua
 
 -- Promover PARA chefe não existe: seria passar liderança por mecanismo de jogador.
 world.membership.SOLDIER.ballas = 3
-ok, code = callAction('noir_gangs:server:memberAction', 2, 'SOLDIER', 'promote')
+ok, code = memberAction(2, 'SOLDIER', 'promote')
 T.equal(world.membership.SOLDIER.ballas, 3, 'ninguém é promovido a chefe pelo menu')
 T.falsy(ok, 'e a recusa é explícita')
 T.equal(code, 'boss_not_promotable', 'com o motivo certo')
 
 -- Rebaixar continua andando para baixo normalmente.
-callAction('noir_gangs:server:memberAction', 2, 'SOLDIER', 'demote')
+memberAction(2, 'SOLDIER', 'demote')
 T.equal(world.membership.SOLDIER.ballas, 2, 'rebaixamento desce um cargo')
 world.membership.SOLDIER.ballas = 1
 
+-- Escolher o cargo, e não um degrau ---------------------------------------------------------
+-- A tela manda `setGrade` com o nível. Pular degraus é o caso normal: com um cargo no meio
+-- da escada, "o próximo" podia ser exatamente o que ninguém queria.
+local function setGrade(source, citizenId, level)
+    return callAction('noir_gangs:server:memberAction', source, citizenId, 'setGrade', level)
+end
+
+world.membership.SOLDIER.ballas = 1
+ok = setGrade(2, 'SOLDIER', 3)
+T.truthy(ok, 'dá para mover direto para um cargo distante')
+T.equal(world.membership.SOLDIER.ballas, 3, 'e a pessoa vai para o cargo escolhido, não um acima')
+
+ok, code = setGrade(2, 'SOLDIER', 3)
+T.falsy(ok, 'mover para o cargo em que a pessoa já está é recusado')
+T.equal(code, 'same_rank', 'com o motivo certo, em vez de uma escrita à toa')
+
+ok, code = setGrade(2, 'SOLDIER', 99)
+T.falsy(ok, 'nível que não existe é recusado')
+T.equal(code, 'no_rank_available', 'e não vira cargo fantasma')
+
+local bossLevel = NoirGangs.topLevel('ballas')
+ok, code = setGrade(2, 'SOLDIER', bossLevel)
+T.falsy(ok, 'ninguém é movido PARA o cargo de chefe')
+T.equal(code, 'boss_not_promotable', 'a liderança continua sendo operação de fora')
+
+-- A direção decide qual permissão é exigida: quem só rebaixa não promove pelo mesmo botão.
+world.membership.SOLDIER.ballas = 2
+world.gangs.ballas.ranks[world.membership.RIGHT.ballas].permissions.promote = nil
+ok, code = setGrade(2, 'SOLDIER', 3)
+T.falsy(ok, 'sem `promote`, subir é recusado')
+T.equal(code, 'no_permission', 'mesmo com o botão aberto pela outra permissão')
+T.truthy(setGrade(2, 'SOLDIER', 1), 'e descer continua valendo, porque `demote` está lá')
+world.gangs.ballas.ranks[world.membership.RIGHT.ballas].permissions.promote = true
+world.membership.SOLDIER.ballas = 1
+
 -- Sem a permissão, nada acontece: é o arquétipo que controla quem pode, não a hierarquia.
-ok, code = callAction('noir_gangs:server:memberAction', 3, 'FREE', 'promote')
+ok, code = memberAction(3, 'FREE', 'promote')
 T.falsy(ok, 'soldado sem a permissão não promove')
 T.equal(code, 'no_permission', 'e o motivo é a permissão, não a hierarquia')
 
 -- Com a permissão, o cargo baixo age sobre alguém acima dele: é o desenho pedido.
 world.gangs.ballas.ranks[1].permissions.promote = true
 world.membership.FREE.ballas = 1
-callAction('noir_gangs:server:memberAction', 3, 'RIGHT', 'demote')
+memberAction(3, 'RIGHT', 'demote')
 world.gangs.ballas.ranks[1].permissions.demote = true
-callAction('noir_gangs:server:memberAction', 3, 'RIGHT', 'demote')
+memberAction(3, 'RIGHT', 'demote')
 T.equal(world.membership.RIGHT.ballas, 2, 'quem tem a permissão age sobre cargo mais alto')
 world.gangs.ballas.ranks[1].permissions.promote = nil
 world.gangs.ballas.ranks[1].permissions.demote = nil
@@ -521,15 +739,15 @@ world.membership.T_TOP.trio = 5
 world.membership.T_MID.trio = 2
 world.membership.T_LOW.trio = 0
 
-callAction('noir_gangs:server:memberAction', 10, 'T_LOW', 'promote')
+memberAction(10, 'T_LOW', 'promote')
 T.equal(world.membership.T_LOW.trio, 2, 'promoção pula para o próximo cargo que existe')
 
-callAction('noir_gangs:server:memberAction', 10, 'T_LOW', 'demote')
+memberAction(10, 'T_LOW', 'demote')
 T.equal(world.membership.T_LOW.trio, 0, 'rebaixamento volta para o cargo anterior que existe')
 
 -- Promover no trio pula de 0 para 2, e para antes do topo, que é chefe.
 world.membership.T_LOW.trio = 2
-callAction('noir_gangs:server:memberAction', 10, 'T_LOW', 'promote')
+memberAction(10, 'T_LOW', 'promote')
 T.equal(world.membership.T_LOW.trio, 2, 'o cargo acima do meio é o chefe, então a promoção para')
 world.membership.T_LOW.trio = 0
 
@@ -540,6 +758,86 @@ T.truthy(callbacks['noir_gangs:server:getLocations'](10), 'o primeiro pedido res
 T.falsy(callbacks['noir_gangs:server:getLocations'](10), 'o pedido seguinte cai no cooldown')
 callEvent('playerDropped', 10)
 T.truthy(callbacks['noir_gangs:server:getLocations'](10), 'source reaproveitado pede de novo')
+
+-- Amplificação de consulta ----------------------------------------------------------------
+-- O snapshot é a leitura mais cara daqui: roster, nomes e histórico. A tela tranca o clique
+-- repetido em `BUSY`, mas essa tranca é do cliente — quem segura o pedido repetido tem de
+-- ser o servidor. Cenário: NEWCOMER (source 1) é chefe de ballas e SOLDIER está offline.
+local dbTouches = 0
+-- O snapshot lê a membresia do NoirGangs, não mais do bridge -- o gancho segue o dado.
+local realGangMembers, realNames, realQuery = NoirGangs.membersOf, core.GetCharacterNames, MySQL.query.await
+
+NoirGangs.membersOf = function(name)
+    dbTouches = dbTouches + 1
+    return realGangMembers(name)
+end
+core.GetCharacterNames = function(self, ids)
+    dbTouches = dbTouches + 1
+    return realNames(self, ids)
+end
+MySQL.query.await = function(...)
+    dbTouches = dbTouches + 1
+    return realQuery(...)
+end
+
+-- A ação derruba o cache por dentro, no `log()`: é assim que o snapshot seguinte sai novo.
+memberAction(1, 'SOLDIER', 'promote')
+
+dbTouches = 0
+callbacks['noir_gangs:server:getSnapshot'](1)
+T.truthy(dbTouches > 0, 'o snapshot depois de uma mudança lê o banco')
+
+dbTouches = 0
+T.truthy(callbacks['noir_gangs:server:getSnapshot'](1), 'o pedido repetido continua respondendo')
+T.equal(dbTouches, 0, 'e sai do cache sem tocar o banco de novo')
+
+-- O cache é de matéria-prima, e não de tela pronta: com o material da gang quente, quem não
+-- pode ver offline continua sem ver. Cachear o snapshot montado entregaria a lista do chefe
+-- para o cargo de baixo, que foi quem pediu depois.
+local rightGrade = world.membership.RIGHT.ballas
+world.membership.RIGHT.ballas = 1
+local narrow = callbacks['noir_gangs:server:getSnapshot'](2)
+world.membership.RIGHT.ballas = rightGrade
+T.truthy(#narrow.members > 0, 'o cargo de baixo enxerga a gang')
+for i = 1, #narrow.members do
+    T.truthy(narrow.members[i].online, 'mas só quem está online, mesmo lendo o material do cache')
+end
+
+memberAction(1, 'SOLDIER', 'demote')
+dbTouches = 0
+local afterChange = callbacks['noir_gangs:server:getSnapshot'](1)
+T.truthy(dbTouches > 0, 'mudar a gang derruba o cache')
+for i = 1, #afterChange.members do
+    if afterChange.members[i].citizenid == 'SOLDIER' then
+        T.equal(afterChange.members[i].grade, 1, 'e a tela lê o cargo novo, não o que estava cacheado')
+    end
+end
+
+-- No servidor de verdade a montagem cede no meio, porque as consultas são `await`: dá para
+-- pedir de novo antes de a primeira terminar. Aqui a cessão é imitada de dentro do stub.
+memberAction(1, 'SOLDIER', 'promote')
+local reentryTried, reentryResult = false, nil
+NoirGangs.membersOf = function(name)
+    if not reentryTried then
+        reentryTried = true
+        reentryResult = callbacks['noir_gangs:server:getSnapshot'](1)
+    end
+    return realGangMembers(name)
+end
+callbacks['noir_gangs:server:getSnapshot'](1)
+T.truthy(reentryTried, 'o pedido concorrente chegou a ser tentado')
+T.falsy(reentryResult, 'e não abriu uma segunda montagem para o mesmo source')
+
+-- Um erro no meio da montagem não pode deixar a porta trancada para o resto da sessão. A
+-- ação antes dele existe para derrubar o cache: com material válido em mãos, a montagem
+-- nem chega ao banco para falhar.
+memberAction(1, 'SOLDIER', 'demote')
+NoirGangs.membersOf = function() error('banco caiu') end
+T.falsy(pcall(callbacks['noir_gangs:server:getSnapshot'], 1), 'o erro sobe para quem chamou')
+NoirGangs.membersOf, core.GetCharacterNames, MySQL.query.await = realGangMembers, realNames, realQuery
+T.truthy(callbacks['noir_gangs:server:getSnapshot'](1), 'e o pedido seguinte ainda é atendido')
+
+world.membership.SOLDIER.ballas = 1
 
 -- Editor de cargos ------------------------------------------------------------------------
 -- O que muda o que os outros podem fazer precisa do mesmo cuidado que a ação sobre membro:
@@ -613,6 +911,164 @@ local ok3, _, newName = callbacks['noir_gangs:server:createGang'](1,
 T.truthy(ok3, 'criar gang funciona com ace')
 T.equal(newName, 'nova', 'e o identificador volta para a tela abrir nela')
 T.equal(gangWrites[#gangWrites].op, 'create', 'o registro recebeu a criação')
+
+-- Pontos de gestão: o payload vem da tela, e a tela é do cliente -------------------------
+-- As colunas de coordenada são `DOUBLE NOT NULL`. Payload torto que passa daqui não vira
+-- recusa, vira erro de SQL com o ponto pela metade — então a recusa acontece antes de
+-- escrever, e nada chega ao banco.
+local function createPoint(data) return callbacks['noir_gangs:server:createLocation'](1, 'ballas', data) end
+
+locationWrites = {}
+T.falsy(createPoint(nil), 'payload ausente é recusado')
+T.falsy(createPoint({}), 'payload sem coordenada também')
+T.falsy(createPoint({ x = 1.0, y = 2.0 }), 'faltando um eixo, idem')
+T.falsy(createPoint({ x = 1.0, y = 2.0, z = '3' }), 'coordenada em texto não vira número por conta própria')
+T.falsy(createPoint({ x = 0 / 0, y = 2.0, z = 3.0 }), 'NaN não é coordenada')
+T.falsy(createPoint({ x = math.huge, y = 2.0, z = 3.0 }), 'infinito também não')
+T.falsy(createPoint({ x = 1.0, y = 2.0, z = 3.0, heading = 'norte' }), 'heading torto é recusa, e não 0 em silêncio')
+T.falsy(createPoint({ x = 99999.0, y = 2.0, z = 3.0 }), 'ponto fora do mapa é recusado')
+T.equal(#locationWrites, 0, 'nenhum payload inválido chegou ao banco')
+
+local pointId = createPoint({ x = 1.5, y = -2.5, z = 3.0 })
+T.truthy(pointId, 'payload completo é aceito')
+T.equal(#locationWrites, 1, 'e só ele escreve')
+T.equal(locationWrites[1].values[7], 'NEWCOMER', 'gravando quem criou')
+
+-- Heading é normalizado, e não recusado: 450 graus é a mesma direção que 90.
+locationWrites = {}
+T.truthy(createPoint({ x = 1.0, y = 2.0, z = 3.0, heading = 450.0 }), 'heading fora de volta é aceito')
+T.equal(locationWrites[1].values[6], 90.0, 'depois de dar a volta')
+
+-- Id de ponto: a consulta é `WHERE id = ?`, então tabela e texto não podem descer até lá.
+locationWrites = {}
+T.falsy(callbacks['noir_gangs:server:updateLocation'](1, nil, { x = 1.0, y = 2.0, z = 3.0 }), 'mover sem id é recusado')
+T.falsy(callbacks['noir_gangs:server:updateLocation'](1, {}, { x = 1.0, y = 2.0, z = 3.0 }), 'id que é tabela também')
+T.falsy(callbacks['noir_gangs:server:updateLocation'](1, 1.5, { x = 1.0, y = 2.0, z = 3.0 }), 'id quebrado também')
+T.falsy(callbacks['noir_gangs:server:updateLocation'](1, 1, nil), 'mover para lugar nenhum é recusado')
+T.falsy(callbacks['noir_gangs:server:deleteLocation'](1, 'todos'), 'apagar com id em texto é recusado')
+T.equal(#locationWrites, 0, 'e nada disso tocou o banco')
+
+T.truthy(callbacks['noir_gangs:server:updateLocation'](1, 7, { x = 1.0, y = 2.0, z = 3.0 }), 'com id e ponto válidos, move')
+T.truthy(callbacks['noir_gangs:server:deleteLocation'](1, '7'), 'e o id numérico em texto ainda é aceito, já convertido')
+
+-- Entre o pedido e a escrita há consulta, e consulta cede: o admin pode cair no meio. Sem
+-- a checagem, `actor.citizenId` é índice de nil depois de a linha já ter sido gravada.
+locationWrites = {}
+local realCharacter = core.GetCharacter
+core.GetCharacter = function() return nil end
+T.falsy(createPoint({ x = 1.0, y = 2.0, z = 3.0 }), 'quem saiu no meio não cria ponto')
+T.falsy(callbacks['noir_gangs:server:updateLocation'](1, 7, { x = 1.0, y = 2.0, z = 3.0 }), 'nem move')
+T.falsy(callbacks['noir_gangs:server:deleteLocation'](1, 7), 'nem apaga')
+T.equal(#locationWrites, 0, 'e nada foi escrito pela metade')
+core.GetCharacter = realCharacter
+
+-- Produtos ---------------------------------------------------------------------------------
+-- O config era dono: reescrevia a lista a cada start, e gang criada em jogo ficava sem
+-- produto para sempre. Agora ele é semente e a tela grava.
+productWrites = {}
+local prodOk, prodCode = callbacks['noir_gangs:server:updateGang'](1,
+    { name = 'ballas', label = 'Ballas', products = { 'drugs', 'weapons' } })
+T.truthy(prodOk, 'a tela grava os produtos da gang')
+T.equal(#productWrites, 1, 'numa escrita só, com a lista inteira')
+T.truthy(world.products.ballas.weapons, 'e o produto novo passa a valer')
+
+prodOk, prodCode = callbacks['noir_gangs:server:updateGang'](1,
+    { name = 'ballas', label = 'Ballas', products = { 'plutonio' } })
+T.falsy(prodOk, 'produto fora do catálogo é recusado')
+T.equal(prodCode, 'invalid_product', 'com o motivo certo')
+T.equal(#productWrites, 1, 'e a recusa acontece antes de gravar')
+
+T.truthy(callbacks['noir_gangs:server:updateGang'](1, { name = 'ballas', label = 'Ballas', products = {} }),
+    'lista vazia é aceita')
+T.falsy(next(world.products.ballas), 'não operar nada também é escolha, e ela é gravada')
+
+-- Tela antiga não manda o campo; nesse caso a lista fica como está, e não some.
+world.products.ballas = { drugs = true }
+T.truthy(callbacks['noir_gangs:server:updateGang'](1, { name = 'ballas', label = 'Ballas' }))
+T.truthy(world.products.ballas.drugs, 'sem o campo, a lista não é tocada')
+
+productWrites = {}
+local madeOk, _, madeName = callbacks['noir_gangs:server:createGang'](1,
+    { name = 'nova2', label = 'Nova 2', archetype = 'gueto', color = 'roxo', products = { 'items' } })
+T.truthy(madeOk, 'a gang nasce com produto escolhido na mesma tela')
+T.equal(madeName, 'nova2', 'e a tela recebe o identificador para abrir nela')
+T.truthy(world.products.nova2.items, 'sem passar pelo config nem pelo restart')
+
+-- Primeiro chefe ----------------------------------------------------------------------------
+-- A gang criada pela tela nasce com a escada montada e ninguém dentro. Definir o primeiro
+-- chefe aqui evita a volta pelo `/setgang`; trocar quem lidera continua não sendo desta tela.
+local bossOk, bossCode = callbacks['noir_gangs:server:assignBoss'](1, 'ballas', 5)
+T.falsy(bossOk, 'gang que já tem chefe não recebe outro por aqui')
+T.equal(bossCode, 'boss_exists', 'e o motivo aponta para fora da tela')
+
+bossOk, bossCode = callbacks['noir_gangs:server:assignBoss'](1, 'nova', 2)
+T.falsy(bossOk, 'quem já tem gang não assume outra')
+T.equal(bossCode, 'already_in_gang', 'pela mesma regra do convite')
+
+local _, _, bossName = callbacks['noir_gangs:server:assignBoss'](1, 'nova', 5)
+T.equal(bossName, 'Elo Outro', 'gang sem chefe recebe o primeiro, e a tela mostra quem é')
+T.truthy(world.membership.OTHER.nova, 'e a pessoa entra na gang')
+T.equal(world.membership.OTHER.nova, NoirGangs.bossRank('nova').level, 'no cargo de chefe')
+
+bossOk, bossCode = callbacks['noir_gangs:server:assignBoss'](1, 'nova', 5)
+T.falsy(bossOk, 'e a segunda vez já não passa')
+T.equal(bossCode, 'boss_exists', 'porque agora existe chefe')
+
+local setupWithBoss = callbacks['noir_gangs:server:getSetup'](1)
+local novaCard
+for i = 1, #setupWithBoss.gangs do
+    if setupWithBoss.gangs[i].name == 'nova' then novaCard = setupWithBoss.gangs[i] end
+end
+T.equal(novaCard.bossName, 'Elo Outro', 'o setup mostra quem lidera, para não oferecer de novo')
+T.truthy(#setupWithBoss.products > 0, 'e traz o catálogo de produtos para a tela desenhar')
+
+world.membership.OTHER.nova = nil
+
+-- Ações concorrentes ------------------------------------------------------------------------
+-- A tranca é da gang, e não de quem pediu: o teto de cargos é lido da memória antes da
+-- escrita, e a escrita cede o controle. Dois pedidos ao mesmo tempo passavam os dois.
+-- Quem grava o cargo agora é `NoirGangs.setMember`, não o bridge: o gancho segue a
+-- escrita, senão a cessão simulada nunca acontece e o teste passaria sem testar nada.
+local reentryTriedMember, reentryMemberCode = false, nil
+local realSetGrade = NoirGangs.setMember
+NoirGangs.setMember = function(citizenId, gangName, grade)
+    if not reentryTriedMember then
+        reentryTriedMember = true
+        local _, code = memberAction(1, 'SOLDIER', 'promote')
+        reentryMemberCode = code
+    end
+    return realSetGrade(citizenId, gangName, grade)
+end
+memberAction(1, 'SOLDIER', 'promote')
+NoirGangs.setMember = realSetGrade
+T.truthy(reentryTriedMember, 'o pedido concorrente chegou a ser tentado')
+T.equal(reentryMemberCode, 'busy', 'e a segunda ação na mesma gang é recusada, não enfileirada')
+world.membership.SOLDIER.ballas = 1
+
+-- Bootstrap falhado -------------------------------------------------------------------------
+-- Registro vazio não é "servidor sem gangs": é gang nenhuma publicada no provider, com o
+-- Qbox descartando em silêncio a gang de quem loga. O resource recusa em vez de servir o
+-- vazio. O bloco recarrega o servidor com o bootstrap reprovando, então fica por último:
+-- daqui para baixo os callbacks são os do chunk que recusa.
+NoirGangs.bootstrap = function() return false end
+dofile('server/main.lua')
+
+local brokenState = callbacks['noir_gangs:server:getSnapshot'](1)
+T.falsy(brokenState.inGang, 'sem bootstrap, o snapshot não finge que a pessoa está sem gang por escolha')
+T.truthy(brokenState.notReady, 'ele diz que a causa é o resource, para a tela não culpar a permissão')
+
+local _, brokenCode = memberAction(1, 'SOLDIER', 'promote')
+T.equal(brokenCode, 'not_ready', 'ação de membro recusa')
+
+_, brokenCode = callRank('createRank', 1, 'Tenente')
+T.equal(brokenCode, 'not_ready', 'editor de cargos recusa')
+
+_, brokenCode = callbacks['noir_gangs:server:createGang'](1,
+    { name = 'fantasma', label = 'Fantasma', archetype = 'gueto', color = 'roxo' })
+T.equal(brokenCode, 'not_ready', 'criar gang recusa mesmo com ace: o registro não foi lido')
+
+T.falsy(callbacks['noir_gangs:server:createLocation'](1, 'ballas', { x = 1.0, y = 2.0, z = 3.0 }),
+    'e ponto de gestão também')
 
 IsPlayerAceAllowed = function() return false end
 

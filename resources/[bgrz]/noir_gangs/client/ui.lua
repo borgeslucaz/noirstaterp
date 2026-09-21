@@ -36,11 +36,17 @@ end
 ---Snapshot completo: gestão do servidor mais o mapa, que é do cliente. É tudo que a página
 ---precisa para se redesenhar inteira.
 ---@return table|nil
+---@return table|nil snapshot
+---@return boolean notReady o resource subiu sem registro; não é falta de permissão
 local function fetch()
     local data = lib.callback.await('noir_gangs:server:getSnapshot', false)
+    if type(data) ~= 'table' then return end
+    -- Bootstrap falhado tem sintoma igual ao de não ter gang, e as duas causas pedem
+    -- reações opostas: uma é da pessoa, a outra é da administração.
+    if data.notReady then return nil, true end
     -- Sem `view_members` a tela abriria vazia, e vazia por falta de permissão parece vazia
     -- por falta de gente. Melhor não abrir e dizer o motivo.
-    if type(data) ~= 'table' or not data.inGang or not data.permissions.view_members then return end
+    if not data.inGang or not data.permissions.view_members then return end
     data.territory = territoryMap()
     return data
 end
@@ -76,10 +82,13 @@ function Menu.open()
     if not core:IsLoggedIn() then return end
 
     Menu.state = 'OPENING'
-    local data = fetch()
+    local data, notReady = fetch()
     if Menu.state ~= 'OPENING' then return end
     if not data then
         Menu.state = 'CLOSED'
+        if notReady then
+            return core:Notify('O sistema de gangs não subiu neste servidor. Avise a administração.', 'error')
+        end
         return core:Notify('Sem acesso à gestão da gang.', 'error')
     end
 
@@ -141,8 +150,16 @@ RegisterNUICallback('memberAction', function(data, cb)
         return cb({ ok = false, code = 'invalid_member' })
     end
 
+    -- `level` só existe em `setGrade`: a tela manda o cargo escolhido em vez de uma
+    -- direção. Normalizado aqui porque o `<select>` entrega texto, e o servidor recusa
+    -- payload que não seja número.
+    local level = type(data) == 'table' and tonumber(data.level) or nil
+    if action == 'setGrade' and (not level or level < 0 or level % 1 ~= 0) then
+        return cb({ ok = false, code = 'invalid_action' })
+    end
+
     Menu.state = 'BUSY'
-    local ok, code, rankLabel = lib.callback.await('noir_gangs:server:memberAction', false, citizenid, action)
+    local ok, code, rankLabel = lib.callback.await('noir_gangs:server:memberAction', false, citizenid, action, level)
     if Menu.state ~= 'BUSY' then return cb({ ok = false, code = 'busy' }) end
     Menu.state = 'READY'
 

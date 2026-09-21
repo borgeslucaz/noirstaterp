@@ -52,6 +52,7 @@
         boss_protected: "O chefe não pode ser desligado nem mudar de cargo.",
         boss_not_promotable: "Ninguém é promovido a chefe por aqui. Isso é com a administração.",
         no_rank_available: "Não existe cargo para onde mover essa pessoa.",
+        same_rank: "Essa pessoa já está nesse cargo.",
         no_one_near: "Ninguém por perto para convidar.",
         invalid_target: "Ninguém por perto para convidar.",
         already_in_gang: "Essa pessoa já pertence a uma gang.",
@@ -68,6 +69,7 @@
         invalid_label: "O nome do cargo não pode ficar em branco.",
         invalid_permission: "Permissão desconhecida.",
         no_boss: "A gang não tem cargo de chefe. Isso é com a administração.",
+        not_ready: "O sistema de gangs não subiu neste servidor. Avise a administração.",
     }
 
     /// `boss_protected` chega das duas telas e quer dizer coisas diferentes em cada uma:
@@ -199,6 +201,8 @@
         ranksMessage: $("ranks-message"),
         rankCreate: $("rank-create"),
         rankList: $("rank-list"),
+        modalRankField: $("modal-rank-field"),
+        modalRank: $("modal-rank"),
         rankLocked: $("rank-locked"),
         rankLockedTitle: $("rank-locked-title"),
         rankLockedNote: $("rank-locked-note"),
@@ -499,12 +503,13 @@
         }
 
         let added = 0
-        if (permissions.promote && member.canPromote) {
-            container.appendChild(actionButton("PROMOVER", ICON.up, false, () => askAction(member, "promote")))
-            added++
-        }
-        if (permissions.demote && member.canDemote) {
-            container.appendChild(actionButton("REBAIXAR", ICON.down, false, () => askAction(member, "demote")))
+        // Um botão só. Antes eram dois -- promover e rebaixar -- e cada um movia UM degrau,
+        // o que deixou de querer dizer alguma coisa quando a escada deixou de ser contígua:
+        // com um cargo no meio, "promover" podia significar mandar alguém para um cargo que
+        // ninguém queria. Agora quem manda escolhe o destino, e o servidor decide qual
+        // permissão exigir pela direção.
+        if (permissions.changeGrade && member.canChangeGrade) {
+            container.appendChild(actionButton("ALTERAR CARGO", ICON.up, false, () => askAction(member, "setGrade")))
             added++
         }
         if (permissions.remove_member) {
@@ -1058,16 +1063,33 @@
 
     // O botão nomeia a consequência, e a frase diz o que acontece depois — nada de "OK".
     const CONFIRM = {
-        promote: { title: "PROMOVER MEMBRO", before: "Subir ", after: " para o próximo cargo da hierarquia.", button: "PROMOVER", danger: false },
-        demote: { title: "REBAIXAR MEMBRO", before: "Descer ", after: " para o cargo anterior.", button: "REBAIXAR", danger: false },
+        setGrade: { title: "ALTERAR CARGO", before: "Escolha o novo cargo de ", after: " na gang.", button: "ALTERAR CARGO", danger: false },
         remove: { title: "DESLIGAR MEMBRO", before: "Desligar ", after: " da gang. A pessoa perde o cargo e o acesso na hora.", button: "DESLIGAR MEMBRO", danger: true },
     }
 
     function askAction(member, action) {
         const copy = CONFIRM[action]
         if (!copy || state.busy) return
+
+        if (action === "setGrade") {
+            // Sem destino possível não se abre um modal vazio: a gang tem um cargo só, ou
+            // todos os outros são o de chefe.
+            const options = rankList().filter((rank) => !rank.isBoss && rank.level !== member.grade)
+            if (options.length === 0) {
+                return message(m.membersMessage, "Não há outro cargo para onde mover.", "error")
+            }
+            m.modalRank.replaceChildren()
+            options.forEach((rank) => {
+                const option = document.createElement("option")
+                option.value = String(rank.level)
+                option.textContent = rank.label
+                m.modalRank.appendChild(option)
+            })
+        }
+
         pendingAction = { kind: "member", member: member, action: action }
-        openModal(copy.title, copy.before, member.name, copy.after, copy.button, copy.danger)
+        openModal(copy.title, copy.before, member.name, copy.after, copy.button, copy.danger,
+            false, action === "setGrade")
     }
 
     function askLeave() {
@@ -1083,7 +1105,7 @@
         )
     }
 
-    function openModal(title, before, strongPart, after, confirmLabel, danger, withField) {
+    function openModal(title, before, strongPart, after, confirmLabel, danger, withField, withRank) {
         modalReturnFocus = document.activeElement
         m.modalTitle.textContent = title
         m.modalText.replaceChildren(document.createTextNode(before))
@@ -1095,6 +1117,7 @@
         m.modalConfirm.textContent = confirmLabel
         m.modalConfirm.className = danger ? "btn btn--danger" : "btn btn--fill"
         show(m.modalField, withField === true)
+        show(m.modalRankField, withRank === true)
         if (withField) {
             m.modalInput.value = ""
             m.modalInput.maxLength = (state.data && state.data.rankLimits && state.data.rankLimits.labelMaxLength) || 32
@@ -1104,6 +1127,7 @@
         // Foco inicial no primeiro campo, ou na ação segura: a irreversível nunca começa
         // focada.
         if (withField) m.modalInput.focus()
+        else if (withRank) m.modalRank.focus()
         else m.modalCancel.focus()
     }
 
@@ -1243,7 +1267,9 @@
         }
 
         const member = pending.member
-        post("memberAction", { citizenid: member.citizenid, action: pending.action }).then((res) => {
+        const payload = { citizenid: member.citizenid, action: pending.action }
+        if (pending.action === "setGrade") payload.level = Number(m.modalRank.value)
+        post("memberAction", payload).then((res) => {
             done(res)
             if (!state.open) return
             if (res && res.ok) {
@@ -1259,7 +1285,7 @@
     function successText(action, member, rankLabel) {
         if (action === "remove") return member.name + " não faz mais parte da gang."
         if (rankLabel) return member.name + " agora é " + rankLabel + "."
-        return action === "promote" ? member.name + " subiu de cargo." : member.name + " desceu de cargo."
+        return member.name + " mudou de cargo."
     }
 
     /// Convite enviado, a tela sai de cena — quem convida quer ver a pessoa do lado. O aviso
@@ -1433,6 +1459,12 @@
         gang_limit: "O servidor chegou ao limite de gangs.",
         gang_not_found: "Essa gang não existe mais.",
         location_not_found: "Esse ponto não existe mais.",
+        invalid_product: "Produto desconhecido.",
+        invalid_member: "Essa pessoa não está mais online.",
+        already_in_gang: "Essa pessoa já pertence a uma gang.",
+        boss_exists: "Essa gang já tem chefe. Trocar quem lidera é com /setgang.",
+        no_boss: "Essa gang não tem cargo de chefe na escada.",
+        not_ready: "O sistema de gangs não subiu: o registro está vazio e nada pode ser gravado.",
         busy: "Aguarde a ação anterior terminar.",
         not_open: "A ferramenta foi fechada.",
         failed: "Não foi possível concluir. Tente de novo.",
@@ -1460,6 +1492,11 @@
         label: $("setup-label"),
         archetype: $("setup-archetype"),
         archetypeHint: $("setup-archetype-hint"),
+        products: $("setup-products"),
+        bossRow: $("setup-boss-row"),
+        boss: $("setup-boss"),
+        bossHint: $("setup-boss-hint"),
+        bossAssign: $("setup-boss-assign"),
         color: $("setup-color"),
         colorError: $("setup-color-error"),
         colorErrorText: $("setup-color-error-text"),
@@ -1697,6 +1734,27 @@
             su.archetype.appendChild(label)
         })
 
+        // Produtos são caixas, e não rádios: uma gang pode operar mais de um. O
+        // armazenamento é por (gang, produto) desde sempre, então isso não é novidade para
+        // o servidor — a tela é que não tinha como dizer.
+        const products = (setup.data && setup.data.products) || []
+        const current = (gang && gang.products) || []
+        su.products.replaceChildren()
+        products.forEach((product) => {
+            const label = document.createElement("label")
+            const input = document.createElement("input")
+            input.type = "checkbox"
+            input.name = "setup-product"
+            input.value = product.id
+            input.checked = current.indexOf(product.id) !== -1
+
+            const text = document.createElement("span")
+            text.textContent = product.label
+
+            label.append(input, text)
+            su.products.appendChild(label)
+        })
+
         // Cor livre é a que não está na paleta: ela chega como `#RRGGBB`.
         const currentColor = gang ? gang.color : null
         const isCustom = typeof currentColor === "string" && HEX_RE.test(currentColor)
@@ -1777,11 +1835,56 @@
 
         renderChoices(gang)
 
+        renderBossRow(gang)
+
         show(su.cancel, setup.creating)
         // Ponto de gestão é de gang que já existe: não dá para marcar no mundo o lugar de
         // algo que ainda não foi criado.
         show(su.addPoint, !setup.creating)
         su.save.textContent = setup.creating ? "CRIAR GANG" : "SALVAR ALTERAÇÕES"
+    }
+
+    // O primeiro chefe só aparece onde falta um: com chefe em pé, trocar quem lidera é
+    // `/setgang`, e a tela não finge o contrário. Na criação também não aparece — não dá
+    // para pôr alguém numa gang que ainda não existe.
+    function renderBossRow(gang) {
+        const candidates = (setup.data && setup.data.candidates) || []
+        const missing = !setup.creating && gang && gang.hasBossRank && !gang.bossName
+        show(su.bossRow, !!missing)
+        if (!missing) return
+
+        su.boss.replaceChildren()
+        candidates.forEach((candidate) => {
+            const option = document.createElement("option")
+            option.value = String(candidate.source)
+            option.textContent = candidate.name
+            su.boss.appendChild(option)
+        })
+
+        const empty = candidates.length === 0
+        su.boss.disabled = empty
+        su.bossAssign.disabled = empty || setup.busy
+        su.bossHint.textContent = empty
+            ? "Ninguém online e fora de gang para assumir. A lista é de quem está sem gang agora."
+            : "A gang está sem chefe. Depois de definido, trocar quem lidera é com /setgang."
+    }
+
+    function assignBoss() {
+        if (setup.busy || !setup.selected || su.bossAssign.disabled) return
+        const target = su.boss.value
+        if (!target) return
+
+        setSetupBusy(true)
+        post("assignBoss", { gang: setup.selected, target: Number(target) }).then((res) => {
+            setSetupBusy(false)
+            if (!setup.open) return
+            if (res && res.ok) {
+                if (res.data) applySetup(res.data)
+                message(su.message, "Chefe definido: " + (res.extra || "—") + ".", "success")
+                return
+            }
+            message(su.message, setupError(res && res.code), "error")
+        })
     }
 
     function selectSetupGang(name) {
@@ -1825,10 +1928,12 @@
             return showColorError("Cor escura demais: ela sumiria no mapa e na tela. Aumente o brilho.")
         }
 
+        const checked = Array.prototype.slice.call(su.products.querySelectorAll("input:checked"))
         const payload = {
             label: label,
             archetype: pickedValue(su.archetype),
             color: color,
+            products: checked.map((input) => input.value),
         }
 
         if (setup.creating) {
@@ -1986,6 +2091,7 @@
         su.save.dataset.pending = String(busy)
         const max = (setup.data && setup.data.limits && setup.data.limits.max) || 0
         su.create.disabled = busy || setupGangs().length >= max
+        su.bossAssign.disabled = busy || su.boss.disabled
         syncModalConfirm()
     }
 
@@ -2063,6 +2169,7 @@
         ev.preventDefault()
         submitSetupForm()
     })
+    su.bossAssign.addEventListener("click", assignBoss)
     su.addPoint.addEventListener("click", () => {
         if (setup.selected) placePoint(setup.selected, null)
     })

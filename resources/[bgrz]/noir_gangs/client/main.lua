@@ -10,7 +10,18 @@ local zones, radialAdded = {}, false
 local directory = {} -- gangName -> { name, label, color, colorHex }
 
 local function notify(text, kind) core:Notify(text, kind or 'inform') end
-local function gang() return core:GetGang() end
+-- A gang vem do state bag do próprio jogador, escrito pelo servidor deste resource.
+--
+-- Antes vinha de `PlayerData.gang` pelo bridge -- ou seja, do Qbox. O dado não mora mais
+-- lá: quem é dono da membresia é o servidor daqui, e o state bag é como ele publica.
+--
+-- `false` é ausência explícita de gang; o servidor grava assim de propósito, porque state
+-- bag apagado e state bag nunca escrito são indistinguíveis.
+local function gang()
+    local value = LocalPlayer.state.noirGang
+    if type(value) ~= 'table' then return nil end
+    return value
+end
 
 local INVITE_ERRORS = {
     no_gang = 'Você não está em uma gang.',
@@ -132,7 +143,7 @@ end)
 
 ---Cargo ou gang mudaram com a tela aberta: o que está desenhado é de antes. Fechar é mais
 ---honesto do que redesenhar por baixo de uma pessoa no meio de uma ação.
-AddEventHandler('bgrz_core:client:gangUpdated', function()
+RegisterNetEvent('noir_gangs:client:gangChanged', function()
     Menu.forceClose()
     refreshRadial()
 end)

@@ -19,7 +19,7 @@ files {
 
 shared_scripts { '@ox_lib/init.lua', 'shared/config.lua' }
 client_scripts { 'client/ui.lua', 'client/setup.lua', 'client/main.lua' }
-server_scripts { '@oxmysql/lib/MySQL.lua', 'server/state.lua', 'server/main.lua' }
+server_scripts { '@oxmysql/lib/MySQL.lua', 'server/state.lua', 'server/members.lua', 'server/main.lua' }
 
 -- Framework e target chegam pelo bgrz_core; declarar qbx_core ou ox_target aqui
 -- reabriria o acoplamento que o bridge existe para fechar.

@@ -146,9 +146,22 @@ local function prettyName(name)
     end))
 end
 
+---`TINYINT(1)` não tem uma representação só do lado do Lua: dependendo do driver e da
+---versão, o mesmo `1` chega como número, como `true` ou como string. Comparar com `1` puro
+---acerta numa e falha em silêncio nas outras.
+---
+---O caso mais caro é o `is_boss`: errar ali é gang sem chefe, com a chefia deixando de ser
+---intocável e o editor de cargos sem aparecer para ninguém. O `products_seeded` erra mais
+---barato — reescreveria a lista de produtos no start —, mas erra pelo mesmo motivo. Por
+---isso a conversão acontece num lugar só, na fronteira em que a linha entra na memória.
+local function truthy(value)
+    return value == true or value == 1 or value == '1'
+end
+
 local function loadRegistry()
     registry = {}
-    for _, row in ipairs(MySQL.query.await('SELECT gang_name, label, color, archetype FROM noir_gang_state') or {}) do
+    for _, row in ipairs(MySQL.query.await(
+        'SELECT gang_name, label, color, archetype, products_seeded FROM noir_gang_state') or {}) do
         local label = row.label
         if type(label) ~= 'string' or label == '' then label = prettyName(row.gang_name) end
 
@@ -161,6 +174,7 @@ local function loadRegistry()
             color = (Config.Colors[row.color] or (type(row.color) == 'string' and row.color:match('^#%x%x%x%x%x%x$')))
                 and row.color or Config.FallbackColor,
             archetype = Config.RankArchetypes[row.archetype] and row.archetype or Config.FallbackArchetype,
+            productsSeeded = truthy(row.products_seeded),
         }
     end
 end
@@ -180,46 +194,15 @@ local function seedRegistry()
     end
 end
 
----Manda a lista inteira para o provider, substituindo o dicionário dele.
----
----Só para dicionário vazio — o start dele, ou o restart — porque `RegisterGangs` atribui as
----entradas e zera a escada de cargos de cada uma. Quem chama é responsável por republicar
----os cargos em seguida. Para mexer numa gang só, use `publishGang`.
----@return boolean ok
-function NoirGangs.publishGangsToProvider()
-    local list = {}
-    for _, gang in pairs(registry) do list[#list + 1] = { name = gang.name, label = gang.label } end
-    if #list == 0 then return true end
-    table.sort(list, function(a, b) return a.name < b.name end)
-
-    local ok, err = core:RegisterGangs(list)
-    if not ok then
-        lib.print.error(('[noir_gangs] gangs não registradas no provider: %s'):format(tostring(err)))
-    end
-    return ok == true
-end
-
----Cria ou renomeia **uma** gang no provider, preservando os cargos dela.
----@return boolean ok
-function NoirGangs.publishGang(gangName)
-    local entry = registry[gangName]
-    if not entry then return false end
-
-    local ok, err = core:UpsertGangData(entry.name, entry.label)
-    if not ok then
-        lib.print.error(('[noir_gangs] gang %s não publicada: %s'):format(gangName, tostring(err)))
-    end
-    return ok == true
-end
-
----Grava o `shared/gangs.lua` a partir do que o provider tem em memória.
----
----**Sempre depois dos cargos publicados.** O arquivo sai com gangs e escadas, e o provider
----apaga do `player_groups` toda linha cujo cargo não exista no boot seguinte; gravar antes
----escreveria escadas vazias e levaria a membresia de todo mundo junto.
-function NoirGangs.commitGangsToFile()
-    core:CommitGangsToFile()
-end
+-- As gangs NÃO são mais publicadas no Qbox.
+--
+-- Enquanto eram, o mesmo dado vivia nos dois lados: a escada aqui e uma cópia lá, a
+-- membresia aqui e `player_groups` + `players.gang` lá. O Qbox rebaixava jogador sozinho a
+-- cada republicação, e o login relia a cópia errada. Agora `shared/gangs.lua` não é mais
+-- espelho de nada -- o dono da gang é este resource, ponto.
+--
+-- O que sumiu junto: `publishGangsToProvider`, `publishGang`, `commitGangsToFile`,
+-- `publishRanksOf`, `publishRanksToProvider` e `republishToProvider`.
 
 ---@return { name: string, label: string, color: string, archetype: string }[]
 function NoirGangs.gangList()
@@ -325,10 +308,13 @@ local function seedRanks(gangName)
     for _, rank in ipairs(archetype.ranks) do
         levels[#levels + 1] = rank.level
         writes[#writes + 1] = {
-            query = 'INSERT INTO noir_gang_ranks (gang_name, level, label, is_boss, bank_auth, permissions) VALUES (?, ?, ?, ?, ?, ?) '
+            -- A semente usa `level` como posição inicial porque no arquétipo os dois
+            -- ainda coincidem: a escada nasce contígua. Daí em diante elas andam
+            -- separadas, e `sort_order` não é reescrito por semeadura nenhuma.
+            query = 'INSERT INTO noir_gang_ranks (gang_name, level, label, is_boss, bank_auth, permissions, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?) '
                 .. 'ON DUPLICATE KEY UPDATE label = VALUES(label), is_boss = VALUES(is_boss), bank_auth = VALUES(bank_auth), permissions = VALUES(permissions)',
             values = { gangName, rank.level, rank.label, rank.isBoss and 1 or 0, rank.bankAuth and 1 or 0,
-                json.encode(rank.permissions or {}) },
+                json.encode(rank.permissions or {}), rank.level },
         }
     end
 
@@ -340,6 +326,14 @@ local function seedRanks(gangName)
     MySQL.transaction.await(writes)
 
     MySQL.update.await('UPDATE noir_gang_state SET archetype = ? WHERE gang_name = ?', { archetypeName, gangName })
+end
+
+---Marca que o config já semeou esta gang. É o que separa "nunca foi semeada" de "foi
+---esvaziada de propósito pelo editor": sem a marca, tirar o último produto em jogo seria
+---desfeito pelo seed do start seguinte, e ninguém entenderia por quê.
+local function markProductsSeeded(gangName)
+    MySQL.update.await('UPDATE noir_gang_state SET products_seeded = 1 WHERE gang_name = ?', { gangName })
+    if registry[gangName] then registry[gangName].productsSeeded = true end
 end
 
 local function seedProducts(gangName)
@@ -354,21 +348,12 @@ local function seedProducts(gangName)
         }
     end
     MySQL.transaction.await(writes)
-end
-
----`TINYINT(1)` não tem uma representação só do lado do Lua: dependendo do driver e da
----versão, o mesmo `1` chega como número, como `true` ou como string. Comparar com `1` puro
----acerta numa e falha em silêncio nas outras — e falhar aqui significa uma gang sem chefe,
----que é a coisa mais cara de errar neste resource: o chefe deixa de ser intocável e o
----editor de cargos nunca aparece para ninguém.
----
----Por isso a conversão acontece num lugar só, na fronteira em que a linha entra na memória.
-local function truthy(value)
-    return value == true or value == 1 or value == '1'
+    markProductsSeeded(gangName)
 end
 
 local function loadRanks()
     ranks = {}
+    local backfill = {}
     for _, row in ipairs(MySQL.query.await('SELECT * FROM noir_gang_ranks') or {}) do
         local permissions = row.permissions
         if type(permissions) == 'string' then permissions = json.decode(permissions) end
@@ -377,10 +362,23 @@ local function loadRanks()
         for _, permission in ipairs(permissions or {}) do set[permission] = true end
 
         local level = tonumber(row.level)
+
+        -- `sort_order` -1 é linha gravada antes da coluna existir. Assumir `level` preserva
+        -- exatamente a ordem que a gang já mostrava, e a gravação abaixo faz isso valer só
+        -- uma vez -- no start seguinte a coluna já tem valor próprio.
+        local sortOrder = tonumber(row.sort_order)
+        if not sortOrder or sortOrder < 0 then
+            sortOrder = level
+            backfill[#backfill + 1] = { query = 'UPDATE noir_gang_ranks SET sort_order = ? '
+                .. 'WHERE gang_name = ? AND level = ?', values = { sortOrder, row.gang_name, level } }
+        end
+
         ranks[row.gang_name] = ranks[row.gang_name] or {}
-        ranks[row.gang_name][level] = { level = level, label = row.label,
+        ranks[row.gang_name][level] = { level = level, sortOrder = sortOrder, label = row.label,
             isBoss = truthy(row.is_boss), bankAuth = truthy(row.bank_auth), permissions = set }
     end
+
+    if #backfill > 0 then MySQL.transaction.await(backfill) end
 end
 
 local function loadProducts()
@@ -398,46 +396,15 @@ local function loadReputation()
     end
 end
 
----Publica no Qbox o rótulo de cada cargo que conhecemos. Sem isto, `/gang` e qualquer
----resource de terceiro mostram o nome antigo de shared/gangs.lua, e `AddPlayerToGang`
----recusa um nível que só exista aqui.
----Publica no provider a escada de UMA gang. Existe separado porque criar uma gang ou trocar
----o arquétipo dela precisa disso na hora: `seedRanks` escreve no nosso banco e no nosso
----cache, mas o provider só conhece o que foi publicado — e é dele que sai o cargo em
----`PlayerData.gang`, e é ele que recusa `AddPlayerToGang` para um nível que não conhece.
-local function publishRanksOf(gangName)
-    for level, rank in pairs(ranks[gangName] or {}) do
-        local ok, err = core:UpsertGangGrade(gangName, level, rank)
-        if not ok then
-            lib.print.error(('[noir_gangs] não publiquei %s cargo %d: %s'):format(gangName, level, tostring(err)))
-        end
-    end
-end
-
-local function publishRanksToProvider()
-    for gangName in pairs(ranks) do publishRanksOf(gangName) end
-end
-
----Reenvia tudo que o provider guarda só em memória: a lista de gangs e o rótulo de cada
----cargo. Existe para um caso só — o provider reiniciando sozinho, sem nós. Ele relê o
----`shared/gangs.lua`, que não tem mais gang nenhuma, e sem esta chamada quem relogasse
----entraria sem gang, com um aviso no console dele e nada mais.
-function NoirGangs.republishToProvider()
-    NoirGangs.publishGangsToProvider()
-    publishRanksToProvider()
-    NoirGangs.commitGangsToFile()
-end
-
 ---@return boolean ok
 function NoirGangs.bootstrap()
     if not NoirGangs.validateConfig() then return false end
     if not NoirGangs.runSchema() then return false end
 
-    -- O registro primeiro, e o provider logo em seguida: `seedRanks` publica cargo por
-    -- cargo com `UpsertGangGrade`, e o provider recusa cargo de gang que ele não conhece.
+    -- O registro primeiro. `seedRanks` abaixo só escreve no banco -- não fala com o
+    -- provider -- então a publicação pode (e precisa) esperar os cargos estarem carregados.
     seedRegistry()
     loadRegistry()
-    NoirGangs.publishGangsToProvider()
 
     for gangName in pairs(registry) do
         -- Cargos: o config reescreve sempre, ou semeia só a gang que ainda não tem nenhum.
@@ -446,19 +413,21 @@ function NoirGangs.bootstrap()
             { gangName }) or 0
         if Config.RanksFromConfig or existing == 0 then seedRanks(gangName) end
 
-        -- Produtos não têm editor, então continuam saindo do config a cada start. Gang
-        -- criada em jogo não está no config e fica sem produto, que é o previsto.
-        if Config.Gangs[gangName] then seedProducts(gangName) end
+        -- Produtos seguem o mesmo acordo dos cargos desde que o editor existe: o config é
+        -- semente, não dono. Gang do config que nunca foi semeada recebe a lista de lá;
+        -- depois disso, quem manda é o que foi editado em jogo. `ProductsFromConfig`
+        -- devolve o comportamento antigo, de reescrever tudo a cada start.
+        if Config.Gangs[gangName] and (Config.ProductsFromConfig or not registry[gangName].productsSeeded) then
+            seedProducts(gangName)
+        end
     end
 
     loadRanks()
+    NoirGangs.loadMembers()
+
     NoirGangs.repairBossRanks()
     loadProducts()
     loadReputation()
-    publishRanksToProvider()
-
-    -- Por último, e não junto do registro: o arquivo precisa sair com as escadas cheias.
-    NoirGangs.commitGangsToFile()
 
     lib.print.info(('[noir_gangs] %d gangs carregadas'):format(#NoirGangs.gangList()))
     return true
@@ -477,34 +446,49 @@ function NoirGangs.ranksOf(gangName)
     return ranks[gangName] or {}
 end
 
----Maior nível que a gang tem. É quem lidera.
----@return integer
-function NoirGangs.topLevel(gangName)
-    local top
-    for level in pairs(ranks[gangName] or {}) do
-        if not top or level > top then top = level end
-    end
-    return top or 0
+---Escada da gang, do cargo mais baixo ao mais alto, por POSIÇÃO.
+---
+---A escada é `sort_order`, nunca `level`. `level` é só identidade -- depois que um cargo
+---nasce, o número dele não muda mais, e por isso não diz nada sobre quem está acima de
+---quem. Confundir os dois é o que obrigava a renumerar cargos, e renumerar cargo significa
+---mover membro de nível nos dois lados do Qbox.
+---@return table[] ranks
+function NoirGangs.ladder(gangName)
+    local ordered = {}
+    for _, rank in pairs(ranks[gangName] or {}) do ordered[#ordered + 1] = rank end
+    table.sort(ordered, function(a, b)
+        if a.sortOrder == b.sortOrder then return a.level < b.level end
+        return a.sortOrder < b.sortOrder
+    end)
+    return ordered
 end
 
----Nível imediatamente acima/abaixo entre os que existem. Os cargos não precisam ser
----contíguos, então somar 1 erraria o alvo.
+---Nível do cargo mais alto da escada. É quem lidera.
+---@return integer
+function NoirGangs.topLevel(gangName)
+    local ordered = NoirGangs.ladder(gangName)
+    local top = ordered[#ordered]
+    return top and top.level or 0
+end
+
+---Nível do cargo imediatamente acima/abaixo na escada.
+---
+---Antes isto era aritmética sobre `level`; agora é um passo na ordem de exibição. Para
+---quem usa, o comportamento é o mesmo -- promover continua sendo "o próximo degrau".
 ---@return integer|nil
 function NoirGangs.levelAbove(gangName, level)
-    local best
-    for candidate in pairs(ranks[gangName] or {}) do
-        if candidate > level and (not best or candidate < best) then best = candidate end
+    local ordered = NoirGangs.ladder(gangName)
+    for i = 1, #ordered do
+        if ordered[i].level == level then return ordered[i + 1] and ordered[i + 1].level end
     end
-    return best
 end
 
 ---@return integer|nil
 function NoirGangs.levelBelow(gangName, level)
-    local best
-    for candidate in pairs(ranks[gangName] or {}) do
-        if candidate < level and (not best or candidate > best) then best = candidate end
+    local ordered = NoirGangs.ladder(gangName)
+    for i = 1, #ordered do
+        if ordered[i].level == level then return ordered[i - 1] and ordered[i - 1].level end
     end
-    return best
 end
 
 ---O cargo de chefe da gang, se existir. É ele que define o topo da escada e o que o
@@ -521,11 +505,8 @@ end
 ---apagasse o cargo mais baixo.
 ---@return integer|nil
 function NoirGangs.bottomLevel(gangName)
-    local bottom
-    for level in pairs(ranks[gangName] or {}) do
-        if not bottom or level < bottom then bottom = level end
-    end
-    return bottom
+    local bottom = NoirGangs.ladder(gangName)[1]
+    return bottom and bottom.level
 end
 
 ---@return integer total, integer semChefe
@@ -553,6 +534,40 @@ function NoirGangs.productsOf(gangName)
 end
 
 ---@return boolean
+---Grava a lista inteira de produtos de uma gang: o editor manda o estado final, e não a
+---diferença, porque a tela mostra caixas marcadas e é isso que ela sabe dizer.
+---@param list string[]
+---@return boolean ok
+---@return string? errorCode
+function NoirGangs.setProducts(gangName, list)
+    if not registry[gangName] then return false, 'gang_not_found' end
+    if type(list) ~= 'table' then return false, 'invalid_product' end
+
+    local set, wanted = {}, {}
+    for i = 1, #list do
+        local product = list[i]
+        if type(product) ~= 'string' or not Config.ProductTypes[product] then return false, 'invalid_product' end
+        if not set[product] then
+            set[product] = true
+            wanted[#wanted + 1] = product
+        end
+    end
+
+    local writes = { { query = 'DELETE FROM noir_gang_products WHERE gang_name = ?', values = { gangName } } }
+    for i = 1, #wanted do
+        writes[#writes + 1] = {
+            query = 'INSERT INTO noir_gang_products (gang_name, product_type) VALUES (?, ?)',
+            values = { gangName, wanted[i] },
+        }
+    end
+    MySQL.transaction.await(writes)
+
+    products[gangName] = set
+    -- Lista vazia também é escolha, e o seed do próximo start não pode desfazê-la.
+    markProductsSeeded(gangName)
+    return true
+end
+
 function NoirGangs.hasProduct(gangName, productType)
     return products[gangName] ~= nil and products[gangName][productType] == true
 end
@@ -632,67 +647,45 @@ end
 
 ---Grava o cargo, publica no provider e atualiza o cache na mesma ordem sempre, para não
 ---existir caminho em que um dos três fique para trás.
-local function persistRank(gangName, level, label, isBoss, bankAuth, permissions)
+---@param sortOrder integer? nil preserva a posição atual do cargo
+local function persistRank(gangName, level, label, isBoss, bankAuth, permissions, sortOrder)
+    -- Editar um cargo não pode mexer na escada. Só quem cria informa posição; todo o
+    -- resto herda a que o cargo já tinha.
+    local current = ranks[gangName] and ranks[gangName][level]
+    sortOrder = sortOrder or (current and current.sortOrder) or level
+
     MySQL.query.await(
-        'INSERT INTO noir_gang_ranks (gang_name, level, label, is_boss, bank_auth, permissions) VALUES (?, ?, ?, ?, ?, ?) '
-            .. 'ON DUPLICATE KEY UPDATE label = VALUES(label), is_boss = VALUES(is_boss), bank_auth = VALUES(bank_auth), permissions = VALUES(permissions)',
-        { gangName, level, label, isBoss and 1 or 0, bankAuth and 1 or 0, json.encode(permissions) })
+        'INSERT INTO noir_gang_ranks (gang_name, level, label, is_boss, bank_auth, permissions, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?) '
+            .. 'ON DUPLICATE KEY UPDATE label = VALUES(label), is_boss = VALUES(is_boss), bank_auth = VALUES(bank_auth), permissions = VALUES(permissions), sort_order = VALUES(sort_order)',
+        { gangName, level, label, isBoss and 1 or 0, bankAuth and 1 or 0, json.encode(permissions), sortOrder })
 
     local set = {}
     for _, permission in ipairs(permissions) do set[permission] = true end
 
     ranks[gangName] = ranks[gangName] or {}
-    ranks[gangName][level] = { level = level, label = label, isBoss = isBoss == true,
+    ranks[gangName][level] = { level = level, sortOrder = sortOrder, label = label, isBoss = isBoss == true,
         bankAuth = bankAuth == true, permissions = set }
 
-    local ok, err = core:UpsertGangGrade(gangName, level, ranks[gangName][level])
-    if not ok then
-        lib.print.error(('[noir_gangs] cargo %s/%d não foi publicado no provider: %s')
-            :format(gangName, level, tostring(err)))
-    end
     return ranks[gangName][level]
-end
-
----Sobe o chefe um degrau para abrir espaço logo abaixo dele.
----
----O grade novo é publicado no provider ANTES de mover ninguém, senão `AddPlayerToGang`
----recusa um nível que a gang ainda não tem. Se alguma mudança falhar no meio, as que já
----passaram voltam: metade da chefia num nível e metade no outro é pior que não ter movido.
----@return boolean ok
-local function raiseBoss(gangName, boss)
-    local newLevel = boss.level + 1
-    if ranks[gangName][newLevel] then return false end
-
-    local ok = core:UpsertGangGrade(gangName, newLevel,
-        { label = boss.label, isBoss = true, bankAuth = boss.bankAuth })
-    if not ok then return false end
-
-    local moved = {}
-    for _, member in ipairs(core:GetGangMembers(gangName)) do
-        if member.grade == boss.level then
-            if core:SetGangGrade(member.citizenId, gangName, newLevel) then
-                moved[#moved + 1] = member.citizenId
-            else
-                for i = 1, #moved do core:SetGangGrade(moved[i], gangName, boss.level) end
-                return false
-            end
-        end
-    end
-
-    MySQL.query.await('UPDATE noir_gang_ranks SET level = ? WHERE gang_name = ? AND level = ?',
-        { newLevel, gangName, boss.level })
-    ranks[gangName][boss.level] = nil
-    boss.level = newLevel
-    ranks[gangName][newLevel] = boss
-    return true
 end
 
 ---Cria um cargo logo abaixo do chefe.
 ---
----É sempre abaixo do chefe, e não numa posição escolhida, porque inserir no meio de uma
----escada contígua significaria renumerar todo mundo acima — uma troca de nível por membro
----da gang inteira, para acomodar um cargo vazio. Aqui o único que muda de nível é o chefe,
----e só quando não sobrou buraco. Quem quer outra ordem renomeia os cargos, que é de graça.
+---Duas coisas acontecem aqui, e elas são independentes de propósito:
+---
+---  * o `level` é o próximo IDENTIFICADOR livre, sempre acima de todos os que já
+---    existiram. Nunca reaproveita número de cargo apagado e nunca se intromete entre
+---    dois cargos existentes;
+---  * a POSIÇÃO é logo abaixo do chefe, empurrando o chefe uma casa para cima.
+---
+---A versão antiga fazia as duas com o mesmo número, e por isso abrir espaço abaixo do
+---chefe exigia SUBIR O CHEFE DE NÍVEL -- o que obrigava a mover cada membro da chefia
+---para outro grade, no `player_groups` e no `players.gang` do Qbox, com uma compensação
+---manual caso falhasse no meio. Foi esse caminho que dessincronizou o vagos quando um
+---cargo "TESTE" nasceu no nível 3.
+---
+---Empurrar `sort_order` é de graça: ninguém persiste contra essa coluna. Nenhum membro
+---muda de cargo, e a função inteira deixou de precisar de rollback.
 ---@return integer|nil level
 ---@return string? errorCode
 function NoirGangs.createRank(gangName, label)
@@ -705,13 +698,35 @@ function NoirGangs.createRank(gangName, label)
     local total = NoirGangs.rankCount(gangName)
     if total >= Config.Ranks.max then return nil, 'rank_limit' end
 
-    local level = boss.level - 1
-    if level < 0 or ranks[gangName][level] then
-        if not raiseBoss(gangName, boss) then return nil, 'operation_failed' end
-        level = boss.level - 1
+    -- O próximo identificador sai do MAIOR nível já usado, não do maior que existe agora.
+    --
+    -- A diferença aparece quando um cargo é apagado: reaproveitar o número dele faria o
+    -- histórico mentir, porque `noir_gang_activity` grava `oldGrade`/`newGrade` como
+    -- números -- "promovido para o cargo 4" passaria a significar dois cargos diferentes
+    -- em épocas diferentes.
+    --
+    -- A memória fica em `noir_gang_state.next_rank_level`. Antes vinha do provider, que
+    -- nunca esquecia um grade publicado -- mas nada mais é publicado lá.
+    local level = 0
+    for existing in pairs(ranks[gangName] or {}) do
+        if existing >= level then level = existing + 1 end
     end
 
-    persistRank(gangName, level, label, false, false, {})
+    local watermark = tonumber(MySQL.scalar.await(
+        'SELECT next_rank_level FROM noir_gang_state WHERE gang_name = ?', { gangName })) or 0
+    if watermark > level then level = watermark end
+
+    MySQL.update.await('UPDATE noir_gang_state SET next_rank_level = ? WHERE gang_name = ?',
+        { level + 1, gangName })
+
+    local sortOrder = boss.sortOrder
+    MySQL.query.await('UPDATE noir_gang_ranks SET sort_order = sort_order + 1 '
+        .. 'WHERE gang_name = ? AND sort_order >= ?', { gangName, sortOrder })
+    for _, rank in pairs(ranks[gangName] or {}) do
+        if rank.sortOrder >= sortOrder then rank.sortOrder = rank.sortOrder + 1 end
+    end
+
+    persistRank(gangName, level, label, false, false, {}, sortOrder)
     return level
 end
 
@@ -748,10 +763,7 @@ function NoirGangs.deleteRank(gangName, level)
 
     -- Apagar um cargo ocupado deixaria essas pessoas num nível sem cargo: sem permissão
     -- nenhuma, sem rótulo, e sem promoção que as tire de lá. Quem move é gente, antes.
-    local occupied = 0
-    for _, member in ipairs(core:GetGangMembers(gangName)) do
-        if member.grade == level then occupied = occupied + 1 end
-    end
+    local occupied = NoirGangs.countAtLevel(gangName, level)
     if occupied > 0 then return false, 'rank_occupied', occupied end
 
     MySQL.query.await('DELETE FROM noir_gang_ranks WHERE gang_name = ? AND level = ?', { gangName, level })
@@ -832,7 +844,7 @@ end
 
 ---@return integer
 local function memberCount(gangName)
-    return #core:GetGangMembers(gangName)
+    return #NoirGangs.membersOf(gangName)
 end
 
 ---Cria a gang, registra no provider e semeia os cargos do arquétipo escolhido.
@@ -864,18 +876,11 @@ function NoirGangs.createGang(name, label, archetype, color)
     -- O provider precisa conhecer a gang antes de receber os cargos dela, senão o
     -- `UpsertGangGrade` de cada nível é recusado e a gang nasce sem escada nenhuma. Publica
     -- só esta: mandar a lista inteira zeraria a escada de todas as outras.
-    if not NoirGangs.publishGang(name) then
-        MySQL.query.await('DELETE FROM noir_gang_state WHERE gang_name = ?', { name })
-        registry[name] = nil
-        return nil, 'operation_failed'
-    end
 
     seedRanks(name)
     loadRanks()
     -- Sem isto a gang nasce com a escada vazia no provider: ninguém entra nela, e o arquivo
     -- sairia sem cargo nenhum, o que apagaria membresia no boot seguinte.
-    publishRanksOf(name)
-    NoirGangs.commitGangsToFile()
     return name
 end
 
@@ -912,15 +917,12 @@ function NoirGangs.updateGang(gangName, data)
 
     -- O rótulo vive no dicionário do provider: sem republicar, `PlayerData.gang.label`
     -- continua mostrando o nome antigo para o servidor inteiro. Só esta gang, de novo.
-    NoirGangs.publishGang(gangName)
 
     if changingArchetype then
         MySQL.query.await('DELETE FROM noir_gang_ranks WHERE gang_name = ?', { gangName })
         seedRanks(gangName)
         loadRanks()
-        publishRanksOf(gangName)
     end
 
-    NoirGangs.commitGangsToFile()
     return true
 end

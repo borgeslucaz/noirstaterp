@@ -9,6 +9,24 @@ Config.DefaultZoneSize = vec3(1.5, 1.5, 1.5)
 Config.ActivityLimit = 50
 Config.LocationRequestCooldown = 3
 
+-- Quantas linhas de histórico cada gang guarda. A tabela só cresce — cada ação de cada
+-- gang deixa uma linha — e a tela lê as `ActivityLimit` mais novas, então o que passa
+-- disso é rastro de auditoria, não tela. A poda é por contagem e por gang, e não por
+-- data, porque é assim que ela usa o mesmo índice da leitura (`gang_name`, `id`).
+-- Zero desliga a poda e guarda tudo.
+Config.ActivityRetention = 500
+-- De quantas em quantas horas a poda passa. Ela também roda no start do resource.
+Config.ActivityPruneInterval = 6
+
+-- De quantos em quantos segundos o console repete que o bootstrap falhou. O alarme só
+-- existe nesse estado, e ele repete porque a linha do start some do console em minutos.
+Config.BootstrapAlertInterval = 60
+
+-- Validade da matéria-prima do snapshot (roster, nomes e histórico), em segundos. Ela é
+-- descartada antes disso a cada mutação da gang, então o valor só decide de quanto em
+-- quanto tempo um pedido repetido volta a tocar o banco. Zero desliga o cache.
+Config.SnapshotCacheTTL = 3
+
 ---Quem manda nos CARGOS: o config ou o banco.
 ---
 ---`false` (padrão): o arquétipo é **semente**. Uma gang sem nenhum cargo recebe os do
@@ -23,6 +41,15 @@ Config.LocationRequestCooldown = 3
 ---Produtos não dependem desta chave: eles não têm editor, então continuam saindo do
 ---config a cada start. Reputação nunca é tocada por nenhum dos dois modos.
 Config.RanksFromConfig = false
+
+---Mesmo acordo dos cargos, agora que produtos têm editor no `/gangsetup`.
+---
+---`false` (padrão): o config é **semente**. Gang que nunca foi semeada recebe a lista de
+---`Config.Gangs`; depois disso quem manda é o que foi editado em jogo — inclusive a
+---escolha de não ter produto nenhum.
+---
+---`true`: o config reescreve `noir_gang_products` a cada start, como antes do editor.
+Config.ProductsFromConfig = false
 
 -- Tetos do editor de cargos. O máximo existe porque cada cargo vira também um grade no
 -- Qbox, publicado por nós e nunca removido de lá: sem teto, um clique repetido enche a

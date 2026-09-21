@@ -21,6 +21,35 @@ só `ox_lib`, `oxmysql` e `bgrz_core`. Um teste guarda isso.
    arquivo roda inteiro toda vez e nada ali pode apagar dado.
 4. Ace `noir.gangsetup` para os comandos de admin.
 
+## Standalone: gang saiu do Qbox
+
+Este resource é o **dono** de gang. O Qbox não guarda mais membresia nem cargo de gang.
+
+Enquanto guardava, o mesmo dado vivia em dois lugares — `player_groups.grade` e o JSON
+`players.gang` — e ele conseguia atualizar um sem o outro. A cada republicação de gang,
+todo membro online era comparado contra a escada nova e, se ela chegasse vazia por um
+instante, caía para `level = 0` com `isboss` e `bankAuth` desligados. Os cargos voltavam;
+o nível do jogador, não. E o login relê justamente a coluna corrompida, então não havia
+conserto por relog.
+
+| o que | onde mora agora |
+|---|---|
+| Membresia | `noir_gang_members` (uma linha por personagem) |
+| Cargos e permissões | `noir_gang_ranks` |
+| Gang do jogador, no client | state bag `noirGang`, escrito pelo servidor daqui |
+| Quem é a pessoa (citizenid, nome, source) | **continua no Qbox**, pelo bridge |
+
+Essa última linha é a fronteira: gang saiu, identidade não. Não faz sentido este resource
+manter um sistema de personagem próprio.
+
+Quem precisa da gang de alguém pergunta ao `bgrz_core`, que resolve pelo provider
+configurado em `Providers.gangs`. O contrato de retorno é o mesmo de antes, de propósito:
+nenhum consumidor precisou mudar por causa da troca. O `Renewed-Banking` foi a exceção —
+ele lia a tabela de gangs do Qbox direto, e está documentado em `PATCHES-NOIR.md`.
+
+O `qbx_management` fica parado (`stop` no `server.cfg`): as duas zonas de boss menu dele
+eram justamente vagos e lostmc, e ele promovia por hierarquia implícita.
+
 ## Autoridade: o que é nosso e o que é do Qbox
 
 Esta divisão explica quase todas as decisões do resource.
@@ -82,6 +111,22 @@ provider quando o dicionário dele está vazio — start dele, ou restart — e 
 republicação dos cargos. Renomear uma gang usa o caminho que mescla; usar o outro apagaria a
 escada de todas as outras, e o erro só apareceria quando alguém tentasse entrar em alguma.
 
+**A escada viaja junto com a gang, no mesmo `CreateGangs`.** Não é otimização: o Qbox avisa
+todo jogador online quando a escada de uma gang muda, e cada um procura o **próprio nível**
+na escada nova. Quem não se acha é rebaixado para `level = 0`, com `isboss` e `bankAuth`
+desligados.
+
+Enquanto os cargos iam depois, um a um, existia uma janela de milissegundos com a escada
+vazia — e **todo membro de cargo diferente de 0 saía dela como recruta**. Os cargos voltavam
+logo em seguida, mas o nível do jogador já era 0: dali para frente ele só encontrava
+`grades[0]` e o rótulo virava "Recruit" permanentemente. O save seguinte gravava isso em
+`players.gang`, enquanto `player_groups` seguia com o nível certo — os dois discordando, sem
+conserto por relog.
+
+Acontecia a cada restart deste resource ou do `qbx_core`, em silêncio, sem nada no log. Por
+isso `publishGangsToProvider` roda **depois** de `loadRanks`, e não antes. Há um teste que
+põe membros online em cargos altos, republica, e exige que ninguém tenha se mexido.
+
 ### Duas redes, e por que as duas
 
 **`qbx:cleanPlayerGroups` fica `false`** (é o padrão do Qbox; o `server.cfg` daqui o trazia
@@ -135,6 +180,13 @@ promessa, o servidor cumpre a regra.
 Toda ação bem-sucedida devolve o snapshot novo junto com a resposta — a lista nunca fica
 mostrando o mundo de antes da ação que a pessoa acabou de tomar.
 
+A trava de clique repetido também é cortesia, e por isso o snapshot tem defesa própria no
+servidor: ele é a leitura mais cara daqui (roster, nomes e histórico), então a parte que vem
+do banco é cacheada por gang durante `Config.SnapshotCacheTTL` segundos e uma guarda por
+jogador impede que um mesmo pedido seja montado duas vezes ao mesmo tempo. O cache guarda a
+matéria-prima, nunca o snapshot pronto: o pronto depende do cargo de quem pediu. Quem o
+derruba é qualquer mutação da gang, então o refresh de depois de uma ação lê dados novos.
+
 Quem sofre a ação (promovido, rebaixado, desligado) continua recebendo notificação do jogo:
 essa pessoa não está com a tela aberta, e é o único aviso que ela tem.
 
@@ -187,11 +239,53 @@ Três coisas o editor **não** mexe, e cada uma protege uma regra que já existi
 | O próprio cargo de quem edita | Seria auto-promoção: bastaria marcar todas as permissões no cargo em que a pessoa já está |
 | O nível de um cargo | Mudar o nível é mover todo mundo que está nele |
 
-**Cargo novo nasce logo abaixo do chefe**, sem nenhuma permissão. Não é posição escolhida
-porque inserir no meio de uma escada contígua significaria renumerar todo mundo acima — uma
-troca de nível por membro da gang inteira, para acomodar um cargo vazio. Aqui o único que
-muda de nível é o chefe, e só quando não sobrou buraco abaixo dele; se a mudança falhar no
-meio, quem já mudou volta. Quem quer outra ordem renomeia os cargos, que é de graça.
+#### `level` é identidade; `sort_order` é posição
+
+São duas colunas, e a separação é a razão de o editor ser seguro.
+
+**`level` nunca muda depois que o cargo nasce.** É o identificador que o Qbox usa: é ele que
+está em `player_groups.grade`, em `players.gang`, nas chaves de `shared/gangs.lua` e no
+histórico deste resource. Renumerar um cargo significa mover **cada membro dele** de grade,
+nos dois lados do Qbox.
+
+**`sort_order` é onde o cargo aparece na escada**, e muda à vontade: nada persiste contra
+ela.
+
+Enquanto as duas eram a mesma coluna, criar um cargo abaixo do chefe exigia *subir o chefe
+de nível* — e com isso mover toda a chefia de grade, com compensação manual se falhasse no
+meio. Foi esse caminho que dessincronizou uma gang de verdade: um cargo criado no meio da
+escada empurrou o Boss de 3 para 4, a migração passou pelo `AddPlayerToGang` do `qbx_core`,
+e o caminho **offline** dele grava o `player_groups` mas não atualiza a gang primária —
+deixando `player_groups` num nível e `players.gang` em outro, sem conserto por relog.
+
+Hoje nada disso acontece: criar cargo não move ninguém.
+
+**Cargo novo nasce logo abaixo do chefe na escada**, sem nenhuma permissão, e recebe o
+**próximo identificador livre** — sempre acima de todos, nunca entre dois existentes. O
+chefe é empurrado uma casa em `sort_order`, o que é de graça.
+
+O número de um cargo excluído **não volta a circular**: o histórico grava `oldGrade` e
+`newGrade` como números, e reaproveitar faria "promovido para o cargo 4" significar dois
+cargos diferentes em épocas diferentes. A marca d'água sai do próprio provider, que nunca
+esquece um grade.
+
+#### Alterar cargo, não promover um degrau
+
+A tela tem **um** botão, `ALTERAR CARGO`, e um modal onde se escolhe o cargo de destino.
+
+Antes eram dois botões, cada um movendo um degrau. Isso parou de querer dizer alguma coisa
+quando a escada deixou de ser contígua: com um cargo novo no meio dela, "promover" podia
+significar mandar alguém exatamente para o cargo que ninguém queria — e para pular dois
+degraus era preciso clicar duas vezes, gerando duas linhas de histórico para uma decisão só.
+
+A permissão continua sendo a mesma de antes, e a **direção** é que decide qual: subir na
+escada exige `promote`, descer exige `demote`. Quem tem só uma das duas vê o botão e recebe
+a recusa se escolher o lado errado. O modal não oferece o cargo de chefe nem o cargo atual
+da pessoa.
+
+A direção é medida por `sort_order`, nunca pelo número do cargo — comparar `level` chamaria
+de promoção o que é rebaixamento, porque um cargo criado depois tem número maior sem estar
+mais alto.
 
 Duas recusas existem para não deixar ninguém preso:
 
@@ -267,6 +361,17 @@ Produto fora do catálogo derrubaria o start, igual permissão.
 
 Quem consome pergunta por export — não há materialização para bancada nativa do `ox_inventory`.
 
+**Quem manda é a tela, não o config.** Produtos seguem o mesmo acordo dos cargos: o
+`Config.Gangs` é semente. Gang que nunca foi semeada recebe a lista de lá no start; a partir
+daí quem vale é o que o `/gangsetup` gravou — inclusive a escolha de não operar nada. A marca
+fica em `noir_gang_state.products_seeded`, e é ela que separa "nunca foi semeada" de "foi
+esvaziada de propósito"; sem ela, tirar o último produto em jogo seria desfeito no start
+seguinte. `Config.ProductsFromConfig = true` devolve o comportamento antigo, de reescrever
+tudo a cada start.
+
+É isso que fecha o ciclo da gang criada em jogo: antes ela nascia sem produto e só ganhava um
+pela edição do arquivo mais um restart.
+
 ## Convites e saída
 
 Convite é por proximidade e é validado **duas vezes**: no envio e de novo no aceite, quando
@@ -291,12 +396,19 @@ pela outra. As duas nunca abrem juntas.
 
 | Aba | O que faz |
 |---|---|
-| Gangs | Cria gang (identificador, nome, arquétipo e cor) e edita as que existem |
+| Gangs | Cria gang (identificador, nome, arquétipo, produtos e cor), edita as que existem e define o primeiro chefe |
 | Pontos | Todos os pontos de gestão do mundo: teleportar, mover e excluir |
 
 O **identificador** é definido só na criação e nunca muda: é ele que vai para o `player_groups`
 e é por ele que cada personagem aponta para a gang — renomear deixaria órfã toda pessoa que já
 está dentro. O que se edita é o rótulo, que é só apresentação.
+
+O **primeiro chefe** aparece só onde falta um: gang que tem a escada montada e ninguém no
+topo. A lista oferece quem está online e fora de qualquer gang, pela mesma regra do convite —
+o servidor roda com uma gang por personagem. Com um chefe em pé a opção some, porque **trocar
+quem lidera continua sendo `/setgang`**: não existe caminho de jogador que passe ou tome a
+liderança, e a tela de admin não abre uma exceção silenciosa para isso. O que ela evita é a
+volta pelo console logo depois de criar a gang.
 
 O **arquétipo** define a escada de cargos. Trocá-lo reescreve a escada inteira, então só é
 permitido **enquanto a gang está vazia**: com gente dentro, cada pessoa cairia num nível que
@@ -342,9 +454,13 @@ Como o pedido vem de fora, tem teto por source. Edições do admin continuam sai
 |---|---|---|
 | `/gangsetup` | ace `noir.gangsetup` | Cria e edita gangs, e cuida dos pontos de gestão |
 | `/gangrep <gang> <pontos>` | ace `noir.gangsetup` | Soma reputação; número negativo tira |
+| `/gangstatus` | ace `noir.gangsetup` | Diz se o bootstrap passou, e quantas gangs e pontos estão no ar |
+| `/gangmembro <id> <gang\|none> [cargo]` | ace `noir.gangsetup` | Põe ou tira alguém de uma gang, por fora da tela |
 
-Entrar e tirar alguém de uma gang é do `qbx_core`: `/setgang <id> <gang> <cargo>`, e
-`/setgang <id> none` desliga. Não duplicamos isso aqui.
+`/gangmembro` substitui o `/setgang` do `qbx_core`. O comando do Qbox continua existindo,
+mas **escreve num lugar que ninguém mais lê**: a membresia é deste resource desde que o
+Qbox deixou de ser dono dela. Sem cargo, a pessoa entra pelo cargo de entrada — o mais
+baixo que a gang **tem**, não um número fixo.
 
 ## Integração
 
@@ -352,6 +468,7 @@ Entrar e tirar alguém de uma gang é do `qbx_core`: `/setgang <id> <gang> <carg
 exports.noir_gangs:GetGang(source)                       --> { name, label, grade, gradeName, isBoss }
 exports.noir_gangs:HasGangPermission(source, permission) --> boolean
 exports.noir_gangs:GetGangMembers(gangName)              --> { { citizenId, grade }, ... }
+exports.noir_gangs:GetCitizenGang(citizenId)            --> gang por citizenid, inclusive offline
 exports.noir_gangs:GetGangRanks(gangName)                --> { [level] = { label, isBoss, permissions } }
 
 exports.noir_gangs:GetGangReputation(gangName)           --> integer
@@ -365,7 +482,13 @@ exports.noir_gangs:GetGangManagementLocations(gangName)  --> { { id, coords, siz
 
 exports.noir_gangs:GetGangList()                         --> { { name, label, color, archetype }, ... }
 exports.noir_gangs:GetGangColor(gangName)                --> '#RRGGBB'
+
+exports.noir_gangs:IsReady()                             --> boolean
 ```
+
+`IsReady` existe porque as outras respostas mentem por omissão quando o bootstrap falha: o
+registro fica vazio, e vazio é indistinguível de "essa gang não opera nada". Quem toma decisão
+a partir daqui pergunta primeiro.
 
 No **cliente** o diretório também está disponível, para quem desenha e não pode perguntar ao
 servidor a cada quadro:
@@ -390,7 +513,8 @@ Consumidores hoje: `noir_illegal_core` (`server/bridges/gangs.lua`) e `noir_graf
 | `noir_gang_activity` | Histórico de toda ação de gestão |
 | `noir_gang_state` | O registro: quais gangs existem, com rótulo, cor, arquétipo e reputação |
 | `noir_gang_products` | Produtos por gang |
-| `noir_gang_ranks` | Cargos: rótulo, `isBoss`, `bankAuth`, permissões |
+| `noir_gang_members` | **Membresia.** Uma linha por personagem: gang e nível. É a fonte de verdade — o Qbox não guarda mais gang nenhuma |
+| `noir_gang_ranks` | Cargos: rótulo, `isBoss`, `bankAuth`, permissões, e `sort_order` (posição na escada, separada do `level`) |
 
 `is_boss` e `bank_auth` são `TINYINT(1)`, e um `TINYINT(1)` não tem representação única do
 lado do Lua: dependendo do driver e da versão, o mesmo `1` chega como número, como `true` ou
@@ -402,7 +526,27 @@ abre para ninguém. Por isso um chefe ausente agora vira erro no console em vez 
 Ações gravadas no histórico: `invitation_sent`, `invitation_declined`, `member_joined`,
 `member_promoted`, `member_demoted`, `member_removed`, `member_left`, `reputation_changed`,
 `rank_created`, `rank_updated`, `rank_deleted`, `gang_created`, `gang_updated`,
-`management_point_created`, `management_point_moved`, `management_point_deleted`.
+`management_point_created`, `management_point_moved`, `management_point_deleted`,
+`boss_assigned`.
+
+### Histórico: índice e retenção
+
+A leitura é `WHERE gang_name = ? ORDER BY id DESC LIMIT Config.ActivityLimit`, e o índice é
+`(gang_name, id)` exatamente por causa dela: com a ordem vindo do índice, o banco lê as
+linhas que a tela mostra e para. O índice antigo terminava em `created_at`, o que obrigava a
+ordenar à parte — um filesort sobre tudo que aquela gang já tinha feito, crescendo para
+sempre. Em banco que já existe, o índice velho continua lá; ele não atrapalha, e apagá-lo é
+manual, porque `migrations/noir_gangs.sql` roda a cada start e nada lá pode destruir:
+
+```sql
+DROP INDEX `idx_noir_gang_activity_gang_created` ON `noir_gang_activity`;
+```
+
+A tabela também não cresce mais sem fim. Cada gang guarda as `Config.ActivityRetention`
+linhas mais novas (500 por padrão, dez vezes o que a tela mostra); o corte é por contagem e
+por gang, e não por data, porque assim ele usa o mesmo índice da leitura. A poda passa no
+start e a cada `Config.ActivityPruneInterval` horas. `Config.ActivityRetention = 0` desliga a
+poda e guarda tudo.
 
 ### `Config.RanksFromConfig`
 
@@ -418,6 +562,34 @@ vez com `true`, volta para `false`.
 
 **Produtos não dependem desta chave.** Eles não têm editor, então continuam saindo do config a
 cada start. **Reputação nunca é tocada** por nenhum dos dois modos, e um teste garante isso.
+
+## Quando o bootstrap falha
+
+`NoirGangs.bootstrap()` reprova quando o config tem erro, o schema é recusado ou o banco não
+responde. O que isso deixa para trás não é "servidor sem gangs": é **gang nenhuma publicada no
+provider** — e o Qbox, ao carregar alguém cuja gang não está no dicionário, descarta a gang
+daquela pessoa com um aviso no console e nada mais.
+
+Por isso o resource não serve o registro vazio. Sem bootstrap:
+
+- o snapshot volta com `notReady`, e o menu diz que o sistema não subiu, em vez de "sem acesso";
+- toda ação — convite, membro, cargo, gang, ponto — recusa com `not_ready`;
+- o console repete o erro a cada `Config.BootstrapAlertInterval` segundos, porque a linha do
+  start some em minutos num servidor movimentado;
+- `/gangstatus` e o export `IsReady` respondem o estado a quem perguntar.
+
+Nada disso conserta o start; serve para que a falha apareça como falha, e não como "perdi
+minha gang".
+
+## Uma ação por gang de cada vez
+
+As ações de membro e de cargo passam por uma tranca **por gang**, no servidor. A tela já tranca
+o clique repetido, mas essa tranca é do cliente, e o problema não é só clique repetido: o teto
+de cargos é contado da memória antes da escrita, e a escrita cede o controle. Dois chefes
+criando cargo ao mesmo tempo passavam os dois pela contagem, e disputavam o mesmo nível.
+
+Quem chega no meio recebe `busy` e tenta de novo — a fila seria pior: ela executaria, minutos
+depois, uma decisão tomada sobre uma tela que já não existe.
 
 ## O que não existe, de propósito
 
@@ -450,4 +622,6 @@ lua5.4 tests/unit/server_spec.lua
   vários por gang) e limites da reputação.
 - `server_spec` — regras de membro com o `NoirGangs` stubado: chefe intocável, promoção parando
   antes do chefe, ausência de comparação de hierarquia, convite, cooldown e limpeza no
-  `playerDropped`.
+  `playerDropped`. Cobre também o custo do snapshot: pedido repetido sai do cache sem tocar o
+  banco, mutação derruba o cache, e pedido concorrente do mesmo jogador não abre uma segunda
+  montagem.
