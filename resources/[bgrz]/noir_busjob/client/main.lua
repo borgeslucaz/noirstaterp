@@ -1,7 +1,7 @@
 local Config = require 'config'
 local ui = { open = false, closing = false, busy = false, menu = nil }
 local routeSession = nil
-local depotPed, currentBlip, waitingPeds, onboardPeds = nil, nil, {}, {}
+local depotPed, depotBlip, currentBlip, waitingPeds, onboardPeds = nil, nil, nil, {}, {}
 local closeToken = nil
 
 local function notify(message, kind)
@@ -14,6 +14,27 @@ end
 
 local function removeBlip()
     if currentBlip then RemoveBlip(currentBlip); currentBlip = nil end
+end
+
+local function removeDepotBlip()
+    if depotBlip then RemoveBlip(depotBlip); depotBlip = nil end
+end
+
+-- O blip da Central marca onde o trabalho começa. Durante uma linha ele sai do mapa:
+-- o objetivo da vez já é marcado por `destination`, e no retorno os dois cairiam nas
+-- mesmas coordenadas da garagem.
+local function createDepotBlip()
+    local blip = Config.Depot.blip
+    if not blip or depotBlip then return end
+    local coords = Config.Depot.coords
+    depotBlip = AddBlipForCoord(coords.x, coords.y, coords.z)
+    SetBlipSprite(depotBlip, blip.sprite)
+    SetBlipColour(depotBlip, blip.color)
+    SetBlipScale(depotBlip, blip.scale)
+    SetBlipAsShortRange(depotBlip, true)
+    BeginTextCommandSetBlipName('STRING')
+    AddTextComponentSubstringPlayerName(blip.label)
+    EndTextCommandSetBlipName(depotBlip)
 end
 
 local function clearPedList(peds)
@@ -40,6 +61,7 @@ local function cleanup()
     if vehicle and vehicle ~= 0 and DoesEntityExist(vehicle) then FreezeEntityPosition(vehicle, false) end
     routeSession = nil
     removeBlip()
+    createDepotBlip()
     clearPeds()
     send('bus:setRouteHud', { visible = false })
 end
@@ -137,6 +159,7 @@ RegisterNUICallback('startRoute', function(data, cb)
         return
     end
     routeSession = { netId = response.netId, route = Config.routes[data.routeId], stopIndex = 1, capacity = response.capacity, doorsOpen = false, docked = false, waitingRequested = false, lastHud = 0 }
+    removeDepotBlip()
     destination(Config.stops[routeSession.route.stops[1]].coords, 'Próxima parada')
     send('bus:setRouteHud', { visible = true, routeCode = response.route.code, routeName = response.route.name, stopName = response.route.stops[1], stopIndex = 1, stopCount = response.route.stopCount, passengers = 0, capacity = response.capacity })
     ui.busy = false
@@ -296,6 +319,8 @@ CreateThread(function()
     TaskStartScenarioInPlace(depotPed, 'WORLD_HUMAN_CLIPBOARD', 0, true)
     SetModelAsNoLongerNeeded(model)
 
+    createDepotBlip()
+
     exports.ox_target:addLocalEntity(depotPed, {
         {
             name = 'noir_busjob_central',
@@ -354,6 +379,7 @@ AddEventHandler('onResourceStop', function(resource)
     if resource ~= GetCurrentResourceName() then return end
     forceClose()
     cleanup()
+    removeDepotBlip()
     if depotPed and DoesEntityExist(depotPed) then
         exports.ox_target:removeLocalEntity(depotPed, 'noir_busjob_central')
         DeletePed(depotPed)

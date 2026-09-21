@@ -1,152 +1,241 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Transporte Público</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Noir Transit</title>
+    <!-- Transparência crítica da NUI: evita o canvas preto antes do CSS externo carregar. -->
+    <style>html,body,#root{background:rgba(0,0,0,0)!important}</style>
     <link rel="stylesheet" href="main.css" />
 </head>
 <body>
     <div id="root" data-mode="closed">
+
+        <!-- ═══════════════════════ HUD de linha (sem foco) ═══════════════════════ -->
         <aside class="route-hud" id="route-hud" hidden aria-live="polite">
-            <p class="route-hud__code" id="hud-code">SERVIÇO</p>
-            <strong class="route-hud__title" id="hud-title">PRÓXIMA PARADA</strong>
-            <p class="route-hud__progress" id="hud-progress"></p>
-            <p class="route-hud__passengers" id="hud-passengers">PASSAGEIROS · 0 / 0</p>
-            <div class="route-hud__service" id="hud-service" hidden>
-                <p>EMBARQUE / DESEMBARQUE</p>
-                <div class="route-hud__service-track"><span id="hud-service-fill"></span></div>
-            </div>
+            <section class="hud-panel hud-panel--route">
+                <header class="hud-panel__head">
+                    <span class="hud-panel__code" id="hud-code">SERVIÇO</span>
+                    <span class="hud-panel__sep" aria-hidden="true">·</span>
+                    <span class="hud-panel__progress" id="hud-progress"></span>
+                </header>
+                <strong class="hud-panel__title" id="hud-title">PRÓXIMA PARADA</strong>
+                <div class="hud-panel__row">
+                    <span class="data-label">PASSAGEIROS</span>
+                    <span class="value" id="hud-passengers">0 / 0</span>
+                </div>
+            </section>
+
+            <section class="hud-panel hud-panel--service" id="hud-service" hidden>
+                <div class="hud-panel__row">
+                    <span class="data-label">EMBARQUE / DESEMBARQUE</span>
+                </div>
+                <span class="hud-track"><i id="hud-service-fill"></i></span>
+            </section>
         </aside>
 
+        <!-- ═══════════════════════ Central de transporte (menu com foco) ═══════════════════════ -->
         <div class="menu" id="bus-menu" hidden data-anim="idle" data-status="ready">
-            <div class="window">
-                <header class="window__header menu__fx" style="--i: 0">
-                    <div class="brand">
-                        <svg class="brand__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <div class="window" id="bus-window" data-service="bus" data-rail="closed">
+
+                <aside class="window__rail" aria-label="Navegação da Central">
+                    <div class="rail__mark">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <path d="M6 17h12M5 17V7.5A2.5 2.5 0 0 1 7.5 5h9A2.5 2.5 0 0 1 19 7.5V17" />
                             <path d="M5 11h14M8 8h8M7.5 17v2M16.5 17v2" />
                             <circle cx="8" cy="14" r="1" /><circle cx="16" cy="14" r="1" />
                         </svg>
+                        <span class="rail__brand-copy" aria-hidden="true">
+                            <strong>NOIR TRANSIT</strong>
+                            <small>CENTRAL DASHOUND</small>
+                        </span>
+                    </div>
+
+                    <button class="rail__toggle" id="rail-toggle" type="button" aria-controls="bus-navigation" aria-expanded="false" aria-label="Abrir menu lateral">
+                        <span class="rail__chevron" aria-hidden="true"></span>
+                    </button>
+
+                    <nav class="menu__nav" id="bus-navigation" aria-label="Seções da Central" role="tablist" aria-orientation="vertical">
+                        <button class="nav-item" type="button" role="tab" data-tab="overview" id="nav-overview" aria-label="Central" data-tooltip="Central" aria-selected="true" aria-controls="tab-overview">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                            <span class="nav-item__text">Central</span>
+                        </button>
+                        <button class="nav-item" type="button" role="tab" data-tab="routes" id="nav-routes" aria-label="Linhas" data-tooltip="Linhas" aria-selected="false" aria-controls="routes-section" tabindex="-1">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.4 6H14a3.2 3.2 0 0 1 0 6.4h-4a3.2 3.2 0 0 0 0 6.4h5.2"/></svg>
+                            <span class="nav-item__text">Linhas</span>
+                        </button>
+                        <button class="nav-item" type="button" role="tab" data-tab="progression" id="nav-progression" aria-label="Progressão" data-tooltip="Progressão" aria-selected="false" aria-controls="tab-progression" tabindex="-1">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+                            <span class="nav-item__text">Progressão</span>
+                        </button>
+                        <button class="nav-item" type="button" role="tab" data-tab="ranking" id="nav-ranking" aria-label="Ranking" data-tooltip="Ranking" aria-selected="false" aria-controls="tab-ranking" tabindex="-1">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4v2a4 4 0 0 0 4 4M17 6h3v2a4 4 0 0 1-4 4"/></svg>
+                            <span class="nav-item__text">Ranking</span>
+                        </button>
+                    </nav>
+
+                    <div class="rail__status" aria-label="Central de transporte online">
+                        <span class="rail__status-dot" aria-hidden="true"></span>
+                        <span class="rail__status-text" aria-hidden="true">Central online</span>
+                    </div>
+                </aside>
+
+                <header class="window__header menu__fx" style="--i: 0">
+                    <div class="brand">
                         <span class="brand__stack">
+                            <span class="brand__eyebrow">TRANSPORTE PÚBLICO</span>
                             <span class="brand__name">NOIR TRANSIT</span>
                             <span class="brand__sub">CENTRAL · DASHOUND</span>
                         </span>
                     </div>
 
-                    <nav class="menu__nav" role="tablist" aria-label="Seções da Central">
-                        <button class="nav-item" id="nav-routes" type="button" role="tab" data-tab="routes" aria-selected="true" aria-controls="tab-routes">LINHAS</button>
-                        <button class="nav-item" id="nav-progression" type="button" role="tab" data-tab="progression" aria-selected="false" aria-controls="tab-progression" tabindex="-1">PROGRESSÃO</button>
-                        <button class="nav-item" id="nav-ranking" type="button" role="tab" data-tab="ranking" aria-selected="false" aria-controls="tab-ranking" tabindex="-1">RANKING</button>
-                    </nav>
-
-                    <div class="window__profile">
-                        <span class="profile__stack">
-                            <span class="profile__name" id="profile-name">—</span>
-                            <span class="profile__level" id="profile-level">NÍVEL 1</span>
+                    <div class="window__actions">
+                        <span class="header-shift" id="header-shift" data-state="idle">
+                            <span class="header-shift__dot" aria-hidden="true"></span>
+                            <span class="header-shift__text" id="header-shift-text">FORA DE SERVIÇO</span>
                         </span>
-                        <span class="window__sep" aria-hidden="true"></span>
-                        <button class="menu__close" id="menu-close" type="button" aria-label="Fechar a Central"><kbd>ESC</kbd> FECHAR</button>
+                        <div class="window__profile">
+                            <span class="profile__indicator" aria-hidden="true"></span>
+                            <span class="profile__stack">
+                                <span class="profile__name" id="profile-name">—</span>
+                                <span class="profile__level" id="profile-level">NÍVEL 1</span>
+                            </span>
+                            <span class="window__sep" aria-hidden="true"></span>
+                            <button class="menu__close" id="menu-close" type="button" aria-label="Fechar a Central"><kbd>ESC</kbd> FECHAR</button>
+                        </div>
                     </div>
                 </header>
 
-                <main class="window__main menu__fx" style="--i: 1">
-                    <section class="tab tab--routes" id="tab-routes" role="tabpanel" aria-labelledby="nav-routes">
-                        <section class="hero">
-                            <div class="hero__main">
-                                <p class="hero__eyebrow">CENTRAL DASHOUND</p>
-                                <h1 class="hero__title" id="hero-title">ESCOLHA SUA PRÓXIMA LINHA</h1>
-                                <p class="hero__note" id="hero-note">Opere o serviço com segurança e devolva o ônibus à garagem para concluir.</p>
-                                <div class="hero__service" id="hero-service" data-active="false">
-                                    <span class="service-status"><i aria-hidden="true"></i><span id="service-label">DISPONÍVEL PARA SERVIÇO</span></span>
-                                    <button class="btn btn--danger" id="return-vehicle" type="button" hidden>DEVOLVER VEÍCULO</button>
-                                </div>
-                                <p class="action-message" id="action-message" role="status" hidden></p>
-                            </div>
-                            <div class="hero__metrics" aria-label="Resumo do motorista">
-                                <div class="metric"><span class="data-label">NÍVEL</span><strong id="metric-level">1</strong></div>
-                                <div class="metric"><span class="data-label">SUA POSIÇÃO</span><strong id="metric-rank">#1</strong></div>
-                                <div class="metric"><span class="data-label">LINHAS</span><strong id="metric-routes">0</strong></div>
-                            </div>
-                        </section>
+                <main class="window__main menu__fx" style="--i: 1" id="window-main" data-tab="overview">
 
-                        <section class="routes-section" aria-labelledby="routes-heading">
-                            <header class="section-head">
-                                <div>
-                                    <p class="data-label">CATÁLOGO OPERACIONAL</p>
-                                    <h2 id="routes-heading">LINHAS</h2>
-                                </div>
-                                <p>Ordenadas pelo nível necessário</p>
-                            </header>
-                            <div class="routes-layout">
-                                <div class="route-list" id="route-list" role="listbox" aria-label="Linhas de ônibus"></div>
-                                <aside class="route-detail" id="route-detail" aria-live="polite"></aside>
+                    <!-- Central: saudação e métricas -->
+                    <section class="hero tab" id="tab-overview" role="tabpanel" aria-labelledby="nav-overview" aria-label="Resumo do motorista">
+                        <div class="hero__main">
+                            <p class="hero__eyebrow">CENTRAL DASHOUND</p>
+                            <h1 class="hero__greeting" id="hero-greeting">BEM-VINDO</h1>
+                            <p class="hero__note" id="hero-note">Opere o serviço com segurança e devolva o ônibus à garagem para concluir.</p>
+                            <p class="hero__message" id="action-message" role="status" hidden></p>
+                        </div>
+                        <div class="hero__stats">
+                            <div class="stat">
+                                <span class="data-label">NÍVEL</span>
+                                <span class="stat__value" id="metric-level">1</span>
                             </div>
-                        </section>
+                            <div class="stat">
+                                <span class="data-label">LINHAS CONCLUÍDAS</span>
+                                <span class="stat__value" id="metric-routes">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="data-label">SUA POSIÇÃO</span>
+                                <span class="stat__value" id="metric-rank">—</span>
+                            </div>
+                        </div>
                     </section>
 
-                    <section class="tab tab--progression" id="tab-progression" role="tabpanel" aria-labelledby="nav-progression" hidden>
-                        <header class="tab-heading">
-                            <p class="data-label">CARREIRA DO MOTORISTA</p>
-                            <h1>PROGRESSÃO</h1>
-                            <p>Experiência e liberações conquistadas ao concluir linhas.</p>
-                        </header>
-                        <section class="progress-summary" aria-label="Progresso atual">
-                            <div class="level-ring" id="level-ring" role="img" aria-label="Progresso do nível atual">
-                                <span><strong id="ring-level">1</strong><small>NÍVEL</small></span>
-                            </div>
-                            <div class="progress-summary__body">
-                                <p class="data-label">TÍTULO ATUAL</p>
-                                <h2 id="progress-title">MOTORISTA APRENDIZ</h2>
-                                <div class="progress-bar" id="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-                                    <span><i id="progress-fill"></i></span><strong id="progress-percent">0%</strong>
+                    <!-- Central: progressão compacta e linha em serviço -->
+                    <section class="progression" id="overview-progression" aria-label="Progressão do motorista">
+                        <div class="prog__level">
+                            <span class="level-ring" id="overview-ring" role="img" aria-label="Progresso do nível atual">
+                                <span class="level-ring__inner"><span class="level-ring__num" id="overview-ring-num">1</span></span>
+                            </span>
+                            <div class="prog__info">
+                                <p class="data-label">CARREIRA DO MOTORISTA</p>
+                                <h2 class="prog__label" id="overview-title">MOTORISTA APRENDIZ</h2>
+                                <div class="prog__bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="overview-progress" aria-label="Progresso no nível atual">
+                                    <span class="prog__track"><span class="prog__fill" id="overview-progress-fill"></span></span>
+                                    <span class="prog__pct" id="overview-progress-pct">0%</span>
+                                    <span class="prog__fraction" id="overview-fraction">0 / 0 XP</span>
                                 </div>
-                                <p id="progress-fraction">0 / 1.500 XP</p>
+                                <p class="prog__next" id="overview-next">PRÓXIMO NÍVEL · MOTORISTA URBANO</p>
                             </div>
-                        </section>
+                        </div>
+                        <aside class="prog__side">
+                            <p class="data-label">LINHA EM SERVIÇO</p>
+                            <p class="prog__side-value" id="active-value" data-active="false">NENHUMA</p>
+                            <p class="prog__side-sub" id="active-sub">Escolha uma linha para iniciar o serviço.</p>
+                            <button class="btn prog__side-action" id="return-vehicle" type="button" hidden>DEVOLVER VEÍCULO</button>
+                        </aside>
+                    </section>
+
+                    <!-- Linhas: visível na Central (prévia) e na aba dedicada (catálogo) -->
+                    <section class="routes-section tab" id="routes-section" role="tabpanel" aria-labelledby="nav-routes" data-mode="compact" aria-label="Linhas disponíveis">
+                        <header class="section-head">
+                            <p class="data-label">CATÁLOGO OPERACIONAL</p>
+                            <p class="section-head__sub" id="routes-sub">Ordenadas pelo nível necessário</p>
+                        </header>
+                        <p class="tab__notice" id="routes-notice" hidden>Devolva o ônibus em serviço antes de iniciar outra linha.</p>
+                        <div class="routes-layout">
+                            <div class="route-list" id="route-list" role="listbox" aria-label="Linhas de ônibus"></div>
+                            <aside class="route-detail" id="route-detail" aria-live="polite"></aside>
+                        </div>
+                    </section>
+
+                    <!-- Progressão -->
+                    <section class="tab tab--progression" id="tab-progression" role="tabpanel" aria-labelledby="nav-progression" hidden aria-label="Progressão da carreira">
+                        <p class="tab__intro">Experiência e liberações conquistadas ao concluir linhas.</p>
+                        <div class="progress-summary">
+                            <span class="level-ring" id="level-ring" role="img" aria-label="Progresso do nível atual">
+                                <span class="level-ring__inner"><span class="level-ring__num" id="ring-level">1</span></span>
+                            </span>
+                            <div class="prog__info">
+                                <p class="data-label">TÍTULO ATUAL</p>
+                                <h2 class="prog__label" id="progress-title">MOTORISTA APRENDIZ</h2>
+                                <div class="prog__bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-bar" aria-label="Progresso no nível atual">
+                                    <span class="prog__track"><span class="prog__fill" id="progress-fill"></span></span>
+                                    <span class="prog__pct" id="progress-percent">0%</span>
+                                    <span class="prog__fraction" id="progress-fraction">0 / 0 XP</span>
+                                </div>
+                                <p class="prog__next" id="progress-next">PRÓXIMO NÍVEL · MOTORISTA URBANO</p>
+                            </div>
+                        </div>
+                        <div class="level-head" aria-hidden="true"><span>#</span><span>TÍTULO</span><span>LIBERAÇÕES</span><span>ESTADO</span></div>
                         <div class="level-list" id="level-list" aria-label="Níveis da carreira"></div>
                     </section>
 
-                    <section class="tab tab--ranking" id="tab-ranking" role="tabpanel" aria-labelledby="nav-ranking" hidden>
-                        <header class="tab-heading">
-                            <p class="data-label">DESEMPENHO GLOBAL</p>
-                            <h1>RANKING</h1>
-                            <p>Motoristas classificados por experiência, linhas concluídas e qualidade.</p>
-                        </header>
-                        <div class="ranking-head" aria-hidden="true"><span>#</span><span>MOTORISTA</span><span>NÍVEL</span><span>XP</span><span>LINHAS</span><span>NOTA</span></div>
-                        <ol class="ranking-list" id="ranking-list"></ol>
-                        <p class="empty-state" id="ranking-empty" hidden>Nenhum motorista classificado.</p>
-                        <div class="ranking-self"><span>SUA POSIÇÃO</span><strong id="ranking-self">#1</strong></div>
+                    <!-- Ranking -->
+                    <section class="tab tab--ranking" id="tab-ranking" role="tabpanel" aria-labelledby="nav-ranking" hidden aria-label="Ranking da Central">
+                        <p class="tab__intro">Motoristas classificados por experiência, linhas concluídas e nota média.</p>
+                        <div class="rank-self" id="rank-self">
+                            <span class="data-label rank-self__label">SUA POSIÇÃO</span>
+                            <div class="rank-row rank-row--self" id="rank-self-row"></div>
+                        </div>
+                        <div class="rank-head" id="rank-head" aria-hidden="true"><span>#</span><span>MOTORISTA</span><span>NÍVEL</span><span>XP</span><span>LINHAS</span><span>NOTA</span></div>
+                        <ol class="rank-list" id="ranking-list"></ol>
+                        <p class="empty-state" id="ranking-empty" hidden>Nenhum motorista classificado até agora.</p>
                     </section>
 
-                    <div class="menu-error" id="menu-error" role="alert" hidden>Não foi possível carregar os dados da Central.</div>
+                    <div class="menu__error" id="menu-error" hidden>
+                        <p class="menu__error-text">Não foi possível carregar os dados da Central. Feche e abra novamente.</p>
+                    </div>
                 </main>
 
                 <footer class="window__footer menu__fx" style="--i: 2">
-                    <span>NOIR TRANSIT · TRANSPORTE PÚBLICO</span>
-                    <span>SEGURANÇA, PONTUALIDADE E SERVIÇO</span>
+                    <span class="footer__brand">NOIR TRANSIT · TRANSPORTE PÚBLICO</span>
+                    <span class="footer__motto">SEGURANÇA, PONTUALIDADE E SERVIÇO</span>
                 </footer>
             </div>
 
+            <!-- Confirmação de devolução -->
             <div class="backdrop" id="return-modal" hidden role="dialog" aria-modal="true" aria-labelledby="return-title" aria-describedby="return-description">
                 <div class="confirm-box">
-                    <h2 id="return-title">DEVOLVER VEÍCULO</h2>
+                    <h2 class="confirm-box__title" id="return-title">DEVOLVER VEÍCULO</h2>
                     <p id="return-description">A linha atual será cancelada. O ônibus será recolhido e nenhum pagamento ou XP será concedido.</p>
                     <p class="modal-message" id="return-message" role="alert" hidden></p>
                     <div class="confirm-box__actions">
                         <button class="btn" id="return-cancel" type="button">VOLTAR</button>
-                        <button class="btn btn--danger" id="return-confirm" type="button">CONFIRMAR DEVOLUÇÃO</button>
+                        <button class="btn btn--danger" id="return-confirm" type="button">DEVOLVER ÔNIBUS</button>
                     </div>
                 </div>
             </div>
         </div>
 
+        <!-- Resumo do serviço concluído (sem foco) -->
         <div class="route-summary" id="route-summary" hidden aria-live="assertive">
             <article>
                 <p class="data-label">LINHA CONCLUÍDA</p>
-                <strong id="summary-score">—</strong>
-                <p id="summary-service">SERVIÇO FINALIZADO</p>
-                <div id="summary-details"></div>
+                <strong class="route-summary__score" id="summary-score">—</strong>
+                <p class="route-summary__state" id="summary-service">SERVIÇO FINALIZADO</p>
+                <div class="route-summary__details" id="summary-details"></div>
             </article>
         </div>
     </div>

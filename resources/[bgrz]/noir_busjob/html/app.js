@@ -5,11 +5,23 @@
     const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches
     const resource = typeof GetParentResourceName === "function" ? GetParentResourceName() : "noir_busjob"
 
+    const PREVIEW_LIMIT = 3
+    const TAB_ORDER = ["overview", "routes", "progression", "ranking"]
+    const SECTIONS = ["tab-overview", "overview-progression", "routes-section", "tab-progression", "tab-ranking"]
+    const TAB_SECTIONS = {
+        overview: ["tab-overview", "overview-progression", "routes-section"],
+        routes: ["routes-section"],
+        progression: ["tab-progression"],
+        ranking: ["tab-ranking"],
+    }
+
     const menu = {
         lifecycle: "closed", // closed | ready | submitting | closing
-        tab: "routes",
+        tab: "overview",
+        railOpen: false,
         selectedId: null,
         data: null,
+        failed: false,
         timers: [],
         modalInvoker: null,
     }
@@ -17,26 +29,42 @@
     const dom = {
         root: $("root"),
         menu: $("bus-menu"),
+        window: $("bus-window"),
+        main: $("window-main"),
+        railToggle: $("rail-toggle"),
         close: $("menu-close"),
         nav: Array.from(document.querySelectorAll(".nav-item")),
-        tabs: {
-            routes: $("tab-routes"),
-            progression: $("tab-progression"),
-            ranking: $("tab-ranking"),
-        },
+
         profileName: $("profile-name"),
         profileLevel: $("profile-level"),
-        heroTitle: $("hero-title"),
+        headerShift: $("header-shift"),
+        headerShiftText: $("header-shift-text"),
+
+        heroGreeting: $("hero-greeting"),
         heroNote: $("hero-note"),
-        heroService: $("hero-service"),
-        serviceLabel: $("service-label"),
-        returnVehicle: $("return-vehicle"),
         actionMessage: $("action-message"),
         metricLevel: $("metric-level"),
-        metricRank: $("metric-rank"),
         metricRoutes: $("metric-routes"),
+        metricRank: $("metric-rank"),
+
+        overviewRing: $("overview-ring"),
+        overviewRingNum: $("overview-ring-num"),
+        overviewTitle: $("overview-title"),
+        overviewProgress: $("overview-progress"),
+        overviewProgressFill: $("overview-progress-fill"),
+        overviewProgressPct: $("overview-progress-pct"),
+        overviewFraction: $("overview-fraction"),
+        overviewNext: $("overview-next"),
+        activeValue: $("active-value"),
+        activeSub: $("active-sub"),
+        returnVehicle: $("return-vehicle"),
+
+        routesSection: $("routes-section"),
+        routesSub: $("routes-sub"),
+        routesNotice: $("routes-notice"),
         routeList: $("route-list"),
         routeDetail: $("route-detail"),
+
         levelRing: $("level-ring"),
         ringLevel: $("ring-level"),
         progressTitle: $("progress-title"),
@@ -44,15 +72,21 @@
         progressFill: $("progress-fill"),
         progressPercent: $("progress-percent"),
         progressFraction: $("progress-fraction"),
+        progressNext: $("progress-next"),
         levelList: $("level-list"),
+
+        rankSelf: $("rank-self"),
+        rankHead: $("rank-head"),
+        rankSelfRow: $("rank-self-row"),
         rankingList: $("ranking-list"),
         rankingEmpty: $("ranking-empty"),
-        rankingSelf: $("ranking-self"),
+
         menuError: $("menu-error"),
         returnModal: $("return-modal"),
         returnCancel: $("return-cancel"),
         returnConfirm: $("return-confirm"),
         returnMessage: $("return-message"),
+
         hud: $("route-hud"),
         hudCode: $("hud-code"),
         hudTitle: $("hud-title"),
@@ -60,6 +94,7 @@
         hudPassengers: $("hud-passengers"),
         hudService: $("hud-service"),
         hudServiceFill: $("hud-service-fill"),
+
         summary: $("route-summary"),
         summaryScore: $("summary-score"),
         summaryService: $("summary-service"),
@@ -116,8 +151,19 @@
         })
     }
 
+    function element(tag, className, text) {
+        const node = document.createElement(tag)
+        if (className) node.className = className
+        if (text !== undefined) node.textContent = text
+        return node
+    }
+
     function routeShortName(route) {
-        return String(route && route.name || "Linha").replace(/^.*?·\s*/, "")
+        return String((route && route.name) || "Linha").replace(/^.*?·\s*/, "")
+    }
+
+    function firstName(full) {
+        return String(full || "").trim().split(/\s+/)[0] || ""
     }
 
     function sortedRoutes() {
@@ -131,8 +177,17 @@
         })
     }
 
+    function visibleRoutes() {
+        const routes = sortedRoutes()
+        return menu.tab === "overview" ? routes.slice(0, PREVIEW_LIMIT) : routes
+    }
+
     function selectedRoute() {
         return sortedRoutes().find((route) => route.id === menu.selectedId) || null
+    }
+
+    function activeRoute() {
+        return (menu.data && menu.data.activeRoute) || null
     }
 
     function setActionMessage(text, kind = "error") {
@@ -141,134 +196,236 @@
         show(dom.actionMessage, !!text)
     }
 
+    // ───────────── cabeçalho e resumo ─────────────
+
     function renderProfile() {
         const profile = menu.data && menu.data.profile
         if (!profile) return
+        const title = String(profile.title || "Motorista").toUpperCase()
         dom.profileName.textContent = profile.displayName || "Motorista"
-        dom.profileLevel.textContent = `NÍVEL ${int(profile.level)} · ${String(profile.title || "").toUpperCase()}`
+        dom.profileLevel.textContent = `NÍVEL ${int(profile.level)} · ${title}`
         dom.metricLevel.textContent = int(profile.level)
-        dom.metricRank.textContent = `#${int(profile.rank)}`
         dom.metricRoutes.textContent = int(profile.routes)
+        dom.metricRank.textContent = `#${int(profile.rank)}`
+
+        const greeting = firstName(profile.displayName)
+        dom.heroGreeting.textContent = greeting ? `BEM-VINDO, ${greeting.toUpperCase()}` : "BEM-VINDO"
     }
 
-    function renderHero() {
-        const active = menu.data && menu.data.activeRoute
-        dom.heroService.dataset.active = String(!!active)
+    function renderShift() {
+        const active = activeRoute()
+        const short = active ? routeShortName(active) : ""
+
+        dom.headerShift.dataset.state = active ? "active" : "idle"
+        dom.headerShiftText.textContent = active ? `EM SERVIÇO · ${active.code}` : "FORA DE SERVIÇO"
+
+        dom.heroNote.textContent = active
+            ? `Conclua as paradas da linha ${active.code} e devolva o ônibus à garagem para receber.`
+            : "Escolha uma linha, opere o serviço com segurança e devolva o ônibus à garagem para concluir."
+
+        dom.activeValue.dataset.active = String(!!active)
+        dom.activeValue.textContent = active ? `${active.code} · ${short}` : "NENHUMA"
+        dom.activeSub.textContent = active
+            ? "Devolver o veículo cancela a linha sem pagamento ou XP."
+            : "Escolha uma linha para iniciar o serviço."
+
         show(dom.returnVehicle, !!active)
         dom.returnVehicle.disabled = menu.lifecycle !== "ready"
         dom.returnVehicle.dataset.pending = menu.lifecycle === "submitting" ? "true" : "false"
+    }
 
-        if (active) {
-            dom.heroTitle.textContent = "SERVIÇO EM ANDAMENTO"
-            dom.heroNote.textContent = `${active.code} · ${routeShortName(active)} — devolva o veículo para cancelar esta linha.`
-            dom.serviceLabel.textContent = `${active.code} · ${String(active.state || "ATIVO").replaceAll("_", " ")}`
-            dom.returnVehicle.textContent = menu.lifecycle === "submitting" ? "DEVOLVENDO VEÍCULO" : "DEVOLVER VEÍCULO"
-        } else {
-            dom.heroTitle.textContent = "ESCOLHA SUA PRÓXIMA LINHA"
-            dom.heroNote.textContent = "Opere o serviço com segurança e devolva o ônibus à garagem para concluir."
-            dom.serviceLabel.textContent = "DISPONÍVEL PARA SERVIÇO"
-            dom.returnVehicle.textContent = "DEVOLVER VEÍCULO"
+    // ───────────── progressão ─────────────
+
+    function progressView() {
+        const profile = menu.data && menu.data.profile
+        const progression = Array.isArray(menu.data && menu.data.progression) ? menu.data.progression : []
+        if (!profile) return null
+
+        const level = Number(profile.level) || 1
+        const current = progression.find((tier) => Number(tier.level) === level) || progression[0] || { xp: 0 }
+        const next = progression.find((tier) => Number(tier.level) === level + 1)
+        const startXp = Number(current.xp) || 0
+        const span = next ? Math.max(1, Number(next.xp) - startXp) : 1
+        const earned = Math.max(0, (Number(profile.xp) || 0) - startXp)
+        const percent = next ? Math.max(0, Math.min(100, Math.round((earned / span) * 100))) : 100
+
+        return {
+            level,
+            percent,
+            title: String(profile.title || "Motorista").toUpperCase(),
+            fraction: next ? `${int(profile.xp)} / ${int(next.xp)} XP` : `${int(profile.xp)} XP`,
+            next: next
+                ? `PRÓXIMO NÍVEL · ${String(next.title || "").toUpperCase()}`
+                : "NÍVEL MÁXIMO ALCANÇADO",
+            progression,
         }
     }
 
+    function paintProgress(view, nodes) {
+        const degrees = Math.round(view.percent * 3.6)
+        nodes.ring.style.background = `conic-gradient(var(--noir-accent) ${degrees}deg, rgba(255, 255, 255, 0.10) ${degrees}deg)`
+        nodes.ring.setAttribute("aria-label", `Nível ${int(view.level)}, progresso ${view.percent}%`)
+        nodes.ringNum.textContent = int(view.level)
+        nodes.title.textContent = view.title
+        nodes.fill.style.width = `${view.percent}%`
+        nodes.pct.textContent = `${view.percent}%`
+        nodes.bar.setAttribute("aria-valuenow", String(view.percent))
+        nodes.fraction.textContent = view.fraction
+        nodes.next.textContent = view.next
+    }
+
+    function renderProgression() {
+        const view = progressView()
+        if (!view) return
+
+        paintProgress(view, {
+            ring: dom.overviewRing,
+            ringNum: dom.overviewRingNum,
+            title: dom.overviewTitle,
+            bar: dom.overviewProgress,
+            fill: dom.overviewProgressFill,
+            pct: dom.overviewProgressPct,
+            fraction: dom.overviewFraction,
+            next: dom.overviewNext,
+        })
+
+        paintProgress(view, {
+            ring: dom.levelRing,
+            ringNum: dom.ringLevel,
+            title: dom.progressTitle,
+            bar: dom.progressBar,
+            fill: dom.progressFill,
+            pct: dom.progressPercent,
+            fraction: dom.progressFraction,
+            next: dom.progressNext,
+        })
+
+        const rows = view.progression.map((tier) => {
+            const level = Number(tier.level) || 0
+            const row = element("div", "level-row")
+            row.dataset.state = level < view.level ? "complete" : level === view.level ? "current" : "locked"
+
+            const unlocks = Array.isArray(tier.unlocks) ? tier.unlocks.join(" · ") : ""
+            const unlocksNode = element("span", "level-row__unlocks", unlocks)
+            unlocksNode.title = unlocks
+
+            row.append(
+                element("span", "level-row__number", String(level).padStart(2, "0")),
+                element("span", "level-row__title", tier.title || "Motorista"),
+                unlocksNode,
+                element(
+                    "span",
+                    "level-row__state",
+                    level < view.level ? "CONCLUÍDO" : level === view.level ? "ATUAL" : `${int(tier.xp)} XP`
+                )
+            )
+            return row
+        })
+        dom.levelList.replaceChildren(...rows)
+    }
+
+    // ───────────── linhas ─────────────
+
     function createRouteCard(route) {
-        const button = document.createElement("button")
-        button.type = "button"
-        button.className = "route-card"
-        button.dataset.route = route.id
-        button.setAttribute("role", "option")
-        button.setAttribute("aria-selected", String(route.id === menu.selectedId))
-        button.setAttribute("aria-disabled", String(!route.available))
-        button.disabled = !route.available
-        button.tabIndex = route.id === menu.selectedId ? 0 : -1
+        const selected = route.id === menu.selectedId
+        const card = element("button", "route-card")
+        card.type = "button"
+        card.dataset.route = route.id
+        card.dataset.available = String(!!route.available)
+        card.setAttribute("role", "option")
+        card.setAttribute("aria-selected", String(selected))
+        card.setAttribute("aria-disabled", String(!route.available))
+        card.disabled = !route.available
+        card.tabIndex = selected ? 0 : -1
 
-        const code = document.createElement("span")
-        code.className = "route-card__code"
-        code.textContent = route.code || "—"
+        const body = element("span", "route-card__body")
+        body.append(
+            element("span", "route-card__name", routeShortName(route)),
+            element("span", "route-card__meta", `${int(route.stopCount)} PARADAS · ${String(route.vehicle || "").toUpperCase()}`)
+        )
 
-        const body = document.createElement("span")
-        body.className = "route-card__body"
-        const name = document.createElement("span")
-        name.className = "route-card__name"
-        name.textContent = routeShortName(route)
-        const meta = document.createElement("span")
-        meta.className = "route-card__meta"
-        meta.textContent = `${int(route.stopCount)} PARADAS · ${String(route.vehicle || "").toUpperCase()}`
-        body.append(name, meta)
+        card.append(
+            element("span", "route-card__code", route.code || "—"),
+            body,
+            element(
+                "span",
+                "route-card__status",
+                route.available ? `NÍVEL ${int(route.minimumLevel)}` : `BLOQUEADA · NÍVEL ${int(route.minimumLevel)}`
+            )
+        )
 
-        const status = document.createElement("span")
-        status.className = "route-card__status"
-        status.textContent = route.available ? `NÍVEL ${int(route.minimumLevel)}` : `BLOQUEADA · NÍVEL ${int(route.minimumLevel)}`
-
-        button.append(code, body, status)
-        if (route.available) button.addEventListener("click", () => selectRoute(route.id, false))
-        return button
+        if (route.available) card.addEventListener("click", () => onRouteCardClick(route.id))
+        return card
     }
 
     function renderRouteList() {
-        const routes = sortedRoutes()
-        dom.routeList.replaceChildren(...routes.map(createRouteCard))
+        dom.routeList.replaceChildren(...visibleRoutes().map(createRouteCard))
     }
 
-    function appendDetailStat(container, label, value) {
-        const item = document.createElement("span")
-        item.append(document.createTextNode(`${label} · `))
-        const strong = document.createElement("strong")
-        strong.textContent = value
-        item.appendChild(strong)
-        container.appendChild(item)
+    function appendPair(container, label, value) {
+        const pair = element("span", "pair")
+        pair.append(element("span", "data-label", label), element("span", "pair__value", value))
+        container.appendChild(pair)
     }
 
     function renderRouteDetail() {
         const route = selectedRoute()
         dom.routeDetail.replaceChildren()
         if (!route) {
-            const empty = document.createElement("p")
-            empty.className = "empty-state"
-            empty.textContent = "Nenhuma linha disponível para seleção."
-            dom.routeDetail.appendChild(empty)
+            dom.routeDetail.appendChild(element("p", "empty-state", "Nenhuma linha disponível para seleção."))
             return
         }
 
-        const eyebrow = document.createElement("p")
-        eyebrow.className = "route-detail__eyebrow"
-        eyebrow.textContent = `${route.code} · DETALHES DA LINHA`
-        const title = document.createElement("h2")
-        title.textContent = routeShortName(route)
-        const stats = document.createElement("div")
-        stats.className = "route-detail__stats"
-        appendDetailStat(stats, "TIPO", String(route.vehicle || "").toUpperCase())
-        appendDetailStat(stats, "PARADAS", int(route.stopCount))
-        appendDetailStat(stats, "XP BASE", int(route.baseXp))
-        appendDetailStat(stats, "NÍVEL", int(route.minimumLevel))
+        const stats = element("div", "route-detail__stats")
+        appendPair(stats, "TIPO", String(route.vehicle || "—").toUpperCase())
+        appendPair(stats, "PARADAS", int(route.stopCount))
+        appendPair(stats, "XP BASE", int(route.baseXp))
+        appendPair(stats, "NÍVEL", int(route.minimumLevel))
 
-        const stops = document.createElement("ol")
-        stops.className = "stop-list"
+        const stops = element("ol", "stop-list")
         const routeStops = Array.isArray(route.stops) ? route.stops : []
-        routeStops.forEach((stop) => {
-            const item = document.createElement("li")
-            item.textContent = stop || "Parada"
-            stops.appendChild(item)
-        })
+        routeStops.forEach((stop) => stops.appendChild(element("li", null, stop || "Parada")))
 
-        const active = !!(menu.data && menu.data.activeRoute)
-        const start = document.createElement("button")
+        const active = activeRoute()
+        const start = element("button", "btn btn--fill route-detail__action")
         start.type = "button"
-        start.className = "btn btn--fill"
-        start.id = "start-route"
-        start.disabled = !route.available || active || menu.lifecycle !== "ready"
+        start.disabled = !route.available || !!active || menu.lifecycle !== "ready"
         start.setAttribute("aria-disabled", String(start.disabled))
         start.dataset.pending = menu.lifecycle === "submitting" ? "true" : "false"
-        start.textContent = menu.lifecycle === "submitting" ? "PREPARANDO ÔNIBUS" : active ? "SERVIÇO JÁ INICIADO" : route.available ? "INICIAR LINHA" : `NÍVEL ${int(route.minimumLevel)} NECESSÁRIO`
+        start.textContent = menu.lifecycle === "submitting"
+            ? "PREPARANDO ÔNIBUS"
+            : active
+                ? "SERVIÇO JÁ INICIADO"
+                : route.available
+                    ? "INICIAR LINHA"
+                    : `NÍVEL ${int(route.minimumLevel)} NECESSÁRIO`
         start.addEventListener("click", startRoute)
 
-        dom.routeDetail.append(eyebrow, title, stats, stops, start)
+        dom.routeDetail.append(
+            element("p", "route-detail__eyebrow", `${route.code} · DETALHES DA LINHA`),
+            element("h2", "route-detail__title", routeShortName(route)),
+            stats,
+            element("span", "data-label route-detail__stops-label", "ITINERÁRIO"),
+            stops,
+            start
+        )
+
         if (!route.available) {
-            const lock = document.createElement("p")
-            lock.className = "route-detail__lock"
-            lock.textContent = `BLOQUEADA · NÍVEL ${int(route.minimumLevel)} NECESSÁRIO`
-            dom.routeDetail.appendChild(lock)
+            dom.routeDetail.appendChild(
+                element("p", "route-detail__lock", `BLOQUEADA · NÍVEL ${int(route.minimumLevel)} NECESSÁRIO`)
+            )
         }
+    }
+
+    function renderRoutesSection() {
+        const focus = menu.tab === "routes"
+        dom.routesSection.dataset.mode = focus ? "focus" : "compact"
+        dom.routesSub.textContent = focus
+            ? "Ordenadas pelo nível necessário"
+            : `Prévia · ${Math.min(PREVIEW_LIMIT, sortedRoutes().length)} de ${int(sortedRoutes().length)} linhas`
+        show(dom.routesNotice, !!activeRoute())
+        renderRouteList()
+        renderRouteDetail()
     }
 
     function selectRoute(id, focusCard) {
@@ -285,8 +442,19 @@
         renderRouteDetail()
     }
 
+    // Na Central o cartão é uma prévia: seleciona e leva ao catálogo, onde está o detalhe.
+    function onRouteCardClick(id) {
+        if (menu.tab === "overview") {
+            menu.selectedId = id
+            setTab("routes", false)
+            selectRoute(id, true)
+            return
+        }
+        selectRoute(id, false)
+    }
+
     function moveRoute(delta) {
-        const available = sortedRoutes().filter((route) => route.available)
+        const available = visibleRoutes().filter((route) => route.available)
         if (!available.length) return
         const current = available.findIndex((route) => route.id === menu.selectedId)
         const index = Math.max(0, Math.min(available.length - 1, (current < 0 ? 0 : current) + delta))
@@ -295,160 +463,158 @@
 
     async function startRoute() {
         const route = selectedRoute()
-        if (!route || !route.available || (menu.data && menu.data.activeRoute) || menu.lifecycle !== "ready") return
+        if (!route || !route.available || activeRoute() || menu.lifecycle !== "ready") return
         menu.lifecycle = "submitting"
         setActionMessage("")
-        renderHero()
+        renderShift()
         renderRouteDetail()
+
         const response = await post("startRoute", { routeId: route.id })
         if (!menu.data || menu.lifecycle === "closing") return
         if (response && response.ok) return
+
         menu.lifecycle = "ready"
-        renderHero()
+        renderShift()
         renderRouteDetail()
-        const code = response && response.code || "internal_error"
+        const code = (response && response.code) || "internal_error"
         setActionMessage(ERROR_TEXT[code] || ERROR_TEXT.internal_error)
     }
 
-    function renderProgression() {
-        const profile = menu.data && menu.data.profile
-        const progression = Array.isArray(menu.data && menu.data.progression) ? menu.data.progression : []
-        if (!profile) return
+    // ───────────── ranking ─────────────
 
-        const current = progression.find((tier) => Number(tier.level) === Number(profile.level)) || progression[0] || { xp: 0 }
-        const next = progression.find((tier) => Number(tier.level) === Number(profile.level) + 1)
-        const startXp = Number(current.xp) || 0
-        const span = next ? Math.max(1, Number(next.xp) - startXp) : 1
-        const earned = Math.max(0, Number(profile.xp) - startXp)
-        const percent = next ? Math.max(0, Math.min(100, Math.round(earned / span * 100))) : 100
-
-        dom.ringLevel.textContent = int(profile.level)
-        dom.progressTitle.textContent = String(profile.title || "Motorista").toUpperCase()
-        dom.levelRing.style.background = `conic-gradient(var(--bus-accent) 0deg, var(--bus-accent) ${Math.round(percent * 3.6)}deg, var(--bus-track) ${Math.round(percent * 3.6)}deg)`
-        dom.levelRing.setAttribute("aria-label", `Nível ${int(profile.level)}, progresso ${percent}%`)
-        dom.progressFill.style.width = `${percent}%`
-        dom.progressPercent.textContent = `${percent}%`
-        dom.progressBar.setAttribute("aria-valuenow", String(percent))
-        dom.progressFraction.textContent = next ? `${int(profile.xp)} / ${int(next.xp)} XP` : `${int(profile.xp)} XP · NÍVEL MÁXIMO`
-
-        const rows = progression.map((tier) => {
-            const row = document.createElement("div")
-            row.className = "level-row"
-            const level = Number(tier.level) || 0
-            row.dataset.state = level < profile.level ? "complete" : level === profile.level ? "current" : "locked"
-
-            const number = document.createElement("span")
-            number.className = "level-row__number"
-            number.textContent = String(level).padStart(2, "0")
-            const title = document.createElement("span")
-            title.className = "level-row__title"
-            title.textContent = tier.title || "Motorista"
-            const unlocks = document.createElement("span")
-            unlocks.className = "level-row__unlocks"
-            unlocks.textContent = Array.isArray(tier.unlocks) ? tier.unlocks.join(" · ") : ""
-            unlocks.title = unlocks.textContent
-            const status = document.createElement("span")
-            status.className = "level-row__state"
-            status.textContent = level < profile.level ? "CONCLUÍDO" : level === profile.level ? "ATUAL" : `${int(tier.xp)} XP`
-            row.append(number, title, unlocks, status)
-            return row
-        })
-        dom.levelList.replaceChildren(...rows)
+    function rankRow(entry, className) {
+        const row = element("li", className)
+        row.append(
+            element("span", "rank-row__pos", `#${int(entry.rank)}`),
+            element("span", "rank-row__name", entry.name || "Motorista"),
+            element("span", "rank-row__level", `NÍVEL ${int(entry.level)}`),
+            element("span", "rank-row__xp", `${int(entry.xp)} XP`),
+            element("span", "rank-row__routes", `${int(entry.routes)} LINHAS`),
+            element("span", "rank-row__score", decimal(entry.averageScore))
+        )
+        return row
     }
 
     function renderRanking() {
-        const entries = Array.isArray(menu.data && menu.data.leaderboard) ? menu.data.leaderboard.slice(0, 20) : []
+        const entries = Array.isArray(menu.data && menu.data.leaderboard) ? menu.data.leaderboard.slice(0, 50) : []
         const rows = entries.map((entry) => {
-            const row = document.createElement("li")
-            row.className = "ranking-row"
-            const values = [
-                [`#${int(entry.rank)}`, "ranking-row__position"],
-                [entry.name || "Motorista", "ranking-row__name"],
-                [int(entry.level), ""],
-                [int(entry.xp), ""],
-                [int(entry.routes), ""],
-                [decimal(entry.averageScore), ""],
-            ]
-            values.forEach(([value, className]) => {
-                const span = document.createElement("span")
-                if (className) span.className = className
-                span.textContent = value
-                row.appendChild(span)
-            })
-            return row
+            const position = Number(entry.rank) || 0
+            let className = "rank-row"
+            if (position >= 1 && position <= 3) className += " rank-row--podium"
+            if (position === 1) className += " rank-row--first"
+            return rankRow(entry, className)
         })
         dom.rankingList.replaceChildren(...rows)
+        show(dom.rankHead, rows.length > 0)
         show(dom.rankingEmpty, rows.length === 0)
-        dom.rankingSelf.textContent = `#${int(menu.data && menu.data.profile && menu.data.profile.rank)}`
+
+        const profile = (menu.data && menu.data.profile) || {}
+        const own = entries.find((entry) => Number(entry.rank) === Number(profile.rank))
+        dom.rankSelfRow.replaceChildren()
+        dom.rankSelfRow.className = "rank-row rank-row--self"
+
+        if (own) {
+            dom.rankSelfRow.append(...Array.from(rankRow(own, "").childNodes))
+            return
+        }
+
+        dom.rankSelfRow.className = "rank-row rank-row--self rank-row--none"
+        dom.rankSelfRow.textContent = `#${int(profile.rank)} · ${profile.displayName || "Motorista"} · ${int(profile.xp)} XP`
     }
 
-    function renderAll() {
-        const routes = sortedRoutes()
-        const active = menu.data && menu.data.activeRoute
-        const currentSelection = routes.find((route) => route.id === menu.selectedId && route.available)
-        if (!currentSelection) {
-            const preferred = active && routes.find((route) => route.id === active.id)
-            menu.selectedId = (preferred || routes.find((route) => route.available) || routes[0] || {}).id || null
-        }
-        renderProfile()
-        renderHero()
-        renderRouteList()
-        renderRouteDetail()
-        renderProgression()
-        renderRanking()
+    // ───────────── navegação ─────────────
+
+    function renderRail() {
+        dom.window.dataset.rail = menu.railOpen ? "open" : "closed"
+        dom.railToggle.setAttribute("aria-expanded", String(menu.railOpen))
+        dom.railToggle.setAttribute("aria-label", menu.railOpen ? "Fechar menu lateral" : "Abrir menu lateral")
     }
 
-    function applySnapshot(data) {
-        if (!data || !data.profile || !Array.isArray(data.routes)) {
-            show(dom.menuError, true)
-            return false
-        }
-        menu.data = data
-        show(dom.menuError, false)
-        renderAll()
-        return true
+    function toggleRail() {
+        menu.railOpen = !menu.railOpen
+        renderRail()
     }
 
     function setTab(tab, focusNav) {
-        if (!dom.tabs[tab]) return
+        if (!TAB_SECTIONS[tab]) return
         menu.tab = tab
+        dom.main.dataset.tab = tab
+
         dom.nav.forEach((button) => {
             const selected = button.dataset.tab === tab
             button.setAttribute("aria-selected", String(selected))
             button.tabIndex = selected ? 0 : -1
             if (selected && focusNav) button.focus()
         })
-        Object.entries(dom.tabs).forEach(([id, panel]) => {
-            const visible = id === tab
-            panel.hidden = !visible
-            if (visible) {
+
+        SECTIONS.forEach((id) => {
+            const panel = document.getElementById(id)
+            const visible = !menu.failed && TAB_SECTIONS[tab].includes(id)
+            if (visible && panel.hidden) {
+                panel.hidden = false
                 panel.style.animation = "none"
                 void panel.offsetWidth
                 panel.style.animation = ""
+            } else if (!visible) {
+                panel.hidden = true
             }
         })
+
+        if (!menu.failed && (tab === "overview" || tab === "routes")) renderRoutesSection()
     }
 
     function moveTab(delta) {
-        const order = ["routes", "progression", "ranking"]
-        const index = order.indexOf(menu.tab)
-        setTab(order[(index + delta + order.length) % order.length], true)
+        const index = TAB_ORDER.indexOf(menu.tab)
+        setTab(TAB_ORDER[(index + delta + TAB_ORDER.length) % TAB_ORDER.length], true)
+    }
+
+    // ───────────── ciclo de vida ─────────────
+
+    function renderAll() {
+        const routes = sortedRoutes()
+        const active = activeRoute()
+        const current = routes.find((route) => route.id === menu.selectedId && route.available)
+        if (!current) {
+            const preferred = active && routes.find((route) => route.id === active.id)
+            menu.selectedId = ((preferred || routes.find((route) => route.available) || routes[0] || {}).id) || null
+        }
+        renderProfile()
+        renderShift()
+        renderProgression()
+        renderRoutesSection()
+        renderRanking()
+    }
+
+    function applySnapshot(data) {
+        if (!data || !data.profile || !Array.isArray(data.routes)) {
+            menu.failed = true
+            show(dom.menuError, true)
+            setTab(menu.tab, false)
+            return false
+        }
+        menu.data = data
+        menu.failed = false
+        show(dom.menuError, false)
+        renderAll()
+        setTab(menu.tab, false)
+        return true
     }
 
     function openMenu(data) {
         clearTimers()
         menu.lifecycle = "ready"
-        menu.tab = "routes"
+        menu.tab = "overview"
         menu.selectedId = null
         menu.modalInvoker = null
+        menu.failed = false
         show(dom.returnModal, false)
         setActionMessage("")
         dom.root.dataset.mode = "menu"
         dom.menu.hidden = false
         dom.menu.dataset.anim = "enter"
         dom.menu.dataset.status = "ready"
+        renderRail()
         applySnapshot(data)
-        setTab("routes", false)
         later(() => dom.nav[0].focus(), 60)
     }
 
@@ -458,6 +624,7 @@
         menu.data = null
         menu.selectedId = null
         menu.modalInvoker = null
+        menu.failed = false
         show(dom.returnModal, false)
         dom.menu.dataset.anim = "idle"
         dom.menu.hidden = true
@@ -489,8 +656,10 @@
         playExitAndComplete()
     }
 
+    // ───────────── devolução do veículo ─────────────
+
     function openReturnModal() {
-        if (menu.lifecycle !== "ready" || !(menu.data && menu.data.activeRoute)) return
+        if (menu.lifecycle !== "ready" || !activeRoute()) return
         menu.modalInvoker = document.activeElement
         dom.returnMessage.textContent = ""
         show(dom.returnMessage, false)
@@ -506,22 +675,27 @@
         if (invoker && typeof invoker.focus === "function") invoker.focus()
     }
 
+    function resetReturnControls() {
+        dom.returnConfirm.disabled = false
+        dom.returnCancel.disabled = false
+        dom.returnConfirm.dataset.pending = "false"
+        dom.returnConfirm.textContent = "DEVOLVER ÔNIBUS"
+    }
+
     async function returnVehicle() {
-        if (menu.lifecycle !== "ready" || !(menu.data && menu.data.activeRoute)) return
+        if (menu.lifecycle !== "ready" || !activeRoute()) return
         menu.lifecycle = "submitting"
         dom.returnConfirm.disabled = true
         dom.returnCancel.disabled = true
         dom.returnConfirm.dataset.pending = "true"
         dom.returnConfirm.textContent = "DEVOLVENDO VEÍCULO"
+
         const response = await post("returnVehicle")
         if (!menu.data || menu.lifecycle === "closing") return
 
         if (response && response.ok) {
             menu.lifecycle = "ready"
-            dom.returnConfirm.disabled = false
-            dom.returnCancel.disabled = false
-            dom.returnConfirm.dataset.pending = "false"
-            dom.returnConfirm.textContent = "CONFIRMAR DEVOLUÇÃO"
+            resetReturnControls()
             show(dom.returnModal, false)
             menu.modalInvoker = null
             applySnapshot(response.data || { ...menu.data, activeRoute: null })
@@ -531,15 +705,14 @@
         }
 
         menu.lifecycle = "ready"
-        dom.returnConfirm.disabled = false
-        dom.returnCancel.disabled = false
-        dom.returnConfirm.dataset.pending = "false"
-        dom.returnConfirm.textContent = "CONFIRMAR DEVOLUÇÃO"
-        const code = response && response.code || "internal_error"
+        resetReturnControls()
+        const code = (response && response.code) || "internal_error"
         dom.returnMessage.textContent = ERROR_TEXT[code] || ERROR_TEXT.internal_error
         show(dom.returnMessage, true)
         dom.returnCancel.focus()
     }
+
+    // ───────────── HUD e resumo ─────────────
 
     let serviceHudTimer = null
 
@@ -568,31 +741,53 @@
             show(dom.hud, false)
             return
         }
+
         dom.hudCode.textContent = data.routeCode || "SERVIÇO"
         if (data.mode === "returning") dom.hudTitle.textContent = "RETORNE À GARAGEM"
-        else if (data.mode === "boarding") dom.hudTitle.textContent = data.stopName || "PRÓXIMA PARADA"
         else if (data.mode === "docked") dom.hudTitle.textContent = `${data.stopName || "PARADA"} · ATENDIMENTO INICIANDO`
         else dom.hudTitle.textContent = data.stopName || "PRÓXIMA PARADA"
 
-        dom.hudProgress.textContent = data.stopIndex ? `${int(data.stopIndex)} / ${int(data.stopCount)}${data.distance != null ? ` · ${int(data.distance)} m` : ""}` : "SERVIÇO ENCERRADO"
-        dom.hudPassengers.textContent = `PASSAGEIROS · ${int(data.passengers)} / ${int(data.capacity)}`
+        dom.hudProgress.textContent = data.mode === "returning"
+            ? "PARADAS CONCLUÍDAS"
+            : data.stopIndex
+                ? `${int(data.stopIndex)} / ${int(data.stopCount)}${data.distance != null ? ` · ${int(data.distance)} M` : ""}`
+                : "SERVIÇO EM PREPARO"
+        dom.hudPassengers.textContent = `${int(data.passengers)} / ${int(data.capacity)}`
+
         if (data.service) showServiceHud(data.serviceTimeoutMs)
         else hideServiceHud()
         show(dom.hud, true)
     }
 
     let summaryTimer = null
+
+    function summaryDetail(label, value) {
+        const item = element("span")
+        item.append(document.createTextNode(`${label} `), element("strong", null, value))
+        return item
+    }
+
     function renderSummary(data) {
         if (!data) return
         if (summaryTimer) clearTimeout(summaryTimer)
+
         dom.summaryScore.textContent = `${Math.round(Number(data.finalScore) || 0)} PONTOS`
         dom.summaryService.textContent = data.leveledUp ? `NOVO NÍVEL · ${int(data.level)}` : "SERVIÇO FINALIZADO"
-        dom.summaryDetails.textContent = `PARADAS · ${int(data.stops)}   PASSAGEIROS · ${int(data.passengers)}   PAGAMENTO · $${int(data.payout)}   EXPERIÊNCIA · +${int(data.xp)} XP`
+        dom.summaryDetails.replaceChildren(
+            summaryDetail("PARADAS", int(data.stops)),
+            summaryDetail("PASSAGEIROS", int(data.passengers)),
+            summaryDetail("PAGAMENTO", `$${int(data.payout)}`),
+            summaryDetail("EXPERIÊNCIA", `+${int(data.xp)} XP`)
+        )
+
         show(dom.summary, true)
         summaryTimer = setTimeout(() => show(dom.summary, false), 10000)
     }
 
+    // ───────────── eventos ─────────────
+
     dom.nav.forEach((button) => button.addEventListener("click", () => setTab(button.dataset.tab, true)))
+    dom.railToggle.addEventListener("click", toggleRail)
     dom.close.addEventListener("click", requestClose)
     dom.returnVehicle.addEventListener("click", openReturnModal)
     dom.returnCancel.addEventListener("click", closeReturnModal)
@@ -601,6 +796,7 @@
     document.addEventListener("keydown", (event) => {
         if (menu.lifecycle === "closed") return
         const modalOpen = !dom.returnModal.hidden
+
         if (event.key === "Escape") {
             event.preventDefault()
             if (modalOpen) closeReturnModal()
@@ -620,23 +816,30 @@
         }
 
         if (menu.lifecycle !== "ready") return
-        const inNav = event.target && event.target.classList && event.target.classList.contains("nav-item")
-        const inRoutes = event.target && event.target.classList && event.target.classList.contains("route-card")
-        if (inNav && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+        const target = event.target
+        const inNav = target && target.classList && target.classList.contains("nav-item")
+        const inRoutes = target && target.classList && target.classList.contains("route-card")
+
+        if (inNav && (event.key === "Home" || event.key === "End")) {
             event.preventDefault()
-            moveTab(event.key === "ArrowRight" ? 1 : -1)
-        } else if (inRoutes && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
-            event.preventDefault()
-            moveRoute(event.key === "ArrowDown" ? 1 : -1)
+            setTab(event.key === "Home" ? TAB_ORDER[0] : TAB_ORDER[TAB_ORDER.length - 1], true)
+        } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            if (inNav) {
+                event.preventDefault()
+                moveTab(event.key === "ArrowDown" ? 1 : -1)
+            } else if (inRoutes) {
+                event.preventDefault()
+                moveRoute(event.key === "ArrowDown" ? 1 : -1)
+            }
         } else if (inRoutes && (event.key === "Enter" || event.key === " ")) {
             event.preventDefault()
-            selectRoute(event.target.dataset.route, true)
+            onRouteCardClick(target.dataset.route)
         }
     })
 
     const handlers = {
         "busMenu:open": openMenu,
-        "busMenu:close": (data) => data && data.immediate ? hideMenu() : playExitAndComplete(),
+        "busMenu:close": (data) => (data && data.immediate ? hideMenu() : playExitAndComplete()),
         "busMenu:update": applySnapshot,
         "bus:setRouteHud": renderHud,
         "bus:summary": renderSummary,

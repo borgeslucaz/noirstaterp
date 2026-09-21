@@ -5,7 +5,11 @@ return {
         coords = vector4(449.37, -658.14, 28.45, 239.5),
         pedModel = 's_m_m_gentransport',
         radius = 30.0,
-        spawn = vector4(471.04, -583.88, 28.5, 175.5)
+        spawn = vector4(471.04, -583.88, 28.5, 175.5),
+        -- Marca o atendente no mapa. `sprite` 513 é o ônibus e a cor 15 é o ciano,
+        -- que acompanha o acento da Central e não se confunde com o azul do objetivo
+        -- da linha em serviço. Remova a chave inteira para não exibir o blip.
+        blip = { sprite = 513, color = 15, scale = 0.7, label = 'Central de Transporte' }
     },
     stop = {
         radius = 9.0,
