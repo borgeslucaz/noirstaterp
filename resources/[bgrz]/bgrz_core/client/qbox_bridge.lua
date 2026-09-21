@@ -4,15 +4,20 @@ BGRZ = BGRZ or {}
 
 ---Gang atual normalizada. `name` pode vir como 'none'; quem consome decide o que fazer.
 ---@return table|nil gang { name, label, grade, gradeName, isBoss }
+-- A gang vem do state bag que o provider de gangs escreve, e não do `PlayerData` do Qbox.
+--
+-- `false` é ausência explícita: o servidor grava assim de propósito, porque state bag
+-- apagado e state bag nunca escrito são indistinguíveis do lado do cliente.
 local function currentGang()
-    local gang = QBX and QBX.PlayerData and QBX.PlayerData.gang or nil
-    if not gang then return nil end
+    local gang = LocalPlayer.state.noirGang
+    if type(gang) ~= 'table' or not gang.name then return nil end
     return {
         name = gang.name,
         label = gang.label,
-        grade = gang.grade and gang.grade.level or 0,
-        gradeName = gang.grade and gang.grade.name,
-        isBoss = gang.isboss == true,
+        grade = gang.grade or 0,
+        gradeName = gang.gradeName,
+        isBoss = gang.isBoss == true,
+        bankAuth = gang.bankAuth == true,
     }
 end
 

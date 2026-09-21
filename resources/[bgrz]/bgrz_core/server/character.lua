@@ -9,8 +9,10 @@ local function normalizeCharacter(player)
     local charinfo = data.charinfo or {}
     local job = data.job or {}
     local jobGrade = job.grade or {}
-    local gang = data.gang or {}
-    local gangGrade = gang.grade or {}
+    -- A gang NÃO sai mais do PlayerData: o Qbox deixou de ser dono dela. Vem do provider
+    -- de gangs pelo mesmo caminho que `BGRZ.GetGang` usa, para personagem e consulta
+    -- direta nunca discordarem.
+    local gang = BGRZ.GetGang(data.source) or {}
     local metadata = data.metadata or {}
     local money = data.money or {}
 
@@ -40,9 +42,10 @@ local function normalizeCharacter(player)
         gang = {
             name = gang.name,
             label = gang.label,
-            grade = gangGrade.level,
-            gradeName = gangGrade.name,
-            isBoss = gang.isboss == true
+            grade = gang.grade,
+            gradeName = gang.gradeName,
+            isBoss = gang.isBoss == true,
+            bankAuth = gang.bankAuth == true
         },
         money = {
             cash = money.cash or 0,

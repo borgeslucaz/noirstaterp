@@ -69,7 +69,24 @@ function qbx:RemovePlayerFromGang(citizenId, gangName)
     return true
 end
 
-exports = T.exports({ qbx_core = qbx })
+-- Gang vem do provider, não do Qbox. O stub responde por citizenid, que é o contrato que
+-- `GetCharacterGangs` consome desde que a membresia saiu do `PlayerData`.
+local gangProvider = {
+    GetCitizenGang = function(_, citizenId)
+        -- Offline responde igual: a membresia é uma linha em tabela, não estado de sessão.
+        if citizenId == 'ONLINE1' then
+            return { name = 'ballas', label = 'Ballas', grade = 4, gradeName = 'Chefe',
+                isBoss = true, bankAuth = true }
+        end
+        if citizenId == 'OFFLINE1' then
+            return { name = 'vagos', label = 'Vagos', grade = 0, gradeName = 'Recruta',
+                isBoss = false, bankAuth = false }
+        end
+        return nil
+    end,
+}
+
+exports = T.exports({ qbx_core = qbx, noir_gangs = gangProvider })
 GetResourceState = function() return 'started' end
 GetCurrentResourceName = function() return 'bgrz_core' end
 TriggerEvent = function() end

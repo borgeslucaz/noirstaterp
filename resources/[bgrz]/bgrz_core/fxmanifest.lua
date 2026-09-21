@@ -29,6 +29,7 @@ server_scripts {
     'server/inventory.lua',
     'server/phone_notifications.lua',
     'server/dispatch.lua',
+    'server/banking.lua',
     'server/qbox_bridge.lua',
     'server/main.lua'
 }

@@ -7,6 +7,8 @@ local defaults = {
     phone = 'sd-phone',
     dispatch = 'sd-phone',
     dispatchFallback = 'qbx_police',
+    banking = 'Renewed-Banking',
+    gangs = 'noir_gangs',
 }
 
 ---@param capability string

@@ -5,6 +5,7 @@ function BGRZ.GetCapabilities()
     local inventory = BGRZ.Provider.name('inventory')
     local target = BGRZ.Provider.name('target')
     local phone = BGRZ.Provider.name('phone')
+    local banking = BGRZ.Provider.name('banking')
     local dispatch = BGRZ.Provider.name('dispatch')
     local fallback = BGRZ.Provider.name('dispatchFallback')
     local dispatchProvider
@@ -23,6 +24,7 @@ function BGRZ.GetCapabilities()
         },
         target = { available = BGRZ.Provider.isStarted(target), provider = target },
         phone = { available = BGRZ.Provider.isStarted(phone), provider = phone },
+        banking = { available = BGRZ.Provider.isStarted(banking), provider = banking },
         dispatch = { available = dispatchProvider ~= nil, provider = dispatchProvider },
     }
 end

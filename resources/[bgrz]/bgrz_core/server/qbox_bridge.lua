@@ -190,20 +190,27 @@ AddEventHandler('QBCore:Server:OnJobUpdate', function(source, job)
     })
 end)
 
----Gang atual normalizada a partir do personagem carregado.
+---Gang atual, resolvida pelo PROVIDER DE GANGS -- não mais pelo `PlayerData` do Qbox.
+---
+---O Qbox deixou de ser dono de gang. Ele guardava a mesma coisa em `player_groups` e no
+---JSON `players.gang`, conseguia atualizar um sem o outro, e rebaixava quem estivesse
+---online a cada republicação. Quem manda agora é o resource configurado em
+---`Providers.gangs`.
+---
+---O contrato de retorno é o mesmo de antes, de propósito: nenhum consumidor precisou
+---mudar por causa da troca.
 ---@param source number
----@return table|nil gang { name, label, grade, gradeName, isBoss }
+---@return table|nil gang { name, label, grade, gradeName, isBoss, bankAuth }
 function BGRZ.GetGang(source)
-    local player = exports.qbx_core:GetPlayer(source)
-    if not player then return nil end
-    local gang = player.PlayerData.gang or {}
-    return {
-        name = gang.name,
-        label = gang.label,
-        grade = gang.grade and gang.grade.level or 0,
-        gradeName = gang.grade and gang.grade.name,
-        isBoss = gang.isboss == true,
-    }
+    if type(source) ~= 'number' or source <= 0 then return nil end
+    local resource = BGRZ.Provider.name('gangs')
+    if not BGRZ.Provider.isAvailable('gangs') then return nil end
+
+    local called, gang = pcall(function()
+        return exports[resource]:GetGang(source)
+    end)
+    if not called or type(gang) ~= 'table' or not gang.name then return nil end
+    return gang
 end
 
 exports('GetGang', BGRZ.GetGang)
@@ -309,17 +316,21 @@ end
 ---Gangs em que o personagem está, mesmo offline.
 ---@param citizenId string
 ---@return table<string, integer> gangName -> grade
+---O Qbox não guarda mais gang, então `PlayerData.gangs` viria sempre vazio -- e vazio é a
+---pior resposta possível aqui, porque "não tem gang" e "não sei" ficariam indistinguíveis.
+---A pergunta vai para o provider.
+---
+---Uma gang por personagem desde a mudança; o retorno continua sendo mapa por compatibilidade.
 function BGRZ.GetCharacterGangs(citizenId)
     if type(citizenId) ~= 'string' or citizenId == '' then return {} end
-    local player = exports.qbx_core:GetPlayerByCitizenId(citizenId)
-        or exports.qbx_core:GetOfflinePlayer(citizenId)
-    if not player or not player.PlayerData then return {} end
+    local resource = BGRZ.Provider.name('gangs')
+    if not BGRZ.Provider.isAvailable('gangs') then return {} end
 
-    local gangs = {}
-    for name, grade in pairs(player.PlayerData.gangs or {}) do
-        gangs[name] = tonumber(grade) or 0
-    end
-    return gangs
+    local called, gang = pcall(function()
+        return exports[resource]:GetCitizenGang(citizenId)
+    end)
+    if not called or type(gang) ~= 'table' or not gang.name then return {} end
+    return { [gang.name] = tonumber(gang.grade) or 0 }
 end
 
 ---@param citizenId string
@@ -414,7 +425,10 @@ end
 ---
 ---Não grava em arquivo: quem chamou é dono da lista e decide quando gravar, com
 ---`CommitGangsToFile`, depois que os cargos já estiverem publicados.
----@param list { name: string, label: string }[]
+---
+---`grades` é obrigatório na prática: publicar uma gang sem escada rebaixa para recruta
+---todo membro dela que estiver online. Ver o comentário no corpo.
+---@param list { name: string, label: string, grades?: table<integer, { label: string, isBoss?: boolean, bankAuth?: boolean }> }[]
 ---@return boolean ok
 ---@return string? errorCode
 function BGRZ.RegisterGangs(list)
@@ -425,10 +439,34 @@ function BGRZ.RegisterGangs(list)
         local entry = list[i]
         local name = type(entry) == 'table' and entry.name or nil
         if type(name) == 'string' and name ~= '' and name ~= 'none' then
-            -- Os cargos não entram aqui: eles chegam um a um por `UpsertGangGrade`, que é
-            -- quem sabe o rótulo, o `isboss` e o `bankAuth` de cada nível. Uma gang nasce
-            -- sem grade nenhum e os recebe logo em seguida.
-            payload[name] = { label = type(entry.label) == 'string' and entry.label or name, grades = {} }
+            -- A ESCADA VAI JUNTO, e isso não é otimização.
+            --
+            -- `CreateGangs` substitui a entrada da gang e avisa todo mundo. Cada jogador
+            -- online daquela gang então procura o PRÓPRIO nível na escada nova; não
+            -- achando, o Qbox rebaixa ele para `{ name = 'No Grades', level = 0 }` e
+            -- desliga `isboss` e `bankAuth`.
+            --
+            -- Enquanto os cargos chegavam depois, um a um por `UpsertGangGrade`, existia
+            -- uma janela de milissegundos com a escada vazia -- e todo membro de cargo
+            -- diferente de 0 saía dela como recruta. Os cargos voltavam logo em seguida,
+            -- mas o NÍVEL do jogador já era 0: a republicação seguinte só encontrava
+            -- `grades[0]` e carimbava "Recruit" por cima. O save seguinte gravava isso.
+            --
+            -- Acontecia a cada restart do noir_gangs ou do qbx_core, em silêncio, e sem
+            -- tocar no `player_groups` -- que continuava com o nível certo, discordando.
+            local grades = {}
+            for level, grade in pairs(type(entry.grades) == 'table' and entry.grades or {}) do
+                local numeric = tonumber(level)
+                if numeric and type(grade) == 'table' then
+                    grades[numeric] = {
+                        name = type(grade.label) == 'string' and grade.label or tostring(numeric),
+                        isboss = grade.isBoss == true,
+                        bankAuth = grade.bankAuth == true,
+                    }
+                end
+            end
+
+            payload[name] = { label = type(entry.label) == 'string' and entry.label or name, grades = grades }
             total = total + 1
         end
     end

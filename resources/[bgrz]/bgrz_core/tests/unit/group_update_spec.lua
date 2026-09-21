@@ -13,7 +13,19 @@ local playerData = {
 local qbx = {}
 function qbx:GetPlayer() return { PlayerData = playerData } end
 
-exports = T.exports({ qbx_core = qbx })
+-- A gang não sai mais do PlayerData: o bridge pergunta ao provider configurado em
+-- `Providers.gangs`. O stub responde o mesmo contrato que os consumidores já esperavam.
+currentGang = { name = 'ballas', label = 'Ballas', grade = 4, gradeName = 'Chefe',
+    isBoss = true, bankAuth = true }
+
+local gangProvider = {
+    GetGang = function(_, source)
+        if source ~= 5 then return nil end
+        return currentGang
+    end,
+}
+
+exports = T.exports({ qbx_core = qbx, noir_gangs = gangProvider })
 GetResourceState = function() return 'started' end
 GetCurrentResourceName = function() return 'bgrz_core' end
 
@@ -62,7 +74,8 @@ T.equal(lastOf('bgrz_core:server:playerLoaded') ~= nil, true, 'player loaded re-
 -- Sair da gang dispara apenas onGroupUpdate no Qbox -------------------------------------
 
 local before = countOf('bgrz_core:server:gangUpdated')
-playerData.gang = { name = 'none', label = 'Sem gang', grade = { level = 0, name = 'Civil' }, isboss = false }
+-- Sair da gang é uma mudança NO PROVIDER, não no PlayerData -- é lá que a gang mora.
+currentGang = { name = 'none', label = 'Sem gang', grade = 0, gradeName = 'Civil', isBoss = false }
 T.fire(handlers, 'qbx_core:server:onGroupUpdate', 5, 'ballas')
 
 T.equal(countOf('bgrz_core:server:gangUpdated'), before + 1, 'leaving a gang re-emits the update')
@@ -79,14 +92,14 @@ T.equal(countOf('bgrz_core:server:gangUpdated'), before, 'a job-only group chang
 
 -- Entrar em outra gang ---------------------------------------------------------------------
 
-playerData.gang = { name = 'vagos', label = 'Vagos', grade = { level = 1, name = 'Membro' }, isboss = false }
+currentGang = { name = 'vagos', label = 'Vagos', grade = 1, gradeName = 'Membro', isBoss = false }
 T.fire(handlers, 'qbx_core:server:onGroupUpdate', 5, 'vagos')
 T.equal(lastOf('bgrz_core:server:gangUpdated').payload.name, 'vagos', 'joining a gang re-emits')
 
 -- Só a promoção também conta ------------------------------------------------------------------
 
 before = countOf('bgrz_core:server:gangUpdated')
-playerData.gang.grade = { level = 3, name = 'Tenente' }
+currentGang = { name = 'vagos', label = 'Vagos', grade = 3, gradeName = 'Tenente', isBoss = false }
 T.fire(handlers, 'qbx_core:server:onGroupUpdate', 5, 'vagos')
 T.equal(countOf('bgrz_core:server:gangUpdated'), before + 1, 'a promotion re-emits')
 T.equal(lastOf('bgrz_core:server:gangUpdated').payload.grade, 3, 'new grade carried')
