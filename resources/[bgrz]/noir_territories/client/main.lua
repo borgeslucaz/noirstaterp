@@ -1,6 +1,12 @@
+-- A gang vem do bridge, não de `QBX.PlayerData`.
+--
+-- Ler o PlayerData direto já contrariava o §2.1, e agora estaria simplesmente errado: o
+-- Qbox deixou de ser dono de gang. O bridge resolve pelo provider configurado.
 local function hasGangSet()
-    local gang = QBX.PlayerData and QBX.PlayerData.gang
-    return gang ~= nil
+    if GetResourceState('bgrz_core') ~= 'started' then return false end
+    local ok, gang = pcall(function() return exports.bgrz_core:GetGang() end)
+    return ok
+        and type(gang) == 'table'
         and type(gang.name) == 'string'
         and gang.name ~= ''
         and gang.name ~= 'none'
