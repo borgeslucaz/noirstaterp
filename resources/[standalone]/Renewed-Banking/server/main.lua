@@ -3,7 +3,15 @@ local cachedPlayers = {}
 
 CreateThread(function()
     Wait(500)
-    if not LoadResourceFile("Renewed-Banking", 'web/public/build/bundle.js') or GetCurrentResourceName() ~= "Renewed-Banking" then
+    -- PATCH NOIR: o guard original procurava `web/public/build/bundle.js`, o artefato do NUI
+    -- Svelte que veio de fábrica. A interface daqui é outra (ver PATCHES-NOIR.md) e não gera
+    -- esse arquivo, então o resource se auto-parava no start.
+    --
+    -- A intenção do guard continua valendo, e é ela que reproduzimos: o `index.html` publicado
+    -- só referencia `assets/` depois que o build rodou. Isso ainda pega o caso de alguém baixar
+    -- o código sem compilar a UI. A trava de renomear o resource fica como estava.
+    local ui = LoadResourceFile("Renewed-Banking", 'web/public/index.html')
+    if not ui or not ui:find('assets/', 1, true) or GetCurrentResourceName() ~= "Renewed-Banking" then
         error(locale("ui_not_built"))
         return StopResource("Renewed-Banking")
     end
@@ -58,6 +66,17 @@ CreateThread(function()
     if #query >= 1 then
         MySQL.transaction.await(query)
     end
+
+    -- PATCH NOIR: o banco não avisava quando terminava de carregar, e `cachedAccounts`
+    -- só existe depois desta thread. Quem chamasse `CreateJobAccount` antes daqui não
+    -- encontrava a conta no cache, tentava INSERT e batia em Duplicate entry.
+    --
+    -- "Started resource Renewed-Banking" não serve como sinal: ele é publicado antes
+    -- do `Wait(500)` lá em cima e antes desta query terminar.
+    --
+    -- A alternativa seria o consumidor ficar em retry até o cache aparecer. Um evento
+    -- no fim da carga é determinístico e não precisa de laço nenhum.
+    TriggerEvent('Renewed-Banking:noir:ready')
 end)
 
 function UpdatePlayerAccount(cid)
@@ -172,13 +191,19 @@ local function handleTransaction(account, title, amount, message, issuer, receiv
         issuer = issuer,
         time = os.time()
     }
+    -- PATCH NOIR: `accountKind` existe só para o feed abaixo. O upstream já sabia a
+    -- diferença entre conta de organização e conta pessoal nos dois ramos do if,
+    -- mas descartava a informação.
+    local accountKind
     if cachedAccounts[account] then
+        accountKind = 'org'
         table.insert(cachedAccounts[account].transactions, 1, transaction)
         local transactions = json.encode(cachedAccounts[account].transactions)
         MySQL.prepare("INSERT INTO bank_accounts_new (id, transactions) VALUES (?, ?) ON DUPLICATE KEY UPDATE transactions = ?",{
             account, transactions, transactions
         })
     elseif cachedPlayers[account] then
+        accountKind = 'player'
         table.insert(cachedPlayers[account].transactions, 1, transaction)
         local transactions = json.encode(cachedPlayers[account].transactions)
         MySQL.prepare("INSERT INTO player_transactions (id, transactions) VALUES (?, ?) ON DUPLICATE KEY UPDATE transactions = ?", {
@@ -187,6 +212,23 @@ local function handleTransaction(account, title, amount, message, issuer, receiv
     else
         print(locale("invalid_account", account))
     end
+
+    -- PATCH NOIR: feed cru de movimentação. `handleTransaction` é o ponto único por
+    -- onde passa todo movimento de conta neste resource, então um evento aqui dá
+    -- alimentação completa e em tempo real para quem precisar -- hoje o
+    -- `noir_fazenda`, via adapter de banking do `bgrz_core`.
+    --
+    -- O `transID` cru vai junto DE PROPÓSITO: numa transferência a segunda perna
+    -- recebe o id da primeira, e é só por isso que dá para separar "recebi um
+    -- pagamento" de "depositei meu próprio dinheiro". As duas coisas chegam aqui
+    -- como trans_type 'deposit'.
+    --
+    -- Evento local, não networked. Não há regra de negócio nesta linha de propósito:
+    -- classificar é problema de quem consome.
+    if accountKind then
+        TriggerEvent('Renewed-Banking:noir:transaction', account, accountKind, transaction, transID)
+    end
+
     return transaction
 end exports("handleTransaction", handleTransaction)
 

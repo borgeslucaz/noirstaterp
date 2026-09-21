@@ -1,0 +1,173 @@
+{
+ "sidebar": {
+  "bankName": "Banco",
+  "bankSubtitle": "Nacional",
+  "accounts": "Contas",
+  "cards": "Cartões",
+  "transactions": "Transações",
+  "loans": "Empréstimos",
+  "stats": "Estatísticas",
+  "banks": "Meus Bancos",
+  "savings": "Poupança",
+  "contacts": "Contatos",
+  "requests": "Solicitações",
+  "scheduled": "Agendadas",
+  "checks": "Cheques",
+  "directDebits": "Débitos Automáticos",
+  "admin": "Painel Admin",
+  "close": "Fechar"
+ },
+ "dashboard": {
+  "welcome": "Bem-vindo ao Banco!",
+  "noAccounts": "Você ainda não tem nenhuma conta bancária. Crie sua primeira conta para começar a cuidar das suas finanças.",
+  "createFirstAccount": "Criar Minha Primeira Conta",
+  "totalBalance": "Saldo Total",
+  "balance": "Saldo",
+  "selectedAccountBalance": "Saldo da Conta Selecionada",
+  "yourAccounts": "Suas Contas",
+  "sharedAccounts": "Contas Compartilhadas",
+  "shared": "Compartilhada",
+  "sharedAccount": "Conta Compartilhada",
+  "personalAccount": "Conta Pessoal",
+  "newAccount": "Nova Conta",
+  "maxAccountsReached": "Você atingiu o limite de {max} contas",
+  "loading_bank": "Carregando banco...",
+  "loading_bank_subtitle": "Aguarde um momento",
+  "loading_stats": "Carregando estatísticas...",
+  "loading_stats_subtitle": "Aguarde enquanto calculamos as estatísticas da sua conta",
+  "bankInfo": {
+   "associated": "Banco Associado",
+   "commission": "Taxa de Comissão",
+   "bankType": "Tipo de Banco",
+   "bankTypes": {
+    "state": "Estatal",
+    "private": "Privado"
+   },
+   "accountType": "Tipo de Conta",
+   "owner": "Titular",
+   "shared": "Compartilhada"
+  },
+  "emptyState": {
+   "title": "Bem-vindo ao seu banco",
+   "subtitle": "Comece criando sua primeira conta bancária",
+   "createFirst": "Criar minha primeira conta",
+   "feature1": "Gestão eficiente",
+   "feature1Desc": "Cuide do seu dinheiro com segurança",
+   "feature2": "Contas compartilhadas",
+   "feature2Desc": "Compartilhe contas com outras pessoas",
+   "feature3": "Estatísticas detalhadas",
+   "feature3Desc": "Visualize sua movimentação financeira"
+  },
+  "feeCalculator": {
+   "title": "Taxas da Transação",
+   "deposit": "Depósito",
+   "withdraw": "Saque",
+   "transfer": "Transferência",
+   "free": "Grátis",
+   "fee": "Taxa",
+   "youReceive": "Você recebe",
+   "youPay": "Você paga",
+   "disclaimer": "Algumas dessas comissões podem não se aplicar, dependendo do banco, da conta ou do tipo de operação."
+  },
+  "actions": {
+   "addUser": "Adicionar Usuário",
+   "removeUser": "Remover Usuário",
+   "deleteAccount": "Excluir Conta"
+  },
+  "activeAccountsCount": "{count} conta{plural} ativa{plural}",
+  "sharedAccountsCount": "{count} conta{plural} compartilhada{plural}"
+ },
+ "quickActions": {
+  "deposit": "Depositar",
+  "withdraw": "Sacar",
+  "transfer": "Transferir",
+  "newAccount": "Nova Conta",
+  "cashAvailable": "Dinheiro Disponível"
+ },
+ "transactions": {
+  "search": "Buscar transações...",
+  "all": "Todas",
+  "income": "Entradas",
+  "expenses": "Saídas",
+  "history": "Histórico de Transações",
+  "count": "{count} transações",
+  "noResults": "Nenhuma transação encontrada",
+  "noTransactions": "Nenhuma transação recente"
+ },
+ "stats": {
+  "currentBalance": "Saldo Atual",
+  "totalIncome": "Total de Entradas",
+  "totalExpenses": "Total de Saídas",
+  "netFlow": "Fluxo Líquido",
+  "financialActivity": "Movimentação Financeira",
+  "last7Days": "Últimos 7 dias",
+  "noData": "Dados insuficientes para mostrar estatísticas",
+  "income": "Entradas",
+  "expenses": "Saídas",
+  "emptyState": {
+   "title": "Sem movimentação financeira",
+   "subtitle": "Faça sua primeira transação para ver suas estatísticas aqui",
+   "deposit": "Depositar dinheiro",
+   "withdraw": "Sacar fundos",
+   "transfer": "Transferir dinheiro"
+  }
+ },
+ "modals": {
+  "deposit": {
+   "title": "Depositar Dinheiro"
+  },
+  "withdraw": {
+   "title": "Sacar Dinheiro"
+  },
+  "transfer": {
+   "title": "Transferir Dinheiro",
+   "toAccount": "ID da Conta de Destino"
+  },
+  "createAccount": {
+   "title": "Nova Conta",
+   "placeholder": "Nome da conta"
+  },
+  "loan": {
+   "title": "Solicitar Empréstimo",
+   "installments": "Parcelas"
+  },
+  "addSharedUser": {
+   "title": "Adicionar Usuário Compartilhado"
+  },
+  "removeSharedUser": {
+   "title": "Remover Usuário Compartilhado"
+  },
+  "deleteAccount": {
+   "title": "Excluir Conta",
+   "confirm": "Tem certeza de que quer excluir esta conta? A ação não pode ser desfeita e todo o saldo será perdido."
+  },
+  "common": {
+   "amount": "Valor",
+   "userId": "ID do Usuário",
+   "verifyingAccess": "Verificando acesso..."
+  }
+ },
+ "common": {
+  "cancel": "Cancelar",
+  "confirm": "Confirmar",
+  "delete": "Excluir",
+  "free": "Grátis",
+  "copyId": "Copiar ID"
+ },
+ "renewed": {
+  "personalAccount": "Conta Pessoal",
+  "orgAccount": "Conta de Organização",
+  "cashOnHand": "Em espécie",
+  "frozen": "Congelada",
+  "transferTo": "ID da conta de destino",
+  "comment": "Descrição (opcional)",
+  "commentPlaceholder": "Pagamento do aluguel...",
+  "actionFailed": "A operação não foi concluída",
+  "noAccount": "Nenhuma conta disponível",
+  "atmTitle": "Caixa Eletrônico",
+  "atmSubtitle": "Autoatendimento",
+  "atmAccount": "Conta selecionada",
+  "atmRecent": "Últimos lançamentos",
+  "atmNoRecent": "Sem lançamentos nesta conta"
+ }
+}

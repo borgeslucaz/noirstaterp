@@ -43,7 +43,31 @@ CreateThread(function()
     end
 end)
 
+-- PATCH NOIR: rótulo e lista de gangs vêm do `noir_gangs`.
+--
+-- `Gangs` é `exports.qbx_core:GetGangs()`, e o Qbox não tem mais gang nenhuma. Sem isto,
+-- toda conta de gang perderia o rótulo (viraria o id) e nenhuma gang nova ganharia conta
+-- no start, porque `GetFrameworkGroups` é o que o resource percorre para criá-las.
+local function noirGangs()
+    if GetResourceState('noir_gangs') ~= 'started' then return {} end
+    local ok, list = pcall(function() return exports.noir_gangs:GetGangList() end)
+    if not ok or type(list) ~= 'table' then return {} end
+
+    local byName = {}
+    for i = 1, #list do
+        local gang = list[i]
+        if type(gang) == 'table' and gang.name then
+            byName[gang.name] = { label = gang.label or gang.name, grades = {} }
+        end
+    end
+    return byName
+end
+
 function GetSocietyLabel(society)
+    if Framework == 'qbx' then
+        local gangs = noirGangs()
+        if gangs[society] then return gangs[society].label end
+    end
     if Framework == 'qb' then
         return Jobs[society] and Jobs[society].label or QBCore.Shared.Gangs[society] and QBCore.Shared.Gangs[society].label or society
     elseif Framework == 'qbx' then
@@ -170,9 +194,25 @@ function GetJobs(Player)
     end
 end
 
+-- PATCH NOIR: gang deixou de morar no Qbox.
+--
+-- `PlayerData.gang` não é mais mantido: quem é dono da membresia e dos cargos é o
+-- `noir_gangs`, e o acesso vem pelo `bgrz_core`, que resolve o provider. Ler o PlayerData
+-- aqui devolveria 'none' para todo mundo -- ou seja, ninguém acessaria a conta da gang.
+--
+-- Ver `resources/[bgrz]/noir_gangs/README.md`.
+local function noirGang(Player)
+    local source = Player and Player.PlayerData and Player.PlayerData.source
+    if not source or GetResourceState('bgrz_core') ~= 'started' then return nil end
+    local ok, gang = pcall(function() return exports.bgrz_core:GetGang(source) end)
+    if not ok or type(gang) ~= 'table' or not gang.name or gang.name == 'none' then return nil end
+    return gang
+end
+
 function GetGang(Player)
     if Framework == 'qb' or Framework == 'qbx' then
-        return Player.PlayerData.gang.name
+        local gang = noirGang(Player)
+        return gang and gang.name or 'none'
     elseif Framework == 'esx' then
         return false
     end
@@ -187,11 +227,14 @@ function IsJobAuth(job, grade)
     end
 end
 
+-- PATCH NOIR: o `bankAuth` sai do cargo publicado pelo `noir_gangs`, não da tabela de
+-- gangs do Qbox -- que não é mais alimentada. O bridge já devolve o campo resolvido, então
+-- não há mais consulta a `Gangs[gang].grades[...]`.
 function IsGangAuth(Player, gang)
     if Framework == 'qb' or Framework == 'qbx' then
-        local grade = tostring(Player.PlayerData.gang.grade.level)
-        local gradeNum = tonumber(grade)
-        return Gangs[gang].grades[grade] and Gangs[gang].grades[grade].bankAuth or Gangs[gang].grades[gradeNum] and Gangs[gang].grades[gradeNum].bankAuth
+        local current = noirGang(Player)
+        if not current or current.name ~= gang then return false end
+        return current.bankAuth == true
     elseif Framework == 'esx' then
         return false
     end
@@ -210,6 +253,9 @@ function IsDead(Player)
 end
 
 function GetFrameworkGroups()
+    -- PATCH NOIR: as gangs saem do `noir_gangs`, não do Qbox. É por aqui que o resource
+    -- descobre para quais grupos precisa criar conta no start.
+    if Framework == 'qbx' then return Jobs, noirGangs() end
     return Jobs, Gangs
 end
 
