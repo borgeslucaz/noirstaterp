@@ -66,6 +66,23 @@ function NoirOwnership.isLocked(zone, now)
     return expires ~= nil and (tonumber(now) or NoirOwnership.now()) < expires
 end
 
+---Desde quando um bairro conta como parado, dado o último carimbo de atividade.
+---
+---Nunca antes do fim da trava: enquanto ela corre, atividade nenhuma é aceita ali — nem do dono
+---—, então contar aquelas horas como abandono puniria a gang exatamente pela janela em que o
+---sistema a proibiu de agir. Sem isto, um bairro recém-tomado saía da trava com quatro horas de
+---ócio acumulado e levava vários passos de esfriamento na primeira varredura.
+---
+---Derivado em vez de carimbado: a trava já sabe quando termina, e um segundo relógio gravado a
+---cada minuto seria uma escrita por bairro travado por minuto para dizer a mesma coisa.
+---@param since number último carimbo de atividade
+---@return number
+function NoirOwnership.idleFrom(zone, since)
+    local lockEnd = NoirOwnership.lockedUntil(zone)
+    if lockEnd and lockEnd > since then return lockEnd end
+    return since
+end
+
 ---A gang que já tem o suficiente para tomar o bairro e não é a dona.
 ---
 ---Duas ao mesmo tempo é impossível por aritmética enquanto o limiar for maioria: 510 + 510

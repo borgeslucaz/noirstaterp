@@ -255,18 +255,34 @@ end
 ---terminaria como um duelo em vez de terra de ninguém.
 ---
 ---O mínimo de um ponto existe para o esfriamento terminar. Sem ele, 5% de 19 é zero e a gang
----ficaria pendurada em 19 para sempre, dona de um bairro em que ninguém pisa há meses.
+---ficaria pendurada em 19 para sempre.
+---
+---`keepAtThreshold` é o dono do bairro, quando ele tem piso: a influência dele desce até o
+---limiar e para. Acima do limiar é gordura e derrete; a posse em si não. Quem tira um bairro de
+---alguém é sempre outra gang, nunca um cronômetro — e ninguém perde território por ter passado
+---o fim de semana fora.
+---
+---O piso é só do dono. Quem não é dono não tem posse para proteger: a fatia parada de um rival
+---é exatamente a presença velha que deveria voltar para o neutro, e congelá-la deixaria o pool
+---preso para sempre em pedaços que ninguém defende.
+---@param keepAtThreshold? string gang que não desce do limiar
 ---@return table<string, number> losses quanto tirar de cada gang
-function NoirInfluence.decayStep(zone, percent)
+function NoirInfluence.decayStep(zone, percent, keepAtThreshold)
     local losses = {}
     percent = tonumber(percent) or 0
     if percent <= 0 then return losses end
 
+    local threshold = NoirInfluence.required()
+
     for gang, points in pairs(NoirInfluence.of(zone)) do
-        local loss = math.floor(points * percent / 100)
-        if loss < 1 then loss = 1 end
-        if loss > points then loss = points end
-        losses[gang] = loss
+        local floor = gang == keepAtThreshold and threshold or 0
+
+        if points > floor then
+            local loss = math.floor(points * percent / 100)
+            if loss < 1 then loss = 1 end
+            if loss > points - floor then loss = points - floor end
+            losses[gang] = loss
+        end
     end
 
     return losses

@@ -74,11 +74,19 @@ Config.Influence = {
 -- TODO: Ajeitar os valores para produção. Estes estão curtos para teste: uma hora de abandono
 -- começa a esfriar e cada passo é de dez minutos. Em jogo, algo como 48h e um passo por dia é o
 -- que faz o esfriamento ser uma estação e não um cronômetro.
+-- `KeepOwnerAtThreshold` põe um piso no esfriamento do dono: ele desce até o limiar e para.
+-- Sem o piso, uma gang perderia o bairro por ter passado o fim de semana fora — e o desenho
+-- inteiro é sobre gangs tomarem rua uma da outra, não sobre relógio. Com o piso, o bairro
+-- abandonado fica em 510 e volta a ser tomável por quem aparecer, que era o ponto.
+--
+-- O piso é só do dono. Rival parado não tem posse para proteger, e congelar a fatia dele
+-- deixaria o pool preso em pedaços que ninguém defende.
 Config.Decay = {
     Enable = true,
     AfterSeconds = 60 * 60,
     EverySeconds = 10 * 60,
     Percent = 5,
+    KeepOwnerAtThreshold = true,
 }
 
 -- ---------------------------------------------------------------------------

@@ -40,12 +40,23 @@ function NoirDecay.touch(zone)
     persist(zone)
 end
 
+---Desde quando este bairro conta como parado. A regra de o tempo travado não contar é da trava,
+---e mora com ela em `shared/ownership.lua`.
+local function idleSince(zone)
+    local since = lastActivity[zone]
+    if not since then return end
+    return NoirOwnership.idleFrom(zone, since)
+end
+
 ---Um passo de esfriamento. Passa pelo `addInfluence` como qualquer outra mudança, para
----persistir, espelhar nos clientes e reavaliar a placa pelo mesmo caminho de sempre — um dono
----que esfria até zero perde o bairro ali, sem código próprio para isso.
+---persistir, espelhar nos clientes e reavaliar a placa pelo mesmo caminho de sempre.
+---
+---O dono tem piso no limiar (`Config.Decay.KeepOwnerAtThreshold`), então ele nunca esfria até
+---perder o bairro: quem tira território de alguém é sempre outra gang.
 ---@return boolean moveu alguma coisa
 local function step(zone)
-    local losses = NoirInfluence.decayStep(zone, Config.Decay.Percent)
+    local keep = Config.Decay.KeepOwnerAtThreshold and NoirOwnership.get(zone) or nil
+    local losses = NoirInfluence.decayStep(zone, Config.Decay.Percent, keep)
     local moved = false
 
     for gang, loss in pairs(losses) do
@@ -76,8 +87,10 @@ local function sweep()
 
     local now = os.time()
 
-    for zone, since in pairs(lastActivity) do
-        if canDecay(zone) then
+    for zone in pairs(lastActivity) do
+        local since = idleSince(zone)
+
+        if since and canDecay(zone) then
             local steps = 0
 
             while (now - since) >= Config.Decay.AfterSeconds and steps < MAX_CATCH_UP do
@@ -98,11 +111,12 @@ local function sweep()
     end
 end
 
----Há quanto tempo nada acontece num bairro, em segundos. `nil` quando nunca houve nada.
+---Há quanto tempo nada acontece num bairro, em segundos. Zero enquanto a trava corre, porque
+---ali o tempo não conta. `nil` quando o bairro nunca teve nada.
 function NoirDecay.idleFor(zone)
-    local since = lastActivity[zone]
+    local since = idleSince(zone)
     if not since then return end
-    return os.time() - since
+    return math.max(0, os.time() - since)
 end
 
 ---Força um passo agora, ignorando o relógio. Só a bancada de teste usa: esperar uma hora de

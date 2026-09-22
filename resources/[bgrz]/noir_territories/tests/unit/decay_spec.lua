@@ -5,6 +5,7 @@ local RES = (os.getenv('RES') or './')
 exports = setmetatable({}, { __call = function() end })
 dofile(RES .. 'shared/config.lua')
 dofile(RES .. 'shared/influence.lua')
+dofile(RES .. 'shared/ownership.lua')
 
 local fails = 0
 local function check(ok, label)
@@ -13,8 +14,8 @@ local function check(ok, label)
 end
 
 ---Aplica o passo como o servidor aplica: cada perda volta para o neutro.
-local function decay(zone)
-    local losses = NoirInfluence.decayStep(zone, Config.Decay.Percent)
+local function decay(zone, keep)
+    local losses = NoirInfluence.decayStep(zone, Config.Decay.Percent, keep)
     for gang, loss in pairs(losses) do NoirInfluence.grant(zone, gang, -loss) end
 end
 
@@ -62,6 +63,39 @@ check(next(NoirInfluence.decayStep('davis', 5)) == nil, 'nao ha o que devolver a
 print('percentual zero desliga:')
 NoirInfluence.replaceAll({ davis = { ballas = 800 } })
 check(next(NoirInfluence.decayStep('davis', 0)) == nil, 'sem passo, sem perda')
+
+print('o dono tem piso no limiar:')
+NoirInfluence.replaceAll({ davis = { ballas = 800, vagos = 200 } })
+for _ = 1, 200 do decay('davis', 'ballas') end
+check(NoirInfluence.get('davis', 'ballas') == 510,
+    'o dono desce ate os 51% e para: a gordura derrete, a posse nao')
+check(NoirInfluence.get('davis', 'vagos') == 0,
+    'e o rival parado vai a zero: ele nao tem posse para proteger')
+check(select(2, NoirInfluence.sumOf('davis')) == 490, 'o resto voltou para o neutro')
+check(closed('davis'), 'o pool continua fechado')
+
+NoirInfluence.replaceAll({ davis = { ballas = 400 } })
+check(next(NoirInfluence.decayStep('davis', 5, 'ballas')) == nil,
+    'dono ja abaixo do limiar nao esfria mais: nao ha gordura')
+
+NoirInfluence.replaceAll({ davis = { ballas = 800 } })
+for _ = 1, 200 do decay('davis') end
+check(NoirInfluence.get('davis', 'ballas') == 0,
+    'sem dono declarado, ninguem tem piso e o bairro volta inteiro ao neutro')
+
+print('tempo travado nao conta como ocioso:')
+local T0, HOUR = 1000000, 3600
+NoirOwnership.now = function() return T0 end
+NoirOwnership.replaceAll({ davis = { owner = 'ballas', takenAt = T0 } })
+
+local fimDaTrava = T0 + Config.OwnershipLockSeconds
+check(NoirOwnership.idleFrom('davis', T0) == fimDaTrava,
+    'o ocio so comeca a contar quando a trava cai')
+check(NoirOwnership.idleFrom('davis', fimDaTrava + 600) == fimDaTrava + 600,
+    'atividade depois da trava manda no relogio')
+
+NoirOwnership.replaceAll({})
+check(NoirOwnership.idleFrom('davis', T0) == T0, 'bairro sem dono nao tem trava a descontar')
 
 print('')
 print(fails == 0 and 'decay_spec: ok' or ('decay_spec: ' .. fails .. ' falha(s)'))
