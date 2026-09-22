@@ -1,6 +1,5 @@
 fx_version 'cerulean'
 game 'gta5'
-lua54 'yes'
 
 name 'noir_houserobbery'
 author 'Noir; based on Qbox Project qbx_houserobbery'

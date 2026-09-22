@@ -1,6 +1,5 @@
 fx_version 'cerulean'
 game 'gta5'
-lua54 'yes'
 
 name 'noir_skills'
 author 'Noir State'
