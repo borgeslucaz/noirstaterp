@@ -1,6 +1,5 @@
 fx_version 'cerulean'
 game 'gta5'
-lua54 'yes'
 name 'noir_gangs'
 author 'Noir State'
 description 'Immersive Qbox gang management'
@@ -27,4 +26,9 @@ server_scripts { '@oxmysql/lib/MySQL.lua', 'server/state.lua', 'server/members.l
 -- `noir_territories` não está aqui de propósito: o mapa é informação de apoio e a aba sabe
 -- explicar a ausência. Declarar a dependência faria a gestão de gang inteira deixar de
 -- subir por causa de uma tela de território.
-dependencies { 'ox_lib', 'oxmysql', 'bgrz_core' }
+--
+-- `/onesync` está aqui porque o resource depende dele de verdade: a validação de distância
+-- do convite roda no servidor (`GetPlayerPed` + `GetEntityCoords`) e a gang do jogador é
+-- publicada no state bag de `Player(source)`. Sem OneSync os dois falham em runtime, e
+-- falhar no start é melhor do que descobrir no primeiro convite.
+dependencies { '/onesync', 'ox_lib', 'oxmysql', 'bgrz_core' }

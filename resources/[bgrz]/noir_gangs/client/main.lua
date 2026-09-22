@@ -163,6 +163,19 @@ CreateThread(function()
     requestLocations()
 end)
 
+-- Restart só do `bgrz_core`, que é o que acontece quando o bridge é atualizado sozinho: ao
+-- parar ele apaga as zonas de todo caller, e volta com o registro vazio. Os pontos de gestão
+-- somem do mundo e ninguém os recria -- `playerLoaded` não dispara de novo, porque quem
+-- reiniciou foi o bridge e não o jogador, e o broadcast de `setLocations` só sai quando um
+-- admin edita um ponto. Sem isto a gestão fica morta até o relog.
+AddEventHandler('onClientResourceStart', function(resource)
+    if resource ~= 'bgrz_core' then return end
+    if not core:IsLoggedIn() then return end
+    refreshRadial()
+    requestGangs()
+    requestLocations()
+end)
+
 ---Sem isto, um restart com a tela aberta deixaria o jogador com o foco preso e sem teclado.
 AddEventHandler('onResourceStop', function(resource)
     if resource ~= cache.resource then return end

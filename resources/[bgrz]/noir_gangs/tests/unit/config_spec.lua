@@ -23,6 +23,18 @@ for _, forbidden in ipairs({ "'qbx_core'", "'ox_target'" }) do
         ('%s é dependência do bgrz_core, não nossa'):format(forbidden))
 end
 
+-- Enhanced: a validação de distância do convite e o state bag da gang são server-side, e os
+-- dois pedem OneSync. Declarado, o resource não sobe num servidor sem ele -- sem a linha, a
+-- falha só aparece no primeiro convite.
+T.truthy(manifest:find("'/onesync'", 1, true), '/onesync declarado como dependência')
+-- `lua54` é obsoleto: o CfxLua já é 5.4. Fica aqui para a linha não voltar num copy-paste.
+T.falsy(manifest:find('lua54', 1, true), 'lua54 não é mais necessário no Enhanced')
+
+-- A gestão no mundo é remontada quando o bridge reinicia sozinho: ao parar ele apaga as
+-- zonas de todo caller, e `playerLoaded` não dispara de novo nesse caso.
+T.truthy(read('client/main.lua'):find("onClientResourceStart", 1, true),
+    'o client remonta as zonas quando o bgrz_core reinicia')
+
 for _, path in ipairs({ 'client/main.lua', 'client/ui.lua', 'server/main.lua', 'server/state.lua' }) do
     local source = read(path)
     T.falsy(source:find('exports.qbx_core', 1, true), path .. ' não fala com o framework direto')
