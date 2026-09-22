@@ -1,5 +1,7 @@
 Locales['pt-br'] = {
   ["territory_alert_body"] = "Tem gente vendendo na %s, e não é dos nossos.",
+  ["territory_influence_gained"] = "Sua venda ganhou influência em %s.",
+  ["territory_influence_locked"] = "%s está protegida. Sua venda não rendeu influência.",
   ["dealing_welcometext_1"] = "O que você tem para mim, parceiro?",
   ["dealing_welcometext_2"] = "Tem alguma coisa que bate de verdade?",
   ["dealing_welcometext_3"] = "Preciso de algo para agitar a noite.",

@@ -137,9 +137,11 @@ Config.TerritoryAlert = {
     SenderNumber = '0800',  -- remetente que aparece na conversa
     SenderName = 'Rua',
 
-    -- Por gang e bairro. O mesmo invasor vendendo a tarde inteira gera um aviso a cada
-    -- cinco minutos, não um por venda — aí o alerta ainda significa alguma coisa.
-    CooldownSeconds = 300,
+    -- Por gang e bairro. O mesmo invasor vendendo a tarde inteira gera um aviso a cada três
+    -- minutos, não um por venda — aí o alerta ainda significa alguma coisa. É o cooldown DO
+    -- AVISO e não o da influência: as trinta vendas movem o mapa trinta vezes, só não tocam o
+    -- celular trinta vezes.
+    CooldownSeconds = 180,
 }
 
 Config.Leveling = {

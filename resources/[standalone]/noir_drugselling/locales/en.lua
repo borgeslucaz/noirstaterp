@@ -1,5 +1,7 @@
 Locales['en'] = {
   ["territory_alert_body"] = "Someone is dealing in %s, and they are not one of ours.",
+  ["territory_influence_gained"] = "Your sale gained influence in %s.",
+  ["territory_influence_locked"] = "%s is protected. Your sale earned no influence.",
   ["dealing_welcometext_1"] = "Wat do you have for me, brother?",
   ["dealing_welcometext_2"] = "You got something that actually hits?",
   ["dealing_welcometext_3"] = "Need somethin' that keeps the night loud.",
