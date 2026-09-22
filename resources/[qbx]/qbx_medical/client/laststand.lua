@@ -4,7 +4,7 @@ local WEAPONS = exports.qbx_core:GetWeapons()
 
 ---blocks until ped is no longer moving
 function WaitForPlayerToStopMoving()
-    local timeOut = 10000
+    local timeOut = 1000
     while GetEntitySpeed(cache.ped) > 0.1 and IsPedRagdoll(cache.ped) and timeOut > 1 do
         timeOut -= 10 Wait(10)
     end
@@ -23,7 +23,10 @@ end
 
 ---remove last stand mode from player.
 function EndLastStand()
-    TaskPlayAnim(cache.ped, LastStandDict, 'exit', 1.0, 8.0, -1, 1, -1, false, false, false)
+    -- Only get up after a real revive, never while transitioning to death.
+    if DeathState == sharedConfig.deathState.ALIVE then
+        TaskPlayAnim(cache.ped, LastStandDict, 'exit', 1.0, 8.0, -1, 1, -1, false, false, false)
+    end
     LaststandTime = 0
     TriggerServerEvent('qbx_medical:server:onPlayerLaststandEnd')
 end
@@ -67,11 +70,16 @@ function StartLastStand(attacker, weapon)
     startLastStandLock = true
     TriggerEvent('ox_inventory:disarm', cache.playerId, true)
     WaitForPlayerToStopMoving()
+    -- Load before resurrection so streaming cannot leave the player standing.
+    lib.requestAnimDict(LastStandDict)
+    lib.requestAnimDict('dead')
+    lib.requestAnimDict('veh@low@front_ps@idle_duck')
     TriggerServerEvent('InteractSound_SV:PlayOnSource', 'demo', 0.1)
     LaststandTime = config.laststandReviveInterval
     ResurrectPlayer()
     SetEntityHealth(cache.ped, 150)
     SetDeathState(sharedConfig.deathState.LAST_STAND)
+    PlayLastStandAnimation()
     TriggerEvent('qbx_medical:client:onPlayerLaststand', attacker, weapon)
     TriggerServerEvent('qbx_medical:server:onPlayerLaststand', attacker, weapon)
     CreateThread(function()

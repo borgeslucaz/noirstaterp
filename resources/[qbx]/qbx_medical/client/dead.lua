@@ -15,10 +15,10 @@ local function playDeadAnimation()
 
     if cache.vehicle then
         if not IsEntityPlayingAnim(cache.ped, deadVehAnimDict, deadVehAnim, 3) then
-            lib.playAnim(cache.ped, deadVehAnimDict, deadVehAnim, 1.0, 1.0, -1, 1, 0, false, false, false)
+            lib.playAnim(cache.ped, deadVehAnimDict, deadVehAnim, 8.0, 1.0, -1, 1, 0, false, false, false)
         end
     elseif not IsEntityPlayingAnim(cache.ped, deadAnimDict, deadAnim, 3) then
-        lib.playAnim(cache.ped, deadAnimDict, deadAnim, 1.0, 1.0, -1, 1, 0, false, false, false)
+        lib.playAnim(cache.ped, deadAnimDict, deadAnim, 8.0, 1.0, -1, 1, 0, false, false, false)
     end
 end
 
@@ -27,10 +27,6 @@ exports('PlayDeadAnimation', playDeadAnimation)
 ---put player in death animation and make invincible
 function OnDeath(attacker, weapon)
     SetDeathState(sharedConfig.deathState.DEAD)
-    TriggerEvent('qbx_medical:client:onPlayerDied', attacker, weapon)
-    TriggerServerEvent('qbx_medical:server:onPlayerDied', attacker, weapon)
-    TriggerServerEvent('InteractSound_SV:PlayOnSource', 'demo', 0.1)
-
     WaitForPlayerToStopMoving()
 
     CreateThread(function()
@@ -42,10 +38,16 @@ function OnDeath(attacker, weapon)
     end)
     plyState.invBusy = true
 
+    lib.requestAnimDict('dead')
+    lib.requestAnimDict('veh@low@front_ps@idle_duck')
     ResurrectPlayer()
     playDeadAnimation()
     SetEntityInvincible(cache.ped, true)
     SetEntityHealth(cache.ped, GetEntityMaxHealth(cache.ped))
+    -- Establish the downed pose before other resources handle the death.
+    TriggerEvent('qbx_medical:client:onPlayerDied', attacker, weapon)
+    TriggerServerEvent('qbx_medical:server:onPlayerDied', attacker, weapon)
+    TriggerServerEvent('InteractSound_SV:PlayOnSource', 'demo', 0.1)
     CheckForRespawn()
 end
 
@@ -122,7 +124,6 @@ AddEventHandler('gameEventTriggered', function(event, data)
     local victim, attacker, victimDied, weapon = data[1], data[2], data[4], data[7]
     if not IsEntityAPed(victim) or not victimDied or NetworkGetPlayerIndexFromPed(victim) ~= cache.playerId or not IsEntityDead(cache.ped) then return end
     if DeathState == sharedConfig.deathState.ALIVE then
-        Wait(1000)
         StartLastStand(attacker, weapon)
     elseif DeathState == sharedConfig.deathState.LAST_STAND then
         EndLastStand()

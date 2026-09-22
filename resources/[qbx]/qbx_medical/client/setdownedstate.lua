@@ -7,7 +7,7 @@ local LastStandCuffedAnim = 'dead_f'
 local function playUnescortedLastStandAnimation()
     if cache.vehicle then
         if not IsEntityPlayingAnim(cache.ped, vehicleDict, vehicleAnim, 3) then
-            lib.playAnim(cache.ped, vehicleDict, vehicleAnim, 1.0, 1.0, -1, 1, 0, false, false, false)
+            lib.playAnim(cache.ped, vehicleDict, vehicleAnim, 8.0, 1.0, -1, 1, 0, false, false, false)
         end
     else
         local playerData = QBX.PlayerData
@@ -17,7 +17,7 @@ local function playUnescortedLastStandAnimation()
         local dict = not isHandCuffed and LastStandDict or LastStandCuffedDict
         local anim = not isHandCuffed and LastStandAnim or LastStandCuffedAnim
         if not IsEntityPlayingAnim(cache.ped, dict, anim, 3) then
-            lib.playAnim(cache.ped, dict, anim, 1.0, 1.0, -1, 1, 0, false, false, false)
+            lib.playAnim(cache.ped, dict, anim, 8.0, 1.0, -1, 1, 0, false, false, false)
         end
     end
 end
