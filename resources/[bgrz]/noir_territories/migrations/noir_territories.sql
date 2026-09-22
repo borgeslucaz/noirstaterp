@@ -70,3 +70,18 @@ CREATE TABLE IF NOT EXISTS `noir_territory_grant` (
 -- trava cair. A marca é coluna, e não memória, porque a dívida precisa sobreviver a restart: a
 -- tag já não existe, e ninguém voltaria a pedir a devolução dela.
 ALTER TABLE `noir_territory_grant` ADD COLUMN IF NOT EXISTS `revoked_at` BIGINT NULL;
+
+-- Quando alguma coisa aconteceu pela última vez em cada bairro.
+--
+-- É o relógio do esfriamento, e ele mede o bairro e não a gang: qualquer atividade ali dentro
+-- reinicia a contagem. Precisa de coluna própria, e não do `updated_at` da tabela de influência,
+-- porque o próprio esfriamento escreve influência — aquele carimbo diria "acabou de acontecer
+-- algo aqui" logo depois de cada passo, e o bairro nunca mais esfriaria de novo.
+--
+-- Persistido porque um servidor que reinicia toda noite zeraria o relógio em memória, e o
+-- abandono nunca completaria as horas que precisa.
+CREATE TABLE IF NOT EXISTS `noir_territory_activity` (
+ `zone` VARCHAR(64) NOT NULL,
+ `last_activity` BIGINT NOT NULL,
+ PRIMARY KEY (`zone`)
+);

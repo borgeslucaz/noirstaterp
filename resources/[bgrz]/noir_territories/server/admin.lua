@@ -100,6 +100,17 @@ RegisterCommand('territoryinfo', function(source)
     for i = 1, #gangs do lines[#lines + 1] = gangs[i] end
     if #gangs == 0 then lines[#lines + 1] = '  (nenhuma gang tem influência aqui)' end
 
+    local idle = NoirDecay and NoirDecay.idleFor(zone)
+    if idle then
+        local falta = Config.Decay.AfterSeconds - idle
+        lines[#lines + 1] = ('parado ha %d min | esfriamento: %s'):format(
+            math.floor(idle / 60),
+            not Config.Decay.Enable and 'desligado'
+                or falta > 0 and ('comeca em %d min'):format(math.ceil(falta / 60))
+                or ('a cada %d min, -%d%% de cada gang'):format(
+                    math.floor(Config.Decay.EverySeconds / 60), Config.Decay.Percent))
+    end
+
     lines[#lines + 1] = ('tags de graffiti: %d'):format(status.tags)
     say(source, table.unpack(lines))
 end, false)
@@ -212,4 +223,30 @@ RegisterCommand('territoryreset', function(source)
     local cleared = NoirInfluenceServer.clearZone(zone)
     NoirOwnershipServer.force(zone, nil)
     say(source, ('%s zerado: %d gang(s) apagada(s), sem dono, 1000 de neutro.'):format(zone, cleared))
+end, false)
+
+---Força um passo de esfriamento agora, sem esperar o bairro ficar parado o tempo todo.
+RegisterCommand('territorydecay', function(source)
+    local zone = ready(source)
+    if not zone then return end
+
+    local before = {}
+    for gang, points in pairs(NoirInfluence.of(zone)) do before[gang] = points end
+
+    if not NoirDecay.force(zone) then
+        return say(source, ('%s nao esfriou: bairro fixo, travado, ou sem influencia nenhuma.')
+            :format(zone))
+    end
+
+    local lines = { ('%s esfriou um passo (-%d%% de cada gang):'):format(zone, Config.Decay.Percent) }
+    local rows = {}
+    for gang, antes in pairs(before) do
+        rows[#rows + 1] = ('  %-14s %4d -> %4d'):format(gang, antes, NoirInfluence.get(zone, gang))
+    end
+    table.sort(rows)
+    for i = 1, #rows do lines[#lines + 1] = rows[i] end
+
+    local _, neutro = NoirInfluence.sumOf(zone)
+    lines[#lines + 1] = ('  neutro agora %d'):format(neutro)
+    say(source, table.unpack(lines))
 end, false)

@@ -156,6 +156,11 @@ local function addInfluence(zone, gang, amount, reason)
     -- e não por um laço perguntando de tempos em tempos.
     NoirOwnershipServer.refresh(zone)
 
+    -- Aconteceu alguma coisa aqui: o relógio do abandono volta a zero. Menos quando o que
+    -- aconteceu foi o próprio esfriamento — ele não é notícia de rua, e carimbar aqui faria o
+    -- bairro parado nunca esfriar uma segunda vez.
+    if reason ~= 'decay' and NoirDecay then NoirDecay.touch(zone) end
+
     if Config.DebugTerritories then
         print(('[noir_territories] influencia %s %+d em %s (%s)'):format(
             gang, amount, zone, reason or 'sem motivo'))

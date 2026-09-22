@@ -4,7 +4,7 @@ game 'gta5'
 name 'noir_territories'
 author 'Noir State'
 description 'Áreas de gang: alertas por zona do Zone Manager e domínio por influência'
-version '1.5.0'
+version '1.6.0'
 
 shared_scripts {
     '@ox_lib/init.lua',
@@ -47,6 +47,7 @@ server_scripts {
     'server/ownership.lua',
     'server/claims.lua',
     'server/zones.lua',
+    'server/decay.lua',
     -- Por último: os comandos de administração usam todo o resto.
     'server/admin.lua',
 }

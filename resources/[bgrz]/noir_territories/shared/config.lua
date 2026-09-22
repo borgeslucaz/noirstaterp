@@ -57,6 +57,31 @@ Config.Influence = {
 }
 
 -- ---------------------------------------------------------------------------
+-- Esfriamento
+-- ---------------------------------------------------------------------------
+-- Bairro em que ninguém trabalha esfria: a fatia de cada gang volta para o neutro, aos poucos,
+-- até o bairro ser de ninguém outra vez. É o que faz uma gang que parou de jogar perder o que
+-- tinha sem precisar que alguém a derrube — sem isso, quem tomou uma vez fica dono para sempre,
+-- porque o domínio não tem vencimento.
+--
+-- O esfriamento NÃO apaga pontos: ele transfere para o neutro. O bairro continua somando 1000 em
+-- qualquer instante, que é a invariante de que tudo aqui depende.
+--
+-- `AfterSeconds` é o que conta como abandono, e ele mede o BAIRRO, não a gang: qualquer
+-- atividade ali dentro, de quem for, reinicia a contagem. Bairro sob disputa não está
+-- abandonado, mesmo que o dono nunca apareça — o que o esfriamento persegue é a rua parada.
+--
+-- TODO: Ajeitar os valores para produção. Estes estão curtos para teste: uma hora de abandono
+-- começa a esfriar e cada passo é de dez minutos. Em jogo, algo como 48h e um passo por dia é o
+-- que faz o esfriamento ser uma estação e não um cronômetro.
+Config.Decay = {
+    Enable = true,
+    AfterSeconds = 60 * 60,
+    EverySeconds = 10 * 60,
+    Percent = 5,
+}
+
+-- ---------------------------------------------------------------------------
 -- Trava de domínio
 -- ---------------------------------------------------------------------------
 -- Quanto tempo um bairro fica intocável depois de trocar de dono. Durante a trava o bairro está

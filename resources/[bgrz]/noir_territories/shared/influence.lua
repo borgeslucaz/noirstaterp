@@ -247,6 +247,31 @@ function NoirInfluence.effective(zone, gang, base)
     return math.floor(base * (1 + k * gap) + 0.5)
 end
 
+---Quanto cada gang perde num passo de esfriamento.
+---
+---Proporcional ao que cada uma tem, pela mesma razão do rateio de quem paga: a fatia some, mas o
+---desenho da disputa fica de pé enquanto some. Num passo achatado — todo mundo perde 10 — a gang
+---com 20 pontos evaporaria em dois passos e a com 800 não sentiria, e o bairro abandonado
+---terminaria como um duelo em vez de terra de ninguém.
+---
+---O mínimo de um ponto existe para o esfriamento terminar. Sem ele, 5% de 19 é zero e a gang
+---ficaria pendurada em 19 para sempre, dona de um bairro em que ninguém pisa há meses.
+---@return table<string, number> losses quanto tirar de cada gang
+function NoirInfluence.decayStep(zone, percent)
+    local losses = {}
+    percent = tonumber(percent) or 0
+    if percent <= 0 then return losses end
+
+    for gang, points in pairs(NoirInfluence.of(zone)) do
+        local loss = math.floor(points * percent / 100)
+        if loss < 1 then loss = 1 end
+        if loss > points then loss = points end
+        losses[gang] = loss
+    end
+
+    return losses
+end
+
 -- Quem é dono do bairro não se decide aqui. A partir da trava de domínio isso deixou de ser
 -- uma conta sobre a distribuição e virou estado guardado — quem tomou, e quando —, e mora em
 -- `shared/ownership.lua`. Este arquivo responde só quanto cada um tem.
