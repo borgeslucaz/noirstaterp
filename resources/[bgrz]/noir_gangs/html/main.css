@@ -88,7 +88,12 @@
 }
 
 /* Tema do serviço. Ele vive no rail e em indicadores pequenos; o resto da tela segue
- * neutro, para o vermelho da gang não se confundir com o vermelho de consequência. */
+ * neutro, para a cor da gang não se confundir com o vermelho de consequência.
+ *
+ * Os valores abaixo são o ponto de partida: a página reescreve estas cinco variáveis nesta
+ * mesma janela com a cor da gang, que é a que o mapa de território já usa. Ficam aqui em
+ * vermelho porque a tela precisa estar vestida antes do primeiro snapshot chegar -- e
+ * porque um degradê nascido de `unset` seria uma janela sem rail. */
 [data-service="gang"] {
     --noir-accent: #d20b0b;
     --noir-accent-deep: #920606;
@@ -1605,7 +1610,7 @@ kbd {
 .zone-row {
     display: grid;
     min-height: 40px;
-    grid-template-columns: 3px minmax(0, 1fr);
+    grid-template-columns: 3px minmax(0, 1fr) auto;
     align-items: center;
     gap: 10px;
     padding: 6px 0;
@@ -1617,12 +1622,20 @@ kbd {
 
 .zone-row__body { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
 .zone-row__name {
+    display: flex;
+    align-items: center;
+    gap: 5px;
     overflow: hidden;
     color: var(--noir-text-strong);
     font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* O cadeado não compete com o nome: fica do tamanho da letra e num tom abaixo dela. */
+.zone-row__lock-slot { display: inline-flex; flex: 0 0 auto; color: var(--noir-text-muted); }
+.zone-row__lock { width: 11px; height: 11px; }
+.zone-row[data-mine="true"] .zone-row__lock-slot { color: var(--noir-accent); }
 
 .zone-row__owner {
     overflow: hidden;
@@ -1635,7 +1648,21 @@ kbd {
 }
 
 .zone-row[data-mine="true"] .zone-row__owner { color: var(--noir-accent); }
-.zone-row[data-state="contested"] .zone-row__owner { color: var(--noir-warning); }
+.zone-row[data-challenged="true"] .zone-row__owner { color: var(--noir-warning); }
+
+/* A influência da própria gang naquele bairro. Tabular para as colunas ficarem alinhadas na
+   vertical: a lista é lida de cima para baixo procurando onde falta pouco, e número que dança
+   de coluna obriga a ler cada linha. */
+.zone-row__points {
+    color: var(--noir-text-strong);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    text-align: right;
+}
+
+.zone-row[data-mine="true"] .zone-row__points { color: var(--noir-accent); }
+.zone-row__points[data-empty="true"] { color: var(--noir-text-faint); }
 
 .legend { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 8px 16px; padding-top: 12px; border-top: 1px solid var(--noir-divider); }
 .legend div { display: flex; align-items: center; gap: 7px; }

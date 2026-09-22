@@ -544,14 +544,21 @@ world.membership.SOLDIER.ballas = 1
 local state = callbacks['noir_gangs:server:getState'](1)
 T.truthy(state.inGang, 'chefe está em gang')
 T.equal(state.rankLabel, 'Chefe', 'o rótulo do cargo vem da nossa tabela')
+-- A tela veste o rail com a cor da gang; sem ela no estado, todas ficam vermelhas.
+T.equal(state.gangColor, '#BE78FF', 'a cor da gang viaja com o estado, em hexadecimal')
 T.falsy(state.permissions.transfer_leadership, 'transferir liderança não é mais permissão de jogador')
 
 state = callbacks['noir_gangs:server:getState'](2)
 T.truthy(state.permissions.promote, 'braço direito promove')
 T.truthy(state.permissions.remove_member, 'e desliga')
+-- É por esta chave derivada que a tela decide mostrar o botão de alterar cargo. Ela não
+-- está em `Config.Permissions`, então já ficou de fora do estado uma vez -- e o botão
+-- sumiu para todo mundo, mesmo com `promote` no cargo.
+T.truthy(state.permissions.changeGrade, 'e, promovendo, enxerga o botão de alterar cargo')
 
 state = callbacks['noir_gangs:server:getState'](3)
 T.falsy(state.permissions.invite, 'soldado não convida')
+T.falsy(state.permissions.changeGrade, 'nem promove ou rebaixa, então não vê o botão')
 T.truthy(state.permissions.view_members, 'todo membro vê a lista')
 T.equal(state.rankLabel, 'Soldado', 'o rótulo do cargo vem da nossa tabela')
 

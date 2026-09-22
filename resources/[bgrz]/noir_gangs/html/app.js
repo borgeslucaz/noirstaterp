@@ -41,6 +41,39 @@
         return pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear() + " " + pad(d.getHours()) + ":" + pad(d.getMinutes())
     }
 
+    // ───────────── cor ─────────────
+    //
+    // A conta de contraste é a do WCAG, a mesma que o servidor usa para recusar cor escura
+    // demais. Ela serve a duas partes: o aviso na hora, no `/gangsetup`, e a escolha do tom
+    // de texto que vai por cima da cor da gang no rail.
+
+    const HEX_RE = /^#[0-9a-f]{6}$/i
+
+    const rgbOf = (hex) =>
+        [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)]
+
+    const hexOf = (rgb) =>
+        "#" + rgb.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("").toUpperCase()
+
+    const rgba = (rgb, alpha) => "rgba(" + rgb[0] + ", " + rgb[1] + ", " + rgb[2] + ", " + alpha + ")"
+
+    /// Luminância relativa do WCAG. A curva não é linear de propósito: o olho não enxerga o
+    /// dobro de brilho quando o valor dobra.
+    function channelLuminance(value) {
+        const c = value / 255
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+    }
+
+    function luminance(r, g, b) {
+        return 0.2126 * channelLuminance(r) + 0.7152 * channelLuminance(g) + 0.0722 * channelLuminance(b)
+    }
+
+    function contrastRatio(a, b) {
+        const la = luminance(a[0], a[1], a[2]) + 0.05
+        const lb = luminance(b[0], b[1], b[2]) + 0.05
+        return la > lb ? la / lb : lb / la
+    }
+
     // ───────────── textos ─────────────
 
     const ERROR_TEXT = {
@@ -291,10 +324,72 @@
         return (data.members || []).find((x) => x.citizenid === data.actorCitizenId) || null
     }
 
+    // A cor da gang é a mesma que pinta o território dela no mapa, e aqui ela veste o rail e
+    // os indicadores pequenos -- que é exatamente onde o guia põe o tema do serviço. O resto
+    // da tela segue neutro, e `--noir-danger` continua vermelho em qualquer gang: uma gang
+    // vermelha não pode fazer "desligar" parecer decoração.
+
+    const ACCENT_FALLBACK = "#D20B0B"
+
+    /// Dois candidatos, não uma escala: são os tons que o resto da tela já usa para texto
+    /// sobre claro e sobre escuro, e um terceiro inventado aqui não estaria em lugar nenhum.
+    const ON_ACCENT_LIGHT = [255, 255, 255]
+    const ON_ACCENT_DARK = [17, 17, 19]
+
+    /// O rail tem texto pequeno (o nome da gang, "GESTÃO INTERNA"), então a régua é a de
+    /// texto normal do WCAG, 4,5:1 -- e não os 3:1 de objeto gráfico que o servidor exige da
+    /// cor contra o fundo do mapa.
+    const TEXT_MIN_CONTRAST = 4.5
+
+    /// Escurecer multiplicando preserva o matiz: o amarelo desce para mostarda, não para
+    /// cinza, que é o que um overlay preto faria. 0,66 é o fator que reproduz o degradê feito
+    /// à mão do vermelho original (#D20B0B -> #920606).
+    const DEEPEST = 0.66
+    const darken = (rgb, factor) => rgb.map((v) => Math.round(v * factor))
+
+    /// Branco sobre amarelo não se lê, e a paleta tem amarelo. O tom sai da cor cheia, que é
+    /// o topo do rail e a cor de todo indicador pequeno fora dele.
+    const onAccent = (rgb) =>
+        contrastRatio(ON_ACCENT_DARK, rgb) > contrastRatio(ON_ACCENT_LIGHT, rgb)
+            ? ON_ACCENT_DARK
+            : ON_ACCENT_LIGHT
+
+    /// O fim do degradê é o ponto mais escuro que ainda deixa o texto se ler em cima dele.
+    ///
+    /// Um fator fixo não serve às duas metades da paleta: com 0,66 em todas, as cores claras
+    /// -- que levam texto escuro -- terminavam o rail perto de 3:1, e o nome da gang sumia no
+    /// pé da janela. Gang escura leva texto branco, e aí escurecer só ajuda: ela fica com o
+    /// degradê inteiro. Gang clara cede profundidade para manter a legibilidade.
+    function deepAccent(rgb, tone) {
+        for (let factor = DEEPEST; factor <= 0.96; factor += 0.02) {
+            const candidate = darken(rgb, factor)
+            if (contrastRatio(tone, candidate) >= TEXT_MIN_CONTRAST) return candidate
+        }
+        return darken(rgb, 0.96)
+    }
+
+    /// Repinta as variáveis do tema na janela da gang. O CSS continua sendo quem decide ONDE
+    /// a cor aparece; daqui só sai qual ela é. A janela da administração é irmã desta e não
+    /// é tocada -- ela tem acento próprio, de propósito.
+    function applyGangColor(hex) {
+        const value = HEX_RE.test(String(hex || "")) ? String(hex).toUpperCase() : ACCENT_FALLBACK
+        const rgb = rgbOf(value)
+        const tone = onAccent(rgb)
+        const style = m.gangWindow.style
+
+        style.setProperty("--noir-accent", value)
+        style.setProperty("--noir-accent-deep", hexOf(deepAccent(rgb, tone)))
+        style.setProperty("--noir-on-accent", hexOf(tone))
+        style.setProperty("--noir-accent-soft", rgba(rgb, 0.16))
+        style.setProperty("--noir-accent-border", rgba(rgb, 0.42))
+    }
+
     function renderHeader() {
         const data = state.data
         const gang = (data && data.gang) || {}
         const label = gang.label || pretty(gang.name)
+
+        applyGangColor(data && data.gangColor)
 
         m.gangLabel.textContent = label
         m.railGang.textContent = String(label).toUpperCase()
@@ -815,10 +910,15 @@
     /// de graffiti, e ela saiu daqui: quem picha descobre pichando.
     function zoneLabel(zone) {
         const lines = [pretty(zone.name)]
-        if (zone.state === "controlled") {
+        // Bairro fixo não está em jogo: dizer "SEM DONO" nele mandaria a gang pichar uma
+        // rua que nunca muda de mão. A flag vem pronta do noir_territories.
+        if (zone.conquerable === false) {
+            lines.push(zone.gang ? pretty(zone.gang) + " · FIXO" : "ÁREA FIXA")
+        } else if (zone.state === "controlled") {
             lines.push(pretty(zone.gang))
-        } else if (zone.state === "contested") {
-            lines.push("EM DISPUTA · " + (zone.gangs || []).map(pretty).join(" / "))
+            // Quem já tem os 51% e espera a trava cair. O dono precisa saber disso antes de
+            // o bairro trocar de nome, não depois.
+            if (zone.challenger) lines.push("SOB DISPUTA · " + pretty(zone.challenger))
         } else {
             lines.push("SEM DONO")
         }
@@ -838,25 +938,26 @@
         zones.forEach((zone) => {
             if (!zone.points || zone.points.length < 3) return
 
+            const fixed = zone.conquerable === false
             const owned = zone.state === "controlled"
-            const disputed = zone.state === "contested"
+            const disputed = owned && !!zone.challenger
             const color = owned || disputed ? (zone.color || NEUTRAL) : NEUTRAL
             const ring = zone.points.map((p) => gtaToLatLng(p.x, p.y))
 
             L.polygon(ring, {
                 color,
                 weight: disputed ? 3 : 2,
-                opacity: 0.9,
+                opacity: fixed ? 0.55 : 0.9,
                 // Tracejado em disputa: dois donos possíveis não podem parecer um dono só.
-                dashArray: disputed ? "8 6" : null,
+                // Pontilhado e apagado em bairro fixo: ele é cenário, não alvo.
+                dashArray: disputed ? "8 6" : fixed ? "2 6" : null,
                 fillColor: color,
-                fillOpacity: owned ? 0.45 : disputed ? 0.3 : 0.12,
+                fillOpacity: fixed ? (owned ? 0.22 : 0.06) : owned ? 0.45 : disputed ? 0.3 : 0.12,
             })
                 .bindTooltip(zoneLabel(zone), { permanent: true, direction: "center", className: "zone-label" })
                 .addTo(mapLayer)
 
             if (owned) seen.set(zone.gang, color)
-            else if (disputed) (zone.gangs || []).forEach((g) => seen.set(g, color))
         })
 
         m.legend.replaceChildren(...Array.from(seen).map(([name, color]) => {
@@ -877,9 +978,20 @@
     /// "o que é meu e o que está em jogo" antes de responder "o que existe".
     function zoneOrder(mine) {
         return (a, b) => {
-            const rank = (z) => (z.state === "controlled" && z.gang === mine ? 0 : z.state === "contested" ? 1 : z.state === "controlled" ? 2 : 3)
+            // O que é meu e está sob ataque vem antes do que é meu e está em paz.
+            const rank = (z) => {
+                const isMine = z.state === "controlled" && z.gang === mine
+                if (isMine) return z.challenger ? 0 : 1
+                if (z.challenger === mine) return 2
+                return z.state === "controlled" ? 3 : 4
+            }
             const diff = rank(a) - rank(b)
-            return diff !== 0 ? diff : String(a.name).localeCompare(String(b.name))
+            if (diff !== 0) return diff
+            // Dentro do mesmo grupo, primeiro onde a gang já tem mais: a lista passa a
+            // responder "onde falta pouco" na ordem, que é para isso que o número está lá.
+            // Em ordem alfabética, o bairro a 30 pontos de cair ficaria enterrado no meio.
+            const byPoints = myInfluence(b, mine) - myInfluence(a, mine)
+            return byPoints !== 0 ? byPoints : String(a.name).localeCompare(String(b.name))
         }
     }
 
@@ -905,7 +1017,10 @@
         }
 
         const owned = ownedZones()
-        const contested = zones.filter((z) => z.state === "contested" && (z.gangs || []).indexOf(mine) !== -1)
+        // Bairro meu com alguém pronto para tomar, mais bairro dos outros onde eu estou pronto:
+        // os dois são "em disputa" para quem olha, e os dois pedem que a gang apareça.
+        const contested = zones.filter((z) =>
+            (z.state === "controlled" && z.gang === mine && z.challenger) || z.challenger === mine)
 
         m.territoryCount.textContent = int(owned.length)
         m.statTerritory.textContent = territory ? int(owned.length) : "—"
@@ -928,12 +1043,33 @@
         if (state.tab === "territory") drawMap(zones)
     }
 
+    /// Cadeado do bairro protegido: enquanto a trava da última tomada corre, o dono não perde
+    /// ponto nenhum e ninguém de fora ganha ali. É a diferença entre "não estou conseguindo" e
+    /// "não adianta tentar agora", e sem o símbolo ela só apareceria como esforço sem resultado.
+    const LOCK_SVG = '<svg class="zone-row__lock" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+        + ' stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+        + '<rect x="4.5" y="10.5" width="15" height="10" rx="2"/>'
+        + '<path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>'
+
+    /// A hora de referência vem do servidor dentro do próprio pacote (`zone.now`): o relógio da
+    /// máquina de quem joga pode estar longe do certo, e aqui isso acenderia ou apagaria o
+    /// cadeado na hora errada.
+    const isLocked = (zone) => !!(zone.now && zone.lockedUntil && zone.lockedUntil > zone.now)
+
+    /// Quanto a SUA gang tem naquele bairro. Só a sua: o que as outras têm é assunto delas, e
+    /// a tela da gang não é lugar de ler a planilha do rival.
+    const myInfluence = (zone, mine) => (mine && zone.influence && zone.influence[mine]) || 0
+
     function zoneRow(zone, mine) {
         const isMine = zone.state === "controlled" && zone.gang === mine
         const row = document.createElement("li")
         row.className = "zone-row"
         row.dataset.state = zone.state
         row.dataset.mine = String(isMine)
+        // O amarelo de "sob ataque" era preso a um estado `contested` que deixou de existir
+        // quando a trava de domínio entrou. Agora ele segue o desafiante, que é o que sobrou
+        // querendo dizer a mesma coisa.
+        row.dataset.challenged = String(!!zone.challenger)
 
         const flag = document.createElement("span")
         flag.className = "zone-row__flag"
@@ -944,16 +1080,32 @@
         const name = document.createElement("span")
         name.className = "zone-row__name"
         name.textContent = pretty(zone.name)
+        if (isLocked(zone)) {
+            const lock = document.createElement("span")
+            lock.className = "zone-row__lock-slot"
+            lock.innerHTML = LOCK_SVG
+            lock.title = "Protegido: o dono não perde influência enquanto a trava correr"
+            name.prepend(lock)
+        }
         const owner = document.createElement("span")
         owner.className = "zone-row__owner"
-        owner.textContent = zone.state === "controlled"
-            ? (isMine ? "SEU BAIRRO" : pretty(zone.gang))
-            : zone.state === "contested"
-                ? "EM DISPUTA"
+        owner.textContent = zone.conquerable === false
+            ? (zone.gang ? (isMine ? "SEU BAIRRO · FIXO" : pretty(zone.gang) + " · FIXO") : "ÁREA FIXA")
+            : zone.state === "controlled"
+                ? (isMine ? (zone.challenger ? "SEU BAIRRO · SOB DISPUTA" : "SEU BAIRRO") : pretty(zone.gang))
                 : "SEM DONO"
         body.append(name, owner)
 
-        row.append(flag, body)
+        // O número é a razão de a aba existir: sem ele, um bairro onde a gang está a 30 pontos
+        // de tomar e um onde ela nunca pisou aparecem exatamente iguais.
+        const points = document.createElement("span")
+        points.className = "zone-row__points"
+        const mineHere = myInfluence(zone, mine)
+        points.textContent = mineHere > 0 ? int(mineHere) : "—"
+        points.dataset.empty = String(mineHere === 0)
+        points.title = "Influência da sua gang neste bairro"
+
+        row.append(flag, body, points)
         return row
     }
 
@@ -1548,29 +1700,13 @@
     // A régua de contraste vem do servidor e é conferida aqui só para avisar na hora. Quem
     // recusa continua sendo ele: a tela não é prova de nada.
 
-    const HEX_RE = /^#[0-9a-f]{6}$/i
     const DEFAULT_CUSTOM = "#E03232"
-
-    function channelLuminance(value) {
-        const c = value / 255
-        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
-    }
-
-    function luminance(r, g, b) {
-        return 0.2126 * channelLuminance(r) + 0.7152 * channelLuminance(g) + 0.0722 * channelLuminance(b)
-    }
 
     function colorContrast(hex) {
         const rule = (setup.data && setup.data.limits && setup.data.limits.color) || null
         if (!rule) return 21
         const against = rule.against
-        const r = parseInt(hex.slice(1, 3), 16)
-        const g = parseInt(hex.slice(3, 5), 16)
-        const b = parseInt(hex.slice(5, 7), 16)
-        let a = luminance(r, g, b) + 0.05
-        let other = luminance(against.r, against.g, against.b) + 0.05
-        if (a < other) { const swap = a; a = other; other = swap }
-        return a / other
+        return contrastRatio(rgbOf(hex), [against.r, against.g, against.b])
     }
 
     function colorTooDark(hex) {

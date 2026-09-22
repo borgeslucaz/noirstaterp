@@ -200,9 +200,17 @@ local function buildState(source)
 
     local permissions = {}
     for i = 1, #Config.Permissions do permissions[Config.Permissions[i]] = allowed(gang, Config.Permissions[i]) end
+    -- `changeGrade` não está em `Config.Permissions` porque não é permissão de cargo: é a
+    -- porta do botão "alterar cargo", que abre com `promote` OU `demote`. Fica aqui, e não
+    -- só na montagem da lista de membros, porque é este `permissions` que a tela recebe.
+    permissions.changeGrade = canChangeGrade(gang)
 
     local rank = NoirGangs.rank(gang.name, tonumber(gang.grade) or 0)
+    -- A cor é identidade da gang, a mesma que pinta o território no mapa. Vai junto para a
+    -- tela vestir o rail com ela em vez do vermelho fixo do guia: duas telas da mesma gang
+    -- que discordassem de cor seriam duas gangs para quem olha.
     local state = { inGang = true, gang = gang, permissions = permissions,
+        gangColor = NoirGangs.gangColor(gang.name),
         rankLabel = rank and rank.label or gang.gradeName }
 
     if permissions.view_reputation then state.reputation = NoirGangs.reputationOf(gang.name) end
@@ -220,7 +228,7 @@ end
 ---e o cargo de quem pediu mudam a lista, então a matéria-prima é compartilhada mas a
 ---montagem é sempre pessoal.
 ---@param material table ver `gangMaterial`
----@return table|nil { gang, members, roster, actorCitizenId, permissions, total, online }
+---@return table|nil { gang, members, roster, actorCitizenId, total, online }
 local function buildMembers(source, material)
     local actor, gang = core:GetCharacter(source), gangOf(source)
     if not actor or not allowed(gang, 'view_members') then return end
@@ -265,11 +273,11 @@ local function buildMembers(source, material)
 
     -- `total` é quanta gente a gang tem, e não quanta gente esta pessoa enxerga:
     -- `view_offline_members` esconde QUEM está fora, não que a gang seja maior.
+    -- Sem `permissions` aqui: o snapshot serve o de `buildState`, e uma segunda cópia só
+    -- criava a chance de as duas discordarem -- foi o que escondeu o botão de alterar
+    -- cargo, que existia nesta tabela e era descartado antes de chegar à tela.
     return { gang = gang, members = members, roster = roster, actorCitizenId = actor.citizenId,
-        total = #roster, online = onlineCount,
-        permissions = { promote = allowed(gang, 'promote'), demote = allowed(gang, 'demote'),
-            changeGrade = canChangeGrade(gang),
-            remove_member = allowed(gang, 'remove_member') } }
+        total = #roster, online = onlineCount }
 end
 
 ---O histórico sai daqui já legível: nome em vez de identificador, data em segundos e só os
