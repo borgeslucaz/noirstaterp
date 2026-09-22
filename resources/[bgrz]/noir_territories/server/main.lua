@@ -24,6 +24,9 @@ local function decorate(zone)
     if type(zone) ~= 'table' or type(zone.name) ~= 'string' then return end
     zone.id = zone.name
     zone.label = areaLabel(zone.name)
+    -- Quem pergunta "que território é este?" quase sempre vai querer saber em seguida se ele
+    -- está em jogo. A resposta vem junto, do mesmo lugar que a regra: o config deste resource.
+    zone.conquerable = NoirClaims.isConquerable(zone.name)
     return zone
 end
 
@@ -70,6 +73,11 @@ local function isInsideTerritory(id, coords)
     end)
     return ok and inside == true
 end
+
+---Uso interno do resource: `server/influence.lua` precisa saber se um bairro existe antes de
+---aceitar pontos nele, e essa pergunta já é respondida aqui. Uma quarta cópia do `pcall` em
+---volta do Zone Manager seria uma quarta chance de divergir.
+NoirTerritories = { get = getTerritory, list = getTerritories }
 
 exports('GetTerritoryAtCoords', getTerritoryAtCoords)
 exports('GetTerritory', getTerritory)

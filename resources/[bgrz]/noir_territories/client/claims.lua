@@ -22,8 +22,19 @@ local function gangColor(gang)
     return Config.Colors[fallbackOrder[hash % #fallbackOrder + 1]]
 end
 
----No mundo, não no mapa: o círculo no chão e um pino no centro exato da tag. Só as áreas por
----perto, e só enquanto o debug está ligado — a thread nasce junto com ele e morre junto.
+-- Até onde o diagnóstico desenha. O que está além disso não se enxerga, e percorrer o registro
+-- inteiro a cada frame para desenhar um pino invisível é trabalho jogado fora.
+local DRAW_DISTANCE = 200.0
+
+---No mundo, não no mapa: um pino no centro exato de cada tag por perto, e só enquanto o debug
+---está ligado — a thread nasce junto com ele e morre junto.
+---
+---Já houve um círculo no chão aqui, do tamanho do raio de domínio de cada tag. Ele saiu junto
+---com o raio: domínio passou a ser por bairro, `normalize` parou de produzir `radius`, e o
+---desenho ficou lendo um campo que não existe mais — crash na primeira vez que alguém ligou o
+---debug com tag por perto. Não há raio para inventar no lugar: o que a tag tem de verdade é
+---uma coordenada, e é isso que o pino mostra. A fronteira do domínio se olha no /territorymap,
+---onde ela é o polígono do bairro.
 local function startDrawing()
     if drawing then return end
     drawing = true
@@ -34,14 +45,8 @@ local function startDrawing()
 
             for _, claim in pairs(NoirClaims.list) do
                 local dx, dy = coords.x - claim.coords.x, coords.y - claim.coords.y
-                local reach = claim.radius + 200.0
-                if (dx * dx + dy * dy) <= (reach * reach) then
+                if (dx * dx + dy * dy) <= (DRAW_DISTANCE * DRAW_DISTANCE) then
                     local color = gangColor(claim.gang)
-
-                    DrawMarker(1, claim.coords.x, claim.coords.y, claim.coords.z - 1.0,
-                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                        claim.radius * 2.0, claim.radius * 2.0, 0.6,
-                        color.r, color.g, color.b, 60, false, false, 2, false, nil, nil, false)
 
                     DrawMarker(0, claim.coords.x, claim.coords.y, claim.coords.z + 1.2,
                         0.0, 0.0, 0.0, 180.0, 0.0, 0.0,
@@ -85,9 +90,23 @@ RegisterCommand('territorydebug', function()
     if Config.DebugTerritories then startDrawing() end
 
     local territory = NoirClaims.getTerritoryAt(GetEntityCoords(cache.ped))
-    print(('[noir_territories] debug no mundo %s | aqui: %s%s'):format(
+    print(('[noir_territories] debug no mundo %s | aqui: %s%s%s'):format(
         Config.DebugTerritories and 'LIGADO' or 'DESLIGADO',
         territory.state,
         territory.gang and (' (%s)'):format(territory.gang)
-            or territory.gangs and (' (%s)'):format(table.concat(territory.gangs, ', ')) or ''))
+            or territory.gangs and (' (%s)'):format(table.concat(territory.gangs, ', ')) or '',
+        territory.conquerable == false and ' [fixo]' or ''))
+
+    -- O placar do bairro em que a pessoa está. É a pergunta seguinte a "de quem é isto aqui",
+    -- e sem ela a única forma de ver influência é abrir o banco.
+    if territory.zone then
+        local ordered = {}
+        for gang, points in pairs(territory.influence or {}) do
+            ordered[#ordered + 1] = ('%s %d'):format(gang, points)
+        end
+        table.sort(ordered)
+        print(('    influencia em %s: neutro %d/%d%s'):format(
+            territory.zone, territory.neutral or 0, territory.total or 0,
+            #ordered > 0 and (' | ' .. table.concat(ordered, ', ')) or ''))
+    end
 end, false)

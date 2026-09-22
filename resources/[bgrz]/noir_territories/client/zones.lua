@@ -79,10 +79,11 @@ function NoirZones.report()
 
     for i = 1, #zones do
         local zone = zones[i]
-        say(('    %-14s kind=%-6s pontos=%d  cor=%s'):format(
+        say(('    %-14s kind=%-6s pontos=%d  cor=%-8s %s'):format(
             tostring(zone.name), tostring(zone.kind),
             type(zone.points) == 'table' and #zone.points or 0,
-            tostring(zone.color)))
+            tostring(zone.color),
+            NoirClaims.isConquerable(zone.name) and 'conquistavel' or 'FIXO'))
     end
 
     if #zones == 0 then

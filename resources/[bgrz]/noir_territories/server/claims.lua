@@ -27,7 +27,27 @@ local function broadcast(action, payload)
     TriggerClientEvent('noir_territories:client:claims', -1, action, payload)
 end
 
----@param data table { id, type?, gang, coords, radius? }
+---Uma tag nova vale influência para a gang dela; uma tag apagada devolve a mesma quantia.
+---
+---A concessão acontece no evento, e não a partir da contagem de tags vivas, porque a
+---influência é um livro-caixa persistido: se ela fosse derivada das tags, tudo que não é
+---graffiti — venda, guerra, missão — não teria onde ficar guardado, e o pool voltaria a ser
+---só o placar de quem picha mais.
+---
+---A consequência conhecida está do outro lado da mesma moeda: tag que nasce ou morre com o
+---`noir_territories` fora do ar não move influência nenhuma, porque ninguém estava ouvindo. É
+---aceitável — o contrário seria reprocessar o mundo a cada start e apagar todo o resto.
+---A chave da concessão é a da própria tag: é o que liga o que foi ganho ao que será devolvido.
+local function grantKey(claimType, id)
+    return ('%s:%s'):format(claimType or 'graffiti', tostring(id))
+end
+
+local function grantFor(claim)
+    if not claim or not claim.zone or not claim.gang then return end
+    NoirInfluenceServer.grantOnce(grantKey(claim.type, claim.id), claim.zone, claim.gang, 'graffiti')
+end
+
+---@param data table { id, type?, gang, coords, zone? }
 local function registerClaim(data)
     if type(data) == 'table' and data.zone == nil then
         data.zone = zoneAt(data.coords)
@@ -36,12 +56,17 @@ local function registerClaim(data)
     local claim = NoirClaims.add(data)
     if not claim then return false end
     broadcast('add', claim)
+    grantFor(claim)
     return true
 end
 
 local function removeClaim(claimType, id)
     if not NoirClaims.remove(claimType, id) then return false end
     broadcast('remove', { type = claimType or 'graffiti', id = id })
+
+    -- A devolução não precisa da tag: ela sai do que a concessão registrou, que sobrevive a
+    -- restart justamente porque o registro de tags não sobrevive.
+    NoirInfluenceServer.revokeOnce(grantKey(claimType, id))
     return true
 end
 
@@ -57,6 +82,11 @@ local function claimsOfType(claimType)
 end
 
 ---Troca de uma vez todas as áreas de um tipo, que é como o registro é reconstruído.
+---
+---Não concede influência, e isso é o ponto: esta função roda a cada start dos dois resources,
+---com a lista inteira de tags vivas. Conceder aqui daria 100 pontos por tag a cada restart do
+---servidor, e um bairro com quatro tags viraria dominado na terceira segunda-feira. O livro-
+---caixa já tem o que essas tags concederam quando nasceram.
 local function setClaims(claimType, entries)
     claimType = claimType or 'graffiti'
 

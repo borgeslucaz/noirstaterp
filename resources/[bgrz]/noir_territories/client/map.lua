@@ -39,7 +39,13 @@ local function gangHex(gang)
 end
 
 ---Bairro com dono sai na cor da gang; sem dono, na cor cinza do próprio Zone Manager. Em
----disputa, a página desenha diferente — o estado vai junto para ela decidir.
+---disputa, a página desenha diferente — o estado vai junto para ela decidir, e com ele a
+---flag que diz se o bairro é conquistável ou fixo: sem ela a tela prometeria uma disputa
+---que não existe, contando tags para um bairro que nunca muda de mão.
+---
+---`now` viaja junto com a trava porque a página não pode perguntar as horas: o relógio aqui é o
+---do servidor, recebido junto do espelho da placa (`client/ownership.lua`). Zero significa "a
+---placa ainda não chegou", e a tela mostra a trava sem contagem em vez de um número inventado.
 local function payload()
     local list = {}
 
@@ -54,9 +60,16 @@ local function payload()
             state = status.state,
             gang = status.gang,
             gangs = status.gangs,
-            counts = status.counts,
+            influence = status.influence,
+            neutral = status.neutral,
             total = status.total,
             required = status.required,
+            counts = status.counts,
+            tags = status.tags,
+            challenger = status.challenger,
+            lockedUntil = status.lockedUntil,
+            now = NoirOwnership.now(),
+            conquerable = status.conquerable,
             color = status.gang and gangHex(status.gang)
                 or status.gangs and gangHex(status.gangs[1])
                 or zone.color,

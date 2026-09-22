@@ -134,20 +134,43 @@ const FALLBACK_MAP = {
 let cfg = FALLBACK_MAP;
 let gtaToLatLng = () => L.latLng(0, 0);
 
-/// Bairro sem dono mostra quanto falta; com dono, de quem é. A contagem é a informação que
-/// decide se vale atacar, então ela fica no mapa e não escondida num tooltip de hover.
+/// Quem lidera e com quanto. A influência é a informação que decide se vale atacar — ela diz
+/// o quanto falta e o quanto já custou —, então fica escrita no mapa e não escondida num
+/// tooltip de hover.
+///
+/// Bairro fixo não mostra número nenhum: ali a influência não corre, e um "620/500" no meio do
+/// polígono mandaria a gang gastar a semana num lugar que nunca vai mudar de mão.
+/// Quanto falta da trava, em horas cheias arredondadas para cima. O relógio de referência vem
+/// do servidor junto do pacote: o da máquina de quem joga pode estar longe do certo, e aqui
+/// isso viraria uma contagem errada em vez de um desencontro invisível.
+function lock(zone) {
+  // Sem relógio do servidor não há contagem: dizer "4H" a partir de um zero seria pior do que
+  // não dizer nada.
+  if (!zone.now) return 'TRAVADO';
+  const left = (zone.lockedUntil || 0) - zone.now;
+  if (left <= 0) return 'LIVRE';
+  if (left < 3600) return `${Math.ceil(left / 60)}MIN`;
+  return `${Math.ceil(left / 3600)}H`;
+}
+
 function label(zone) {
   const lines = [pretty(zone.name)];
+  const influence = zone.influence || {};
+  const ranked = Object.entries(influence).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
 
-  if (zone.state === 'controlled') {
-    lines.push(`${pretty(zone.gang)} · ${zone.counts[zone.gang]}/${zone.required}`);
-  } else if (zone.state === 'contested') {
-    lines.push(`EM DISPUTA · ${(zone.gangs || []).map(pretty).join(' / ')}`);
-  } else if (zone.total > 0) {
-    const best = Object.entries(zone.counts).sort((a, b) => b[1] - a[1])[0];
-    lines.push(`SEM DONO · ${pretty(best[0])} ${best[1]}/${zone.required}`);
+  if (zone.conquerable === false) {
+    lines.push(zone.gang ? `${pretty(zone.gang)} · FIXO` : 'ÁREA FIXA');
+  } else if (zone.state === 'controlled') {
+    lines.push(`${pretty(zone.gang)} · ${influence[zone.gang] || 0}/${zone.total}`);
+    // Quem já tem os 51% e está esperando a trava cair. É a informação que decide se a gang
+    // dona precisa aparecer hoje, e não a que ela descobre quando o bairro já mudou de nome.
+    if (zone.challenger) lines.push(`${pretty(zone.challenger)} PRONTO · ${lock(zone)}`);
+  } else if (ranked.length > 0) {
+    // Sem dono, o que interessa é quem está na frente e quanto falta para o limiar: é a
+    // diferença entre um bairro que ninguém tocou e um que está quase caindo.
+    lines.push(`SEM DONO · ${pretty(ranked[0][0])} ${ranked[0][1]}/${zone.required}`);
   } else {
-    lines.push(`SEM DONO · 0/${zone.required}`);
+    lines.push(`SEM DONO · ${zone.neutral}/${zone.total} NEUTRO`);
   }
 
   return lines.join('<br>');
@@ -207,27 +230,30 @@ function draw(zones) {
   for (const zone of zones || []) {
     if (!zone.points || zone.points.length < 3) continue;
 
+    const fixed = zone.conquerable === false;
     const owned = zone.state === 'controlled';
-    const disputed = zone.state === 'contested';
+    // Bairro com dono e com desafiante pronto desenha como disputa: é o que ele é.
+    const disputed = owned && !!zone.challenger;
     const color = owned || disputed ? (zone.color || NEUTRAL) : NEUTRAL;
     const ring = zone.points.map((p) => gtaToLatLng(p.x, p.y));
 
     L.polygon(ring, {
       color,
       weight: disputed ? 3 : 2,
-      opacity: 0.9,
-      // Tracejado em disputa: dois donos possíveis não podem parecer um dono só.
-      dashArray: disputed ? '8 6' : null,
+      opacity: fixed ? 0.55 : 0.9,
+      // Tracejado em disputa: dois donos possíveis não podem parecer um dono só. Pontilhado
+      // e apagado em bairro fixo: ele está no mapa como cenário, não como alvo.
+      dashArray: disputed ? '8 6' : fixed ? '2 6' : null,
       fillColor: color,
-      fillOpacity: owned ? 0.45 : disputed ? 0.30 : 0.12,
+      fillOpacity: fixed ? (owned ? 0.22 : 0.06) : owned ? 0.45 : disputed ? 0.30 : 0.12,
     })
       .bindTooltip(label(zone), {
         permanent: true, direction: 'center', className: 'zone-label',
       })
       .addTo(layer);
 
+    // A legenda é de gang, e bairro fixo com dono também tem dona — ela entra igual.
     if (owned) seen.set(zone.gang, color);
-    else if (disputed) for (const g of zone.gangs || []) seen.set(g, color);
   }
 
   legendEl.replaceChildren(...[...seen].map(([name, color]) => {

@@ -1,12 +1,20 @@
--- Domínio de bairro por graffiti.
+-- Domínio de bairro.
 --
--- O modelo é o mais simples que existe: cada bairro do Zone Manager pede um número fixo de
--- tags, e a gang com mais tags dentro dele — desde que tenha alcançado esse número — é a
--- dona. Sem peso, sem decaimento, sem influência progressiva.
+-- Quem decide de quem é o bairro é a influência (`shared/influence.lua`): cada bairro tem um
+-- pool de pontos, cada gang tem a sua fatia, e quem passa do limiar sozinho é dono. Este
+-- arquivo cuida das tags de graffiti — onde elas estão, em que bairro caem — e junta as duas
+-- coisas na resposta que o resto do servidor consome.
 --
--- Isto já foi um círculo de raio fixo por graffiti, e a troca por bairro não encostou no
--- noir_graffiti: ele continua registrando só "existe uma tag da gang X nesta coordenada". Era
--- essa a fronteira que o desenho protegia, e ela pagou.
+-- O graffiti deixou de ser A regra e virou uma fonte de influência entre outras: ele, a venda de
+-- droga e o que vier valem o que o `Config.Influence.Rates` disser, e a rua é tomada por quem
+-- juntar 51% do pool e esperar a trava de quatro horas da última tomada.
+-- Quanto cada fato vale está em `Config.Influence.Rates`, e a concessão acontece em
+-- `server/claims.lua`, no momento em que a tag nasce ou morre — a influência é um livro-caixa
+-- persistido, não um retrato das tags vivas.
+--
+-- Nem todo bairro entra nessa conta. O `Config.FixedZones` marca os que não estão em jogo, e
+-- a resposta de cada bairro carrega `conquerable` para que quem desenha ou avisa saiba a
+-- diferença entre "ninguém tomou ainda" e "aqui não se toma".
 --
 -- O arquivo é compartilhado porque as perguntas são as mesmas dos dois lados. O servidor é
 -- dono do registro; o cliente guarda uma cópia para responder sem viagem de rede e para a
@@ -80,6 +88,24 @@ end
 
 -- API --------------------------------------------------------------------------------
 
+---Bairro fixo é o que não está em jogo: as tags continuam existindo e continuam contadas,
+---mas não decidem nada ali dentro. O `Config.FixedZones` diz quais são, e de quem — `true`
+---para "de ninguém, para sempre", nome de gang para "desta gang, sem ter de pichar".
+---@return boolean fixed, string? owner
+local function fixedZone(zone)
+    local entry = type(zone) == 'string' and Config.FixedZones[zone] or nil
+    if not entry then return false end
+    if type(entry) == 'string' and entry ~= '' and entry ~= 'none' then return true, entry end
+    return true
+end
+
+---Se um bairro está em disputa no mapa. Bairro que ninguém declarou fixo é conquistável:
+---o padrão é a rua valer.
+---@return boolean
+local function isConquerable(zone)
+    return not (fixedZone(zone))
+end
+
 ---Quantas tags cada gang tem dentro de um bairro.
 ---@return table<string, number> counts, number total
 function NoirClaims.countsIn(zone)
@@ -96,50 +122,67 @@ function NoirClaims.countsIn(zone)
     return counts, total
 end
 
----Situação de um bairro.
+---Situação de um bairro: tudo que uma tela ou um alerta precisam saber sobre ele.
 ---
----Quem tem mais tags leva, desde que tenha alcançado o número exigido. Empate no topo entre
----duas gangs que alcançaram vira disputa — e é o único jeito de `contested` acontecer, porque
----contestar de verdade é apagar a tag do rival e pôr a sua, não sobrepor área.
----@return table { zone, required, counts, total, state, gang?, gangs? }
+---Bairro fixo responde direto do config e nem chega à conta: ou é neutro para sempre, ou é da
+---gang declarada lá. Nos outros, o dono vem da placa (`shared/ownership.lua`) e a influência
+---diz quanto cada um tem.
+---
+---`challenger` é quem já alcançou o limiar e não é o dono — quem está esperando a trava cair.
+---Ele não é um estado: o bairro continua `controlled` e o dono continua dono, com tudo que isso
+---implica para quem consome. É informação para a tela e para o aviso, não para o veredito.
+---
+---Os números de influência viajam mesmo em bairro fixo. Marcar um bairro como fixo não apaga
+---o que as gangs já tinham conquistado nele: o registro fica onde está, congelado, e volta a
+---valer no dia em que alguém tirar o bairro da lista.
+---@return table { zone, state, conquerable, influence, neutral, total, required, counts, tags, gang?, challenger?, lockedUntil? }
 function NoirClaims.getZoneStatus(zone)
-    local counts, total = NoirClaims.countsIn(zone)
+    local counts, tags = NoirClaims.countsIn(zone)
+    local fixed, owner = fixedZone(zone)
+    local _, neutral = NoirInfluence.sumOf(zone)
+
     local status = {
         zone = zone,
-        required = Config.RequiredGraffiti,
-        counts = counts,
-        total = total,
         state = 'neutral',
+        -- A flag viaja junto com a situação, e não numa consulta à parte: quem desenha o
+        -- mapa ou decide um alerta precisa saber, no mesmo lugar, se aquilo é alvo ou
+        -- cenário. `state` continua sendo o que o bairro é agora — bairro fixo com dono é
+        -- `controlled` como qualquer outro, senão todo consumidor teria de aprender um
+        -- estado novo para continuar funcionando igual.
+        conquerable = not fixed,
+        -- A fatia de cada gang e o que ninguém tomou. É o que o mapa desenha e o que responde
+        -- "quanto falta" sem que a tela precise refazer a aritmética do pool.
+        influence = NoirInfluence.of(zone),
+        neutral = neutral,
+        total = Config.Influence.Total,
+        required = NoirInfluence.required(),
+        -- As tags continuam no pacote porque continuam sendo o que se vê na rua. Elas não
+        -- decidem mais nada sozinhas: são a origem de parte da influência, não o placar.
+        counts = counts,
+        tags = tags,
     }
 
-    local best, leaders = 0, {}
-    for gang, count in pairs(counts) do
-        if count > best then
-            best, leaders = count, { gang }
-        elseif count == best then
-            leaders[#leaders + 1] = gang
+    if fixed then
+        if owner then
+            status.state = 'controlled'
+            status.gang = owner
         end
+        return status
     end
 
-    if best < Config.RequiredGraffiti then return status end
-
-    if #leaders > 1 then
-        table.sort(leaders)
-        status.state = 'contested'
-        status.gangs = leaders
-    else
-        status.state = 'controlled'
-        status.gang = leaders[1]
-    end
-
+    status.gang = NoirOwnership.get(zone)
+    status.state = status.gang and 'controlled' or 'neutral'
+    status.challenger = NoirOwnership.challengerOf(zone)
+    status.lockedUntil = NoirOwnership.lockedUntil(zone)
     return status
 end
 
 ---Quem domina uma coordenada. Fora de bairro mapeado, ninguém.
----@return table { state: 'neutral'|'controlled'|'contested', gang?, gangs?, zone?, counts?, required? }
+---@return table { state: 'neutral'|'controlled', conquerable: boolean, gang?, challenger?, lockedUntil?, zone?, influence?, neutral?, total?, required? }
 local function getTerritoryAt(coords)
     local zone = NoirClaims.zoneAt and NoirClaims.zoneAt(coords)
-    if not zone then return { state = 'neutral' } end
+    -- Fora de bairro mapeado não há o que tomar: é neutro e continua neutro.
+    if not zone then return { state = 'neutral', conquerable = false } end
     return NoirClaims.getZoneStatus(zone)
 end
 
@@ -171,6 +214,7 @@ local function isInsideGangTerritory(coords, gang)
     return getTerritoryAt(coords).gang == gang
 end
 
+NoirClaims.isConquerable = isConquerable
 NoirClaims.getTerritoryAt = getTerritoryAt
 NoirClaims.getGraffitiTerritoriesNear = getGraffitiTerritoriesNear
 NoirClaims.isInsideGangTerritory = isInsideGangTerritory
@@ -179,3 +223,4 @@ exports('getTerritoryAt', getTerritoryAt)
 exports('getGraffitiTerritoriesNear', getGraffitiTerritoriesNear)
 exports('isInsideGangTerritory', isInsideGangTerritory)
 exports('getZoneStatus', function(zone) return NoirClaims.getZoneStatus(zone) end)
+exports('isConquerable', isConquerable)
