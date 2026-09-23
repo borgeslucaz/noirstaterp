@@ -72,9 +72,11 @@ end
 
 ---@param src number
 ---@param plate string placa ja normalizada
-local function GivePermanentKey(src, plate)
-    if HasKeyItem(src, plate) then return end
-    Bridge:AddItem(src, 'vehiclekey', { label = 'CHAVE-' .. plate, plate = plate })
+---@param copy? boolean copia paga: entrega mesmo que o jogador ja tenha uma chave desta placa
+---@return boolean
+local function GivePermanentKey(src, plate, copy)
+    if not copy and HasKeyItem(src, plate) then return true end
+    return exports.ox_inventory:AddItem(src, 'vehiclekey', 1, { label = 'CHAVE-' .. plate, plate = plate }) == true
 end
 
 ---Unica porta de entrada de chave pedida por evento/export de compatibilidade:
@@ -340,14 +342,14 @@ RegisterNetEvent('mm_carkeys:server:unstackkeys', function()
     end
 end)
 
----Chave definitiva (item) para quem compra o carro. Para lojas/concessionarias no servidor.
+---Chave definitiva (item). Para a loja na compra e para a copia paga na garagem (`copy = true`).
 ---@param src number
 ---@param plate string
----@return boolean
-exports('GivePermanentKey', function(src, plate)
+---@param copy? boolean
+---@return boolean entregue
+exports('GivePermanentKey', function(src, plate, copy)
     if type(src) ~= 'number' or type(plate) ~= 'string' or plate == '' then return false end
-    GivePermanentKey(src, RemoveSpecialCharacter(plate))
-    return true
+    return GivePermanentKey(src, RemoveSpecialCharacter(plate), copy == true)
 end)
 
 HasKeyItemForPlate = HasKeyItem

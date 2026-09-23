@@ -95,6 +95,8 @@ end
 ---@param garageName string
 ---@param garageInfo GarageConfig
 ---@param accessPoint integer
+local keyCopyPrice
+
 local function displayVehicleInfo(vehicle, garageName, garageInfo, accessPoint)
     local engine = qbx.math.round(vehicle.props.engineHealth / 10)
     local body = qbx.math.round(vehicle.props.bodyHealth / 10)
@@ -160,6 +162,17 @@ local function displayVehicleInfo(vehicle, garageName, garageInfo, accessPoint)
                 takeOutOfGarage(vehicle.id, garageName, accessPoint)
             end,
         }
+        if vehicle.citizenid == QBX.PlayerData.citizenid and GetResourceState('mri_Qcarkeys') == 'started' then
+            keyCopyPrice = keyCopyPrice or lib.callback.await('qbx_garages:server:getKeyCopyPrice', false)
+            options[#options + 1] = {
+                title = locale('menu.key_copy'),
+                icon = 'key',
+                description = locale('menu.key_copy_price', lib.math.groupdigits(keyCopyPrice)),
+                onSelect = function()
+                    lib.callback.await('qbx_garages:server:buyKeyCopy', false, vehicle.id, garageName, accessPoint)
+                end,
+            }
+        end
     elseif vehicle.state == VehicleState.IMPOUNDED then
         options[#options + 1] = {
             title = locale('menu.veh_impounded'),

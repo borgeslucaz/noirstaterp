@@ -10,6 +10,7 @@ return {
     autoRespawn = false,   -- True == auto respawn cars that are outside into your garage on script restart, false == does not put them into your garage and players have to go to the impound
     warpInVehicle = false, -- If false, player will no longer warp into vehicle upon taking the vehicle out.
     doorsLocked = true, -- If true, the doors will be locked upon taking the vehicle out.
+    keyCopyPrice = 2000, -- Custo da copia da chave (item do mri_Qcarkeys) no menu do carro guardado
     distanceCheck = 5.0, -- The distance that needs to bee clear to let the vehicle spawn, this prevents vehicles stacking on top of each other
     calculateImpoundFee = require 'server.default-calculate-impound-fee',
     logging = {

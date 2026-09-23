@@ -9,10 +9,12 @@
         "not_enough": "Dinheiro insuficiente",
         "vehicle_occupied": "Você não pode guardar este veículo pois ele não está vazio",
         "in_vehicle": "Você já está em um veículo...",
-        "spawn_in_progress": "Por favor, aguarde enquanto seu veículo é entregue..."
+        "spawn_in_progress": "Por favor, aguarde enquanto seu veículo é entregue...",
+        "key_copy_unavailable": "Não foi possível fazer a cópia da chave agora"
     },
     "success": {
-        "vehicle_parked": "Você estacionou seu veículo"
+        "vehicle_parked": "Você estacionou seu veículo",
+        "key_copy": "Você recebeu uma cópia da chave (%s)"
     },
     "menu": {
         "information": "Informação",
@@ -21,7 +23,9 @@
         "engine": "Motor",
         "fuel": "Combustível",
         "take_out": "Retirar",
-        "veh_impounded": "Seu veículo foi apreendido pela polícia"
+        "veh_impounded": "Seu veículo foi apreendido pela polícia",
+        "key_copy": "Retirar cópia da chave",
+        "key_copy_price": "Custo: $%s"
     },
     "info": {
         "car_e": "E - Abrir Garagem",
