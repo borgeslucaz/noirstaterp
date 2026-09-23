@@ -107,8 +107,10 @@ lib.callback.register('qbx_garages:server:spawnVehicle', function (source, vehic
     -- corrupt `model` hash. The database vehicle name is the authoritative
     -- model for a garage record; using props.model can make CreateVehicle try
     -- to create a ped/object and repeatedly emit a native error.
+    -- IsModelInCdimage/IsModelAVehicle so existem no cliente; no servidor a referencia e a lista
+    -- de veiculos do qbx_core (VEHICLES, carregada em server/main.lua).
     local model = playerVehicle.modelName
-    if not model or not IsModelInCdimage(joaat(model)) or not IsModelAVehicle(joaat(model)) then
+    if not model or not VEHICLES[model] then
         logger.log({
             source = source,
             message = string.format('Blocked garage spawn for vehicle id=%s: invalid model=%s', vehicleId, tostring(model)),
