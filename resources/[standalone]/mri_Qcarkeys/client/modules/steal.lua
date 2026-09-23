@@ -89,13 +89,8 @@ function Steal:CarjackVehicle(target)
         TriggerServerEvent('hud:server:GainStress', Shared.steal.stressIncrease)
         TriggerServerEvent('mm_carkeys:server:setVehLockState', NetworkGetNetworkIdFromEntity(vehicle), 1)
 
-        local plate = GetVehicleNumberPlateText(vehicle)
-        local modelName = GetDisplayNameFromVehicleModel(GetEntityModel(vehicle))
-        if Shared.steal.getKey == "permanent" then
-            TriggerServerEvent('mm_carkeys:server:acquirevehiclekeys', plate, modelName)
-        elseif Shared.steal.getKey == "temporary" then
-            TriggerServerEvent('mm_carkeys:server:acquiretempvehiclekeys', plate)
-        end
+        -- assalto nao da chave: o carro fica com o motor ligado, como numa ligacao direta
+        Utils:SetHotwired(vehicle, true)
 
     else
         StopAnimTask(target, "missminuteman_1ig_2", "handsup_base", 1.0)
@@ -121,7 +116,7 @@ function Steal:GrabKey(vehicle)
         canCancel = true
     }) then
         if Shared.grab.leaveKeysOnVehicle then
-            TriggerServerEvent('mm_carkeys:server:acquiretempvehiclekeys', GetVehicleNumberPlateText(vehicle))
+            Utils:SetHotwired(vehicle, true)
         end
     else
         lib.notify({

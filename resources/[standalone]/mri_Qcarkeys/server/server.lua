@@ -34,34 +34,6 @@ local function IsNear(src, vehicle, maxDistance)
     return #(GetEntityCoords(ped) - GetEntityCoords(vehicle)) <= maxDistance
 end
 
----O jogador e o dono do veiculo persistente (vehicleid posto pelo qbx_garages/qbx_vehicles)?
----@param src number
----@param vehicle number
----@return boolean
-local function IsOwner(src, vehicle)
-    local vehicleId = Entity(vehicle).state.vehicleid
-    if not vehicleId or GetResourceState('qbx_vehicles') ~= 'started' then return false end
-    local ok, row = pcall(function() return exports.qbx_vehicles:GetPlayerVehicle(vehicleId) end)
-    return ok and row ~= nil and row.citizenid ~= nil and row.citizenid == Bridge:GetPlayerCitizenId(src)
-end
-
----Evento vindo do cliente so concede chave se existe um veiculo com a placa e o jogador esta junto
----dele, ou e o dono (a garagem pode soltar o carro a mais de 7.5m do guiche).
----@param src number
----@param plate string
----@return boolean
-local function CanClaimKey(src, plate)
-    if type(plate) ~= 'string' or plate == '' then return false end
-    local vehicles = GetVehiclesByPlate(RemoveSpecialCharacter(plate))
-    for i = 1, #vehicles do
-        if IsNear(src, vehicles[i], MAX_KEY_DISTANCE) or IsOwner(src, vehicles[i]) then
-            return true
-        end
-    end
-    print(('[mri_Qcarkeys] chave negada: src %s placa %s (%d veiculo(s) com a placa)'):format(src, plate, #vehicles))
-    return false
-end
-
 ---@param src number
 ---@param plate string placa ja normalizada
 ---@return boolean
@@ -85,6 +57,62 @@ end
 local function HasTempKey(src, plate)
     local list = VehicleList[Bridge:GetPlayerCitizenId(src)]
     return list ~= nil and lib.table.contains(list, plate)
+end
+
+---Carro de jogador (linha no player_vehicles)? Devolve o id e o citizenid do dono (nil para frota).
+---@param rawPlate string placa como o jogo/banco guarda
+---@return integer? vehicleId, string? ownerCitizenId
+local function GetPlayerVehicleOwner(rawPlate)
+    if GetResourceState('qbx_vehicles') ~= 'started' then return end
+    local ok, vehicleId = pcall(function() return exports.qbx_vehicles:GetVehicleIdByPlate(rawPlate) end)
+    if not ok or not vehicleId then return end
+    local ok2, row = pcall(function() return exports.qbx_vehicles:GetPlayerVehicle(vehicleId) end)
+    return vehicleId, ok2 and row and row.citizenid or nil
+end
+
+---@param src number
+---@param plate string placa ja normalizada
+local function GivePermanentKey(src, plate)
+    if HasKeyItem(src, plate) then return end
+    Bridge:AddItem(src, 'vehiclekey', { label = 'CHAVE-' .. plate, plate = plate })
+end
+
+---Unica porta de entrada de chave. Quem decide o tipo e o servidor, pela posse do carro:
+--- - carro de jogador: o dono recebe a chave definitiva (item) se ainda nao tem; os demais, nada;
+--- - carro sem dono (missao/emprego/admin): chave temporaria.
+---`trusted` = chamada de outro resource no servidor; pedido do cliente exige estar junto do carro.
+---@param src number
+---@param plate string
+---@param trusted boolean
+---@return boolean
+local function GrantVehicleKey(src, plate, trusted)
+    if type(plate) ~= 'string' or plate == '' then return false end
+    local normalized = RemoveSpecialCharacter(plate)
+    local vehicles = GetVehiclesByPlate(normalized)
+    local rawPlate = vehicles[1] and GetVehicleNumberPlateText(vehicles[1]) or plate
+
+    local vehicleId, owner = GetPlayerVehicleOwner(rawPlate)
+    if vehicleId then
+        if owner and owner == Bridge:GetPlayerCitizenId(src) then
+            GivePermanentKey(src, normalized)
+            return true
+        end
+        print(('[mri_Qcarkeys] chave negada: src %s nao e dono da placa %s'):format(src, normalized))
+        return false
+    end
+
+    if not trusted then
+        local near = false
+        for i = 1, #vehicles do
+            if IsNear(src, vehicles[i], MAX_KEY_DISTANCE) then near = true break end
+        end
+        if not near then
+            print(('[mri_Qcarkeys] chave negada: src %s longe da placa %s (%d veiculo(s))'):format(src, normalized, #vehicles))
+            return false
+        end
+    end
+    GiveTempKeys(src, normalized)
+    return true
 end
 
 function GiveTempKeys(id, plate)
@@ -211,9 +239,7 @@ RegisterNetEvent('qb-vehiclekeys:server:setVehLockState', function(vehNetId, sta
 end)
 
 RegisterNetEvent('mm_carkeys:server:acquiretempvehiclekeys', function(plate)
-    local src = source
-    if not CanClaimKey(src, plate) then return end
-    GiveTempKeys(src, plate)
+    GrantVehicleKey(source, plate, false)
 end)
 
 RegisterNetEvent('mm_carkeys:server:removetempvehiclekeys', function(plate)
@@ -228,25 +254,23 @@ RegisterNetEvent('mm_carkeys:server:removelockpick', function(item)
 end)
 
 RegisterNetEvent('mm_carkeys:server:acquirevehiclekeys', function(plate)
-    local src = source
-    if not CanClaimKey(src, plate) then return end
-    plate = RemoveSpecialCharacter(plate)
-    if HasKeyItem(src, plate) then return end
-	local Player = Bridge:GetPlayer(src)
-    if Player then
-
-        local info = {}
-		info.label = "CHAVE-" ..plate ---@old: model.. '-' ..plate
-        info.plate = plate
-		Bridge:AddItem(src, 'vehiclekey', info)
-	end
+    GrantVehicleKey(source, plate, false)
 end)
 
 -- @compat qb: scripts pedem "a chave" deste carro; aqui vira chave temporaria, igual ao SetOwner.
 RegisterNetEvent('qb-vehiclekeys:server:AcquireVehicleKeys', function(plate)
+    GrantVehicleKey(source, plate, false)
+end)
+
+---Ligacao direta, lockpick na ignicao, assalto e chave tirada de NPC nao dao chave: o carro fica
+---marcado enquanto o motor roda. Quem dirige o cliente limpa a marca quando o motor para.
+RegisterNetEvent('mri_Qcarkeys:server:setHotwired', function(netId, value)
     local src = source
-    if not CanClaimKey(src, plate) then return end
-    GiveTempKeys(src, plate)
+    if type(netId) ~= 'number' then return end
+    local vehicle = NetworkGetEntityFromNetworkId(netId)
+    if vehicle == 0 or not DoesEntityExist(vehicle) then return end
+    if not IsNear(src, vehicle, MAX_KEY_DISTANCE) then return end
+    Entity(vehicle).state:set('hotwired', value == true, true)
 end)
 
 RegisterNetEvent('qb-vehiclekeys:server:removeKeys', function(plate)
@@ -322,6 +346,7 @@ RegisterNetEvent('mm_carkeys:server:unstackkeys', function()
 end)
 
 HasKeyItemForPlate = HasKeyItem
+GrantVehicleKeyTrusted = function(src, plate) return GrantVehicleKey(src, plate, true) end
 HasTempKeyForPlate = HasTempKey
 NormalizePlate = RemoveSpecialCharacter
 

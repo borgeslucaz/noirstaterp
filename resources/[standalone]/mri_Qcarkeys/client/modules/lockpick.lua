@@ -86,7 +86,7 @@ function LockPick:LockPickEngine(isAdvanced)
     self.lockpicking = false
     StopAnimTask(cache.ped, "anim@amb@clubhouse@tutorial@bkr_tut_ig3@", "machinic_loop_mechandplayer", 1.0)
     if result then
-        TriggerServerEvent('mm_carkeys:server:acquiretempvehiclekeys', VehicleKeys.currentVehiclePlate)
+        Utils:SetHotwired(VehicleKeys.currentVehicle, true)
         SetVehicleEngineOn(VehicleKeys.currentVehicle, true, true, true)
         VehicleKeys.isEngineRunning = true
         return

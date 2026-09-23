@@ -18,15 +18,12 @@ function VehicleKeys:Init(plate)
     local vehClass = GetVehicleClass(self.currentVehicle)
     if Shared.blacklistedClasses[vehClass] then return end
     self.hasKey = lib.table.contains(self.playerKeys, self.currentVehiclePlate) or lib.table.contains(self.playerTempKeys, self.currentVehiclePlate)
-    self.isEngineRunning = self.hasKey and GetIsVehicleEngineRunning(self.currentVehicle) or false
-    if not self.hasKey and not self.showTextUi and Shared.hotwire.available then
-        lib.showTextUI('Ligação direta', {
-            position = "right-center",
-            icon = 'h',
-        })
-        self.showTextUi = true
+    local canRun = self.hasKey or Utils:IsHotwired(self.currentVehicle)
+    self.isEngineRunning = canRun and GetIsVehicleEngineRunning(self.currentVehicle) or false
+    if not self.hasKey then
+        -- sem chave nao liga nem destranca; o laco cuida da ligacao direta e do texto
         Hotwire:SetupHotwire()
-    elseif self.hasKey and self.showTextUi then
+    elseif self.showTextUi then
         lib.hideTextUI()
         self.showTextUi = false
     end

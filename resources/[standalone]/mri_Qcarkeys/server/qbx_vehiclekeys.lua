@@ -17,11 +17,11 @@ local function getPlate(vehicle)
     end
 end
 
+-- Mesma regra dos eventos: carro de jogador -> definitiva so para o dono; sem dono -> temporaria.
 exportHandler('GiveKeys', function(source, vehicle)
     local plate = getPlate(vehicle)
     if not plate then return false end
-    GiveTempKeys(source, plate)
-    return true
+    return GrantVehicleKeyTrusted(source, plate)
 end)
 
 exportHandler('RemoveKeys', function(source, vehicle)
