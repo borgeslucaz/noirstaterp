@@ -579,9 +579,24 @@ RegisterPhoneApp, SendPhoneAppMessage, IsLoggedIn, Notify
 Provider parado devolve `provider_unavailable` e o resource degrada sem falso sucesso: sem
 telefone não há notificação e sem dispatch não há alerta, mas a venda continua válida.
 
-Não há progressão externa. Toda telemetria sai do próprio ledger em
-`noir_outpost_operations`, que registra venda, depósito, coleta, roubo, contratação,
-demissão e tomada com valor, item, quantidade e autor.
+Toda telemetria sai do próprio ledger em `noir_outpost_operations`, que registra venda,
+depósito, coleta, roubo, contratação, demissão e tomada com valor, item, quantidade e autor.
+
+### Eventos
+
+O outpost não conhece nenhum sistema de progressão. Depois que uma venda, uma tomada ou um
+assalto viram fato — gravados no ledger —, ele anuncia com um evento local de servidor, e quem
+quiser reagir escuta. O `noir_illegal_core` escuta os três e transforma em reputação da gang;
+o quanto cada um vale é decidido lá, não aqui.
+
+| Evento | Campos |
+|---|---|
+| `noir_outposts:server:saleCommitted` | `operationId`, `outpostId`, `dealerId`, `organizationId`, `item`, `quantity` |
+| `noir_outposts:server:claimCompleted` | `operationId`, `source`, `outpostId`, `organizationId`, `previousOwnerId` |
+| `noir_outposts:server:robberyCompleted` | `operationId`, `source`, `outpostId`, `dealerId`, `ownerOrganizationId`, `lootValue` |
+
+`operationId` é o id da linha no ledger, e quem escuta deve usá-lo como chave de idempotência.
+Continua não havendo dependência: sem ninguém escutando, o evento cai no vazio.
 
 ## Telefone
 

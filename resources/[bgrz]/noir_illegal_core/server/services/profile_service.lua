@@ -25,13 +25,23 @@ local function baseProfile(identity)
     return profile
 end
 
-function Service.organizationReputations(organizationId)
-    if not organizationId then return {} end
+---Reputação e unlocks da gang, no mesmo cache: os dois mudam juntos quando uma atividade
+---passa, e é a mesma invalidação que limpa os dois.
+function Service.organization(organizationId)
+    if not organizationId then return { reputations = {}, unlocks = {} } end
     local cached = NoirIllegal.Cache.getOrganization(organizationId)
     if cached then return cached end
-    local result = NoirIllegal.Repositories.Reputation.list('organization', organizationId)
+    local result = {
+        reputations = NoirIllegal.Repositories.Reputation.list('organization', organizationId),
+        unlocks = NoirIllegal.Services.Unlock.toMap(
+            NoirIllegal.Repositories.Unlock.list('organization', organizationId)),
+    }
     NoirIllegal.Cache.setOrganization(organizationId, result)
     return result
+end
+
+function Service.organizationReputations(organizationId)
+    return Service.organization(organizationId).reputations
 end
 
 function Service.getBySource(source)
@@ -45,8 +55,10 @@ function Service.getBySource(source)
 
     local organization = NoirIllegal.Bridges.Gangs.getOrganization(source)
     if organization then
-        organization.reputations = Service.organizationReputations(organization.id)
-        organization.levels = NoirIllegal.Services.Level.all(organization.reputations)
+        local state = Service.organization(organization.id)
+        organization.reputations = state.reputations
+        organization.levels = NoirIllegal.Services.Level.all(state.reputations)
+        organization.unlocks = state.unlocks
     end
     profile.organization = organization
     return NoirIllegal.Validators.copy(profile)

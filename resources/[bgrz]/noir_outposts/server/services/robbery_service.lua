@@ -267,6 +267,15 @@ function Service.complete(actor, sessionId)
     Notification.refreshPanels(dealer.outpost_id)
     Notification.maybeDispatch(dealer, 'robbery', config.robbery.dispatchChance)
 
+    TriggerEvent('noir_outposts:server:robberyCompleted', {
+        operationId = operationId,
+        source = actor.source,
+        outpostId = dealer.outpost_id,
+        dealerId = dealer.id,
+        ownerOrganizationId = ownerOrganizationId,
+        lootValue = deliveredPurse,
+    })
+
     Log.info('robbery_completed', {
         outpostId = dealer.outpost_id,
         dealerId = dealer.id,

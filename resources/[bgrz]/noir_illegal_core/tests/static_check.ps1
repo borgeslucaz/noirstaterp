@@ -13,7 +13,7 @@ if ($networkMutations) { throw 'Network event registration found in server-only 
 $requiredExports = @(
     'RecordActivity', 'GetProfile', 'GetReputation', 'GetLevel', 'GetHeat',
     'HasUnlock', 'IsEligible', 'GrantUnlock', 'RevokeUnlock',
-    'GetOrganization', 'GetOrganizationReputation'
+    'GetOrganization', 'GetOrganizationReputation', 'RecordOrganizationActivity'
 )
 $api = Get-Content -Raw -LiteralPath (Join-Path $resourceRoot 'server\api.lua')
 foreach ($exportName in $requiredExports) {

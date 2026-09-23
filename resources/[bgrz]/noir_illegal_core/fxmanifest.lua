@@ -46,6 +46,10 @@ server_scripts {
     'server/services/activity_service.lua',
     'server/services/admin_service.lua',
     'server/api.lua',
+    'server/adapters/adapters.lua',
+    'server/adapters/drugselling.lua',
+    'server/adapters/outposts.lua',
+    'server/adapters/territories.lua',
     'server/commands.lua',
     'server/init.lua',
 }

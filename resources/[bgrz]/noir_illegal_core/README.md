@@ -29,13 +29,41 @@ local ok, result = exports.noir_illegal_core:RecordActivity(
 The caller must be present in shared/permissions.lua and in the activity callers
 list. The transaction UUID must remain stable across retries.
 
-`noir_outposts` is authorized as a public recorder for these server-validated activities:
+## Progressão da gang
 
-- `outpost_claim`: claim progression and heat; metadata `outpostId`, `previousOwnerId`;
-- `outpost_sale`: organization drug progression with hourly diminishing returns; metadata `outpostId`, `dealerId`, `product`, `quantity`;
-- `outpost_robbery`: robbery progression, cooldown, and heat; metadata `outpostId`, `dealerId`, `lootValue`.
+O nível da gang é a reputação `drug` da organização (faixas em `shared/levels.lua`). Cada faixa
+abre um contato — `contact_meth` no nível 2, `contact_coke` no nível 4 — por unlock automático de
+organização (`shared/unlocks.lua`). Unlock de gang é avaliado com a reputação e os unlocks da
+gang, nunca com os de quem fez a ação; revogado por admin não volta sozinho.
 
-The metadata lists are allowlists: undeclared keys are discarded, and invalid declared values reject the request.
+`HasUnlock(source, key)` responde pelo escopo do unlock: para `contact_coke`, a pergunta é se a
+gang de quem está ali tem o contato.
+
+### De onde vem a reputação
+
+Nenhum resource de gameplay registra atividade direto. Cada um anuncia o fato por evento local
+de servidor, e um adaptador em `server/adapters/` registra em nome do core — que é o único
+`publicRecorder`. Os valores ficam em `shared/activities.lua`, com a conta de ritmo no cabeçalho.
+
+| Fato | Evento | Atividade |
+|---|---|---|
+| venda de rua fechada | `noir_drugselling:server:saleCompleted` | `drug_sale` |
+| venda passiva do outpost | `noir_outposts:server:saleCommitted` | `outpost_sale` (gang) |
+| outpost tomado | `noir_outposts:server:claimCompleted` | `outpost_claim` |
+| outpost assaltado | `noir_outposts:server:robberyCompleted` | `outpost_robbery` + `outpost_robbed` (gang dona) |
+| bairro perdido | `noir_territories:server:ownerChanged` | `territory_lost` (gang anterior) |
+| bairro segurado | laço a cada `Config.Territories.checkSeconds` | `territory_held`, uma vez por bairro por dia |
+
+O adaptador confere `GetInvokingResource()` antes de aceitar o evento: qualquer resource pode dar
+`TriggerEvent` com o mesmo nome.
+
+### Atividade de gang
+
+`subject = 'organization'` marca atividade sem autor — o fato é da gang, não de um jogador
+online. Ela é registrada por `RecordOrganizationActivity(organizationId, activityKey,
+transactionId, options)`, só mexe na reputação da organização, pode ter delta negativo (o total
+fica preso em zero) e não aceita heat, cooldown nem requisitos. O retorno decrescente, se houver,
+é por organização. A validação do start recusa qualquer outra combinação.
 
 ## Database
 

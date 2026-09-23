@@ -145,6 +145,17 @@ Fr.RegisterServerCallback('op-drugselling:sellDrug', function(source, cb, drugNa
 
         NoirDrugTerritory.onSale(source)
 
+        -- A venda fechada também é reputação da gang, mas quem decide quanto é o
+        -- noir_illegal_core, que escuta este evento. Aqui só se diz o que aconteceu — a mesma
+        -- fronteira da influência no noir_territories. Sem o core de pé, o evento cai no vazio.
+        TriggerEvent('noir_drugselling:server:saleCompleted', {
+            source = source,
+            drug = drugName,
+            amount = amountSell,
+            price = finalPrice,
+            cornerSelling = cornerSelling == true,
+        })
+
         local ident = Fr.GetIndentifier(source)
         local message = formatWebHook("**Drug Name:**", drugName or "None", "\n**Price per gram:**", pricePerGram, "\n**Player Identificator:**", ident, "\n**Price:**", finalPrice, "\n**Corner Selling:**", cornerSelling and "True" or "False")
         SendWebHook("DRUG SOLD", 706333, message)

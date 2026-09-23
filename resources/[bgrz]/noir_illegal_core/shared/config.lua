@@ -25,6 +25,13 @@ NoirIllegal.Config = {
         maxOccurredAtFutureSeconds = 60,
     },
     AuditRejectedActivities = true,
+    -- Bairro dominado paga uma vez por período, para a gang que estiver com a placa quando o
+    -- laço passar. O período é o dia do relógio do servidor, não "24h desde a tomada": o id da
+    -- transação sai de bairro + gang + período, então restart não paga duas vezes.
+    Territories = {
+        heldPeriodSeconds = 86400,
+        checkSeconds = 600,
+    },
     Commands = {
         enabled = true,
         developmentActivityCommand = true,

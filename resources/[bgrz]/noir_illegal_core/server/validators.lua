@@ -119,3 +119,24 @@ function V.randomUuid()
         return ('%x'):format(value)
     end)
 end
+
+local function fnv1a(text, seed)
+    local hash = seed
+    for i = 1, #text do
+        hash = ((hash ~ text:byte(i)) * 16777619) & 0xffffffff
+    end
+    return hash
+end
+
+---UUID que sai sempre igual para a mesma chave. Serve ao fato que não traz id próprio e pode
+---ser anunciado de novo — o bairro que paga por dia é visto a cada passada do laço e a cada
+---restart —: a mesma chave dá a mesma transação, e o ledger devolve replay em vez de pagar
+---outra vez. Quatro sementes do FNV-1a dão os 128 bits; o formato é o de um v5.
+function V.stableUuid(key)
+    local hex = ('%08x%08x%08x%08x'):format(
+        fnv1a(key, 0x811c9dc5), fnv1a(key, 0x01000193),
+        fnv1a(key, 0x2f5a3c1d), fnv1a(key, 0x6b43a9b5))
+    return ('%s-%s-5%s-%x%s-%s'):format(
+        hex:sub(1, 8), hex:sub(9, 12), hex:sub(14, 16),
+        8 + tonumber(hex:sub(17, 17), 16) % 4, hex:sub(18, 20), hex:sub(21, 32))
+end

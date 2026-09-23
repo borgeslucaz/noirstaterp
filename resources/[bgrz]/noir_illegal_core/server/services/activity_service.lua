@@ -13,6 +13,7 @@ local function prepareRequest(source, activityKey, transactionId, options, calle
     local activity = NoirIllegal.Activities[activityKey]
     if not activity then return nil, NoirIllegal.error('INVALID_ACTIVITY') end
     if not activity.enabled then return nil, NoirIllegal.error('ACTIVITY_DISABLED') end
+    if activity.subject == 'organization' then return nil, NoirIllegal.error('INVALID_ACTIVITY') end
     if not callerAllowed(caller, activity) then return nil, NoirIllegal.error('FORBIDDEN_CALLER') end
     if not NoirIllegal.Validators.uuid(transactionId) then
         return nil, NoirIllegal.error('INVALID_ARGUMENT', { field = 'transactionId' })
@@ -52,12 +53,18 @@ local function prepareRequest(source, activityKey, transactionId, options, calle
     }
 end
 
+---Atividade de gang não tem autor, e a coluna `citizenid` do ledger não aceita nulo: ela leva
+---o id da organização, como o ajuste de admin já faz. É a mesma chave que a idempotência compara.
+local function ledgerSubject(request)
+    return request.citizenId or request.organization.id
+end
+
 local function ledgerData(request, status, payload)
     return {
         transactionId = request.transactionId,
         activityKey = request.activityKey,
         callerResource = request.callerResource,
-        citizenId = request.citizenId,
+        citizenId = ledgerSubject(request),
         organizationId = request.organization and request.organization.id or nil,
         status = status,
         rejectionCode = status == 'rejected' and payload.code or nil,
@@ -214,6 +221,10 @@ function Service.record(source, activityKey, transactionId, options, caller)
                 or {}
             local unlockRows = NoirIllegal.Repositories.Unlock.list(
                 'player', request.citizenId, query, true)
+            local organizationUnlockRows = request.organization
+                and NoirIllegal.Repositories.Unlock.list(
+                    'organization', request.organization.id, query, true)
+                or nil
             local unlockMap = NoirIllegal.Services.Unlock.toMap(unlockRows)
             local eligibilityProfile = {
                 citizenId = request.citizenId,
@@ -289,17 +300,21 @@ function Service.record(source, activityKey, transactionId, options, caller)
             local afterLevels = NoirIllegal.Services.Level.all(afterPersonal)
             local beforeOrganizationLevels = NoirIllegal.Services.Level.all(beforeOrganization)
             local afterOrganizationLevels = NoirIllegal.Services.Level.all(afterOrganization)
-            local automaticProfile = {
-                citizenId = request.citizenId,
-                reputations = afterPersonal,
-                levels = afterLevels,
-                heat = afterHeat,
-                organization = request.organization,
-                unlocks = unlockMap,
-            }
             local actor = { actorType = 'resource', actorId = request.callerResource }
-            local unlocksGranted = NoirIllegal.Services.Unlock.evaluateAutomatic(
-                automaticProfile, afterOrganization, query, actor)
+            local unlocksGranted = NoirIllegal.Services.Unlock.evaluateAutomatic({
+                player = {
+                    id = request.citizenId,
+                    reputations = afterPersonal,
+                    heat = afterHeat,
+                    organization = request.organization,
+                    unlockRows = unlockRows,
+                },
+                organization = request.organization and {
+                    id = request.organization.id,
+                    reputations = afterOrganization,
+                    unlockRows = organizationUnlockRows,
+                } or nil,
+            }, query, actor)
             local unlockKeys = {}
             for i = 1, #unlocksGranted do unlockKeys[i] = unlocksGranted[i].key end
 
@@ -395,8 +410,195 @@ function Service.record(source, activityKey, transactionId, options, caller)
     return outcomeOk, outcome
 end
 
+local function prepareOrganizationRequest(organizationId, activityKey, transactionId, options, caller)
+    local activity = NoirIllegal.Activities[activityKey]
+    if not activity or activity.subject ~= 'organization' then
+        return nil, NoirIllegal.error('INVALID_ACTIVITY')
+    end
+    if not activity.enabled then return nil, NoirIllegal.error('ACTIVITY_DISABLED') end
+    if not callerAllowed(caller, activity) then return nil, NoirIllegal.error('FORBIDDEN_CALLER') end
+    if not NoirIllegal.Validators.uuid(transactionId) then
+        return nil, NoirIllegal.error('INVALID_ARGUMENT', { field = 'transactionId' })
+    end
+    if not NoirIllegal.Validators.string(organizationId, 1, 64) or organizationId == 'none' then
+        return nil, NoirIllegal.error('INVALID_ARGUMENT', { field = 'organizationId' })
+    end
+    options = options or {}
+    if type(options) ~= 'table' then
+        return nil, NoirIllegal.error('INVALID_ARGUMENT', { field = 'options' })
+    end
+    local occurredAt = NoirIllegal.Validators.occurredAt(options.occurredAt)
+    if not occurredAt then
+        return nil, NoirIllegal.error('INVALID_ARGUMENT', { field = 'occurredAt' })
+    end
+    local metadata = NoirIllegal.Validators.metadata(
+        options.metadata, activity.metadata and activity.metadata.allow)
+    if not metadata then
+        return nil, NoirIllegal.error('INVALID_ARGUMENT', { field = 'metadata' })
+    end
+
+    return {
+        organization = { id = organizationId },
+        activity = activity,
+        activityKey = activityKey,
+        transactionId = transactionId:lower(),
+        callerResource = caller,
+        occurredAt = occurredAt,
+        metadata = metadata,
+    }
+end
+
+---Registra um fato da gang que não tem autor online: venda passiva do outpost, bairro
+---segurado, bairro perdido, posto roubado. Só a reputação da organização se move; o delta pode
+---ser negativo e o total fica preso em zero.
+---
+---A organização chega pelo id, sem passar pelo noir_gangs: quem anuncia o fato já sabe de quem
+---ele é, e a gang pode não ter ninguém online naquela hora.
+function Service.recordOrganization(organizationId, activityKey, transactionId, options, caller)
+    local startedAt = GetGameTimer()
+    local request, requestError = prepareOrganizationRequest(
+        organizationId, activityKey, transactionId, options, caller)
+    if not request then return false, requestError end
+
+    local identity = {
+        activityKey = request.activityKey,
+        callerResource = request.callerResource,
+        citizenId = ledgerSubject(request),
+    }
+    local existing = NoirIllegal.Repositories.Activity.findByTransaction(request.transactionId)
+    if existing then return NoirIllegal.Services.Idempotency.resolve(existing, identity) end
+
+    local outcomeOk, outcome, committedState
+    local callOk, transactionResult = pcall(function()
+        return MySQL.startTransaction(function(query)
+            local replay = NoirIllegal.Repositories.Activity.findByTransaction(
+                request.transactionId, query, true)
+            if replay then
+                outcomeOk, outcome = NoirIllegal.Services.Idempotency.resolve(replay, identity)
+                return true
+            end
+
+            local subjectId = request.organization.id
+            for category in pairs(request.activity.organization or {}) do
+                NoirIllegal.Repositories.Reputation.ensureCategory(
+                    'organization', subjectId, category, query)
+            end
+            local before = NoirIllegal.Repositories.Reputation.list(
+                'organization', subjectId, query, true)
+            local unlockRows = NoirIllegal.Repositories.Unlock.list(
+                'organization', subjectId, query, true)
+
+            local rule = request.activity.diminishingReturns
+            local count = rule and NoirIllegal.Repositories.Activity.countAccepted(
+                subjectId, subjectId, request.activityKey, rule.windowSeconds, rule.key, query) or 0
+            local multiplier = NoirIllegal.Services.Level.diminishingMultiplier(count, rule)
+
+            local after = NoirIllegal.Validators.copy(before)
+            local applied = {}
+            for category, baseDelta in pairs(request.activity.organization or {}) do
+                local current = before[category] or 0
+                after[category] = NoirIllegal.Validators.round(
+                    math.max(0, current + baseDelta * multiplier), 4)
+                applied[category] = NoirIllegal.Validators.round(after[category] - current, 4)
+                NoirIllegal.Repositories.Reputation.set(
+                    'organization', subjectId, category, after[category], query)
+            end
+
+            local beforeLevels = NoirIllegal.Services.Level.all(before)
+            local afterLevels = NoirIllegal.Services.Level.all(after)
+            local actor = { actorType = 'resource', actorId = request.callerResource }
+            local unlocksGranted = NoirIllegal.Services.Unlock.evaluateAutomatic({
+                organization = { id = subjectId, reputations = after, unlockRows = unlockRows },
+            }, query, actor)
+            local unlockKeys = {}
+            for i = 1, #unlocksGranted do unlockKeys[i] = unlocksGranted[i].key end
+
+            outcome = {
+                ok = true,
+                transactionId = request.transactionId,
+                replayed = false,
+                activity = request.activityKey,
+                profile = { organization = { id = subjectId } },
+                applied = { personal = {}, organization = applied, heat = 0 },
+                levels = { before = beforeLevels, after = afterLevels },
+                unlocksGranted = unlockKeys,
+                multiplier = multiplier,
+            }
+            outcomeOk = true
+            NoirIllegal.Repositories.Activity.insert(
+                ledgerData(request, 'accepted', outcome), query)
+            NoirIllegal.Repositories.Audit.insert({
+                action = 'activity_recorded',
+                actorType = 'resource',
+                actorId = request.callerResource,
+                targetType = 'organization',
+                targetId = subjectId,
+                transactionId = request.transactionId,
+                beforeState = { organizationReputation = before },
+                afterState = { organizationReputation = after, unlocksGranted = unlockKeys },
+                metadata = { activityKey = request.activityKey, activity = request.metadata },
+            }, query)
+            committedState = {
+                beforePersonal = {},
+                afterPersonal = {},
+                beforeLevels = {},
+                afterLevels = {},
+                beforeOrganization = before,
+                afterOrganization = after,
+                beforeOrganizationLevels = beforeLevels,
+                afterOrganizationLevels = afterLevels,
+                beforeHeat = 0,
+                afterHeat = 0,
+                applied = outcome.applied,
+                multiplier = multiplier,
+                unlocksGranted = unlocksGranted,
+            }
+            return true
+        end)
+    end)
+
+    if not callOk or transactionResult == false then
+        NoirIllegal.Logger.error('record_organization_activity_failed', {
+            transactionId = request.transactionId,
+            callerResource = request.callerResource,
+            organizationId = request.organization.id,
+            activityKey = request.activityKey,
+            error = not callOk and tostring(transactionResult) or nil,
+            durationMs = GetGameTimer() - startedAt,
+        })
+        return false, NoirIllegal.error('DATABASE_ERROR')
+    end
+
+    if outcomeOk and committedState and not outcome.replayed then
+        NoirIllegal.Cache.invalidateOrganization(request.organization.id)
+        emitCommitted(request, committedState)
+        NoirIllegal.Logger.info('organization_activity_recorded', {
+            transactionId = request.transactionId,
+            callerResource = request.callerResource,
+            organizationId = request.organization.id,
+            activityKey = request.activityKey,
+            durationMs = GetGameTimer() - startedAt,
+        })
+    end
+    return outcomeOk, outcome
+end
+
+local function validateOrganizationActivity(activityKey, activity)
+    assert(next(activity.personal or {}) == nil,
+        ('Organization activity %s cannot change personal reputation'):format(activityKey))
+    assert((activity.heat or 0) == 0,
+        ('Organization activity %s cannot assign heat'):format(activityKey))
+    assert((activity.cooldownSeconds or 0) == 0,
+        ('Organization activity %s cannot have a cooldown'):format(activityKey))
+    assert(next(activity.requirements or {}) == nil,
+        ('Organization activity %s cannot have requirements'):format(activityKey))
+    assert(not activity.diminishingReturns or activity.diminishingReturns.key == 'organization:activity',
+        ('Organization activity %s must diminish per organization'):format(activityKey))
+end
+
 function Service.validateConfiguration()
     NoirIllegal.Services.Level.validateConfiguration()
+    NoirIllegal.Services.Unlock.validateConfiguration()
     for activityKey, activity in pairs(NoirIllegal.Activities) do
         assert(NoirIllegal.Validators.string(activityKey, 1, 96), 'Invalid activity key')
         assert(type(activity.enabled) == 'boolean', ('Activity %s missing enabled flag'):format(activityKey))
@@ -405,10 +607,17 @@ function Service.validateConfiguration()
             assert(NoirIllegal.Validators.number(
                 delta, 0, NoirIllegal.Config.Limits.maxActivityDelta), 'Invalid personal delta')
         end
+        assert(activity.subject == nil or activity.subject == 'organization',
+            ('Activity %s has an invalid subject'):format(activityKey))
+        -- Só atividade de gang tem delta negativo: perder reputação é coisa que acontece COM a
+        -- gang, não algo que um jogador registra contra si mesmo.
+        local minimumDelta = activity.subject == 'organization'
+            and -NoirIllegal.Config.Limits.maxActivityDelta or 0
+        if activity.subject == 'organization' then validateOrganizationActivity(activityKey, activity) end
         for category, delta in pairs(activity.organization or {}) do
             assert(NoirIllegal.Validators.category(category), ('Unknown category %s'):format(category))
             assert(NoirIllegal.Validators.number(
-                delta, 0, NoirIllegal.Config.Limits.maxActivityDelta), 'Invalid organization delta')
+                delta, minimumDelta, NoirIllegal.Config.Limits.maxActivityDelta), 'Invalid organization delta')
         end
         assert(NoirIllegal.Validators.number(
             activity.cooldownSeconds or 0, 0), 'Invalid cooldown')

@@ -132,6 +132,17 @@ function Service.process(dealer)
         Notification.refreshPanels(dealer.outpost_id)
         Notification.maybeDispatch(dealer, 'sale', config.sales.dispatchChance)
 
+        -- Anúncio do fato, sem saber quem escuta. É assim que a venda vira reputação da gang
+        -- no noir_illegal_core sem este resource depender dele (ver README, "Eventos").
+        TriggerEvent('noir_outposts:server:saleCommitted', {
+            operationId = operationId,
+            outpostId = dealer.outpost_id,
+            dealerId = dealer.id,
+            organizationId = organizationId,
+            item = productId,
+            quantity = quantity,
+        })
+
         Log.debug('sale_committed', {
             outpostId = dealer.outpost_id,
             dealerId = dealer.id,

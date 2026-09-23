@@ -91,6 +91,15 @@ function NoirOwnershipServer.force(zone, owner, takenAt)
 end
 
 exports('getTerritoryOwner', function(zone) return NoirOwnership.get(zone) end)
+
+---Todas as placas de uma vez, `{ [bairro] = gang }`. É o que o noir_illegal_core lê para pagar
+---o dia de quem segura bairro. Só bairro tomado aparece: bairro fixo tem dono de config e não
+---passa pela placa.
+exports('getOwnedTerritories', function()
+    local owned = {}
+    for zone, state in pairs(NoirOwnership.zones) do owned[zone] = state.owner end
+    return owned
+end)
 exports('getOwnershipLock', function(zone)
     local owner, takenAt = NoirOwnership.get(zone)
     if not owner then return end

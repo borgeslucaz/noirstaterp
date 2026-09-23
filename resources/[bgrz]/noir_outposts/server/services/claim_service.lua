@@ -224,6 +224,14 @@ function Service.complete(actor, sessionId)
     Notification.broadcastOutpost(session.outpostId)
     Notification.refreshPanels(session.outpostId)
 
+    TriggerEvent('noir_outposts:server:claimCompleted', {
+        operationId = operationId,
+        source = actor.source,
+        outpostId = session.outpostId,
+        organizationId = actor.organization.id,
+        previousOwnerId = previousOwner,
+    })
+
     Log.info('claim_completed', {
         outpostId = session.outpostId,
         organizationId = actor.organization.id,

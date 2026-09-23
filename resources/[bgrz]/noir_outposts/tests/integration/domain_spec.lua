@@ -37,7 +37,15 @@ GetEntityType = function() return 1 end
 GetEntityModel = function() return 1234 end
 IsPlayerAceAllowed = function() return false end
 TriggerClientEvent = function() end
-TriggerEvent = function() end
+-- Eventos locais de servidor ficam guardados: são o contrato com quem escuta o outpost (o
+-- noir_illegal_core transforma venda, tomada e assalto em reputação de gang).
+local serverEvents = {}
+TriggerEvent = function(name, payload) serverEvents[#serverEvents + 1] = { name = name, payload = payload } end
+local function lastServerEvent(name)
+    for index = #serverEvents, 1, -1 do
+        if serverEvents[index].name == name then return serverEvents[index].payload end
+    end
+end
 AddEventHandler = function() end
 GetResourceState = function() return 'started' end
 GetPlayers = function() return {} end
@@ -689,6 +697,12 @@ T.equal(completed.ok, true, 'claim completes after the full duration')
 T.equal(db.outposts[OUTPOST].status, C.OutpostStatus.CONTROLLED, 'outpost is controlled')
 T.equal(db.outposts[OUTPOST].owner_organization_id, 'ballas', 'owner recorded')
 T.equal(db.outposts[OUTPOST].kingpin_citizenid, 'LEADER01', 'kingpin recorded')
+local claimEvent = lastServerEvent('noir_outposts:server:claimCompleted')
+T.truthy(claimEvent, 'claim is announced')
+T.equal(claimEvent.organizationId, 'ballas', 'claim event carries the new owner')
+T.equal(claimEvent.source, leader.source, 'claim event carries who claimed')
+T.equal(claimEvent.outpostId, OUTPOST, 'claim event carries the outpost')
+T.truthy(claimEvent.operationId, 'claim event carries the ledger operation id')
 T.truthy(db.organizations.ballas.claim_cooldown_until > os.time(), 'organization is on cooldown')
 
 local claimRoster = db.outposts[OUTPOST].dealer_roster
@@ -825,6 +839,13 @@ local dealer = State.dealer(dealerId)
 local stockBefore = db.stock[OUTPOST].weed_brick
 local sold, reason = Services.Sale.process(dealer)
 T.equal(sold, true, 'dealer sells from the stock: ' .. tostring(reason))
+local saleEvent = lastServerEvent('noir_outposts:server:saleCommitted')
+T.truthy(saleEvent, 'sale is announced')
+T.equal(saleEvent.organizationId, 'ballas', 'sale event carries the owner gang')
+T.equal(saleEvent.dealerId, dealerId, 'sale event carries the dealer')
+T.truthy(saleEvent.operationId and saleEvent.operationId ~= claimEvent.operationId,
+    'sale event carries its own operation id')
+T.truthy(saleEvent.quantity > 0 and saleEvent.item ~= nil, 'sale event carries what was sold')
 T.truthy(db.stock[OUTPOST].weed_brick < stockBefore, 'stock decreased after the sale')
 T.truthy(db.stock[OUTPOST].weed_brick >= 0, 'stock never goes negative')
 T.truthy(db.outposts[OUTPOST].purse_available > 0, 'purse received the net amount')
@@ -1117,6 +1138,11 @@ State.reload(OUTPOST)
 -- Sem resetRateLimits: avançar o relógio já liberou o limite e a sessão ainda é válida.
 local stolen = Services.Robbery.complete(rival, second.data.sessionId)
 T.equal(stolen.ok, true, 'robbery completes after the full duration')
+local robberyEvent = lastServerEvent('noir_outposts:server:robberyCompleted')
+T.truthy(robberyEvent, 'robbery is announced')
+T.equal(robberyEvent.source, rival.source, 'robbery event carries the robber')
+T.equal(robberyEvent.ownerOrganizationId, 'ballas', 'robbery event carries the victim gang')
+T.equal(robberyEvent.lootValue, stolen.data.purse, 'robbery event carries what was delivered')
 T.truthy(stolen.data.purse > 0, 'the rival took dirty money')
 T.truthy(db.outposts[OUTPOST].purse_available < purseTarget, 'the purse was debited')
 T.truthy(db.outposts[OUTPOST].purse_available > 0, 'the whole purse was not exposed')

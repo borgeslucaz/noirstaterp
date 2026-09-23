@@ -35,6 +35,15 @@ exports('RecordActivity', function(source, activityKey, transactionId, options)
     end)
 end)
 
+exports('RecordOrganizationActivity', function(organizationId, activityKey, transactionId, options)
+    return safe('RecordOrganizationActivity', function()
+        local isReady, readyError = ready()
+        if not isReady then return false, readyError end
+        return NoirIllegal.Services.Activity.recordOrganization(
+            organizationId, activityKey, transactionId, options, GetInvokingResource())
+    end)
+end)
+
 exports('GetProfile', function(source)
     return safe('GetProfile', function()
         local isReady, readyError = ready()
@@ -77,13 +86,20 @@ exports('GetHeat', function(source)
     end)
 end)
 
+---Responde pelo escopo do unlock: `contact_coke` é da gang, então a pergunta é se a gang de
+---quem está ali tem, não se aquela pessoa tem. Jogador sem gang nunca tem unlock de gang.
 exports('HasUnlock', function(source, unlockKey)
     return safe('HasUnlock', function()
-        if not NoirIllegal.Unlocks[unlockKey] then
+        local definition = NoirIllegal.Unlocks[unlockKey]
+        if not definition then
             return false, NoirIllegal.error('INVALID_ARGUMENT', { field = 'unlockKey' })
         end
         local profile, profileError = NoirIllegal.Services.Profile.getBySource(source)
         if not profile then return false, profileError end
+        if definition.scope == 'organization' then
+            local organization = profile.organization
+            return true, organization ~= nil and organization.unlocks[unlockKey] == true
+        end
         return true, profile.unlocks[unlockKey] == true
     end)
 end)
