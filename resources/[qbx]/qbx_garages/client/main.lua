@@ -95,7 +95,36 @@ end
 ---@param garageName string
 ---@param garageInfo GarageConfig
 ---@param accessPoint integer
-local keyCopyPrice
+local keyPrices
+
+---Copia da chave e troca de fechadura (mri_Qcarkeys), so para o dono. O servidor revalida tudo.
+local function addKeyOptions(options, vehicle, garageName, accessPoint)
+    if vehicle.citizenid ~= QBX.PlayerData.citizenid or GetResourceState('mri_Qcarkeys') ~= 'started' then return end
+    keyPrices = keyPrices or lib.callback.await('qbx_garages:server:getKeyPrices', false)
+    options[#options + 1] = {
+        title = locale('menu.key_copy'),
+        icon = 'key',
+        description = locale('menu.key_copy_price', lib.math.groupdigits(keyPrices.copy)),
+        onSelect = function()
+            lib.callback.await('qbx_garages:server:buyKeyCopy', false, vehicle.id, garageName, accessPoint)
+        end,
+    }
+    options[#options + 1] = {
+        title = locale('menu.lock_change'),
+        icon = 'lock',
+        description = locale('menu.lock_change_price', lib.math.groupdigits(keyPrices.lock)),
+        onSelect = function()
+            local confirm = lib.alertDialog({
+                header = locale('menu.lock_change'),
+                content = locale('menu.lock_change_confirm', lib.math.groupdigits(keyPrices.lock)),
+                centered = true,
+                cancel = true,
+            })
+            if confirm ~= 'confirm' then return end
+            lib.callback.await('qbx_garages:server:changeLock', false, vehicle.id, garageName, accessPoint)
+        end,
+    }
+end
 
 local function displayVehicleInfo(vehicle, garageName, garageInfo, accessPoint)
     local engine = qbx.math.round(vehicle.props.engineHealth / 10)
@@ -136,7 +165,14 @@ local function displayVehicleInfo(vehicle, garageName, garageInfo, accessPoint)
     }
 
     if vehicle.state == VehicleState.OUT then
-        if garageInfo.type == GarageType.DEPOT then
+        if garageInfo.type == GarageType.DEPOT and vehicle.onServer then
+            options[#options + 1] = {
+                title = locale('menu.still_on_street'),
+                icon = 'road',
+                readOnly = true,
+            }
+            addKeyOptions(options, vehicle, garageName, accessPoint)
+        elseif garageInfo.type == GarageType.DEPOT then
             options[#options + 1] = {
                 title = 'Take out',
                 icon = 'fa-truck-ramp-box',
@@ -146,6 +182,7 @@ local function displayVehicleInfo(vehicle, garageName, garageInfo, accessPoint)
                     takeOutOfGarage(vehicle.id, garageName, accessPoint)
                 end,
             }
+            addKeyOptions(options, vehicle, garageName, accessPoint)
         else
             options[#options + 1] = {
                 title = 'Your vehicle is already out...',
@@ -162,17 +199,7 @@ local function displayVehicleInfo(vehicle, garageName, garageInfo, accessPoint)
                 takeOutOfGarage(vehicle.id, garageName, accessPoint)
             end,
         }
-        if vehicle.citizenid == QBX.PlayerData.citizenid and GetResourceState('mri_Qcarkeys') == 'started' then
-            keyCopyPrice = keyCopyPrice or lib.callback.await('qbx_garages:server:getKeyCopyPrice', false)
-            options[#options + 1] = {
-                title = locale('menu.key_copy'),
-                icon = 'key',
-                description = locale('menu.key_copy_price', lib.math.groupdigits(keyCopyPrice)),
-                onSelect = function()
-                    lib.callback.await('qbx_garages:server:buyKeyCopy', false, vehicle.id, garageName, accessPoint)
-                end,
-            }
-        end
+        addKeyOptions(options, vehicle, garageName, accessPoint)
     elseif vehicle.state == VehicleState.IMPOUNDED then
         options[#options + 1] = {
             title = locale('menu.veh_impounded'),

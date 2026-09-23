@@ -11,6 +11,14 @@ end
 -- tranca. Mesmo valor do qbx_vehiclekeys (distanceToVehicle).
 local MAX_KEY_DISTANCE = 7.5
 local ALLOWED_LOCKPICKS = { lockpick = true, advancedlockpick = true }
+-- Populacao "random" do GTA (trafego, estacionados, cenario): carro de NPC, nao criado por script.
+local AMBIENT_POPULATION = { [1] = true, [2] = true, [3] = true, [4] = true, [5] = true }
+
+---@param vehicle number
+---@return boolean
+local function IsAmbient(vehicle)
+    return AMBIENT_POPULATION[GetEntityPopulationType(vehicle)] == true
+end
 
 ---@param plate string placa ja normalizada
 ---@return number[]
@@ -34,18 +42,95 @@ local function IsNear(src, vehicle, maxDistance)
     return #(GetEntityCoords(ped) - GetEntityCoords(vehicle)) <= maxDistance
 end
 
+-- Fechadura: cada placa de carro de jogador tem uma geracao. A chave (item) guarda a geracao em que
+-- foi feita e so abre se for a atual. Trocar a fechadura (garagem) ou trocar o dono do carro sobe a
+-- geracao e invalida todas as chaves antigas. Placa sem linha = geracao 0 (as chaves de antes valem).
+local Locks = {} ---@type table<string, { generation: integer, owner: string? }>
+
+---@param plate string placa ja normalizada
+---@return integer
+local function CurrentGeneration(plate)
+    local lock = Locks[plate]
+    return lock and lock.generation or 0
+end
+
+-- Os clientes so recebem as placas com geracao > 0; o resto e 0 por padrao.
+local function PublishGenerations()
+    local map = {}
+    for plate, lock in pairs(Locks) do
+        if lock.generation > 0 then map[plate] = lock.generation end
+    end
+    GlobalState.mriKeyGen = map
+end
+
+local function SaveLock(plate)
+    local lock = Locks[plate]
+    MySQL.prepare.await('INSERT INTO `mri_vehicle_locks` (`plate`, `generation`, `owner`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `generation` = VALUES(`generation`), `owner` = VALUES(`owner`)', {
+        plate, lock.generation, lock.owner
+    })
+end
+
+---@param plate string placa ja normalizada
+---@param owner string? citizenid do dono depois da troca
+local function BumpGeneration(plate, owner)
+    local lock = Locks[plate] or { generation = 0 }
+    lock.generation = lock.generation + 1
+    lock.owner = owner
+    Locks[plate] = lock
+    SaveLock(plate)
+    PublishGenerations()
+end
+
+---Registra o dono da placa; se ele mudou (venda por qualquer caminho), troca a fechadura.
+---@param plate string placa ja normalizada
+---@param owner string citizenid atual no player_vehicles
+---@return boolean ownerChanged
+local function SyncOwner(plate, owner)
+    local lock = Locks[plate]
+    if lock and lock.owner == owner then return false end
+    if not lock or not lock.owner then
+        Locks[plate] = { generation = lock and lock.generation or 0, owner = owner }
+        SaveLock(plate)
+        return false
+    end
+    BumpGeneration(plate, owner)
+    return true
+end
+
+CreateThread(function()
+    MySQL.query.await([[
+        CREATE TABLE IF NOT EXISTS `mri_vehicle_locks` (
+            `plate` VARCHAR(16) NOT NULL,
+            `generation` INT UNSIGNED NOT NULL DEFAULT 0,
+            `owner` VARCHAR(50) NULL,
+            PRIMARY KEY (`plate`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ]])
+    for _, row in ipairs(MySQL.query.await('SELECT `plate`, `generation`, `owner` FROM `mri_vehicle_locks`') or {}) do
+        Locks[row.plate] = { generation = row.generation, owner = row.owner }
+    end
+    PublishGenerations()
+end)
+
+---@param info table metadata de vehiclekey ou entrada do keybag
+---@param plate string placa ja normalizada
+---@return boolean
+local function KeyOpens(info, plate)
+    return info ~= nil and info.plate ~= nil and RemoveSpecialCharacter(info.plate) == plate
+        and (tonumber(info.gen) or 0) == CurrentGeneration(plate)
+end
+
 ---@param src number
 ---@param plate string placa ja normalizada
 ---@return boolean
 local function HasKeyItem(src, plate)
     for _, v in pairs(Bridge:GetPlayerItemsByName(src, 'vehiclekey') or {}) do
-        local info = getItemInfo(v)
-        if info and info.plate and RemoveSpecialCharacter(info.plate) == plate then return true end
+        if KeyOpens(getItemInfo(v), plate) then return true end
     end
     for _, bag in pairs(Bridge:GetPlayerItemsByName(src, 'keybag') or {}) do
         local info = getItemInfo(bag)
         for _, v in pairs(info and info.plates or {}) do
-            if v.plate and RemoveSpecialCharacter(v.plate) == plate then return true end
+            if KeyOpens(v, plate) then return true end
         end
     end
     return false
@@ -76,13 +161,24 @@ end
 ---@return boolean
 local function GivePermanentKey(src, plate, copy)
     if not copy and HasKeyItem(src, plate) then return true end
-    return exports.ox_inventory:AddItem(src, 'vehiclekey', 1, { label = 'CHAVE-' .. plate, plate = plate }) == true
+    local metadata = { label = 'CHAVE-' .. plate, plate = plate, gen = CurrentGeneration(plate) }
+    return exports.ox_inventory:AddItem(src, 'vehiclekey', 1, metadata) == true
+end
+
+---@param src number
+---@param vehicle number
+---@return boolean
+local function HasKeyForVehicle(src, vehicle)
+    local plate = RemoveSpecialCharacter(GetVehicleNumberPlateText(vehicle))
+    return HasTempKey(src, plate) or HasKeyItem(src, plate)
 end
 
 ---Unica porta de entrada de chave pedida por evento/export de compatibilidade:
 --- - carro de jogador: nada. Ele so abre com o item de chave, que vem na compra
----   (export GivePermanentKey) ou do admin (/givekeys) -- tirar da garagem nao da chave;
---- - carro sem dono (missao/emprego/admin): chave temporaria.
+---   (export GivePermanentKey), do admin (/givekeys) ou da garagem (copia paga). Excecao: se o
+---   dono mudou desde a ultima vez (venda), a fechadura e trocada e o dono novo recebe a chave;
+--- - carro criado por script sem dono (missao/emprego/admin): chave temporaria. Carro de NPC
+---   (populacao ambiente) nunca: so ligacao direta.
 ---`trusted` = chamada de outro resource no servidor; pedido do cliente exige estar junto do carro.
 ---@param src number
 ---@param plate string
@@ -94,17 +190,24 @@ local function GrantVehicleKey(src, plate, trusted)
     local vehicles = GetVehiclesByPlate(normalized)
     local rawPlate = vehicles[1] and GetVehicleNumberPlateText(vehicles[1]) or plate
 
-    if GetPlayerVehicleOwner(rawPlate) then
+    local vehicleId, owner = GetPlayerVehicleOwner(rawPlate)
+    if vehicleId then
+        if owner and SyncOwner(normalized, owner) and owner == Bridge:GetPlayerCitizenId(src) then
+            GivePermanentKey(src, normalized)
+            return true
+        end
         return false
     end
 
     if not trusted then
-        local near = false
+        local allowed, seen = false, {}
         for i = 1, #vehicles do
-            if IsNear(src, vehicles[i], MAX_KEY_DISTANCE) then near = true break end
+            local vehicle = vehicles[i]
+            seen[#seen + 1] = GetEntityPopulationType(vehicle)
+            if IsNear(src, vehicle, MAX_KEY_DISTANCE) and not IsAmbient(vehicle) then allowed = true break end
         end
-        if not near then
-            print(('[mri_Qcarkeys] chave negada: src %s longe da placa %s (%d veiculo(s))'):format(src, normalized, #vehicles))
+        if not allowed then
+            print(('[mri_Qcarkeys] chave negada: src %s placa %s (populacao %s)'):format(src, normalized, table.concat(seen, ',')))
             return false
         end
     end
@@ -219,13 +322,31 @@ lib.callback.register('mm_carkeys:server:getvehiclekeys', function(source)
 end)
 
 ---source vazio = TriggerEvent de outro resource no servidor (ex.: qbx_garages ao soltar o carro).
+---Jogador precisa estar perto e ter a chave. Sem chave, so trancar carro de NPC (assalto que falhou,
+---LockNPCVehicle). Destrancar sem chave e pelo lockpick (evento proprio) ou pelo assalto (setHotwired).
 local function SetLockStateFromEvent(src, vehNetId, state)
     if type(vehNetId) ~= 'number' or type(state) ~= 'number' then return end
     local vehicle = NetworkGetEntityFromNetworkId(vehNetId)
     if vehicle == 0 or not DoesEntityExist(vehicle) then return end
-    if src and src > 0 and not IsNear(src, vehicle, 10.0) then return end
-    SetVehicleDoorsLocked(vehicle, state == 2 and 2 or 1)
+    local lock = state == 2
+    if src and src > 0 then
+        if not IsNear(src, vehicle, 10.0) then return end
+        if not HasKeyForVehicle(src, vehicle) and not (lock and IsAmbient(vehicle)) then return end
+    end
+    SetVehicleDoorsLocked(vehicle, lock and 2 or 1)
 end
+
+---Lockpick de porta bem-sucedido. O cliente manda antes de consumir o lockpick, entao o item ainda
+---esta no inventario aqui.
+RegisterNetEvent('mri_Qcarkeys:server:lockpickUnlock', function(netId, isAdvanced)
+    local src = source
+    if type(netId) ~= 'number' then return end
+    local vehicle = NetworkGetEntityFromNetworkId(netId)
+    if vehicle == 0 or not DoesEntityExist(vehicle) or not IsNear(src, vehicle, MAX_KEY_DISTANCE) then return end
+    local item = isAdvanced and 'advancedlockpick' or 'lockpick'
+    if (exports.ox_inventory:Search(src, 'count', item) or 0) < 1 then return end
+    SetVehicleDoorsLocked(vehicle, 1)
+end)
 
 RegisterNetEvent('mm_carkeys:server:setVehLockState', function(vehNetId, state)
     SetLockStateFromEvent(tonumber(source), vehNetId, state)
@@ -261,12 +382,19 @@ end)
 
 ---Ligacao direta, lockpick na ignicao, assalto e chave tirada de NPC nao dao chave: o carro fica
 ---marcado enquanto o motor roda. Quem dirige o cliente limpa a marca quando o motor para.
+---Marcar: so quem esta no banco do motorista (ligacao direta, lockpick na ignicao) ou em carro de NPC
+---(assalto, chave de NPC) -- e so este ultimo destranca. Desmarcar: basta estar perto.
 RegisterNetEvent('mri_Qcarkeys:server:setHotwired', function(netId, value)
     local src = source
     if type(netId) ~= 'number' then return end
     local vehicle = NetworkGetEntityFromNetworkId(netId)
     if vehicle == 0 or not DoesEntityExist(vehicle) then return end
     if not IsNear(src, vehicle, MAX_KEY_DISTANCE) then return end
+    if value == true then
+        local ambient = IsAmbient(vehicle)
+        if not ambient and GetPedInVehicleSeat(vehicle, -1) ~= GetPlayerPed(src) then return end
+        if ambient then SetVehicleDoorsLocked(vehicle, 1) end
+    end
     Entity(vehicle).state:set('hotwired', value == true, true)
 end)
 
@@ -300,7 +428,8 @@ RegisterNetEvent('mm_carkeys:server:stackkeys', function()
         if info.plate then
             plates[#plates+1] = {
                 plate = info.plate,
-                label = info.label
+                label = info.label,
+                gen = info.gen
             }
             platestxt = platestxt..info.plate..', '
             Bridge:RemoveItem(src, 'vehiclekey', v.slot)
@@ -312,7 +441,8 @@ RegisterNetEvent('mm_carkeys:server:stackkeys', function()
         for _, v in pairs(getplates) do
             plates[#plates+1] = {
                 plate = v.plate,
-                label = v.label
+                label = v.label,
+                gen = v.gen
             }
             platestxt = platestxt..v.plate..', '
         end
@@ -338,6 +468,7 @@ RegisterNetEvent('mm_carkeys:server:unstackkeys', function()
         local info = {}
 		info.label = v.label
         info.plate = v.plate
+        info.gen = v.gen
         Bridge:AddItem(src, 'vehiclekey', info)
     end
 end)
@@ -351,6 +482,45 @@ exports('GivePermanentKey', function(src, plate, copy)
     if type(src) ~= 'number' or type(plate) ~= 'string' or plate == '' then return false end
     return GivePermanentKey(src, RemoveSpecialCharacter(plate), copy == true)
 end)
+
+---Troca a fechadura (garagem): invalida todas as chaves da placa e entrega uma nova ao jogador.
+---Confere espaco antes, para nao deixar o dono sem chave nenhuma.
+---@param src number
+---@param plate string
+---@return boolean
+exports('ChangeLock', function(src, plate)
+    if type(src) ~= 'number' or type(plate) ~= 'string' or plate == '' then return false end
+    if not exports.ox_inventory:CanCarryItem(src, 'vehiclekey', 1) then return false end
+    local normalized = RemoveSpecialCharacter(plate)
+    BumpGeneration(normalized, Bridge:GetPlayerCitizenId(src))
+    return GivePermanentKey(src, normalized, true)
+end)
+
+---Troca de dono pela API do qbx_vehicles (transferencia do admin, scripts): fechadura nova e, se o
+---dono novo esta online, a chave vai para ele. A venda do qbx_vehiclesales mexe no SQL direto e e
+---pega pelo SyncOwner no primeiro pedido de chave do comprador.
+local function OnOwnerChanged(payload)
+    local ok, row = pcall(function() return exports.qbx_vehicles:GetPlayerVehicle(payload.vehicleId) end)
+    local plate = ok and row and row.props and row.props.plate
+    if not plate then return end
+    plate = RemoveSpecialCharacter(plate)
+    BumpGeneration(plate, payload.newCitizenId)
+    local player = payload.newCitizenId and exports.qbx_core:GetPlayerByCitizenId(payload.newCitizenId)
+    if player then GivePermanentKey(player.PlayerData.source, plate) end
+end
+
+local function RegisterOwnerHook()
+    if GetResourceState('qbx_vehicles') ~= 'started' then return end
+    exports.qbx_vehicles:registerHook('changeVehicleOwner', function(payload)
+        CreateThread(function() OnOwnerChanged(payload) end)
+        return true
+    end)
+end
+
+AddEventHandler('onServerResourceStart', function(resource)
+    if resource == 'qbx_vehicles' then RegisterOwnerHook() end
+end)
+CreateThread(RegisterOwnerHook)
 
 HasKeyItemForPlate = HasKeyItem
 GivePermanentKeyForPlate = GivePermanentKey

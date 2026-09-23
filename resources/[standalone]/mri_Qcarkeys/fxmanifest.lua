@@ -16,6 +16,7 @@ client_scripts {
     "client/qbx_vehiclekeys.lua"
 }
 server_scripts {
+    '@oxmysql/lib/MySQL.lua',
     -- '@ox_core/imports/server.lua', -- Can be commented in case not using ox_core to prevent warning on startup
     "server/commands.lua",
     "server/server.lua",

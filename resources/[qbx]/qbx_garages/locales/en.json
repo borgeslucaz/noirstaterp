@@ -15,7 +15,8 @@
     },
     "success": {
         "vehicle_parked": "Vehicle Stored",
-        "key_copy": "You received a copy of the key (%s)"
+        "key_copy": "You received a copy of the key (%s)",
+        "lock_changed": "Lock changed. New key (%s) delivered"
     },
     "menu": {
         "information": "Information",
@@ -26,7 +27,11 @@
         "take_out": "Take Out",
         "veh_impounded": "Your vehicle has been impounded by the police",
         "key_copy": "Get a key copy",
-        "key_copy_price": "Cost: $%s"
+        "key_copy_price": "Cost: $%s",
+        "lock_change": "Change the lock",
+        "lock_change_price": "Invalidates every key and gives you a new one. Cost: $%s",
+        "lock_change_confirm": "Every key for this vehicle, including copies held by others, stops working. You get a new key. Cost: $%s",
+        "still_on_street": "Your vehicle is still on the street"
     },
     "info": {
         "car_e": "E - Open Garage",

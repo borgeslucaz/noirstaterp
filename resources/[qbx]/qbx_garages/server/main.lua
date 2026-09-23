@@ -175,7 +175,11 @@ lib.callback.register('qbx_garages:server:getGarageVehicles', function(source, g
 
     local vehicleType = garage.vehicleType
     for _, vehicle in pairs(playerVehicles) do
-        if not FindPlateOnServer(vehicle.props.plate) then
+        -- No patio, o carro que ainda esta no mundo tambem aparece (so com as opcoes de chave): e o
+        -- unico caminho para quem perdeu a chave com o carro trancado na rua. Retirar continua barrado.
+        local onServer = FindPlateOnServer(vehicle.props.plate)
+        if onServer and garage.type == GarageType.DEPOT then vehicle.onServer = true end
+        if not onServer or vehicle.onServer then
             if vehicleType == getVehicleType(vehicle) then
                 OverrideFreeDepotPriceForOutVehicle(vehicle)
                 toSend[#toSend + 1] = vehicle
@@ -212,21 +216,26 @@ local function isParkable(source, vehicleId, garageName)
     return true
 end
 
-lib.callback.register('qbx_garages:server:getKeyCopyPrice', function()
-    return Config.keyCopyPrice
+lib.callback.register('qbx_garages:server:getKeyPrices', function()
+    return { copy = Config.keyCopyPrice, lock = Config.lockChangePrice }
 end)
 
----Copia da chave (item do mri_Qcarkeys): so o dono, com o carro guardado nesta garagem e o jogador
----no guiche. Cobra em dinheiro e depois no banco, como a taxa do patio; devolve se a entrega falhar.
+---Servico de chave (item do mri_Qcarkeys) no menu do carro: so o dono, no guiche, com o carro guardado
+---nesta garagem ou fora (listado no patio -- quem perdeu a chave com o carro na rua). Cobra em
+---dinheiro e depois no banco, como a taxa do patio, e devolve se a entrega falhar.
 ---@param source number
 ---@param vehicleId integer
 ---@param garageName string
 ---@param accessPointIndex integer
+---@param price integer
+---@param reason string
+---@param deliver fun(plate: string): boolean
+---@param successLocale string
 ---@return boolean
-lib.callback.register('qbx_garages:server:buyKeyCopy', function(source, vehicleId, garageName, accessPointIndex)
+local function sellKeyService(source, vehicleId, garageName, accessPointIndex, price, reason, deliver, successLocale)
     local player = exports.qbx_core:GetPlayer(source)
     local garage = Garages[garageName]
-    if not player or not garage or garage.type == GarageType.DEPOT then return false end
+    if not player or not garage then return false end
     if not getCanAccessGarage(player, garage) then return false end
 
     local accessPoint = garage.accessPoints[accessPointIndex]
@@ -238,31 +247,42 @@ lib.callback.register('qbx_garages:server:buyKeyCopy', function(source, vehicleI
         exports.qbx_core:Notify(source, locale('error.not_owned'), 'error')
         return false
     end
-    if playerVehicle.state ~= VehicleState.GARAGED or (not garage.skipGarageCheck and playerVehicle.garage ~= garageName) then
-        return false
-    end
+    local inThisGarage = playerVehicle.state == VehicleState.GARAGED and (garage.skipGarageCheck or playerVehicle.garage == garageName)
+    local outAtDepot = garage.type == GarageType.DEPOT and playerVehicle.state == VehicleState.OUT
+    if not inThisGarage and not outAtDepot then return false end
 
     if GetResourceState('mri_Qcarkeys') ~= 'started' then
         exports.qbx_core:Notify(source, locale('error.key_copy_unavailable'), 'error')
         return false
     end
 
-    local price = Config.keyCopyPrice
     local account = player.PlayerData.money.cash >= price and 'cash' or player.PlayerData.money.bank >= price and 'bank'
-    if not account or not player.Functions.RemoveMoney(account, price, 'garage-key-copy') then
+    if not account or not player.Functions.RemoveMoney(account, price, reason) then
         exports.qbx_core:Notify(source, locale('error.not_enough'), 'error')
         return false
     end
 
     local plate = playerVehicle.props.plate
-    if not exports.mri_Qcarkeys:GivePermanentKey(source, plate, true) then
-        player.Functions.AddMoney(account, price, 'garage-key-copy-refund')
+    if not deliver(plate) then
+        player.Functions.AddMoney(account, price, reason .. '-refund')
         exports.qbx_core:Notify(source, locale('error.key_copy_unavailable'), 'error')
         return false
     end
 
-    exports.qbx_core:Notify(source, locale('success.key_copy', plate), 'success')
+    exports.qbx_core:Notify(source, locale(successLocale, plate), 'success')
     return true
+end
+
+lib.callback.register('qbx_garages:server:buyKeyCopy', function(source, vehicleId, garageName, accessPointIndex)
+    return sellKeyService(source, vehicleId, garageName, accessPointIndex, Config.keyCopyPrice, 'garage-key-copy', function(plate)
+        return exports.mri_Qcarkeys:GivePermanentKey(source, plate, true)
+    end, 'success.key_copy')
+end)
+
+lib.callback.register('qbx_garages:server:changeLock', function(source, vehicleId, garageName, accessPointIndex)
+    return sellKeyService(source, vehicleId, garageName, accessPointIndex, Config.lockChangePrice, 'garage-lock-change', function(plate)
+        return exports.mri_Qcarkeys:ChangeLock(source, plate)
+    end, 'success.lock_changed')
 end)
 
 lib.callback.register('qbx_garages:server:isParkable', function(source, garage, netId)

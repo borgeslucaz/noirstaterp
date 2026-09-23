@@ -37,12 +37,14 @@ function LockPick:LockPickDoor(isAdvanced)
     TaskPlayAnim(cache.ped, 'anim@amb@clubhouse@tutorial@bkr_tut_ig3@', 'machinic_loop_mechandplayer', 3.0, 3.0, -1, 49, 0, false, false, false)
     local result = self:Minigame()
     TriggerServerEvent('hud:server:GainStress', Shared.lockpick.stressIncrease)
+    -- destrava antes de talvez quebrar o lockpick: o servidor confere que ele ainda esta no inventario
+    if result then
+        TriggerServerEvent('mri_Qcarkeys:server:lockpickUnlock', NetworkGetNetworkIdFromEntity(vehicle), isAdvanced == true)
+    end
     self:BreakLockPick(isAdvanced)
     self.lockpicking = false
     StopAnimTask(cache.ped, "anim@amb@clubhouse@tutorial@bkr_tut_ig3@", "machinic_loop_mechandplayer", 1.0)
     if result then
-        TriggerServerEvent('mm_carkeys:server:setVehLockState', NetworkGetNetworkIdFromEntity(vehicle), 1)
-        SetVehicleDoorsLockedForAllPlayers(vehicle, false)
         lib.notify({
             description = 'Veículo destrancado',
             type = 'success'

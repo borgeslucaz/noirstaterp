@@ -6,6 +6,18 @@ local KeyManagement = {
     getItemInfo = Shared.Inventory == 'qb' and function(item) return item.info end or function(item) return item.metadata end
 }
 
+---A chave so abre se foi feita na geracao atual da fechadura (GlobalState.mriKeyGen, publicado
+---pelo servidor; placa ausente = geracao 0).
+---@param info table metadata de vehiclekey ou entrada do keybag
+---@return string? placa normalizada, se a chave vale
+local function ValidKeyPlate(info)
+    if not info or not info.plate then return end
+    local plate = Utils:RemoveSpecialCharacter(info.plate)
+    local generations = GlobalState.mriKeyGen or {}
+    if (tonumber(info.gen) or 0) ~= (generations[plate] or 0) then return end
+    return plate
+end
+
 function KeyManagement:SetVehicleKeys()
     VehicleKeys.playerKeys = {}
     local PlayerItems = InventoryBridge:GetPlayerItems()
@@ -13,14 +25,23 @@ function KeyManagement:SetVehicleKeys()
     for _, item in pairs(PlayerItems) do
         local itemInfo = self.getItemInfo(item)
         if itemInfo and item.name == "vehiclekey" then
-            VehicleKeys.playerKeys[#VehicleKeys.playerKeys+1] = Utils:RemoveSpecialCharacter(itemInfo.plate)
+            VehicleKeys.playerKeys[#VehicleKeys.playerKeys+1] = ValidKeyPlate(itemInfo)
         elseif itemInfo and item.name == "keybag" then
-            for _,v in pairs(itemInfo.plates) do
-                VehicleKeys.playerKeys[#VehicleKeys.playerKeys+1] = Utils:RemoveSpecialCharacter(v.plate)
+            for _,v in pairs(itemInfo.plates or {}) do
+                VehicleKeys.playerKeys[#VehicleKeys.playerKeys+1] = ValidKeyPlate(v)
             end
         end
     end
 end
+
+-- Fechadura trocada em algum carro: recalcula as chaves. Fora do handler (proximo tick), quando o
+-- GlobalState ja tem o valor novo.
+AddStateBagChangeHandler('mriKeyGen', 'global', function()
+    SetTimeout(0, function()
+        KeyManagement:SetVehicleKeys()
+        VehicleKeys:Init()
+    end)
+end)
 
 function KeyManagement:GetKeys()
     lib.callback('mm_carkeys:server:getvehiclekeys', false, function(keysList)

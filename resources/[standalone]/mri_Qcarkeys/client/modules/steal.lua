@@ -87,7 +87,6 @@ function Steal:CarjackVehicle(target)
         local targetPos = GetEntityCoords(target)
         TaskSmartFleePed(target, cache.ped, 50, -1, false, false)
         TriggerServerEvent('hud:server:GainStress', Shared.steal.stressIncrease)
-        TriggerServerEvent('mm_carkeys:server:setVehLockState', NetworkGetNetworkIdFromEntity(vehicle), 1)
 
         -- assalto nao da chave: o carro fica com o motor ligado, como numa ligacao direta
         Utils:SetHotwired(vehicle, true)

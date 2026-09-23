@@ -14,7 +14,8 @@
     },
     "success": {
         "vehicle_parked": "Você estacionou seu veículo",
-        "key_copy": "Você recebeu uma cópia da chave (%s)"
+        "key_copy": "Você recebeu uma cópia da chave (%s)",
+        "lock_changed": "Fechadura trocada. Nova chave (%s) entregue"
     },
     "menu": {
         "information": "Informação",
@@ -25,7 +26,11 @@
         "take_out": "Retirar",
         "veh_impounded": "Seu veículo foi apreendido pela polícia",
         "key_copy": "Retirar cópia da chave",
-        "key_copy_price": "Custo: $%s"
+        "key_copy_price": "Custo: $%s",
+        "lock_change": "Trocar fechadura",
+        "lock_change_price": "Invalida todas as chaves e entrega uma nova. Custo: $%s",
+        "lock_change_confirm": "Todas as chaves deste veículo, inclusive cópias com outras pessoas, deixam de funcionar. Você recebe uma chave nova. Custo: $%s",
+        "still_on_street": "Seu veículo ainda está na rua"
     },
     "info": {
         "car_e": "E - Abrir Garagem",
