@@ -224,9 +224,11 @@ end)
 RegisterNetEvent('qbx_core:client:setVehicleProperties', function(netId, props)
     if not props then return end
     local timeOut = GetGameTimer() + config.setVehicleProperties.timeout
-    local vehicle = NetworkGetEntityFromNetworkId(netId)
     while true do
-        if NetworkGetEntityOwner(vehicle) == cache.playerId then
+        -- Resolve a cada volta: o servidor ja nos da a posse antes de a entidade existir aqui, e um
+        -- handle 0 guardado de fora do loop nunca mais vira o carro (props nunca aplicadas).
+        local vehicle = NetworkDoesNetworkIdExist(netId) and NetworkGetEntityFromNetworkId(netId) or 0
+        if vehicle ~= 0 and NetworkGetEntityOwner(vehicle) == cache.playerId then
             if lib.setVehicleProperties(vehicle, props) then
                 return
             end
