@@ -24,6 +24,20 @@ function Utils:GetPedsInVehicle(vehicle)
     return otherPeds
 end
 
+---Nivel de habilidade no cw-rep; sem o resource, nivel 1 (chance base).
+---@param skill string
+---@return number
+function Utils:GetSkillLevel(skill)
+    if GetResourceState('cw-rep') ~= 'started' then return 1 end
+    return exports['cw-rep']:getCurrentLevel(skill) or 1
+end
+
+---@param skill string
+function Utils:AddSkill(skill)
+    if GetResourceState('cw-rep') ~= 'started' then return end
+    exports['cw-rep']:updateSkill(skill, 1)
+end
+
 function Utils:RemoveSpecialCharacter(txt)
     if not txt then return 'undefined' end
     return (txt:gsub("%W", "")):upper()

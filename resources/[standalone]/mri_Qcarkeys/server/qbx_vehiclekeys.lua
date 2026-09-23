@@ -31,11 +31,13 @@ exportHandler('RemoveKeys', function(source, vehicle)
     return true
 end)
 
+-- Responde com o que o servidor sabe (lista temporaria + item no inventario), sem perguntar ao
+-- cliente: o callback original deixava o cliente decidir e travava quem chamava se ele nao respondesse.
 exportHandler('HasKeys', function(source, vehicle)
     local plate = getPlate(vehicle)
     if not plate then return false end
-    return lib.callback.await('mm_carkeys:client:havekey', source, 'temp', plate)
-        or lib.callback.await('mm_carkeys:client:havekey', source, 'perma', plate)
+    plate = NormalizePlate(plate)
+    return HasTempKeyForPlate(source, plate) or HasKeyItemForPlate(source, plate)
 end)
 
 exportHandler('SetLockState', function(vehicle, state)

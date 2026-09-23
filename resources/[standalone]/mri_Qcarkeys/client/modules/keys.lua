@@ -209,11 +209,20 @@ RegisterNetEvent('qb-vehiclekeys:client:AddKeys', function(plate)
     exports.mri_Qcarkeys:GiveTempKeys(plate)
 end)
 
+-- @compat qb (ps_lib e outros)
+RegisterNetEvent('qb-vehiclekeys:client:RemoveKeys', function(plate)
+    exports.mri_Qcarkeys:RemoveTempKeys(plate)
+end)
+
 RegisterNetEvent('mm_carkeys:client:removetempkeys', function(plate)
-    VehicleKeys.playerTempKeys[plate] = nil
+    plate = Utils:RemoveSpecialCharacter(plate)
+    local list = VehicleKeys.playerTempKeys
+    for i = #list, 1, -1 do
+        if list[i] == plate then table.remove(list, i) end
+    end
     if VehicleKeys.currentVehicle and cache.vehicle then
-        local vehicleplate = GetVehicleNumberPlateText(cache.vehicle)
-        if VehicleKeys.currentVehiclePlate == vehicleplate then
+        local vehicleplate = Utils:RemoveSpecialCharacter(GetVehicleNumberPlateText(cache.vehicle))
+        if vehicleplate == plate then
             VehicleKeys.hasKey = false
             SetVehicleEngineOn(VehicleKeys.currentVehicle, false, false, true)
             VehicleKeys.isEngineRunning = false

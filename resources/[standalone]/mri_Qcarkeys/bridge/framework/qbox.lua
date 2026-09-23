@@ -6,8 +6,8 @@ if Shared.Framework == 'qbx' then
     local function setupData()
         VehicleKeys.currentVehicle = cache.vehicle and cache.vehicle or 0
         if cache.vehicle then
-            VehicleKeys.isInDrivingSeat = GetPedInVehicleSeat(value, -1) == cache.ped
-            local plate = GetVehicleNumberPlateText(value)
+            VehicleKeys.isInDrivingSeat = GetPedInVehicleSeat(cache.vehicle, -1) == cache.ped
+            local plate = GetVehicleNumberPlateText(cache.vehicle)
             VehicleKeys.currentVehiclePlate = Utils:RemoveSpecialCharacter(plate)
         end
     end

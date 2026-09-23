@@ -3201,4 +3201,22 @@ return {
     ['sniperrifle_blueprint'] = { label = 'Sniper Rifle Blueprint', weight = 10, stack = false, close = true, description = 'Blueprint for crafting Sniper Rifle' },
     ['heavysniper_blueprint'] = { label = 'Heavy Sniper Blueprint', weight = 10, stack = false, close = true, description = 'Blueprint for crafting Heavy Sniper' },
     ['marksmanrifle_blueprint'] = { label = 'Marksman Rifle Blueprint', weight = 10, stack = false, close = true, description = 'Blueprint for crafting Marksman Rifle' },
+
+    -- mri_Qcarkeys: chave fisica (metadata.plate) e chaveiro (metadata.plates)
+    ['vehiclekey'] = {
+        label = 'Chave de veiculo',
+        weight = 50,
+        stack = false,
+        close = true,
+        description = 'Chave de veiculo',
+        client = { image = 'carkey.png' },
+    },
+    ['keybag'] = {
+        label = 'Chaveiro',
+        weight = 100,
+        stack = false,
+        close = true,
+        description = 'Um chaveiro com varias chaves',
+        client = { image = 'key.png' },
+    },
 }

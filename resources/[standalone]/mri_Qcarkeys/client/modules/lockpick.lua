@@ -1,4 +1,5 @@
 local VehicleKeys = require 'client.interface'
+local Utils = require 'client.modules.utils'
 
 local LockPick = {
     lockpicking = false,
@@ -46,7 +47,7 @@ function LockPick:LockPickDoor(isAdvanced)
             description = 'Veículo destrancado',
             type = 'success'
         })
-        exports["cw-rep"]:updateSkill("lockpicking", 1)
+        Utils:AddSkill("lockpicking")
         SetVehicleLights(vehicle, 2)
         Wait(250)
         SetVehicleLights(vehicle, 1)

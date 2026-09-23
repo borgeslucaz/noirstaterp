@@ -1,4 +1,5 @@
 local VehicleKeys = require 'client.interface'
+local Utils = require 'client.modules.utils'
 
 local Hotwire = {
     isHotwiring = false
@@ -36,7 +37,7 @@ function Hotwire:HotwireHandler()
         }
     }) and (enginewire == nil and true or enginewire) then
         TriggerServerEvent('hud:server:GainStress', Shared.hotwire.stressIncrease)
-        local level = exports["cw-rep"]:getCurrentLevel("hotwiring")
+        local level = Utils:GetSkillLevel("hotwiring")
         if level > 8 then
             level = 8
         end
@@ -46,7 +47,7 @@ function Hotwire:HotwireHandler()
         end
 
         if (math.random() <= Shared.hotwire.chance * level) then
-            exports["cw-rep"]:updateSkill("hotwiring", 1)
+            Utils:AddSkill("hotwiring")
             TriggerServerEvent('mm_carkeys:server:acquiretempvehiclekeys', VehicleKeys.currentVehiclePlate)
             SetVehicleEngineOn(VehicleKeys.currentVehicle, true, false, true)
             VehicleKeys.isEngineRunning = true
