@@ -77,8 +77,9 @@ local function GivePermanentKey(src, plate)
     Bridge:AddItem(src, 'vehiclekey', { label = 'CHAVE-' .. plate, plate = plate })
 end
 
----Unica porta de entrada de chave. Quem decide o tipo e o servidor, pela posse do carro:
---- - carro de jogador: o dono recebe a chave definitiva (item) se ainda nao tem; os demais, nada;
+---Unica porta de entrada de chave pedida por evento/export de compatibilidade:
+--- - carro de jogador: nada. Ele so abre com o item de chave, que vem na compra
+---   (export GivePermanentKey) ou do admin (/givekeys) -- tirar da garagem nao da chave;
 --- - carro sem dono (missao/emprego/admin): chave temporaria.
 ---`trusted` = chamada de outro resource no servidor; pedido do cliente exige estar junto do carro.
 ---@param src number
@@ -91,13 +92,7 @@ local function GrantVehicleKey(src, plate, trusted)
     local vehicles = GetVehiclesByPlate(normalized)
     local rawPlate = vehicles[1] and GetVehicleNumberPlateText(vehicles[1]) or plate
 
-    local vehicleId, owner = GetPlayerVehicleOwner(rawPlate)
-    if vehicleId then
-        if owner and owner == Bridge:GetPlayerCitizenId(src) then
-            GivePermanentKey(src, normalized)
-            return true
-        end
-        print(('[mri_Qcarkeys] chave negada: src %s nao e dono da placa %s'):format(src, normalized))
+    if GetPlayerVehicleOwner(rawPlate) then
         return false
     end
 
@@ -345,7 +340,18 @@ RegisterNetEvent('mm_carkeys:server:unstackkeys', function()
     end
 end)
 
+---Chave definitiva (item) para quem compra o carro. Para lojas/concessionarias no servidor.
+---@param src number
+---@param plate string
+---@return boolean
+exports('GivePermanentKey', function(src, plate)
+    if type(src) ~= 'number' or type(plate) ~= 'string' or plate == '' then return false end
+    GivePermanentKey(src, RemoveSpecialCharacter(plate))
+    return true
+end)
+
 HasKeyItemForPlate = HasKeyItem
+GivePermanentKeyForPlate = GivePermanentKey
 GrantVehicleKeyTrusted = function(src, plate) return GrantVehicleKey(src, plate, true) end
 HasTempKeyForPlate = HasTempKey
 NormalizePlate = RemoveSpecialCharacter
