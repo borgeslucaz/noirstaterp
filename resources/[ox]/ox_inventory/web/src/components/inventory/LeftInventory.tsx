@@ -8,10 +8,11 @@ const HOTSLOTS = 5;
 
 const LeftInventory: React.FC = () => {
   const leftInventory = useAppSelector(selectLeftInventory);
+  const worn = useAppSelector((state) => state.inventory.worn);
 
   return (
     <>
-      <EquipmentSlots inventory={leftInventory} className="equipment-rail" />
+      <EquipmentSlots inventory={leftInventory} className="equipment-rail" worn={worn} />
       <div className="inventory-column">
         <InventoryGrid inventory={leftInventory} start={HOTSLOTS} className="player-panel" />
         <div className="inventory-panel fast-slots">

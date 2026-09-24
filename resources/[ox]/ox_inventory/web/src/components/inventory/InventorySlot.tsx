@@ -25,6 +25,9 @@ interface SlotProps {
   // equipment: slot de equipamento vazio mostra icone e nome
   emptyLabel?: string;
   emptyIcon?: string;
+  // roupa vestida: slot vazio mostra a peca no corpo; clicar tira
+  worn?: boolean;
+  onEmptyClick?: () => void;
 }
 
 const formatWeight = (weight: number) =>
@@ -33,7 +36,7 @@ const formatWeight = (weight: number) =>
     : `${weight.toLocaleString('en-us', { minimumFractionDigits: 0 })}g`;
 
 const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> = (
-  { item, inventoryId, inventoryType, inventoryGroups, emptyLabel, emptyIcon },
+  { item, inventoryId, inventoryType, inventoryGroups, emptyLabel, emptyIcon, worn, onEmptyClick },
   ref
 ) => {
   const manager = useDragDropManager();
@@ -125,6 +128,7 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
   const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
     dispatch(closeTooltip());
     if (timerRef.current) clearTimeout(timerRef.current);
+    if (!isSlotWithItem(item) && onEmptyClick) return onEmptyClick();
     if (event.ctrlKey && isSlotWithItem(item) && inventoryType !== 'shop' && inventoryType !== 'crafting') {
       onDrop({ item: item, inventory: inventoryType });
     } else if (event.altKey && isSlotWithItem(item) && inventoryType === 'player') {
@@ -149,6 +153,7 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
         rarity && `rarity-${rarity}`,
         isOver && (canDrop ? 'is-over' : 'is-blocked'),
         emptyLabel && 'equipment-slot',
+        worn && 'is-worn',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -215,7 +220,7 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
           </div>
         </div>
       ) : emptyLabel ? (
-        <div className="equipment-slot-empty">
+        <div className="equipment-slot-empty" title={worn ? 'Vestindo: clique para tirar' : undefined}>
           <EquipmentIcon name={emptyIcon || ''} />
           <span>{emptyLabel}</span>
         </div>

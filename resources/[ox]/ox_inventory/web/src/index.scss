@@ -320,6 +320,36 @@ kbd {
   }
 }
 
+.is-worn {
+  cursor: pointer;
+  border-color: rgba($accent, 0.35);
+  background: linear-gradient(to top, rgba($accent, 0.12), transparent 70%), $slot;
+
+  .equipment-slot-empty {
+    color: $accent;
+
+    span {
+      color: $text;
+    }
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: calc(var(--u) * 0.6);
+    right: calc(var(--u) * 0.6);
+    width: calc(var(--u) * 0.7);
+    height: calc(var(--u) * 0.7);
+    border-radius: 50%;
+    background: $accent;
+    box-shadow: 0 0 calc(var(--u) * 0.6) $accent;
+  }
+
+  &:hover {
+    border-color: $accent;
+  }
+}
+
 .equipment-icon {
   width: 38%;
   max-width: calc(var(--u) * 3.4);

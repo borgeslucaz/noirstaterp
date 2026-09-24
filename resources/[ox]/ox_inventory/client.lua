@@ -6,6 +6,7 @@ require 'modules.interface.client'
 local Utils = require 'modules.utils.client'
 local Weapon = require 'modules.weapon.client'
 local Equipment = require 'modules.equipment.shared'
+local sendWornClothing
 local currentWeapon
 
 exports('getCurrentWeapon', function()
@@ -297,6 +298,8 @@ function client.openInventory(inv, data)
         }
     })
 
+    sendWornClothing()
+
     if inv and not currentInventory.coords and inv ~= 'container' and inv ~= 'glovebox' then
         currentInventory.coords = GetEntityCoords(playerPed)
     end
@@ -336,6 +339,23 @@ RegisterNetEvent('ox_inventory:setBackpack', function(backpack)
 
 	SendNUIMessage({ action = 'setBackpack', data = backpack })
 end)
+
+---equipment: roupas vestidas, lidas do ped pelo clothingmenu. O slot de roupa vazio
+---com a peca no corpo aparece como vestido na NUI.
+function sendWornClothing()
+	local ok, worn = pcall(function() return exports.clothingmenu:GetWornClothing() end)
+	local slots, list = {}, Equipment.list()
+
+	if ok and type(worn) == 'table' then
+		for i = 1, #list do
+			local def = list[i]
+
+			if def.group == 'clothing' and worn[def.items[1]] then slots[#slots + 1] = def.slot end
+		end
+	end
+
+	SendNUIMessage({ action = 'setWorn', data = slots })
+end
 
 ---Slots de equipamento para a NUI, sem o conjunto interno de itens aceitos.
 local function equipmentSlots()
@@ -1694,6 +1714,18 @@ RegisterNUICallback('removeAmmo', function(slot, cb)
 	if success and slot == currentWeapon?.slot then
 		SetPedAmmo(playerPed, currentWeapon.hash, 0)
 	end
+end)
+
+-- equipment: clique no slot de roupa vestida tira a peca pelo clothingmenu
+RegisterNUICallback('removeClothing', function(slot, cb)
+	cb(1)
+
+	local def = Equipment.get(slot)
+
+	if not def or def.group ~= 'clothing' then return end
+
+	client.closeInventory()
+	pcall(function() exports.clothingmenu:RemoveClothing(def.items[1]) end)
 end)
 
 RegisterNUICallback('useItem', function(slot, cb)

@@ -3,7 +3,7 @@ import useNuiEvent from '../../hooks/useNuiEvent';
 import InventoryControl from './InventoryControl';
 import InventoryHotbar from './InventoryHotbar';
 import { useAppDispatch } from '../../store';
-import { refreshSlots, setAdditionalMetadata, setBackpack, setupInventory } from '../../store/inventory';
+import { refreshSlots, setAdditionalMetadata, setBackpack, setupInventory, setWorn } from '../../store/inventory';
 import TotalWeight from './TotalWeight';
 import { useExitListener } from '../../hooks/useExitListener';
 import type { Inventory as InventoryProps } from '../../typings';
@@ -39,6 +39,7 @@ const Inventory: React.FC = () => {
 
   // equipment: a mochila equipada entrou ou saiu do slot
   useNuiEvent<InventoryProps | false>('setBackpack', (data) => dispatch(setBackpack(data)));
+  useNuiEvent<number[]>('setWorn', (data) => dispatch(setWorn(data)));
 
   useNuiEvent('displayMetadata', (data: Array<{ metadata: string; value: string }>) => {
     dispatch(setAdditionalMetadata(data));

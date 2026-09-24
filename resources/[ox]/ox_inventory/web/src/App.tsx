@@ -74,6 +74,8 @@ debugData([
   },
 ]);
 
+debugData([{ action: 'setWorn', data: [1001, 1004, 1005, 1006] }], 1300);
+
 debugData(
   [
     {

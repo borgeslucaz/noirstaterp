@@ -32,6 +32,7 @@ const initialState: State = {
     maxWeight: 0,
     items: [],
   },
+  worn: [],
   additionalMetadata: new Array(),
   itemAmount: 0,
   shiftPressed: false,
@@ -72,6 +73,9 @@ export const inventorySlice = createSlice({
       if (!container || !isSlotWithItem(container)) return;
 
       setSlot(leftInventory, container.slot, { ...getSlot(leftInventory, container.slot), weight: action.payload.weight });
+    },
+    setWorn: (state, action: PayloadAction<number[]>) => {
+      state.worn = Array.isArray(action.payload) ? action.payload : [];
     },
     // equipment: a mochila equipada entrou ou saiu do slot com o inventario aberto
     setBackpack: (state, action: PayloadAction<Inventory | false>) => {
@@ -116,6 +120,7 @@ export const {
   refreshSlots,
   setContainerWeight,
   setBackpack,
+  setWorn,
 } = inventorySlice.actions;
 export const selectLeftInventory = (state: RootState) => state.inventory.leftInventory;
 export const selectRightInventory = (state: RootState) => state.inventory.rightInventory;

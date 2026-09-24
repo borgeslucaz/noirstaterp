@@ -54,6 +54,10 @@ function Equipment.list() return definitions end
 function Equipment.isSlot(slot) return bySlot[slot] ~= nil end
 
 ---@param slot any
+---@return table? definition
+function Equipment.get(slot) return bySlot[slot] end
+
+---@param slot any
 ---@param itemName string
 ---@return boolean
 function Equipment.accepts(slot, itemName)
