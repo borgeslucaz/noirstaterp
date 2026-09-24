@@ -1716,6 +1716,15 @@ RegisterNUICallback('removeAmmo', function(slot, cb)
 	end
 end)
 
+-- Regras de arrastar recusadas na NUI viram aviso para o jogador.
+RegisterNUICallback('notify', function(message, cb)
+	cb(1)
+
+	if type(message) == 'string' then
+		lib.notify({ id = 'inventory_rule', type = 'error', description = message })
+	end
+end)
+
 -- equipment: clique no slot de roupa vestida tira a peca pelo clothingmenu
 RegisterNUICallback('removeClothing', function(slot, cb)
 	cb(1)

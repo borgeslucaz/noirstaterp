@@ -4,6 +4,9 @@ import { store } from '../store';
 import { DragSource, DropTarget, InventoryType, SlotWithItem } from '../typings';
 import { moveSlots, stackSlots, swapSlots } from '../store/inventory';
 import { Items } from '../store/items';
+import { notify } from '../utils/notify';
+
+const itemLabel = (slot: SlotWithItem) => slot.metadata?.label || Items[slot.name]?.label || slot.name;
 
 export const onDrop = (source: DragSource, target?: DropTarget) => {
   const { inventory: state } = store.getState();
@@ -20,18 +23,28 @@ export const onDrop = (source: DragSource, target?: DropTarget) => {
   if (sourceSlot.metadata?.container !== undefined) {
     // Prevent storing container in container
     if (targetInventory.type === InventoryType.CONTAINER || targetInventory.type === InventoryType.BACKPACK)
-      return console.log(`Cannot store container ${sourceSlot.name} inside another container`);
+      return notify(`Não dá para guardar ${itemLabel(sourceSlot)} dentro de outro container.`);
 
     // Prevent dragging of container slot when opened
     if (state.rightInventory.id === sourceSlot.metadata.container)
-      return console.log(`Cannot move container ${sourceSlot.name} when opened`);
+      return notify(`Feche ${itemLabel(sourceSlot)} antes de mover.`);
   }
+
+  // equipment: regras da mochila equipada que o servidor tambem aplica
+  if (sourceInventory.type === InventoryType.BACKPACK && targetInventory.type === 'newdrop')
+    return notify('Tire o item da mochila antes de largar no chão.');
+
+  if (
+    (sourceInventory.type === InventoryType.BACKPACK && targetInventory.type === InventoryType.CONTAINER) ||
+    (sourceInventory.type === InventoryType.CONTAINER && targetInventory.type === InventoryType.BACKPACK)
+  )
+    return notify(`Feche ${state.rightInventory.label || 'o container aberto'} para mover entre ele e a mochila.`);
 
   const targetSlot = target
     ? getSlot(targetInventory, target.item.slot)
     : findAvailableSlot(sourceSlot, sourceData, targetInventory.items);
 
-  if (targetSlot === undefined) return console.error('Target slot undefined!');
+  if (targetSlot === undefined) return notify(`Sem espaço em ${targetInventory.label || 'destino'}.`);
 
   // equipment: slot de equipamento so recebe os itens dele, inclusive na troca de volta
   if (
@@ -42,7 +55,7 @@ export const onDrop = (source: DragSource, target?: DropTarget) => {
 
   // If dropping on container slot when opened
   if (targetSlot.metadata?.container !== undefined && state.rightInventory.id === targetSlot.metadata.container)
-    return console.log(`Cannot swap item ${sourceSlot.name} with container ${targetSlot.name} when opened`);
+    return notify(`Feche ${itemLabel(targetSlot as SlotWithItem)} antes de trocar.`);
 
   const count =
     state.shiftPressed && sourceSlot.count > 1 && sourceInventory.type !== 'shop'
