@@ -1,5 +1,6 @@
 Shared = {
     LockNPCVehicle = true, -- lock all npc vehicles
+    LockParkedVehicles = true, -- carros estacionados do mundo nascem trancados (abre so com lockpick)
     playerDraggable = true, -- allow players to drag other players
     toggleLightsOnlyRemote = true, -- true if you want the vehicle lights to toggle only when not in the vehicle
     keepVehicleEngineOn = true, -- motor fica como o jogador deixou: nao liga sozinho ao entrar nem desliga ao sair

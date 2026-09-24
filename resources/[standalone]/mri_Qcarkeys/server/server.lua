@@ -336,6 +336,16 @@ local function SetLockStateFromEvent(src, vehNetId, state)
     SetVehicleDoorsLocked(vehicle, lock and 2 or 1)
 end
 
+-- Carro estacionado do mundo (populacao 2, "random parked") ja nasce trancado: abre so com lockpick.
+-- Carro de script (dono, missao, admin) e populacao 7 e nao entra aqui.
+if Shared.LockParkedVehicles then
+    AddEventHandler('entityCreated', function(entity)
+        if not DoesEntityExist(entity) or GetEntityType(entity) ~= 2 then return end
+        if GetEntityPopulationType(entity) ~= 2 then return end
+        SetVehicleDoorsLocked(entity, 2)
+    end)
+end
+
 ---Lockpick de porta bem-sucedido. O cliente manda antes de consumir o lockpick, entao o item ainda
 ---esta no inventario aqui.
 RegisterNetEvent('mri_Qcarkeys:server:lockpickUnlock', function(netId, isAdvanced)
