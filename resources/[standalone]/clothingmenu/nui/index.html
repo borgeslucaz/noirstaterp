@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu de Roupas AIFAZI</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main id="app" class="app" aria-hidden="true">
+        <section id="hud" class="hud" aria-label="Controles de roupas">
+            <div id="target-info" class="target-info" hidden>
+                <span class="target-dot"></span>
+                <span class="target-kicker">JOGADOR</span>
+                <strong id="target-name">JOGADOR</strong>
+            </div>
+            <div id="anchor-layer" class="anchor-layer"></div>
+            <div id="item-label" class="item-label" hidden>
+                <span id="item-status" class="item-status">PRONTO</span>
+                <strong id="item-name">SELECIONE</strong>
+            </div>
+            <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
+            <button id="close-button" class="close-button" type="button" aria-label="Fechar menu de roupas">
+                <span>ESC</span>
+            </button>
+        </section>
+    </main>
+    <script src="script.js"></script>
+</body>
+</html>
