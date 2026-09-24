@@ -60,7 +60,14 @@ debugData([
         ['watch', 'Relógio'],
         ['necklace', 'Colar'],
       ]
-        .map(([name, label], i) => ({ slot: 1001 + i, group: 'clothing', name, label, items: [`clothing_${name}`] }))
+        .map(([name, label], i): EquipmentSlotDef => ({
+          slot: 1001 + i,
+          group: 'clothing',
+          name,
+          label,
+          items: [`clothing_${name}`],
+          stealable: ['glasses', 'vest', 'watch'].includes(name),
+        }))
         .concat([
           { slot: 1011, group: 'body', name: 'phone', label: 'Celular', items: ['phone_black'] },
           { slot: 1012, group: 'body', name: 'radio', label: 'Rádio', items: ['radio'] },

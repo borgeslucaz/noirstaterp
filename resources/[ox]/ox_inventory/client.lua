@@ -363,7 +363,7 @@ local function equipmentSlots()
 
 	for i = 1, #list do
 		local def = list[i]
-		slots[i] = { slot = def.slot, group = def.group, name = def.name, label = def.label, items = def.items }
+		slots[i] = { slot = def.slot, group = def.group, name = def.name, label = def.label, items = def.items, stealable = def.stealable }
 	end
 
 	return slots

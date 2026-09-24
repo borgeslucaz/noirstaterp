@@ -12,14 +12,16 @@ const groups: { group: EquipmentSlotDef['group']; label: string }[] = [
 
 // equipment: slots de equipamento de um inventario de jogador (o proprio ou o de quem esta sendo revistado)
 // worn: slots de roupa com a peca vestida; so no inventario do proprio jogador
-const EquipmentSlots: React.FC<{ inventory: Inventory; className?: string; worn?: number[] }> = ({
-  inventory,
-  className,
-  worn,
-}) => (
+// filter: quais slots mostrar (na revista, so as roupas que podem ser tiradas)
+const EquipmentSlots: React.FC<{
+  inventory: Inventory;
+  className?: string;
+  worn?: number[];
+  filter?: (def: EquipmentSlotDef) => boolean;
+}> = ({ inventory, className, worn, filter }) => (
   <div className={`equipment-slots${className ? ` ${className}` : ''}`}>
     {groups.map(({ group, label }) => {
-      const defs = Equipment.list.filter((def) => def.group === group);
+      const defs = Equipment.list.filter((def) => def.group === group && (!filter || filter(def)));
 
       if (defs.length === 0) return null;
 

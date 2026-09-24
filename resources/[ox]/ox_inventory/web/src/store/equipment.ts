@@ -6,6 +6,8 @@ export interface EquipmentSlotDef {
   name: string;
   label: string;
   items: string[];
+  // roupa que quem revista pode tirar
+  stealable?: boolean;
 }
 
 export const Equipment: { list: EquipmentSlotDef[]; bySlot: Record<number, EquipmentSlotDef> } = {

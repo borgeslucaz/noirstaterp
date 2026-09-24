@@ -276,9 +276,23 @@ function OpenMenu(targetPed)
     isOpen = true
     SetCursorEnabled(true, false)
 
+    -- revistando outro jogador: so aparecem as pecas que podem ser tiradas dele
+    local items = Config.Clothing
+
+    if isTargetMenu then
+        items = {}
+
+        for i, item in ipairs(Config.Clothing) do
+            local copy = {}
+            for k, v in pairs(item) do copy[k] = v end
+            copy.hidden = not Config.IsTargetRemovable(item)
+            items[i] = copy
+        end
+    end
+
     SendNUIMessage({
         type = 'open',
-        items = Config.Clothing,
+        items = items,
         colors = Config.Colors,
         states = clothingState,
         isTarget = isTargetMenu,
@@ -495,6 +509,11 @@ function ToggleClothingItem(index, item)
     if not valid then
         Notify(reason, 'error')
         CloseMenu()
+        return
+    end
+
+    if isTargetMenu and not Config.IsTargetRemovable(item) then
+        Notify('Essa peça não pode ser tirada de outro jogador.', 'error')
         return
     end
 

@@ -140,6 +140,10 @@ RegisterNetEvent('clothingmenu:server:addClothingItem', function(metadata)
     end
 
     local itemName = ResolveItemName(metadata.itemName)
+
+    -- de outro jogador so sai o que a config permite
+    if targetSrc ~= src and not Config.IsTargetRemovable({ itemName = itemName }) then return end
+
     local cleanMetadata = SanitizeMetadata(metadata, src, targetSrc)
     local added, destination = AddClothingToInventoryOrDrop(targetSrc, itemName, cleanMetadata)
 
@@ -209,6 +213,15 @@ RegisterNetEvent('clothingmenu:server:syncClothingState', function(targetSrc, in
     if not targetSrc or not index then return end
     if not IsTargetNearSource(src, targetSrc) then return end
     if not IsPlayerEligibleTarget(targetSrc) then return end
+
+    -- so a peca permitida, e o itemData tem que ser dessa peca
+    local item = Config.Clothing[index]
+    if not item then return end
+    if targetSrc ~= src and not Config.IsTargetRemovable(item) then return end
+    if type(itemData) ~= 'table' then return end
+
+    local slot = item.type == 'prop' and itemData.prop or itemData.component
+    if tonumber(slot) ~= item.component then return end
 
     TriggerClientEvent('clothingmenu:client:syncClothingState', targetSrc, index, state == true, itemData)
 end)

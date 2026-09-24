@@ -60,7 +60,10 @@ Config = {
         interactionDistance = 2.5,
         maxDistance = 5.0,
         icon = 'fa-solid fa-shirt',
-        label = 'Remover roupa'
+        label = 'Remover roupa',
+        -- Unicas pecas que se tira de outro jogador (pelo itemName). Vale tambem para a
+        -- revista do ox_inventory (modules/equipment/shared.lua, campo stealable).
+        removable = { 'clothing_vest', 'clothing_glasses', 'clothing_watch' }
     },
 
     emptyDrawables = {
@@ -248,5 +251,13 @@ Config.TargetDistance = Config.target.interactionDistance
 Config.MaxTargetDistance = Config.target.maxDistance
 Config.TargetIcon = Config.target.icon
 Config.TargetLabel = Config.target.label
+
+local targetRemovable = {}
+for _, itemName in ipairs(Config.target.removable or {}) do targetRemovable[itemName] = true end
+
+---Se a peca pode ser tirada de outro jogador.
+function Config.IsTargetRemovable(item)
+    return item ~= nil and targetRemovable[item.itemName] == true
+end
 Config.ItemSystem = Config.itemSystem
 Config.Sync = Config.sync

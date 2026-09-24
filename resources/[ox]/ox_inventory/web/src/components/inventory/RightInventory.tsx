@@ -14,7 +14,13 @@ const RightInventory: React.FC = () => {
   return (
     <div className={`inventory-column inventory-side${showBackpack ? ' with-backpack' : ''}`}>
       <InventoryGrid inventory={rightInventory} className={`right-panel${otherPlayer ? ' with-equipment' : ''}`}>
-        {otherPlayer && <EquipmentSlots inventory={rightInventory} className="equipment-strip" />}
+        {otherPlayer && (
+          <EquipmentSlots
+            inventory={rightInventory}
+            className="equipment-strip"
+            filter={(def) => def.group !== 'clothing' || !!def.stealable}
+          />
+        )}
       </InventoryGrid>
       {showBackpack && <InventoryGrid inventory={backpackInventory} className="backpack-panel" />}
     </div>

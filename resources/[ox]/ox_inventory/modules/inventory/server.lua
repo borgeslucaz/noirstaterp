@@ -1855,6 +1855,12 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
             data.count = fromData.count
         end
 
+		-- equipment: da revista so saem as roupas permitidas
+		if (fromOtherPlayer and not Equipment.canTakeFromOther(data.fromSlot))
+			or (toOtherPlayer and toData and not Equipment.canTakeFromOther(data.toSlot)) then
+			return false
+		end
+
 		-- equipment: slot fora da grade so recebe o item que o equipamento aceita
 		if data.toType == 'newdrop' then
 			if not Equipment.validSlot({ slots = shared.dropslots }, data.toSlot, fromData.name) then return false end

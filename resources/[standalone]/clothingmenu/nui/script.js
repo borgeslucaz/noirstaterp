@@ -69,6 +69,9 @@ function setupMenu(nextItems = [], colors) {
     applyColors(colors);
 
     items.forEach((item, index) => {
+        // revistando outro jogador: peca que nao pode ser tirada nem aparece
+        if (item.hidden) return;
+
         const size = Number(item.size) || 58;
         const button = document.createElement('button');
         button.className = 'clothing-anchor';
