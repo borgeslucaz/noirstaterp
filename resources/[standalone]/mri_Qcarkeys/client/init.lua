@@ -38,10 +38,6 @@ if Shared.Ready then
             local plate = GetVehicleNumberPlateText(value)
             VehicleKeys.currentVehiclePlate = Utils:RemoveSpecialCharacter(plate)
         else
-            if Shared.keepVehicleEngineOn and VehicleKeys.isInDrivingSeat and VehicleKeys.isEngineRunning then
-                SetVehicleEngineOn(cache.vehicle, true, true, false)
-                VehicleKeys.isEngineRunning = false
-            end
             VehicleKeys.currentVehicle = 0
             VehicleKeys.isInDrivingSeat = false
             VehicleKeys.currentVehiclePlate = false
@@ -49,6 +45,17 @@ if Shared.Ready then
         end
         VehicleKeys:Init()
     end)
+
+    -- O motor fica como o jogador deixou: o jogo nao liga sozinho ao entrar nem desliga ao sair.
+    -- Flag do ped, entao reaplica quando o ped muda (respawn, troca de modelo).
+    if Shared.keepVehicleEngineOn then
+        local function KeepEngineState(ped)
+            SetPedConfigFlag(ped, 241, true) -- LeaveEngineOnWhenExitingVehicles
+            SetPedConfigFlag(ped, 429, true) -- DisableStartEngine (partida automatica ao entrar)
+        end
+        KeepEngineState(cache.ped)
+        lib.onCache('ped', KeepEngineState)
+    end
 
     lib.onCache('seat', function(value)
         if not value then return end
