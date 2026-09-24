@@ -9,7 +9,4 @@ export type ItemData = {
   buttons?: string[];
   ammoName?: string;
   image?: string;
-  rarity?: string;
-  grid?: [number, number];
-  clothing?: string | string[];
 };

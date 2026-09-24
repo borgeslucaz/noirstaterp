@@ -2,19 +2,11 @@ import { Inventory, SlotWithItem } from '../../typings';
 import React, { Fragment, useMemo } from 'react';
 import { Items } from '../../store/items';
 import { Locale } from '../../store/locale';
-import ReactMarkdown from 'react-markdown';
 import { useAppSelector } from '../../store';
 import ClockIcon from '../utils/icons/ClockIcon';
-import { getItemRarity, getItemRarityKey, getItemUrl } from '../../helpers';
+import { getItemUrl } from '../../helpers';
 import Divider from '../utils/Divider';
-import ItemImage from '../utils/ItemImage';
-
-const formatWeight = (weight: number): string => {
-  if (weight >= 1000) {
-    return `${(weight / 1000).toFixed(2)}kg`;
-  }
-  return `${Math.round(weight)}g`;
-};
+import Markdown from '../utils/Markdown';
 
 const SlotTooltip: React.ForwardRefRenderFunction<
   HTMLDivElement,
@@ -28,12 +20,6 @@ const SlotTooltip: React.ForwardRefRenderFunction<
   }, [item]);
   const description = item.metadata?.description || itemData?.description;
   const ammoName = itemData?.ammoName && Items[itemData?.ammoName]?.label;
-  const rarity = useMemo(() => getItemRarity(item), [item]);
-  const rarityColor = useMemo(() => {
-    const key = getItemRarityKey(item);
-
-    return key && rarity ? `var(--ox-rarity-${key}, ${rarity.color})` : undefined;
-  }, [item, rarity]);
 
   return (
     <>
@@ -47,27 +33,20 @@ const SlotTooltip: React.ForwardRefRenderFunction<
       ) : (
         <div style={{ ...style }} className="tooltip-wrapper" ref={ref}>
           <div className="tooltip-header-wrapper">
-            <p style={rarityColor ? { color: rarityColor } : undefined}>
-              {item.metadata?.label || itemData.label || item.name}
-            </p>
+            <p>{item.metadata?.label || itemData.label || item.name}</p>
             {inventoryType === 'crafting' ? (
               <div className="tooltip-crafting-duration">
                 <ClockIcon />
                 <p>{(item.duration !== undefined ? item.duration : 3000) / 1000}s</p>
               </div>
             ) : (
-              <span className="tooltip-weight">{formatWeight(item.weight)}</span>
+              <p>{item.metadata?.type}</p>
             )}
           </div>
-          {rarity && (
-            <div className="tooltip-rarity" style={{ color: rarityColor }}>
-              {rarity.label}
-            </div>
-          )}
           <Divider />
           {description && (
             <div className="tooltip-description">
-              <ReactMarkdown className="tooltip-markdown">{description}</ReactMarkdown>
+              <Markdown content={description} className="tooltip-markdown" />
             </div>
           )}
           {inventoryType !== 'crafting' ? (
@@ -122,13 +101,13 @@ const SlotTooltip: React.ForwardRefRenderFunction<
                   const [item, count] = [ingredient[0], ingredient[1]];
                   return (
                     <div className="tooltip-ingredient" key={`ingredient-${item}`}>
-                      <ItemImage src={item ? getItemUrl(item) : undefined} />
+                      <img src={item ? getItemUrl(item) : 'none'} alt="item-image" />
                       <p>
                         {count >= 1
                           ? `${count}x ${Items[item]?.label || item}`
                           : count === 0
-                          ? `${Items[item]?.label || item}`
-                          : count < 1 && `${count * 100}% ${Items[item]?.label || item}`}
+                            ? `${Items[item]?.label || item}`
+                            : count < 1 && `${count * 100}% ${Items[item]?.label || item}`}
                       </p>
                     </div>
                   );

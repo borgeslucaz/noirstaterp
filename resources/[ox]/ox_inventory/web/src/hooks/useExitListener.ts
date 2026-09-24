@@ -7,6 +7,8 @@ import { closeContextMenu } from '../store/contextMenu';
 
 type FrameVisibleSetter = (bool: boolean) => void;
 
+const LISTENED_KEYS = ['Escape'];
+
 // Basic hook to listen for key presses in NUI in order to exit
 export const useExitListener = (visibleSetter: FrameVisibleSetter) => {
   const setterRef = useRef<FrameVisibleSetter>(noop);
@@ -17,27 +19,17 @@ export const useExitListener = (visibleSetter: FrameVisibleSetter) => {
   }, [visibleSetter]);
 
   useEffect(() => {
-    const closeInventory = () => {
-      setterRef.current(false);
-      dispatch(closeTooltip());
-      dispatch(closeContextMenu());
-      fetchNui('exit');
+    const keyHandler = (e: KeyboardEvent) => {
+      if (LISTENED_KEYS.includes(e.code)) {
+        setterRef.current(false);
+        dispatch(closeTooltip());
+        dispatch(closeContextMenu());
+        fetchNui('exit');
+      }
     };
 
-    const keyUpHandler = (e: KeyboardEvent) => {
-      if (e.code === 'Escape') closeInventory();
-    };
+    window.addEventListener('keyup', keyHandler);
 
-    const keyDownHandler = (e: KeyboardEvent) => {
-      if (e.code === 'Tab' && !e.repeat) closeInventory();
-    };
-
-    window.addEventListener('keyup', keyUpHandler);
-    window.addEventListener('keydown', keyDownHandler);
-
-    return () => {
-      window.removeEventListener('keyup', keyUpHandler);
-      window.removeEventListener('keydown', keyDownHandler);
-    };
+    return () => window.removeEventListener('keyup', keyHandler);
   }, []);
 };

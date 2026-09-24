@@ -1,31 +1,25 @@
 # Migração para ox_inventory
 
 Baseline limpo do upstream `overextended/ox_inventory` na tag `v2.47.9`
-(`952c128fdff056fd7506d924faa6c07fb80892e9`).
+(`952c128fdff056fd7506d924faa6c07fb80892e9`), incluindo a NUI original.
 
-Este é o recurso ativo em `resources/[ox]/ox_inventory`. O fork anterior foi
-preservado, desativado, em `resources/[disabled]/ox_inventory_old`.
+O fork anterior está desativado em `resources/[disabled]/ox_inventory_old`.
+A NUI redesenhada que foi portada dele (painel de roupas, grade espacial,
+temas, filtros) e os slots de roupa em `playerslots + 1..10` foram removidos
+em 2026-09-24: os slots dependiam do tamanho da grade e quebravam ao aumentá-la.
 
-Estado atual da migração:
+O que é nosso sobre o upstream:
 
-- Os arquivos de dados do servidor (itens, lojas, crafting, stashes, armas,
-  veículos, animações, evidências e licenças) foram copiados do recurso atual.
-- As imagens dos itens também foram copiadas para a NUI padrão.
-- As propriedades exclusivas do fork atual (`grid` e `clothing`) foram
-  removidas de `data/items.lua` neste recurso novo.
-- As mochilas e duffel bags usam containers nativos do upstream em
-  `modules/items/containers.lua`. Elas não são equipamento, não abrem painel
-  auxiliar e não alteram slots/transferências do inventário.
-- A base visual da NUI foi portada e compilada para `web/build`. A execução
-  usa somente o layout convencional de slots e a hotbar nativa do upstream.
-  Painéis/callbacks exclusivos do fork anterior (roupas, grade espacial,
-  mochila equipada, hotbar persistente e configurações persistentes) não são
-  renderizados nem solicitados pelo fluxo normal.
+- `data/*.lua`: itens, armas, crafting etc. do servidor.
+- `web/images/`: imagens dos itens.
+- `modules/items/containers.lua`: mochilas e duffel bags como containers nativos.
+- `web/build/`: gerado com `npm install --legacy-peer-deps && npm run build`
+  (o upstream usa bun) e versionado com `git add -f`, já que o
+  `web/.gitignore` do upstream ignora o build.
 
-Próximas etapas de homologação:
+Pendente: slots de equipamento (roupas e corpo) numa faixa fixa de slots,
+independente de `inv.slots`. Itens de roupa salvos hoje nos slots 21–30 dos
+jogadores continuam no banco, mas não aparecem na grade até essa migração.
 
-1. Validar todos os fluxos de inventário em jogo.
-2. Reaplicar evoluções de design exclusivamente pela NUI, sem alterar
-   contratos do core.
-3. Acompanhar atualizações futuras do upstream e aplicar somente os patches
-   necessários sobre esta base.
+Para atualizar o upstream: diff de conteúdo contra a nova tag e reaplicar só
+o que está listado acima.

@@ -1,14 +1,9 @@
 import React, { useState } from 'react';
 import useNuiEvent from '../../hooks/useNuiEvent';
 import InventoryControl from './InventoryControl';
-import ClothingPanel from './ClothingPanel';
+import InventoryHotbar from './InventoryHotbar';
 import { useAppDispatch } from '../../store';
-import {
-	refreshSlots,
-	setAdditionalMetadata,
-	setItemAmount,
-	setupInventory,
-} from '../../store/inventory';
+import { refreshSlots, setAdditionalMetadata, setupInventory } from '../../store/inventory';
 import { useExitListener } from '../../hooks/useExitListener';
 import type { Inventory as InventoryProps } from '../../typings';
 import RightInventory from './RightInventory';
@@ -18,30 +13,26 @@ import { closeTooltip } from '../../store/tooltip';
 import InventoryContext from './InventoryContext';
 import { closeContextMenu } from '../../store/contextMenu';
 import Fade from '../utils/transitions/Fade';
-import { Locale } from '../../store/locale';
-import { fetchNui } from '../../utils/fetchNui';
-import { UiConfig } from '../../store/uiConfig';
 
 const Inventory: React.FC = () => {
-	const [inventoryVisible, setInventoryVisible] = useState(false);
-	const dispatch = useAppDispatch();
+  const [inventoryVisible, setInventoryVisible] = useState(false);
+  const dispatch = useAppDispatch();
 
   useNuiEvent<boolean>('setInventoryVisible', setInventoryVisible);
   useNuiEvent<false>('closeInventory', () => {
     setInventoryVisible(false);
-    dispatch(setItemAmount(0));
     dispatch(closeContextMenu());
     dispatch(closeTooltip());
   });
   useExitListener(setInventoryVisible);
 
-	useNuiEvent<{
-		leftInventory?: InventoryProps;
-		rightInventory?: InventoryProps;
-	}>('setupInventory', (data) => {
-		dispatch(setupInventory(data));
-		!inventoryVisible && setInventoryVisible(true);
-	});
+  useNuiEvent<{
+    leftInventory?: InventoryProps;
+    rightInventory?: InventoryProps;
+  }>('setupInventory', (data) => {
+    dispatch(setupInventory(data));
+    !inventoryVisible && setInventoryVisible(true);
+  });
 
   useNuiEvent('refreshSlots', (data) => dispatch(refreshSlots(data)));
 
@@ -49,36 +40,18 @@ const Inventory: React.FC = () => {
     dispatch(setAdditionalMetadata(data));
   });
 
-	return (
-		<>
-			<Fade in={inventoryVisible}>
-				<div className={`inventory-wrapper${UiConfig.clothing.enabled ? ' ped-focus' : ''}`}>
-					<div className="inventory-stage layout-slots">
-						<div className="inventory-side left">
-							<LeftInventory />
-						</div>
-
-						<div className="inventory-centre">
-							{UiConfig.clothing.enabled && <ClothingPanel />}
-							<InventoryControl />
-						</div>
-
-						<div className="inventory-side right">
-							<RightInventory />
-						</div>
-					</div>
-
-					<div className="inventory-chrome">
-						<button className="inventory-close" type="button" onClick={() => fetchNui('exit')}>
-              <span className="inventory-close-label">{Locale.ui_closeInv || 'Close Inventory'}</span>
-              <span className="inventory-close-key">{Locale.ui_esc || 'ESC'}</span>
-            </button>
-          </div>
-
+  return (
+    <>
+      <Fade in={inventoryVisible}>
+        <div className="inventory-wrapper">
+          <LeftInventory />
+          <InventoryControl />
+          <RightInventory />
           <Tooltip />
-					<InventoryContext />
-				</div>
-			</Fade>
+          <InventoryContext />
+        </div>
+      </Fade>
+      <InventoryHotbar />
     </>
   );
 };

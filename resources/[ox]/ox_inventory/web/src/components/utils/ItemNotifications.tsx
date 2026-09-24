@@ -8,7 +8,6 @@ import { getItemUrl } from '../../helpers';
 import { SlotWithItem } from '../../typings';
 import { Items } from '../../store/items';
 import Fade from './transitions/Fade';
-import ItemImage from './ItemImage';
 
 interface ItemNotificationProps {
   item: SlotWithItem;
@@ -28,23 +27,23 @@ export const useItemNotifications = () => {
 const ItemNotification = React.forwardRef(
   (props: { item: ItemNotificationProps; style?: React.CSSProperties }, ref: React.ForwardedRef<HTMLDivElement>) => {
     const slotItem = props.item.item;
-    const itemLabel = slotItem.metadata?.label || Items[slotItem.name]?.label || slotItem.name;
 
     return (
-      <div className="item-notification-box" style={props.style} ref={ref}>
-        {/* Action badge */}
-        <div className="item-notification-action">
-          <span>{props.item.text}</span>
-        </div>
-
-        {/* Item image */}
-        <div className="item-notification-image-wrapper">
-          <ItemImage src={getItemUrl(slotItem)} className="item-notification-image" />
-        </div>
-
-        {/* Item label */}
-        <div className="item-notification-label">
-          {itemLabel}
+      <div
+        className="item-notification-item-box"
+        style={{
+          backgroundImage: `url(${getItemUrl(slotItem) || 'none'}`,
+          ...props.style,
+        }}
+        ref={ref}
+      >
+        <div className="item-slot-wrapper">
+          <div className="item-notification-action-box">
+            <p>{props.item.text}</p>
+          </div>
+          <div className="inventory-slot-label-box">
+            <div className="inventory-slot-label-text">{slotItem.metadata?.label || Items[slotItem.name]?.label}</div>
+          </div>
         </div>
       </div>
     );
@@ -55,7 +54,7 @@ export const ItemNotificationsProvider = ({ children }: { children: React.ReactN
   const queue = useQueue<{
     id: number;
     item: ItemNotificationProps;
-    ref: React.RefObject<HTMLDivElement>;
+    ref: React.RefObject<HTMLDivElement | null>;
   }>();
 
   const add = (item: ItemNotificationProps) => {

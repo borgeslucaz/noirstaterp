@@ -4,16 +4,7 @@ import { onDrop } from '../../dnd/onDrop';
 import { Items } from '../../store/items';
 import { fetchNui } from '../../utils/fetchNui';
 import { Locale } from '../../store/locale';
-import {
-  canToggleFavourite,
-  hasFastSlotBindings,
-  isFavouritableItem,
-  isFavouriteItem,
-  isSlotWithItem,
-  toggleFavourite,
-} from '../../helpers';
-import { assignFastSlot, useFastSlots } from '../../store/fastSlots';
-import { UiConfig } from '../../store/uiConfig';
+import { isSlotWithItem } from '../../helpers';
 import { setClipboard } from '../../utils/setClipboard';
 import { useAppSelector } from '../../store';
 import React from 'react';
@@ -25,7 +16,6 @@ interface DataProps {
   slot?: number;
   serial?: string;
   id?: number;
-  index?: number;
 }
 
 interface Button {
@@ -48,9 +38,6 @@ interface GroupedButtons extends Array<Group> {}
 const InventoryContext: React.FC = () => {
   const contextMenu = useAppSelector((state) => state.contextMenu);
   const item = contextMenu.item;
-  const bindings = useFastSlots();
-  const showFastSlots = hasFastSlotBindings('player') && !!item && isSlotWithItem(item);
-  const boundTo = item ? bindings.indexOf(item.slot) + 1 || undefined : undefined;
 
   const handleClick = (data: DataProps) => {
     if (!item) return;
@@ -65,9 +52,6 @@ const InventoryContext: React.FC = () => {
       case 'drop':
         isSlotWithItem(item) && onDrop({ item: item, inventory: 'player' });
         break;
-      case 'favourite':
-        toggleFavourite(item.name);
-        break;
       case 'remove':
         fetchNui('removeComponent', { component: data?.component, slot: data?.slot });
         break;
@@ -76,12 +60,6 @@ const InventoryContext: React.FC = () => {
         break;
       case 'copy':
         setClipboard(data.serial || '');
-        break;
-      case 'fastSlot':
-        assignFastSlot(data.index || 0, item.slot);
-        break;
-      case 'clearFastSlot':
-        assignFastSlot(data.index || 0);
         break;
       case 'custom':
         fetchNui('useButton', { id: (data?.id || 0) + 1, slot: item.slot });
@@ -117,34 +95,6 @@ const InventoryContext: React.FC = () => {
         <MenuItem onClick={() => handleClick({ action: 'use' })} label={Locale.ui_use || 'Use'} />
         <MenuItem onClick={() => handleClick({ action: 'give' })} label={Locale.ui_give || 'Give'} />
         <MenuItem onClick={() => handleClick({ action: 'drop' })} label={Locale.ui_drop || 'Drop'} />
-        {item && isFavouritableItem(item.name) && (
-          <MenuItem
-            disabled={!canToggleFavourite(item.name)}
-            onClick={() => handleClick({ action: 'favourite' })}
-            label={
-              isFavouriteItem(item.name)
-                ? Locale.ui_unfavourite || 'Unfavourite'
-                : Locale.ui_favourite || 'Favourite'
-            }
-          />
-        )}
-        {showFastSlots && (
-          <Menu label={Locale.ui_assignFastSlot || 'Assign to fast slot'}>
-            {Array.from({ length: UiConfig.hotbar.count }, (_, i) => i + 1).map((index) => (
-              <MenuItem
-                key={index}
-                onClick={() => handleClick({ action: 'fastSlot', index })}
-                label={`${index}${index === boundTo ? ' ✓' : ''}`}
-              />
-            ))}
-          </Menu>
-        )}
-        {showFastSlots && boundTo !== undefined && (
-          <MenuItem
-            onClick={() => handleClick({ action: 'clearFastSlot', index: boundTo })}
-            label={Locale.ui_clearFastSlot || 'Clear fast slot'}
-          />
-        )}
         {item && item.metadata?.ammo > 0 && (
           <MenuItem onClick={() => handleClick({ action: 'removeAmmo' })} label={Locale.ui_remove_ammo} />
         )}
