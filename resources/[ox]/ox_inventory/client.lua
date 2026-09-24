@@ -5,6 +5,7 @@ require 'modules.interface.client'
 
 local Utils = require 'modules.utils.client'
 local Weapon = require 'modules.weapon.client'
+local Equipment = require 'modules.equipment.shared'
 local currentWeapon
 
 exports('getCurrentWeapon', function()
@@ -291,7 +292,8 @@ function client.openInventory(inv, data)
         action = 'setupInventory',
         data = {
             leftInventory = left,
-            rightInventory = currentInventory
+            rightInventory = currentInventory,
+            backpackInventory = left.backpack or false, -- equipment
         }
     })
 
@@ -328,6 +330,25 @@ end
 RegisterNetEvent('ox_inventory:openInventory', client.openInventory)
 exports('openInventory', client.openInventory)
 
+-- equipment: a mochila equipada entrou ou saiu do slot com o inventario aberto
+RegisterNetEvent('ox_inventory:setBackpack', function(backpack)
+	if source == '' or not invOpen then return end
+
+	SendNUIMessage({ action = 'setBackpack', data = backpack })
+end)
+
+---Slots de equipamento para a NUI, sem o conjunto interno de itens aceitos.
+local function equipmentSlots()
+	local list, slots = Equipment.list(), {}
+
+	for i = 1, #list do
+		local def = list[i]
+		slots[i] = { slot = def.slot, group = def.group, name = def.name, label = def.label, items = def.items }
+	end
+
+	return slots
+end
+
 RegisterNetEvent('ox_inventory:forceOpenInventory', function(left, right)
 	if source == '' then return end
 
@@ -349,7 +370,8 @@ RegisterNetEvent('ox_inventory:forceOpenInventory', function(left, right)
 		action = 'setupInventory',
 		data = {
 			leftInventory = left,
-			rightInventory = currentInventory
+			rightInventory = currentInventory,
+			backpackInventory = false, -- equipment
 		}
 	})
 end)
@@ -1240,7 +1262,8 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 			description = v.description,
 			buttons = buttons,
 			ammoName = v.ammoname,
-			image = v.client?.image
+			image = v.client?.image,
+			rarity = v.rarity,
 		}
 	end
 
@@ -1346,7 +1369,8 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 				items = PlayerData.inventory,
 				maxWeight = shared.playerweight,
 			},
-			imagepath = client.imagepath
+			imagepath = client.imagepath,
+			equipment = equipmentSlots(),
 		}
 	})
 
@@ -1611,7 +1635,8 @@ RegisterNetEvent('ox_inventory:viewInventory', function(left, right)
 		action = 'setupInventory',
 		data = {
 			leftInventory = left,
-			rightInventory = currentInventory
+			rightInventory = currentInventory,
+			backpackInventory = false, -- equipment
 		}
 	})
 end)

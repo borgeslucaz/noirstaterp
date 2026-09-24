@@ -1,4 +1,4 @@
-import { canStack, findAvailableSlot, getTargetInventory, isSlotWithItem } from '../helpers';
+import { canStack, findAvailableSlot, getSlot, getTargetInventory, isSlotWithItem, slotAccepts } from '../helpers';
 import { validateMove } from '../thunks/validateItems';
 import { store } from '../store';
 import { DragSource, DropTarget, InventoryType, SlotWithItem } from '../typings';
@@ -10,7 +10,7 @@ export const onDrop = (source: DragSource, target?: DropTarget) => {
 
   const { sourceInventory, targetInventory } = getTargetInventory(state, source.inventory, target?.inventory);
 
-  const sourceSlot = sourceInventory.items[source.item.slot - 1] as SlotWithItem;
+  const sourceSlot = getSlot(sourceInventory, source.item.slot) as SlotWithItem;
 
   const sourceData = Items[sourceSlot.name];
 
@@ -19,7 +19,7 @@ export const onDrop = (source: DragSource, target?: DropTarget) => {
   // If dragging from container slot
   if (sourceSlot.metadata?.container !== undefined) {
     // Prevent storing container in container
-    if (targetInventory.type === InventoryType.CONTAINER)
+    if (targetInventory.type === InventoryType.CONTAINER || targetInventory.type === InventoryType.BACKPACK)
       return console.log(`Cannot store container ${sourceSlot.name} inside another container`);
 
     // Prevent dragging of container slot when opened
@@ -28,10 +28,17 @@ export const onDrop = (source: DragSource, target?: DropTarget) => {
   }
 
   const targetSlot = target
-    ? targetInventory.items[target.item.slot - 1]
+    ? getSlot(targetInventory, target.item.slot)
     : findAvailableSlot(sourceSlot, sourceData, targetInventory.items);
 
   if (targetSlot === undefined) return console.error('Target slot undefined!');
+
+  // equipment: slot de equipamento so recebe os itens dele, inclusive na troca de volta
+  if (
+    !slotAccepts(targetInventory.type, targetSlot.slot, sourceSlot.name) ||
+    (isSlotWithItem(targetSlot) && !slotAccepts(sourceInventory.type, sourceSlot.slot, targetSlot.name))
+  )
+    return;
 
   // If dropping on container slot when opened
   if (targetSlot.metadata?.container !== undefined && state.rightInventory.id === targetSlot.metadata.container)
@@ -52,11 +59,14 @@ export const onDrop = (source: DragSource, target?: DropTarget) => {
     count: count,
   };
 
+  const usesBackpack = data.fromType === InventoryType.BACKPACK || data.toType === InventoryType.BACKPACK;
+
   store.dispatch(
     validateMove({
       ...data,
       fromSlot: sourceSlot.slot,
       toSlot: targetSlot.slot,
+      containerId: usesBackpack ? state.backpackInventory.id : state.rightInventory.id,
     })
   );
 

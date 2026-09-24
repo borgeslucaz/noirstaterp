@@ -3,6 +3,7 @@ import { isEqual } from 'lodash-es';
 import { store } from '../store';
 import { Items } from '../store/items';
 import { imagepath } from '../store/imagepath';
+import { Equipment } from '../store/equipment';
 import { fetchNui } from '../utils/fetchNui';
 
 export const canPurchaseItem = (item: Slot, inventory: { type: Inventory['type']; groups: Inventory['groups'] }) => {
@@ -93,20 +94,48 @@ export const findAvailableSlot = (item: Slot, data: ItemData, items: Slot[]) => 
   return stackableSlot || items.find((target) => target.name === undefined);
 };
 
+const inventoryOfType = (state: State, type: Inventory['type']) =>
+  type === InventoryType.PLAYER
+    ? state.leftInventory
+    : type === InventoryType.BACKPACK
+      ? state.backpackInventory
+      : state.rightInventory;
+
 export const getTargetInventory = (
   state: State,
   sourceType: Inventory['type'],
   targetType?: Inventory['type']
 ): { sourceInventory: Inventory; targetInventory: Inventory } => ({
-  sourceInventory: sourceType === InventoryType.PLAYER ? state.leftInventory : state.rightInventory,
+  sourceInventory: inventoryOfType(state, sourceType),
   targetInventory: targetType
-    ? targetType === InventoryType.PLAYER
-      ? state.leftInventory
-      : state.rightInventory
+    ? inventoryOfType(state, targetType)
     : sourceType === InventoryType.PLAYER
       ? state.rightInventory
       : state.leftInventory,
 });
+
+// equipment: inventarios de jogador guardam os slots de equipamento fora da grade
+export const hasEquipment = (inventory: Pick<Inventory, 'type'>) =>
+  inventory.type === InventoryType.PLAYER || inventory.type === InventoryType.OTHERPLAYER;
+
+const isEquipmentSlot = (inventory: Pick<Inventory, 'type'>, slot: number) =>
+  hasEquipment(inventory) && Equipment.bySlot[slot] !== undefined;
+
+export const getSlot = (inventory: Inventory, slot: number): Slot =>
+  isEquipmentSlot(inventory, slot) ? (inventory.equipment?.[slot] ?? { slot }) : inventory.items[slot - 1];
+
+export const setSlot = (inventory: Inventory, slot: number, value: Slot) => {
+  if (isEquipmentSlot(inventory, slot)) {
+    if (!inventory.equipment) inventory.equipment = {};
+    inventory.equipment[slot] = value;
+  } else inventory.items[slot - 1] = value;
+};
+
+// Se o slot pode receber o item: slots de equipamento so aceitam os itens da lista deles.
+export const slotAccepts = (inventoryType: Inventory['type'], slot: number, itemName?: string) =>
+  !isEquipmentSlot({ type: inventoryType }, slot) || (!!itemName && Equipment.bySlot[slot].items.includes(itemName));
+
+export const createEmptyInventory = (): Inventory => ({ id: '', type: '', slots: 0, maxWeight: 0, items: [] });
 
 export const itemDurability = (metadata: any, curTime: number) => {
   // sorry dunak
@@ -123,8 +152,11 @@ export const itemDurability = (metadata: any, curTime: number) => {
   return durability;
 };
 
-export const getTotalWeight = (items: Inventory['items']) =>
-  items.reduce((totalWeight, slot) => (isSlotWithItem(slot) ? totalWeight + slot.weight : totalWeight), 0);
+export const getTotalWeight = (items: Inventory['items'], equipment?: Inventory['equipment']) =>
+  [...items, ...Object.values(equipment ?? {})].reduce(
+    (totalWeight, slot) => (isSlotWithItem(slot) ? totalWeight + slot.weight : totalWeight),
+    0
+  );
 
 export const isContainer = (inventory: Inventory) => inventory.type === InventoryType.CONTAINER;
 

@@ -1,5 +1,5 @@
 import { CaseReducer, PayloadAction } from '@reduxjs/toolkit';
-import { getTargetInventory, itemDurability } from '../helpers';
+import { getSlot, getTargetInventory, itemDurability, setSlot } from '../helpers';
 import { Inventory, SlotWithItem, State } from '../typings';
 
 export const swapSlotsReducer: CaseReducer<
@@ -14,17 +14,18 @@ export const swapSlotsReducer: CaseReducer<
   const { fromSlot, fromType, toSlot, toType } = action.payload;
   const { sourceInventory, targetInventory } = getTargetInventory(state, fromType, toType);
   const curTime = Math.floor(Date.now() / 1000);
+  const sourceItem = { ...getSlot(sourceInventory, fromSlot.slot) };
+  const targetItem = { ...getSlot(targetInventory, toSlot.slot) };
 
-  [sourceInventory.items[fromSlot.slot - 1], targetInventory.items[toSlot.slot - 1]] = [
-    {
-      ...targetInventory.items[toSlot.slot - 1],
-      slot: fromSlot.slot,
-      durability: itemDurability(toSlot.metadata, curTime),
-    },
-    {
-      ...sourceInventory.items[fromSlot.slot - 1],
-      slot: toSlot.slot,
-      durability: itemDurability(fromSlot.metadata, curTime),
-    },
-  ];
+  setSlot(sourceInventory, fromSlot.slot, {
+    ...targetItem,
+    slot: fromSlot.slot,
+    durability: itemDurability(toSlot.metadata, curTime),
+  });
+
+  setSlot(targetInventory, toSlot.slot, {
+    ...sourceItem,
+    slot: toSlot.slot,
+    durability: itemDurability(fromSlot.metadata, curTime),
+  });
 };

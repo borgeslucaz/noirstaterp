@@ -1,23 +1,43 @@
-$mainColor: #22232c;
-$textColor: #c1c2c5;
-$mainFont: Roboto;
+// Tema do inventario: paineis escuros translucidos, destaque verde, cartoes de item
+// com peso e quantidade no topo, nome embaixo e cantinho de raridade.
 
-$secondaryColor: rgba(12, 12, 12, 0.4);
-$secondaryColorHighlight: #33343f;
-$secondaryColorLight: rgba(0, 0, 0, 0.5);
-$secondaryColorDark: rgba(12, 12, 12, 0.8);
+$text: #e6ecee;
+$muted: #8d999f;
+$accent: #3ddc84;
+$danger: #e5484d;
 
-$gridCols: 5;
-$gridRows: 5;
-$gridSize: 10.2vh;
-$gridGap: 2px;
-$containerSize: calc(#{$gridRows} * #{$gridSize + 0.22vh} + #{$gridRows} * #{$gridGap});
+$panel: rgba(11, 16, 19, 0.84);
+$panelBorder: rgba(255, 255, 255, 0.06);
+$slot: rgba(255, 255, 255, 0.035);
+$slotHover: rgba(255, 255, 255, 0.07);
+$slotBorder: rgba(255, 255, 255, 0.07);
+$menu: #11181c;
+
+$bodyFont: 'Roboto', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+$titleFont: 'Barlow Condensed', 'Roboto Condensed', 'Arial Narrow', $bodyFont;
+
+$gap: calc(var(--u) * 0.6);
+$radius: calc(var(--u) * 0.7);
+
+$rarities: (
+  common: #9ca3af,
+  uncommon: #4ade80,
+  rare: #38bdf8,
+  epic: #a855f7,
+  legendary: #f59e0b,
+  mythic: #fb7185,
+);
+
+:root {
+  // unidade de medida: 1vh em 16:9; em telas mais estreitas acompanha a largura
+  --u: min(1vh, 0.5625vw);
+  // lado de um slot da grade
+  --slot: calc(var(--u) * 10.2);
+}
 
 body {
   margin: 0;
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans',
-    'Helvetica Neue', sans-serif;
+  font-family: $bodyFont;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   height: 100vh;
@@ -30,81 +50,428 @@ body {
   height: 100%;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+::-webkit-scrollbar {
+  width: calc(var(--u) * 0.4);
 }
 
-::-webkit-scrollbar {
-  display: none;
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: calc(var(--u) * 1);
 }
 
 p {
   margin: 0;
   padding: 0;
-  font-family: $mainFont;
 }
 
 input[type='number']::-webkit-inner-spin-button,
 input[type='number']::-webkit-outer-spin-button {
   -webkit-appearance: none;
-  -moz-appearance: none;
   appearance: none;
+}
+
+kbd {
+  display: inline-block;
+  min-width: calc(var(--u) * 1.6);
+  padding: calc(var(--u) * 0.25) calc(var(--u) * 0.6);
+  border-radius: calc(var(--u) * 0.4);
+  background: rgba(255, 255, 255, 0.92);
+  color: #0b1013;
+  font-family: $bodyFont;
+  font-size: calc(var(--u) * 1.1);
+  font-weight: 700;
+  text-align: center;
 }
 
 .app-wrapper {
   height: 100%;
   width: 100%;
-  color: white;
+  color: $text;
 }
 
-.context-menu-list {
-  min-width: 200px;
-  background-color: $mainColor;
-  color: $textColor;
-  padding: 4px;
-  border-color: rgba(0, 0, 0, 0.2);
-  border-style: inset;
-  border-width: 1px;
-  border-radius: 4px;
-  outline: none;
+// ---------------------------------------------------------------- layout
+
+.inventory-wrapper {
+  position: relative;
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.62) 100%);
 }
 
-.context-menu-item {
-  padding: 8px;
-  border-radius: 4px;
-  background-color: transparent;
-  outline: none;
-  border: none;
-  color: $textColor;
+.inventory-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--u) * 1.6);
+  margin-top: calc(var(--u) * -2);
+}
+
+.inventory-column {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 1.6);
+}
+
+.inventory-panel {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 1);
+  padding: calc(var(--u) * 1.5);
+  background: $panel;
+  border: 1px solid $panelBorder;
+  border-radius: calc(var(--u) * 1);
+  box-shadow: 0 calc(var(--u) * 1) calc(var(--u) * 3) rgba(0, 0, 0, 0.35);
+}
+
+.inventory-panel-header {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
+  gap: calc(var(--u) * 2);
+}
+
+.inventory-panel-title {
+  display: flex;
+  align-items: baseline;
+  gap: calc(var(--u) * 1.2);
+  min-width: 0;
+
+  p {
+    font-family: $titleFont;
+    font-size: calc(var(--u) * 2.3);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  span {
+    color: $muted;
+    font-size: calc(var(--u) * 1.3);
+    white-space: nowrap;
+  }
+
+  &::before {
+    content: '';
+    align-self: center;
+    width: calc(var(--u) * 0.5);
+    height: calc(var(--u) * 2);
+    border-radius: calc(var(--u) * 0.3);
+    background: $accent;
+  }
+}
+
+.inventory-panel-weight {
+  font-family: $titleFont;
+  font-size: calc(var(--u) * 1.8);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.inventory-grid-container {
+  display: grid;
+  grid-template-columns: repeat(5, var(--slot));
+  grid-auto-rows: var(--slot);
+  gap: $gap;
+  overflow-y: auto;
+  padding-right: calc(var(--u) * 0.2);
+}
+
+@function rows($n) {
+  @return calc(var(--slot) * #{$n} + #{$gap} * #{$n - 1});
+}
+
+.player-panel .inventory-grid-container {
+  max-height: rows(4);
+}
+
+.right-panel .inventory-grid-container {
+  height: rows(5);
+}
+
+.right-panel.with-equipment .inventory-grid-container {
+  height: rows(3);
+}
+
+.with-backpack {
+  .right-panel .inventory-grid-container {
+    height: rows(2);
+  }
+
+  .backpack-panel .inventory-grid-container {
+    height: rows(3);
+  }
+}
+
+.fast-slots .inventory-grid-container {
+  overflow: hidden;
+}
+
+// ---------------------------------------------------------------- equipamento
+
+.equipment-slots {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 1.4);
+}
+
+.equipment-group h3 {
+  margin: 0 0 calc(var(--u) * 0.8);
+  color: $muted;
+  font-family: $titleFont;
+  font-size: calc(var(--u) * 1.5);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.equipment-grid {
+  display: grid;
+  gap: $gap;
+}
+
+.equipment-rail {
+  width: calc(var(--slot) * 2.1);
+  padding: calc(var(--u) * 1.5);
+  background: $panel;
+  border: 1px solid $panelBorder;
+  border-radius: calc(var(--u) * 1);
+  box-shadow: 0 calc(var(--u) * 1) calc(var(--u) * 3) rgba(0, 0, 0, 0.35);
+
+  .equipment-group-body .equipment-grid {
+    grid-template-columns: repeat(2, 1fr);
+    grid-auto-rows: calc(var(--slot) * 0.92);
+  }
+
+  .equipment-group-clothing {
+    .equipment-grid {
+      grid-template-columns: repeat(3, 1fr);
+      grid-auto-rows: calc(var(--slot) * 0.66);
+    }
+
+    .equipment-slot-empty span {
+      font-size: calc(var(--u) * 1.05);
+      letter-spacing: 0;
+    }
+
+    // roupa guardada: so a imagem, o nome do slot ja esta no vazio
+    .inventory-slot-label-box {
+      display: none;
+    }
+
+    .item-slot-image {
+      margin: calc(var(--u) * 0.8);
+    }
+  }
+}
+
+// equipamento de quem esta sendo revistado, dentro do painel da direita
+.equipment-strip {
+  flex-direction: row;
+  gap: calc(var(--u) * 1.6);
+
+  .equipment-grid {
+    grid-template-columns: repeat(5, calc(var(--slot) * 0.62));
+    grid-auto-rows: calc(var(--slot) * 0.62);
+  }
+
+  .equipment-group-body .equipment-grid {
+    grid-template-columns: repeat(3, calc(var(--slot) * 0.62));
+  }
+
+  .equipment-slot-empty span,
+  .inventory-slot-label-box {
+    display: none;
+  }
+
+  .item-slot-image {
+    margin: calc(var(--u) * 0.8);
+  }
+}
+
+.equipment-slot {
+  .item-slot-header {
+    display: none;
+  }
+
+  .item-slot-image {
+    margin: calc(var(--u) * 0.6) calc(var(--u) * 0.6) 0;
+  }
+}
+
+.equipment-slot-empty {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  &:active {
-    transform: none;
+  justify-content: center;
+  gap: calc(var(--u) * 0.5);
+  height: 100%;
+  color: rgba(255, 255, 255, 0.28);
+
+  span {
+    font-family: $titleFont;
+    font-size: calc(var(--u) * 1.3);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $muted;
   }
+}
+
+.equipment-icon {
+  width: 38%;
+  max-width: calc(var(--u) * 3.4);
+  height: auto;
+}
+
+// ---------------------------------------------------------------- slots
+
+.inventory-slot {
+  position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: $slot;
+  border: 1px solid $slotBorder;
+  border-radius: $radius;
+  color: $text;
+  transition:
+    background 120ms,
+    border-color 120ms;
+
   &:hover {
-    background-color: $secondaryColorHighlight;
-    cursor: pointer;
+    background: $slotHover;
+  }
+
+  &.is-over {
+    border-color: $accent;
+    background: rgba($accent, 0.08);
+  }
+
+  &.is-blocked {
+    border-color: $danger;
+  }
+
+  @each $name, $color in $rarities {
+    &.rarity-#{$name} {
+      background: linear-gradient(to top, rgba($color, 0.1), transparent 55%), $slot;
+
+      &::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: calc(var(--u) * 1.3);
+        height: calc(var(--u) * 1.3);
+        background: $color;
+        clip-path: polygon(0 0, 100% 0, 100% 100%);
+      }
+    }
   }
 }
 
-.tooltip-description {
-  padding-top: 5px;
+.item-slot-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
-.tooltip-markdown > p {
-  margin: 0;
+.item-slot-header {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 0.5);
+  padding: calc(var(--u) * 0.5) calc(var(--u) * 1.3) 0 calc(var(--u) * 0.6);
+  font-size: calc(var(--u) * 1.15);
+
+  .item-slot-weight {
+    color: $muted;
+  }
+
+  .item-slot-count {
+    margin-left: auto;
+    font-weight: 600;
+  }
 }
 
-button:active {
-  transform: translateY(3px);
+.inventory-slot-number {
+  padding: calc(var(--u) * 0.1) calc(var(--u) * 0.5);
+  border-radius: calc(var(--u) * 0.3);
+  background: rgba(255, 255, 255, 0.9);
+  color: #0b1013;
+  font-size: calc(var(--u) * 1.15);
+  font-weight: 700;
+}
+
+.item-slot-image {
+  flex: 1;
+  min-height: 0;
+  margin: calc(var(--u) * 0.3) calc(var(--u) * 0.9) 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  image-rendering: -webkit-optimize-contrast;
+}
+
+.item-slot-footer {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 0.3);
+}
+
+.inventory-slot-label-box {
+  padding: 0 calc(var(--u) * 0.7) calc(var(--u) * 0.6);
+}
+
+.inventory-slot-label-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: $titleFont;
+  font-size: calc(var(--u) * 1.35);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.item-slot-currency-wrapper,
+.item-slot-price-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: calc(var(--u) * 0.3);
+  padding-right: calc(var(--u) * 0.7);
+
+  p {
+    font-size: calc(var(--u) * 1.4);
+    font-weight: 600;
+    text-shadow: calc(var(--u) * 0.1) calc(var(--u) * 0.1) 0 rgba(0, 0, 0, 0.7);
+  }
+
+  img {
+    width: calc(var(--u) * 2);
+    height: auto;
+  }
+}
+
+.durability-bar {
+  height: calc(var(--u) * 0.35);
+  margin: 0 calc(var(--u) * 0.7);
+  border-radius: calc(var(--u) * 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.weight-bar {
+  height: calc(var(--u) * 0.5);
+  border-radius: calc(var(--u) * 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
 }
 
 .item-drag-preview {
-  width: 7.7vh;
-  height: 7.7vh;
+  width: calc(var(--u) * 7.7);
+  height: calc(var(--u) * 7.7);
   z-index: 1;
   position: fixed;
   pointer-events: none;
@@ -112,7 +479,7 @@ button:active {
   left: 0;
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 7vh;
+  background-size: calc(var(--u) * 7);
   image-rendering: -webkit-optimize-contrast;
   will-change: transform;
   backface-visibility: hidden;
@@ -121,293 +488,200 @@ button:active {
 body.inv-dragging {
   cursor: grabbing;
 
-  // don't trigger the hover tooltip mid-drag; the slot itself stays a drop target
+  // nao abre tooltip no meio do arraste; o slot continua recebendo o drop
   .item-slot-wrapper {
     pointer-events: none;
   }
 }
 
-.inventory-wrapper {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  height: 100%;
+// ---------------------------------------------------------------- peso total
 
-  gap: 20px;
+.total-weight {
+  position: absolute;
+  top: calc(var(--u) * 3);
+  right: 3vw;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 1.4);
+  padding: calc(var(--u) * 1.3) calc(var(--u) * 1.8);
+  background: $panel;
+  border: 1px solid $panelBorder;
+  border-radius: calc(var(--u) * 1);
+
+  svg {
+    width: calc(var(--u) * 3.2);
+    height: calc(var(--u) * 3.2);
+    color: $accent;
+  }
+
+  span {
+    color: $muted;
+    font-size: calc(var(--u) * 1.15);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  p {
+    font-family: $titleFont;
+    font-size: calc(var(--u) * 2.1);
+    font-weight: 600;
+    margin-bottom: calc(var(--u) * 0.5);
+  }
+
+  .weight-bar {
+    width: calc(var(--u) * 20);
+  }
 }
 
+// ---------------------------------------------------------------- rodape
+
 .inventory-control {
+  position: absolute;
+  left: 3vw;
+  right: 3vw;
+  bottom: calc(var(--u) * 2.5);
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--u) * 2);
+  font-size: calc(var(--u) * 1.3);
+
+  .inventory-control-key {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--u) * 1);
+    padding: calc(var(--u) * 1) calc(var(--u) * 1.4);
+    background: $panel;
+    border: 1px solid $panelBorder;
+    border-radius: calc(var(--u) * 0.8);
+    color: $text;
+    font-family: $titleFont;
+    font-size: calc(var(--u) * 1.5);
+    font-weight: 600;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
 
   .inventory-control-wrapper {
     display: flex;
-    flex-direction: column;
-    gap: 20px;
-    justify-content: center;
     align-items: center;
+    gap: calc(var(--u) * 0.8);
+    padding: calc(var(--u) * 0.8);
+    background: $panel;
+    border: 1px solid $panelBorder;
+    border-radius: calc(var(--u) * 0.8);
   }
 
   .inventory-control-input {
-    transition: 200ms;
-    padding: 16px 8px;
-    border-radius: 2.5%;
-    font-family: $mainFont;
-    font-size: 16px;
-    text-align: center;
+    width: calc(var(--u) * 10);
+    padding: calc(var(--u) * 1);
+    border: 1px solid $slotBorder;
+    border-radius: calc(var(--u) * 0.6);
     outline: none;
-    border: none;
-    color: #fff;
-    background-color: $secondaryColor;
-    &:focus-within {
-      background-color: $secondaryColorDark;
+    background: rgba(0, 0, 0, 0.35);
+    color: $text;
+    font-family: $bodyFont;
+    font-size: calc(var(--u) * 1.5);
+    text-align: center;
+
+    &:focus {
+      border-color: $accent;
     }
   }
 
   .inventory-control-button {
-    font-size: 14px;
-    color: #fff;
-    background-color: $secondaryColor;
-    transition: 200ms;
-    padding: 12px 8px;
-    border-radius: 2.5%;
-    border: none;
+    min-width: calc(var(--u) * 9);
+    padding: calc(var(--u) * 1) calc(var(--u) * 1.6);
+    border: 1px solid $slotBorder;
+    border-radius: calc(var(--u) * 0.6);
+    background: $slot;
+    color: $text;
+    font-family: $titleFont;
+    font-size: calc(var(--u) * 1.5);
+    font-weight: 600;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    font-family: $mainFont;
-    width: 100%;
-    font-weight: 500;
+    cursor: pointer;
+    transition: 120ms;
+
     &:hover {
-      background-color: $secondaryColorDark;
+      border-color: $accent;
+      background: rgba($accent, 0.1);
+    }
+  }
+
+  .inventory-control-hints {
+    display: flex;
+    gap: calc(var(--u) * 1.2);
+
+    p {
+      display: flex;
+      align-items: center;
+      gap: calc(var(--u) * 0.5);
+      padding: calc(var(--u) * 0.8) calc(var(--u) * 1.2);
+      background: $panel;
+      border: 1px solid $panelBorder;
+      border-radius: calc(var(--u) * 0.8);
+      color: $muted;
+      text-transform: uppercase;
+      white-space: nowrap;
     }
   }
 }
 
-.useful-controls-dialog {
-  background-color: $mainColor;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: $textColor;
-  width: 450px;
+button:active {
+  transform: translateY(1px);
+}
+
+// ---------------------------------------------------------------- menu e tooltip
+
+.context-menu-list {
+  min-width: 200px;
+  background-color: $menu;
+  color: $text;
+  padding: 4px;
+  border: 1px solid $panelBorder;
+  border-radius: 6px;
+  outline: none;
   display: flex;
   flex-direction: column;
-  padding: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.context-menu-item {
+  padding: 8px;
   border-radius: 4px;
-  gap: 16px;
-}
-
-.useful-controls-dialog-overlay {
-  background-color: rgba(0, 0, 0, 0.5);
-}
-
-.useful-controls-dialog-title {
-  display: flex;
-  width: 100%;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 18px;
-}
-
-.useful-controls-dialog-close {
-  width: 25px;
-  height: 25px;
-  padding: 6px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border-radius: 4px;
-  fill: $textColor;
-  &:hover {
-    background-color: $secondaryColorHighlight;
-    cursor: pointer;
-  }
-}
-
-.useful-controls-content-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.divider {
-  width: 100%;
-  height: 1px;
-  background-color: rgba(255, 255, 255, 0.12);
-}
-
-.useful-controls-button {
-  position: absolute !important;
-  bottom: 25px;
-  right: 25px;
-  transition: 200ms !important;
+  background-color: transparent;
+  outline: none;
   border: none;
-  color: white;
-  width: 52px;
-  height: 52px;
+  color: $text;
+  font-family: $bodyFont;
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
-  fill: white;
-  border-radius: 5% !important;
-  background-color: $secondaryColor !important;
+
+  &:active {
+    transform: none;
+  }
+
   &:hover {
-    background-color: $secondaryColorDark !important;
+    background-color: rgba($accent, 0.12);
     cursor: pointer;
-  }
-}
-
-.useful-controls-exit-button {
-  position: absolute !important;
-  right: 8px;
-  top: 8px;
-  border-radius: 2.5% !important;
-  color: grey !important;
-}
-
-// Dialog is used fro useful controls window
-
-// inventory grids
-.inventory-grid-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: calc($gridGap * 2);
-}
-.inventory-grid-header-wrapper {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  p {
-    font-size: 16px;
-  }
-}
-
-.inventory-grid-container {
-  display: grid;
-  height: $containerSize;
-  grid-template-columns: repeat($gridCols, $gridSize);
-  grid-auto-rows: $gridSize + 0.22vh;
-  gap: $gridGap;
-  overflow-y: scroll;
-}
-
-// inventory slots
-.inventory-slot {
-  background-color: $secondaryColor;
-  background-repeat: no-repeat;
-  background-position: center;
-  border-radius: 2.5%;
-  image-rendering: -webkit-optimize-contrast;
-  position: relative;
-  background-size: 7vh;
-  color: $textColor;
-  border-color: rgba(0, 0, 0, 0.2);
-  border-style: inset;
-  border-width: 1px;
-}
-
-.inventory-slot-label-box {
-  background-color: $mainColor;
-  color: $textColor;
-  text-align: center;
-  border-bottom-left-radius: 0.25vh;
-  border-bottom-right-radius: 0.25vh;
-  border-top-color: rgba(0, 0, 0, 0.2);
-  border-top-style: inset;
-  border-top-width: 1px;
-}
-
-.inventory-slot-label-text {
-  text-transform: uppercase;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding: 2px 3px;
-  font-weight: 400;
-  font-family: $mainFont;
-  font-size: 12px;
-}
-
-.inventory-slot-number {
-  background-color: white;
-  color: black;
-  height: 12px;
-  border-top-left-radius: 0.25vh;
-  border-bottom-right-radius: 0.25vh;
-  padding: 3px;
-  font-size: 12px;
-  font-family: $mainFont;
-}
-
-.item-slot-wrapper {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  height: 100%;
-  p {
-    font-size: 12px;
-  }
-}
-
-.item-slot-header-wrapper {
-  display: flex;
-  flex-direction: row;
-  justify-content: flex-end;
-}
-
-.item-hotslot-header-wrapper {
-  @extend .item-slot-header-wrapper;
-  justify-content: space-between !important;
-}
-
-.item-slot-info-wrapper {
-  display: flex;
-  flex-direction: row;
-  align-self: flex-end;
-  padding: 3px;
-  gap: 3px;
-  p {
-    font-size: 12px;
-  }
-}
-
-.item-slot-currency-wrapper {
-  display: flex;
-  flex-direction: row;
-  justify-content: flex-end;
-  align-items: center;
-  padding-right: 3px;
-  p {
-    font-size: 14px;
-    text-shadow: 0.1vh 0.1vh 0 rgba(0, 0, 0, 0.7);
-  }
-}
-
-.item-slot-price-wrapper {
-  display: flex;
-  flex-direction: row;
-  justify-content: flex-end;
-  padding-right: 3px;
-  p {
-    font-size: 14px;
-    text-shadow: 0.1vh 0.1vh 0 rgba(0, 0, 0, 0.7);
   }
 }
 
 .tooltip-wrapper {
   pointer-events: none;
   display: flex;
-  background-color: $mainColor;
-  width: 200px;
-  padding: 8px;
   flex-direction: column;
-  min-width: 200px;
-  color: $textColor;
-  font-family: $mainFont;
-  border-radius: 4px;
-  border-color: rgba(0, 0, 0, 0.2);
-  border-style: inset;
-  border-width: 1px;
+  width: 220px;
+  padding: 10px;
+  background-color: $menu;
+  color: $text;
+  border: 1px solid $panelBorder;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+
   p {
     font-size: 12px;
     font-weight: 400;
@@ -416,23 +690,34 @@ body.inv-dragging {
 
 .tooltip-header-wrapper {
   display: flex;
-  flex-direction: row;
   justify-content: space-between;
   align-items: center;
+
   p {
-    font-size: 15px;
-    font-weight: 400;
+    font-family: $titleFont;
+    font-size: 16px;
+    font-weight: 600;
   }
+}
+
+.tooltip-description {
+  padding-top: 5px;
+  color: $muted;
+}
+
+.tooltip-markdown > p {
+  margin: 0;
 }
 
 .tooltip-crafting-duration {
   display: flex;
-  flex-direction: row;
   align-items: center;
   justify-content: center;
+
   svg {
     padding-right: 3px;
   }
+
   p {
     font-size: 14px;
   }
@@ -444,8 +729,8 @@ body.inv-dragging {
 
 .tooltip-ingredient {
   display: flex;
-  flex-direction: row;
   align-items: center;
+
   img {
     width: 28px;
     height: 28px;
@@ -453,79 +738,80 @@ body.inv-dragging {
   }
 }
 
-// hotbar
-.hotbar-container {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  justify-content: center;
+.divider {
   width: 100%;
-  position: absolute;
-  bottom: 2vh;
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
-.hotbar-item-slot {
+// ---------------------------------------------------------------- hotbar e notificacoes
+
+.hotbar-container {
+  position: absolute;
+  bottom: calc(var(--u) * 2);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: $gap;
+  width: 100%;
+}
+
+.hotbar-item-slot,
+.item-notification-item-box {
   @extend .inventory-slot;
-  width: $gridSize;
-  height: $gridSize;
+  width: var(--slot);
+  height: var(--slot);
+  background-color: $panel;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 55%;
 }
 
 .hotbar-slot-header-wrapper {
   display: flex;
-  flex-direction: row;
   justify-content: space-between;
+  padding: calc(var(--u) * 0.5) calc(var(--u) * 0.6) 0;
 }
 
-// item notifications
+.item-slot-info-wrapper {
+  display: flex;
+  gap: calc(var(--u) * 0.4);
+  font-size: calc(var(--u) * 1.15);
+  color: $muted;
+}
+
+.item-slot-wrapper > div:last-child > .inventory-slot-label-box {
+  margin-top: auto;
+}
 
 .item-notification-container {
-  display: flex;
-  overflow-x: scroll;
-  flex-wrap: nowrap;
-  gap: 2px;
   position: absolute;
-  bottom: 20vh;
+  bottom: calc(var(--u) * 20);
   left: 50%;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: $gap;
   width: 100%;
-  margin-left: calc(50% - calc($gridSize/2));
+  margin-left: calc(50% - var(--slot) / 2);
+  overflow-x: scroll;
   transform: translate(-50%);
 }
 
 .item-notification-action-box {
   width: 100%;
-  color: $textColor;
-  background-color: $secondaryColor;
-  text-transform: uppercase;
+  background-color: rgba($accent, 0.85);
+  color: #0b1013;
   text-align: center;
-  border-top-left-radius: 0.25vh;
-  border-top-right-radius: 0.25vh;
-  font-family: $mainFont;
+  text-transform: uppercase;
+
   p {
-    font-size: 11px;
     padding: 2px;
-    font-weight: 600;
+    font-size: calc(var(--u) * 1.1);
+    font-weight: 700;
   }
 }
 
-.item-notification-item-box {
-  @extend .inventory-slot;
-  height: $gridSize;
-  width: $gridSize;
-}
-
-.durability-bar {
-  background: rgba(0, 0, 0, 0.5);
-  height: 3px;
-  overflow: hidden;
-}
-
-.weight-bar {
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px inset rgba(0, 0, 0, 0.1);
-  height: 0.8vh;
-  border-radius: 5%;
-  overflow: hidden;
-}
+// ---------------------------------------------------------------- transicoes
 
 .transition-fade-enter {
   opacity: 0;

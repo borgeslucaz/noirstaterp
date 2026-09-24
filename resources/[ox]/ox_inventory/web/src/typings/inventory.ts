@@ -5,6 +5,9 @@ export enum InventoryType {
   SHOP = 'shop',
   CONTAINER = 'container',
   CRAFTING = 'crafting',
+  // equipment: mochila equipada, aberta ao lado do inventario
+  BACKPACK = 'backpack',
+  OTHERPLAYER = 'otherplayer',
 }
 
 export type Inventory = {
@@ -12,6 +15,9 @@ export type Inventory = {
   type: string;
   slots: number;
   items: Slot[];
+  // equipment: slots de equipamento (corpo e roupas) do jogador, fora da grade
+  equipment?: Record<number, Slot>;
+  weight?: number;
   maxWeight?: number;
   label?: string;
   groups?: Record<string, number>;

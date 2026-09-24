@@ -9,6 +9,8 @@ local Inventories = {}
 local OxInventory = {}
 OxInventory.__index = OxInventory
 
+local Equipment = require 'modules.equipment.shared'
+
 ---Open a player's inventory, optionally with a secondary inventory.
 ---@param inv? inventory
 function OxInventory:openInventory(inv)
@@ -37,6 +39,12 @@ function OxInventory:closeInventory(noEvent)
         inv:set('open', false)
     end
 
+    -- equipment: fecha o painel da mochila equipada
+    local backpack = self.backpack and Inventories[self.backpack]
+
+    if backpack and backpack ~= inv then backpack.openedBy[self.id] = nil end
+
+    self.backpack = nil
     self.open = false
     self.currentShop = nil
     self.containerSlot = nil
@@ -281,6 +289,39 @@ end
 
 exports('GetContainerFromSlot', Inventory.GetContainerFromSlot)
 
+---equipment: a mochila no slot de equipamento fica aberta ao lado enquanto o
+---jogador esta com o inventario aberto. Acerta o painel com o que esta no slot.
+---@param inv OxInventory inventario do jogador
+---@param notify? boolean avisa a NUI do jogador
+---@return table | false payload do painel
+function Inventory.SyncBackpack(inv, notify)
+	local current = inv.backpack and Inventories[inv.backpack]
+	local slotData = inv.open and inv.items[Equipment.BACKPACK]
+	local backpack = slotData and slotData.metadata.container and Inventory.GetContainerFromSlot(inv, Equipment.BACKPACK) or nil
+
+	if current and current ~= backpack and inv.open ~= current.id then
+		current.openedBy[inv.id] = nil
+	end
+
+	inv.backpack = backpack and backpack.id or nil
+
+	if backpack then backpack.openedBy[inv.id] = true end
+
+	local payload = backpack and {
+		id = backpack.id,
+		label = slotData.label,
+		type = 'backpack',
+		slots = backpack.slots,
+		weight = backpack.weight,
+		maxWeight = backpack.maxWeight,
+		items = backpack.items,
+	} or false
+
+	if notify then TriggerClientEvent('ox_inventory:setBackpack', inv.id, payload) end
+
+	return payload
+end
+
 ---@param inv? inventory
 ---@param ignoreId? number|false
 function Inventory.CloseAll(inv, ignoreId)
@@ -398,6 +439,9 @@ function Inventory.SetSlot(inv, item, count, metadata, slot)
 
         if not item then return false, 'invalid_item' end
     end
+
+	-- equipment: slot fora da grade so recebe o item que o equipamento aceita
+	if not Equipment.validSlot(inv, slot, item.name) then return false, 'invalid_slot' end
 
 	local currentSlot = inv.items[slot]
 	local newCount = currentSlot and currentSlot.count + count or count
@@ -1146,7 +1190,7 @@ function Inventory.AddItem(inv, item, count, metadata, slot, cb)
 		local slotData = inv.items[slot]
 		slotMetadata, slotCount = Items.Metadata(inv.id, item, metadata and table.clone(metadata) or {}, count)
 
-		if not slotData or (item.stack and slotData.name == item.name and table.matches(slotData.metadata, slotMetadata)) then
+		if Equipment.validSlot(inv, slot, item.name) and (not slotData or (item.stack and slotData.name == item.name and table.matches(slotData.metadata, slotMetadata))) then
 			toSlot = slot
 		end
 	end
@@ -1155,7 +1199,21 @@ function Inventory.AddItem(inv, item, count, metadata, slot, cb)
 		local items = inv.items
 		slotMetadata, slotCount = Items.Metadata(inv.id, item, metadata and table.clone(metadata) or {}, count)
 
-		for i = 1, inv.slots do
+		-- equipment: celular, radio, chaves etc. entram primeiro no slot de equipamento vazio
+		local equipSlot = inv.player and not item.stack and Equipment.freeSlotFor(items, item.name)
+		local filled = false
+
+		if equipSlot then
+			toSlot = { { slot = equipSlot, count = slotCount, metadata = slotMetadata } }
+			filled = count == slotCount
+
+			if not filled then
+				count -= 1
+				slotMetadata, slotCount = Items.Metadata(inv.id, item, metadata and table.clone(metadata) or {}, count)
+			end
+		end
+
+		for i = 1, filled and 0 or inv.slots do
 			local slotData = items[i]
 
 			if item.stack and slotData ~= nil and slotData.name == item.name and table.matches(slotData.metadata, slotMetadata) then
@@ -1309,7 +1367,8 @@ function Inventory.GetItemSlots(inv, item, metadata, strict)
 	local tablematch = strict and table.matches or table.contains
 
 	for k, v in pairs(inv.items) do
-		emptySlots -= 1
+		-- equipment: slots de equipamento nao ocupam a grade
+		if k <= inv.slots then emptySlots -= 1 end
 		if v.name == item.name then
 			if metadata and v.metadata == nil then
 				v.metadata = {}
@@ -1319,6 +1378,10 @@ function Inventory.GetItemSlots(inv, item, metadata, strict)
 				slots[k] = v.count
 			end
 		end
+	end
+
+	if inv.player and not item.stack then
+		emptySlots += Equipment.freeSlotCount(inv.items, item.name)
 	end
 
 	return slots, totalCount, emptySlots
@@ -1669,6 +1732,9 @@ local function dropItem(source, playerInventory, fromData, data)
 		lib.logger(playerInventory.owner, 'swapSlots', ('%sx %s transferred from "%s" to "%s"'):format(data.count, toData.name, playerInventory.label, dropId))
 	end
 
+	-- equipment: largou a mochila equipada
+	if slot == Equipment.BACKPACK then Inventory.SyncBackpack(playerInventory, true) end
+
 	if server.syncInventory then server.syncInventory(playerInventory) end
 
 	return true, {
@@ -1687,7 +1753,10 @@ local GetLocks = require 'modules.locks'
 ---@param source number
 ---@param data SwapSlotData
 lib.callback.register('ox_inventory:swapItems', function(source, data)
-	if data.fromType ~= data.toType and data.toType ~= 'player' and data.fromType ~= 'player' then
+	-- equipment: 'backpack' e a mochila equipada, aberta ao lado do inventario
+	local fromBackpack, toBackpack = data.fromType == 'backpack', data.toType == 'backpack'
+
+	if data.fromType ~= data.toType and data.toType ~= 'player' and data.fromType ~= 'player' and not fromBackpack and not toBackpack then
         Utils.LogExploit(source, 'swapItems', 'Triggered event with invalid data', true)
         return
     end
@@ -1698,12 +1767,32 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 
 	if not playerInventory or not playerInventory.open then return end
 
-	local toInventory = (data.toType == 'player' and playerInventory) or Inventory(playerInventory.open)
-	local fromInventory = (data.fromType == 'player' and playerInventory) or Inventory(playerInventory.open)
+	local backpack
+
+	if fromBackpack or toBackpack then
+		-- largar no chao so a partir dos bolsos
+		if data.toType == 'newdrop' then return false end
+
+		backpack = playerInventory.backpack and Inventories[playerInventory.backpack]
+
+		-- a mochila saiu do slot por outro caminho (give, remocao por script): fecha o painel
+		if not backpack or backpack.id ~= playerInventory.items[Equipment.BACKPACK]?.metadata.container then
+			Inventory.SyncBackpack(playerInventory, true)
+			return false
+		end
+	end
+
+	local toInventory = (toBackpack and backpack) or (data.toType == 'player' and playerInventory) or Inventory(playerInventory.open)
+	local fromInventory = (fromBackpack and backpack) or (data.fromType == 'player' and playerInventory) or Inventory(playerInventory.open)
 
 	if not fromInventory or not toInventory then
 		playerInventory:closeInventory()
 		return
+	end
+
+	-- so cabe um container por troca: mochila com outro container aberto do lado nao
+	if backpack and fromInventory.type == 'container' and toInventory.type == 'container' and fromInventory ~= toInventory then
+		return false
 	end
 
     if data.toType == 'inspect' or data.fromType == 'inspect' then return end
@@ -1766,6 +1855,14 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
             data.count = fromData.count
         end
 
+		-- equipment: slot fora da grade so recebe o item que o equipamento aceita
+		if data.toType == 'newdrop' then
+			if not Equipment.validSlot({ slots = shared.dropslots }, data.toSlot, fromData.name) then return false end
+		elseif not Equipment.validSlot(toInventory, data.toSlot, fromData.name)
+			or (toData and not Equipment.validSlot(fromInventory, data.fromSlot, toData.name)) then
+			return false
+		end
+
         if data.toType == 'newdrop' then
             return dropItem(source, fromInventory, fromData, data)
         end
@@ -1774,10 +1871,18 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
             if fromData.metadata.container and toInventory.type == 'container' then return false end
             if toData and toData.metadata.container and fromInventory.type == 'container' then return false end
 
-			local container, containerItem = (not sameInventory and playerInventory.containerSlot) and (fromInventory.type == 'container' and fromInventory or toInventory)
+			local containerSlot = backpack and Equipment.BACKPACK or playerInventory.containerSlot
+			local container, containerItem = (not sameInventory and containerSlot) and (fromInventory.type == 'container' and fromInventory or toInventory)
 
 			if container then
-				containerItem = playerInventory.items[playerInventory.containerSlot]
+				containerItem = playerInventory.items[containerSlot]
+			end
+
+			-- equipment: o que entra na mochila vindo de fora dos bolsos pesa no jogador
+			if toInventory == backpack and not sameInventory and fromInventory ~= playerInventory then
+				if playerInventory.weight + fromData.weight / fromData.count * data.count > playerInventory.maxWeight then
+					return false, 'cannot_carry'
+				end
 			end
 
 			local hookPayload = {
@@ -1855,7 +1960,7 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 
 				local totalWeight = toInventory.weight - toData.weight + toSlotWeight
 
-				if fromInventory.type == 'container' or sameInventory or totalWeight <= toInventory.maxWeight then
+				if (fromInventory.type == 'container' and toInventory == playerInventory) or sameInventory or totalWeight <= toInventory.maxWeight then
 					hookPayload.action = 'stack'
 
 					local hooks <close> = TriggerEventHooks('swapItems', hookPayload)
@@ -1896,7 +2001,7 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 				toData.slot = data.toSlot
 				toData.weight = Inventory.SlotWeight(Items(toData.name), toData)
 
-				if fromInventory.type == 'container' or sameInventory or (toInventory.weight + toData.weight <= toInventory.maxWeight) then
+				if (fromInventory.type == 'container' and toInventory == playerInventory) or sameInventory or (toInventory.weight + toData.weight <= toInventory.maxWeight) then
 					hookPayload.action = 'move'
 
 					local hooks <close> = TriggerEventHooks('swapItems', hookPayload)
@@ -2012,6 +2117,12 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 				if toInventory.player and not sameInventory then
 					server.syncInventory(toInventory)
 				end
+			end
+
+			-- equipment: equipar ou tirar a mochila abre ou fecha o painel dela
+			if (fromInventory == playerInventory and data.fromSlot == Equipment.BACKPACK)
+				or (toInventory == playerInventory and data.toSlot == Equipment.BACKPACK) then
+				Inventory.SyncBackpack(playerInventory, true)
 			end
 
 			local weaponSlot

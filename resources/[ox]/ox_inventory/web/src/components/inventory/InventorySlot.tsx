@@ -6,7 +6,8 @@ import WeightBar from '../utils/WeightBar';
 import { onDrop } from '../../dnd/onDrop';
 import { onBuy } from '../../dnd/onBuy';
 import { Items } from '../../store/items';
-import { canCraftItem, canPurchaseItem, getItemUrl, isSlotWithItem } from '../../helpers';
+import { canCraftItem, canPurchaseItem, getItemUrl, isSlotWithItem, slotAccepts } from '../../helpers';
+import EquipmentIcon from '../utils/icons/EquipmentIcon';
 import { onUse } from '../../dnd/onUse';
 import { Locale } from '../../store/locale';
 import { onCraft } from '../../dnd/onCraft';
@@ -21,10 +22,18 @@ interface SlotProps {
   inventoryType: Inventory['type'];
   inventoryGroups: Inventory['groups'];
   item: Slot;
+  // equipment: slot de equipamento vazio mostra icone e nome
+  emptyLabel?: string;
+  emptyIcon?: string;
 }
 
+const formatWeight = (weight: number) =>
+  weight >= 1000
+    ? `${(weight / 1000).toLocaleString('en-us', { minimumFractionDigits: 2 })}kg`
+    : `${weight.toLocaleString('en-us', { minimumFractionDigits: 0 })}g`;
+
 const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> = (
-  { item, inventoryId, inventoryType, inventoryGroups },
+  { item, inventoryId, inventoryType, inventoryGroups, emptyLabel, emptyIcon },
   ref
 ) => {
   const manager = useDragDropManager();
@@ -57,11 +66,12 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
     [inventoryType, item]
   );
 
-  const [{ isOver }, drop] = useDrop<DragSource, void, { isOver: boolean }>(
+  const [{ isOver, canDrop }, drop] = useDrop<DragSource, void, { isOver: boolean; canDrop: boolean }>(
     () => ({
       accept: 'SLOT',
       collect: (monitor) => ({
         isOver: monitor.isOver(),
+        canDrop: monitor.canDrop(),
       }),
       drop: (source) => {
         dispatch(closeTooltip());
@@ -80,7 +90,9 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
       canDrop: (source) =>
         (source.item.slot !== item.slot || source.inventory !== inventoryType) &&
         inventoryType !== InventoryType.SHOP &&
-        inventoryType !== InventoryType.CRAFTING,
+        inventoryType !== InventoryType.CRAFTING &&
+        slotAccepts(inventoryType, item.slot, source.item.name) &&
+        (!isSlotWithItem(item) || slotAccepts(source.inventory, source.item.slot, item.name)),
     }),
     [inventoryType, item]
   );
@@ -122,23 +134,30 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
 
   const refs = useMergeRefs([connectRef, ref]);
 
+  const rarity = isSlotWithItem(item) ? Items[item.name]?.rarity : undefined;
+  const hotslot = inventoryType === InventoryType.PLAYER && item.slot <= 5;
+  const unavailable =
+    !canPurchaseItem(item, { type: inventoryType, groups: inventoryGroups }) || !canCraftItem(item, inventoryType);
+
   return (
     <div
       ref={refs}
       onContextMenu={handleContext}
       onClick={handleClick}
-      className="inventory-slot"
+      className={[
+        'inventory-slot',
+        rarity && `rarity-${rarity}`,
+        isOver && (canDrop ? 'is-over' : 'is-blocked'),
+        emptyLabel && 'equipment-slot',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       style={{
-        filter:
-          !canPurchaseItem(item, { type: inventoryType, groups: inventoryGroups }) || !canCraftItem(item, inventoryType)
-            ? 'brightness(80%) grayscale(100%)'
-            : undefined,
+        filter: unavailable ? 'brightness(80%) grayscale(100%)' : undefined,
         opacity: isDragging ? 0.4 : 1.0,
-        backgroundImage: `url(${item?.name ? getItemUrl(item as SlotWithItem) : 'none'}`,
-        border: isOver ? '1px dashed rgba(255,255,255,0.4)' : '',
       }}
     >
-      {isSlotWithItem(item) && (
+      {isSlotWithItem(item) ? (
         <div
           className="item-slot-wrapper"
           onMouseEnter={() => {
@@ -154,28 +173,13 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
             }
           }}
         >
-          <div
-            className={
-              inventoryType === 'player' && item.slot <= 5 ? 'item-hotslot-header-wrapper' : 'item-slot-header-wrapper'
-            }
-          >
-            {inventoryType === 'player' && item.slot <= 5 && <div className="inventory-slot-number">{item.slot}</div>}
-            <div className="item-slot-info-wrapper">
-              <p>
-                {item.weight > 0
-                  ? item.weight >= 1000
-                    ? `${(item.weight / 1000).toLocaleString('en-us', {
-                        minimumFractionDigits: 2,
-                      })}kg `
-                    : `${item.weight.toLocaleString('en-us', {
-                        minimumFractionDigits: 0,
-                      })}g `
-                  : ''}
-              </p>
-              <p>{item.count ? item.count.toLocaleString('en-us') + `x` : ''}</p>
-            </div>
+          <div className="item-slot-header">
+            {hotslot && <div className="inventory-slot-number">{item.slot}</div>}
+            <p className="item-slot-weight">{item.weight > 0 ? formatWeight(item.weight) : ''}</p>
+            <p className="item-slot-count">{item.count ? item.count.toLocaleString('en-us') + 'x' : ''}</p>
           </div>
-          <div>
+          <div className="item-slot-image" style={{ backgroundImage: `url(${getItemUrl(item as SlotWithItem)})` }} />
+          <div className="item-slot-footer">
             {inventoryType !== 'shop' && item?.durability !== undefined && (
               <WeightBar percent={item.durability} durability />
             )}
@@ -183,17 +187,7 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
               <>
                 {item?.currency !== 'money' && item.currency !== 'black_money' && item.price > 0 && item.currency ? (
                   <div className="item-slot-currency-wrapper">
-                    <img
-                      src={item.currency ? getItemUrl(item.currency) : 'none'}
-                      alt="item-image"
-                      style={{
-                        imageRendering: '-webkit-optimize-contrast',
-                        height: 'auto',
-                        width: '2vh',
-                        backfaceVisibility: 'hidden',
-                        transform: 'translateZ(0)',
-                      }}
-                    />
+                    <img src={item.currency ? getItemUrl(item.currency) : 'none'} alt="item-image" />
                     <p>{item.price.toLocaleString('en-us')}</p>
                   </div>
                 ) : (
@@ -215,11 +209,22 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
             )}
             <div className="inventory-slot-label-box">
               <div className="inventory-slot-label-text">
-                {item.metadata?.label ? item.metadata.label : Items[item.name]?.label || item.name}
+                {emptyLabel || (item.metadata?.label ? item.metadata.label : Items[item.name]?.label || item.name)}
               </div>
             </div>
           </div>
         </div>
+      ) : emptyLabel ? (
+        <div className="equipment-slot-empty">
+          <EquipmentIcon name={emptyIcon || ''} />
+          <span>{emptyLabel}</span>
+        </div>
+      ) : (
+        hotslot && (
+          <div className="item-slot-header">
+            <div className="inventory-slot-number">{item.slot}</div>
+          </div>
+        )
       )}
     </div>
   );

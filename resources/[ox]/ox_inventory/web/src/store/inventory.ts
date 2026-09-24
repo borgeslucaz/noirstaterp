@@ -7,7 +7,8 @@ import {
   stackSlotsReducer,
   swapSlotsReducer,
 } from '../reducers';
-import { State } from '../typings';
+import { Inventory, State } from '../typings';
+import { getSlot, isSlotWithItem, setSlot } from '../helpers';
 
 const initialState: State = {
   leftInventory: {
@@ -18,6 +19,13 @@ const initialState: State = {
     items: [],
   },
   rightInventory: {
+    id: '',
+    type: '',
+    slots: 0,
+    maxWeight: 0,
+    items: [],
+  },
+  backpackInventory: {
     id: '',
     type: '',
     slots: 0,
@@ -55,12 +63,22 @@ export const inventorySlice = createSlice({
     setShiftPressed: (state, action: PayloadAction<boolean>) => {
       state.shiftPressed = action.payload;
     },
-    setContainerWeight: (state, action: PayloadAction<number>) => {
-      const container = state.leftInventory.items.find((item) => item.metadata?.container === state.rightInventory.id);
+    setContainerWeight: (state, action: PayloadAction<{ id: string; weight: number }>) => {
+      const { leftInventory } = state;
+      const container = [...leftInventory.items, ...Object.values(leftInventory.equipment ?? {})].find(
+        (item) => item.metadata?.container === action.payload.id
+      );
 
-      if (!container) return;
+      if (!container || !isSlotWithItem(container)) return;
 
-      container.weight = action.payload;
+      setSlot(leftInventory, container.slot, { ...getSlot(leftInventory, container.slot), weight: action.payload.weight });
+    },
+    // equipment: a mochila equipada entrou ou saiu do slot com o inventario aberto
+    setBackpack: (state, action: PayloadAction<Inventory | false>) => {
+      inventorySlice.caseReducers.setupInventory(state, {
+        type: 'setupInventory',
+        payload: { backpackInventory: action.payload },
+      });
     },
   },
   extraReducers: (builder) => {
@@ -70,6 +88,7 @@ export const inventorySlice = createSlice({
       state.history = {
         leftInventory: current(state.leftInventory),
         rightInventory: current(state.rightInventory),
+        backpackInventory: current(state.backpackInventory),
       };
     });
     builder.addMatcher(isFulfilled, (state) => {
@@ -79,6 +98,7 @@ export const inventorySlice = createSlice({
       if (state.history && state.history.leftInventory && state.history.rightInventory) {
         state.leftInventory = state.history.leftInventory;
         state.rightInventory = state.history.rightInventory;
+        state.backpackInventory = state.history.backpackInventory;
       }
       state.isBusy = false;
     });
@@ -95,9 +115,11 @@ export const {
   stackSlots,
   refreshSlots,
   setContainerWeight,
+  setBackpack,
 } = inventorySlice.actions;
 export const selectLeftInventory = (state: RootState) => state.inventory.leftInventory;
 export const selectRightInventory = (state: RootState) => state.inventory.rightInventory;
+export const selectBackpackInventory = (state: RootState) => state.inventory.backpackInventory;
 export const selectItemAmount = (state: RootState) => state.inventory.itemAmount;
 export const selectIsBusy = (state: RootState) => state.inventory.isBusy;
 

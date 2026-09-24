@@ -1,4 +1,4 @@
-import { isSlotWithItem } from '../helpers';
+import { getSlot, isSlotWithItem } from '../helpers';
 import { store } from '../store';
 import { DragSource, DropTarget } from '../typings';
 import { Items } from '../store/items';
@@ -20,7 +20,7 @@ export const onBuy = (source: DragSource, target: DropTarget) => {
 
   if (sourceData === undefined) return console.error(`Item ${sourceSlot.name} data undefined!`);
 
-  const targetSlot = targetInventory.items[target.item.slot - 1];
+  const targetSlot = getSlot(targetInventory, target.item.slot);
 
   if (targetSlot === undefined) return console.error(`Target slot undefined`);
 

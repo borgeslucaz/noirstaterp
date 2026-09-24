@@ -11,15 +11,17 @@ export const validateMove = createAsyncThunk(
       toSlot: number;
       toType: string;
       count: number;
+      containerId: string;
     },
     { rejectWithValue, dispatch }
   ) => {
     try {
-      const response = await fetchNui<boolean | number>('swapItems', data);
+      const { containerId, ...move } = data;
+      const response = await fetchNui<boolean | number>('swapItems', move);
 
       if (response === false) return rejectWithValue(response);
 
-      if (typeof response === 'number') dispatch(setContainerWeight(response));
+      if (typeof response === 'number') dispatch(setContainerWeight({ id: containerId, weight: response }));
     } catch (error) {
       return rejectWithValue(false);
     }

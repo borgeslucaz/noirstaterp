@@ -3,7 +3,8 @@ import useNuiEvent from '../../hooks/useNuiEvent';
 import InventoryControl from './InventoryControl';
 import InventoryHotbar from './InventoryHotbar';
 import { useAppDispatch } from '../../store';
-import { refreshSlots, setAdditionalMetadata, setupInventory } from '../../store/inventory';
+import { refreshSlots, setAdditionalMetadata, setBackpack, setupInventory } from '../../store/inventory';
+import TotalWeight from './TotalWeight';
 import { useExitListener } from '../../hooks/useExitListener';
 import type { Inventory as InventoryProps } from '../../typings';
 import RightInventory from './RightInventory';
@@ -36,6 +37,9 @@ const Inventory: React.FC = () => {
 
   useNuiEvent('refreshSlots', (data) => dispatch(refreshSlots(data)));
 
+  // equipment: a mochila equipada entrou ou saiu do slot
+  useNuiEvent<InventoryProps | false>('setBackpack', (data) => dispatch(setBackpack(data)));
+
   useNuiEvent('displayMetadata', (data: Array<{ metadata: string; value: string }>) => {
     dispatch(setAdditionalMetadata(data));
   });
@@ -44,9 +48,12 @@ const Inventory: React.FC = () => {
     <>
       <Fade in={inventoryVisible}>
         <div className="inventory-wrapper">
-          <LeftInventory />
+          <TotalWeight />
+          <div className="inventory-layout">
+            <LeftInventory />
+            <RightInventory />
+          </div>
           <InventoryControl />
-          <RightInventory />
           <Tooltip />
           <InventoryContext />
         </div>

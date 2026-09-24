@@ -90,4 +90,12 @@ for i = 1, #backpacks do
 	})
 end
 
+-- Carteira: fica no slot de equipamento dela (modules/equipment/shared.lua).
+-- Dinheiro guardado aqui sai do cash do jogador, como em qualquer container.
+setContainerProperties('wallet', {
+	slots = 6,
+	maxWeight = 1000,
+	whitelist = { 'id_card', 'driver_license', 'weaponlicense', 'lawyerpass', 'money' },
+})
+
 return containers

@@ -14,6 +14,7 @@ local db = require 'modules.mysql.server'
 local Items = require 'modules.items.server'
 local Inventory = require 'modules.inventory.server'
 local Utils = require 'modules.utils.server'
+local Equipment = require 'modules.equipment.shared'
 
 ---@param player table
 ---@param data table?
@@ -54,6 +55,33 @@ function server.setPlayerInventory(player, data)
                     .close }
                 end
             end
+        end
+    end
+
+    -- equipment: item salvo fora da grade e fora de um slot de equipamento que o
+    -- aceite (roupas nos antigos slots 21-30, grade que diminuiu) vai para um slot valido.
+    local grid, misplaced = { slots = shared.playerslots, type = 'player' }, {}
+
+    for slot, v in pairs(inventory) do
+        if not Equipment.validSlot(grid, slot, v.name) then misplaced[#misplaced + 1] = v end
+    end
+
+    for i = 1, #misplaced do
+        local v = misplaced[i]
+        local toSlot = Equipment.freeSlotFor(inventory, v.name)
+
+        if not toSlot then
+            for slot = 1, shared.playerslots do
+                if not inventory[slot] then toSlot = slot break end
+            end
+        end
+
+        if toSlot then
+            inventory[v.slot] = nil
+            v.slot = toSlot
+            inventory[toSlot] = v
+        else
+            warn(('player %s: %s no slot %s ficou sem slot valido'):format(player.identifier, v.name, v.slot))
         end
     end
 
@@ -298,7 +326,8 @@ local function openInventory(source, invType, data, ignoreSecurityChecks)
         type = left.type,
         slots = left.slots,
         weight = left.weight,
-        maxWeight = left.maxWeight
+        maxWeight = left.maxWeight,
+        backpack = Inventory.SyncBackpack(left), -- equipment
     }, right and {
         id = right.id,
         label = right.player and '' or right.label,

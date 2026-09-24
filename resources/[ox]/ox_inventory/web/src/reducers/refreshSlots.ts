@@ -1,5 +1,5 @@
 import { CaseReducer, PayloadAction } from '@reduxjs/toolkit';
-import { itemDurability } from '../helpers';
+import { itemDurability, setSlot } from '../helpers';
 import { inventorySlice } from '../store/inventory';
 import { Items } from '../store/items';
 import { InventoryType, Slot, State } from '../typings';
@@ -21,14 +21,19 @@ export const refreshSlotsReducer: CaseReducer<State, PayloadAction<Payload>> = (
     Object.values(action.payload.items)
       .filter((data) => !!data)
       .forEach((data) => {
-        const targetInventory = data.inventory
-          ? data.inventory !== InventoryType.PLAYER
-            ? state.rightInventory
-            : state.leftInventory
-          : state.leftInventory;
-
         data.item.durability = itemDurability(data.item.metadata, curTime);
-        targetInventory.items[data.item.slot - 1] = data.item;
+
+        if (!data.inventory || data.inventory === InventoryType.PLAYER) {
+          setSlot(state.leftInventory, data.item.slot, data.item);
+          return;
+        }
+
+        // equipment: a mochila equipada pode ser tambem o inventario da direita (aberta pelo uso)
+        const isBackpack = state.backpackInventory.id !== '' && data.inventory === state.backpackInventory.id;
+
+        if (isBackpack) setSlot(state.backpackInventory, data.item.slot, data.item);
+        if (!isBackpack || data.inventory === state.rightInventory.id)
+          setSlot(state.rightInventory, data.item.slot, data.item);
       });
 
     // Janky workaround to force a state rerender for crafting inventory to

@@ -3211,6 +3211,14 @@ return {
         description = 'Chave de veiculo',
         client = { image = 'carkey.png' },
     },
+    -- carteira: slot de equipamento proprio; guarda documentos e dinheiro (modules/items/containers.lua)
+    ['wallet'] = {
+        label = 'Carteira',
+        weight = 100,
+        stack = false,
+        close = false,
+        description = 'Guarda documentos e dinheiro',
+    },
     ['keybag'] = {
         label = 'Chaveiro',
         weight = 100,
