@@ -188,20 +188,28 @@ end
 function BGRZ.RemoveEntityTarget(entityOrNetId, optionNames)
     local caller = invokingResource()
     if not caller then return false, 'invalid_caller' end
-    local kind, entity = resolveEntity(entityOrNetId)
-    if not kind then
-        local byCaller = entityOwnership[caller]
-        local networkKey = entityKey('network', entityOrNetId)
-        local localKey = entityKey('local', entityOrNetId)
-        if byCaller and byCaller[networkKey] then
-            kind, entity = 'network', entityOrNetId
-        elseif byCaller and byCaller[localKey] then
-            kind, entity = 'local', entityOrNetId
-        else
-            return false, 'invalid_entity'
-        end
+    local value = entityOrNetId
+    if type(value) ~= 'number' or value <= 0 or value % 1 ~= 0 then
+        return false, 'invalid_entity'
     end
-    return removeOwnedEntity(caller, kind, entity, optionNames, false)
+    -- O tipo sai da posse, não do `resolveEntity`. O caso normal é remover o alvo
+    -- de um veículo que acabou de sumir, e aí o netId não existe mais e o
+    -- `resolveEntity` cai no `DoesEntityExist(netId)` — um número que não é
+    -- handle, e que no Enhanced estoura dentro do jogo ("exception at game RVA").
+    local byCaller = entityOwnership[caller]
+    local ownsNetwork = byCaller and byCaller[entityKey('network', value)] ~= nil
+    local ownsLocal = byCaller and byCaller[entityKey('local', value)] ~= nil
+    local kind
+    if ownsNetwork and ownsLocal then
+        kind = NetworkDoesNetworkIdExist(value) and 'network' or 'local'
+    elseif ownsNetwork then
+        kind = 'network'
+    elseif ownsLocal then
+        kind = 'local'
+    else
+        return false, 'not_owner'
+    end
+    return removeOwnedEntity(caller, kind, value, optionNames, false)
 end
 
 ---Validação comum a toda zona: nome, coords, flags de debug e options.

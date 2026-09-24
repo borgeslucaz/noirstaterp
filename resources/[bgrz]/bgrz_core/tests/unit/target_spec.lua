@@ -90,6 +90,20 @@ T.equal(ok, true, 'owned target removed')
 T.equal(calls[#calls].action, 'removeEntity', 'network remove method')
 T.equal(calls[#calls].names[1], 'noir_outposts:rob', 'owned provider name removed')
 
+-- O veículo sumiu antes do remove: o netId deixa de existir e o DoesEntityExist
+-- num número que não é handle estoura no Enhanced. A remoção não pode chamá-lo.
+ok = BGRZ.AddEntityTarget(42, { name = 'gone', label = 'Gone' })
+T.equal(ok, true, 'target added before entity vanishes')
+local networkExists, entityExists = NetworkDoesNetworkIdExist, DoesEntityExist
+NetworkDoesNetworkIdExist = function() return false end
+DoesEntityExist = function() error('exception at game RVA') end
+ok, err = BGRZ.RemoveEntityTarget(42, 'gone')
+T.equal(ok, true, 'vanished network target removed without DoesEntityExist')
+T.equal(calls[#calls].action, 'removeEntity', 'vanished target uses network method')
+ok, err = BGRZ.RemoveEntityTarget(77, 'gone')
+T.equal(err, 'not_owner', 'unowned entity refused without natives')
+NetworkDoesNetworkIdExist, DoesEntityExist = networkExists, entityExists
+
 ok, err = BGRZ.AddEntityTarget(200, { name = 'talk', label = 'Talk' })
 T.equal(ok, true, 'local target added')
 T.equal(calls[#calls].action, 'addLocalEntity', 'local provider method')
