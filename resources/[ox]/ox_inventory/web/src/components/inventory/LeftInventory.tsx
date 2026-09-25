@@ -12,8 +12,18 @@ const LeftInventory: React.FC = () => {
 
   return (
     <>
-      <EquipmentSlots inventory={leftInventory} className="equipment-rail" worn={worn} />
+      <EquipmentSlots
+        inventory={leftInventory}
+        className="clothing-rail"
+        worn={worn}
+        filter={(def) => def.group === 'clothing'}
+      />
       <div className="inventory-column">
+        <EquipmentSlots
+          inventory={leftInventory}
+          className="inventory-panel body-row"
+          filter={(def) => def.group === 'body'}
+        />
         <InventoryGrid inventory={leftInventory} start={HOTSLOTS} className="player-panel" />
         <div className="inventory-panel fast-slots">
           <div className="inventory-panel-header">

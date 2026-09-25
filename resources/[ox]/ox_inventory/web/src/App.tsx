@@ -49,24 +49,24 @@ debugData([
         ].map((item) => [item.name, item])
       ),
       equipment: [
-        ['mask', 'Máscara'],
-        ['hat', 'Chapéu'],
-        ['glasses', 'Óculos'],
-        ['jacket', 'Jaqueta'],
-        ['pants', 'Calça'],
-        ['shoes', 'Sapatos'],
-        ['bag', 'Bolsa'],
-        ['vest', 'Colete'],
-        ['watch', 'Relógio'],
-        ['necklace', 'Colar'],
+        ['mask', 'Máscara', 1001],
+        ['hat', 'Chapéu', 1002],
+        ['glasses', 'Óculos', 1003],
+        ['necklace', 'Colar', 1010],
+        ['jacket', 'Jaqueta', 1004],
+        ['vest', 'Colete', 1008],
+        ['bag', 'Bolsa', 1007],
+        ['watch', 'Relógio', 1009],
+        ['pants', 'Calça', 1005],
+        ['shoes', 'Sapatos', 1006],
       ]
-        .map(([name, label], i): EquipmentSlotDef => ({
-          slot: 1001 + i,
+        .map(([name, label, slot]): EquipmentSlotDef => ({
+          slot: slot as number,
           group: 'clothing',
-          name,
-          label,
+          name: name as string,
+          label: label as string,
           items: [`clothing_${name}`],
-          stealable: ['glasses', 'vest', 'watch'].includes(name),
+          stealable: ['glasses', 'vest', 'watch'].includes(name as string),
         }))
         .concat([
           { slot: 1011, group: 'body', name: 'phone', label: 'Celular', items: ['phone_black'] },

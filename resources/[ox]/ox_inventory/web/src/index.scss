@@ -245,38 +245,40 @@ kbd {
   gap: $gap;
 }
 
-.equipment-rail {
-  width: calc(var(--slot) * 2.1);
+// Roupas: coluna estreita a esquerda, uma peca por linha
+.clothing-rail {
   padding: calc(var(--u) * 1.5);
   background: $panel;
   border: 1px solid $panelBorder;
   border-radius: calc(var(--u) * 1);
   box-shadow: 0 calc(var(--u) * 1) calc(var(--u) * 3) rgba(0, 0, 0, 0.35);
 
-  .equipment-group-body .equipment-grid {
-    grid-template-columns: repeat(2, 1fr);
-    grid-auto-rows: calc(var(--slot) * 0.92);
+  .equipment-grid {
+    grid-template-columns: calc(var(--slot) * 0.7);
+    grid-auto-rows: calc(var(--slot) * 0.66);
   }
 
-  .equipment-group-clothing {
-    .equipment-grid {
-      grid-template-columns: repeat(3, 1fr);
-      grid-auto-rows: calc(var(--slot) * 0.66);
-    }
+  .equipment-slot-empty span {
+    font-size: 10px;
+    letter-spacing: 0;
+  }
 
-    .equipment-slot-empty span {
-      font-size: 10px;
-      letter-spacing: 0;
-    }
+  // roupa guardada: so a imagem, o nome do slot ja esta no vazio
+  .inventory-slot-label-box {
+    display: none;
+  }
 
-    // roupa guardada: so a imagem, o nome do slot ja esta no vazio
-    .inventory-slot-label-box {
-      display: none;
-    }
+  .item-slot-image {
+    margin: calc(var(--u) * 0.8);
+  }
+}
 
-    .item-slot-image {
-      margin: calc(var(--u) * 0.8);
-    }
+// Corpo: faixa horizontal em cima dos bolsos, na largura deles
+.body-row {
+  .equipment-grid {
+    grid-template-columns: repeat(6, 1fr);
+    grid-auto-rows: calc(var(--slot) * 0.9);
+    padding-right: 8px;
   }
 }
 

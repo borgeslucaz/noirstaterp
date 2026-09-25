@@ -3,7 +3,8 @@ if not lib then return end
 -- Slots de equipamento do jogador (corpo e roupas). Ficam numa faixa fixa de
 -- numeros, fora da grade (1..inv.slots), para a grade poder crescer sem colidir
 -- com eles. Cada slot so aceita os itens da sua lista.
--- Os numeros ficam salvos no inventario dos jogadores: nao renumerar.
+-- Os numeros ficam salvos no inventario dos jogadores: nao renumerar. A ordem da
+-- lista e a de exibicao (roupas de cima para baixo no corpo).
 -- Roupa: na revista de outro jogador so sai do slot com stealable (a mesma lista de
 -- target.removable no config do clothingmenu).
 local Equipment = {}
@@ -17,13 +18,13 @@ local definitions = {
 	{ slot = 1001, group = 'clothing', name = 'mask',     label = 'Máscara',  items = { 'clothing_mask' } },
 	{ slot = 1002, group = 'clothing', name = 'hat',      label = 'Chapéu',   items = { 'clothing_hat' } },
 	{ slot = 1003, group = 'clothing', name = 'glasses',  label = 'Óculos',   items = { 'clothing_glasses' }, stealable = true },
+	{ slot = 1010, group = 'clothing', name = 'necklace', label = 'Colar',    items = { 'clothing_necklace' } },
 	{ slot = 1004, group = 'clothing', name = 'jacket',   label = 'Jaqueta',  items = { 'clothing_jacket' } },
+	{ slot = 1008, group = 'clothing', name = 'vest',     label = 'Colete',   items = { 'clothing_vest' }, stealable = true },
+	{ slot = 1007, group = 'clothing', name = 'bag',      label = 'Bolsa',    items = { 'clothing_bag' } },
+	{ slot = 1009, group = 'clothing', name = 'watch',    label = 'Relógio',  items = { 'clothing_watch' }, stealable = true },
 	{ slot = 1005, group = 'clothing', name = 'pants',    label = 'Calça',    items = { 'clothing_pants' } },
 	{ slot = 1006, group = 'clothing', name = 'shoes',    label = 'Sapatos',  items = { 'clothing_shoes' } },
-	{ slot = 1007, group = 'clothing', name = 'bag',      label = 'Bolsa',    items = { 'clothing_bag' } },
-	{ slot = 1008, group = 'clothing', name = 'vest',     label = 'Colete',   items = { 'clothing_vest' }, stealable = true },
-	{ slot = 1009, group = 'clothing', name = 'watch',    label = 'Relógio',  items = { 'clothing_watch' }, stealable = true },
-	{ slot = 1010, group = 'clothing', name = 'necklace', label = 'Colar',    items = { 'clothing_necklace' } },
 
 	{ slot = 1011, group = 'body', name = 'phone',    label = 'Celular',  items = phones },
 	{ slot = 1012, group = 'body', name = 'radio',    label = 'Rádio',    items = { 'radio' } },
