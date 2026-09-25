@@ -8,7 +8,8 @@ import { notify } from '../utils/notify';
 
 const itemLabel = (slot: SlotWithItem) => slot.metadata?.label || Items[slot.name]?.label || slot.name;
 
-export const onDrop = (source: DragSource, target?: DropTarget) => {
+// countOverride: quantidade fixa (dividir pelo menu), em vez de shift/quantidade digitada
+export const onDrop = (source: DragSource, target?: DropTarget, countOverride?: number) => {
   const { inventory: state } = store.getState();
 
   const { sourceInventory, targetInventory } = getTargetInventory(state, source.inventory, target?.inventory);
@@ -57,8 +58,9 @@ export const onDrop = (source: DragSource, target?: DropTarget) => {
   if (targetSlot.metadata?.container !== undefined && state.rightInventory.id === targetSlot.metadata.container)
     return notify(`Feche ${itemLabel(targetSlot as SlotWithItem)} antes de trocar.`);
 
-  const count =
-    state.shiftPressed && sourceSlot.count > 1 && sourceInventory.type !== 'shop'
+  const count = countOverride
+    ? Math.min(countOverride, sourceSlot.count)
+    : state.shiftPressed && sourceSlot.count > 1 && sourceInventory.type !== 'shop'
       ? Math.floor(sourceSlot.count / 2)
       : state.itemAmount === 0 || state.itemAmount > sourceSlot.count
         ? sourceSlot.count

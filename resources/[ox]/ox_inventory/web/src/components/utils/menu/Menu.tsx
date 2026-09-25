@@ -49,10 +49,13 @@ interface MenuProps {
   label?: string;
   nested?: boolean;
   children?: React.ReactNode;
+  // so no menu raiz: cabecalho e rodape fora da lista navegavel
+  header?: React.ReactNode;
+  footer?: React.ReactNode;
 }
 
 export const MenuComponent = React.forwardRef<HTMLButtonElement, MenuProps & React.HTMLProps<HTMLButtonElement>>(
-  ({ children, label, ...props }, forwardedRef) => {
+  ({ children, label, header, footer, ...props }, forwardedRef) => {
     const menu = useAppSelector((state) => state.contextMenu);
     const [isOpen, setIsOpen] = useState(false);
     const [hasFocusInside, setHasFocusInside] = useState(false);
@@ -220,7 +223,9 @@ export const MenuComponent = React.forwardRef<HTMLButtonElement, MenuProps & Rea
                       style={{ ...floatingStyles, ...styles }}
                       {...getFloatingProps()}
                     >
-                      {children}
+                      {header}
+                      {header ? <div className="context-menu-actions">{children}</div> : children}
+                      {footer}
                     </div>
                   </FloatingFocusManager>
                 </FloatingOverlay>
@@ -236,12 +241,13 @@ export const MenuComponent = React.forwardRef<HTMLButtonElement, MenuProps & Rea
 interface MenuItemProps {
   label: string;
   disabled?: boolean;
+  primary?: boolean;
 }
 
 export const MenuItem = React.forwardRef<
   HTMLButtonElement,
   MenuItemProps & React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ label, disabled, ...props }, forwardedRef) => {
+>(({ label, disabled, primary, ...props }, forwardedRef) => {
   const menu = useContext(MenuContext);
   const item = useListItem({ label: disabled ? null : label });
   const tree = useFloatingTree();
@@ -253,7 +259,7 @@ export const MenuItem = React.forwardRef<
       ref={useMergeRefs([item.ref, forwardedRef])}
       type="button"
       role="menuitem"
-      className="context-menu-item"
+      className={`context-menu-item${primary ? ' is-primary' : ''}`}
       tabIndex={isActive ? 0 : -1}
       disabled={disabled}
       {...menu.getItemProps({
