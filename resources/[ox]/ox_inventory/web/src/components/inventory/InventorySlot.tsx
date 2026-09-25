@@ -185,9 +185,6 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
           </div>
           <div className="item-slot-image" style={{ backgroundImage: `url(${getItemUrl(item as SlotWithItem)})` }} />
           <div className="item-slot-footer">
-            {inventoryType !== 'shop' && item?.durability !== undefined && (
-              <WeightBar percent={item.durability} durability />
-            )}
             {inventoryType === 'shop' && item?.price !== undefined && (
               <>
                 {item?.currency !== 'money' && item.currency !== 'black_money' && item.price > 0 && item.currency ? (
@@ -217,6 +214,10 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
                 {emptyLabel || (item.metadata?.label ? item.metadata.label : Items[item.name]?.label || item.name)}
               </div>
             </div>
+            {/* durabilidade embaixo do nome, no rodape do cartao */}
+            {inventoryType !== 'shop' && item?.durability !== undefined && (
+              <WeightBar percent={item.durability} durability />
+            )}
           </div>
         </div>
       ) : emptyLabel ? (

@@ -473,7 +473,7 @@ kbd {
 }
 
 .inventory-slot-label-box {
-  padding: 0 calc(var(--u) * 0.7) calc(var(--u) * 0.6);
+  padding: 0 calc(var(--u) * 0.7) calc(var(--u) * 1.2);
 }
 
 .inventory-slot-label-text {
@@ -506,8 +506,12 @@ kbd {
 }
 
 .durability-bar {
-  height: calc(var(--u) * 0.35);
-  margin: 0 calc(var(--u) * 0.7);
+  // presa no fundo do cartao: o nome fica na mesma altura com ou sem barra
+  position: absolute;
+  left: calc(var(--u) * 0.7);
+  right: calc(var(--u) * 0.7);
+  bottom: calc(var(--u) * 0.5);
+  height: 4px;
   border-radius: calc(var(--u) * 0.3);
   background: rgba(255, 255, 255, 0.08);
   overflow: hidden;
