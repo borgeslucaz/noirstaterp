@@ -1241,7 +1241,7 @@ lib.onCache('vehicle', function()
 	end
 end)
 
-RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inventory, weight, player)
+RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inventory, weight, player, limits)
 	if source == '' then return end
 
     ---@class PlayerData
@@ -1251,7 +1251,8 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 	PlayerData = player
 	PlayerData.id = cache.playerId
 	PlayerData.source = cache.serverId
-    PlayerData.maxWeight = shared.playerweight
+    -- limites do personagem (metadata.inventory); sem eles, o cfg
+    PlayerData.maxWeight = limits?.maxWeight or shared.playerweight
 
 	setmetatable(PlayerData, {
 		__index = function(self, key)
@@ -1385,9 +1386,9 @@ RegisterNetEvent('ox_inventory:setPlayerInventory', function(currentDrops, inven
 			items = ItemData,
 			leftInventory = {
 				id = cache.playerId,
-				slots = shared.playerslots,
+				slots = limits?.slots or shared.playerslots,
 				items = PlayerData.inventory,
-				maxWeight = shared.playerweight,
+				maxWeight = PlayerData.maxWeight,
 			},
 			imagepath = client.imagepath,
 			equipment = equipmentSlots(),

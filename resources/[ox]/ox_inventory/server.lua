@@ -58,9 +58,14 @@ function server.setPlayerInventory(player, data)
         end
     end
 
+    -- limites por personagem: metadata.inventory = { slots, weight } (comando /setinv); sem ele, o cfg
+    local limits = type(player.metadata) == 'table' and player.metadata.inventory
+    local playerSlots = type(limits) == 'table' and tonumber(limits.slots) or shared.playerslots
+    local playerWeight = type(limits) == 'table' and tonumber(limits.weight) or shared.playerweight
+
     -- equipment: item salvo fora da grade e fora de um slot de equipamento que o
     -- aceite (roupas nos antigos slots 21-30, grade que diminuiu) vai para um slot valido.
-    local grid, misplaced = { slots = shared.playerslots, type = 'player' }, {}
+    local grid, misplaced = { slots = playerSlots, type = 'player' }, {}
 
     for slot, v in pairs(inventory) do
         if not Equipment.validSlot(grid, slot, v.name) then misplaced[#misplaced + 1] = v end
@@ -71,7 +76,7 @@ function server.setPlayerInventory(player, data)
         local toSlot = Equipment.freeSlotFor(inventory, v.name)
 
         if not toSlot then
-            for slot = 1, shared.playerslots do
+            for slot = 1, playerSlots do
                 if not inventory[slot] then toSlot = slot break end
             end
         end
@@ -86,8 +91,8 @@ function server.setPlayerInventory(player, data)
     end
 
     player.source = tonumber(player.source)
-    local inv = Inventory.Create(player.source, player.name, 'player', shared.playerslots, totalWeight,
-        shared.playerweight, player.identifier, inventory)
+    local inv = Inventory.Create(player.source, player.name, 'player', playerSlots, totalWeight,
+        playerWeight, player.identifier, inventory)
 
     if inv then
         inv.player = server.setPlayerData(player)
@@ -98,7 +103,7 @@ function server.setPlayerInventory(player, data)
 
         if server.syncInventory then server.syncInventory(inv) end
         TriggerClientEvent('ox_inventory:setPlayerInventory', player.source, Inventory.Drops, inventory, totalWeight,
-            inv.player)
+            inv.player, { slots = playerSlots, maxWeight = playerWeight })
     end
 end
 
@@ -632,6 +637,54 @@ RegisterCommand('convertinventory', function(source, args)
     CreateThread(convert)
 end, true)
 
+
+-- Limites por personagem: grava em metadata.inventory (qbx, via bgrz_core), que o
+-- setPlayerInventory le no login, e aplica na hora. Sem slots e kg, volta ao cfg.
+lib.addCommand('setinv', {
+    help = 'Define slots e peso (kg) do inventario de um personagem; sem valores, volta ao padrao',
+    params = {
+        { name = 'target', type = 'playerId', help = 'Jogador' },
+        { name = 'slots',  type = 'number',   help = 'Slots da grade (1 a 999)', optional = true },
+        { name = 'kg',     type = 'number',   help = 'Peso maximo em kg',        optional = true },
+    },
+    restricted = 'group.admin',
+}, function(source, args)
+    local function reply(message, notifyType)
+        if source == 0 then return print(message) end
+        TriggerClientEvent('ox_lib:notify', source, { type = notifyType or 'inform', description = message })
+    end
+
+    local inventory = Inventory(args.target) --[[@as OxInventory?]]
+
+    if not inventory or not inventory.player then return reply('Jogador sem inventário carregado.', 'error') end
+
+    local reset = not args.slots and not args.kg
+    local slots = reset and shared.playerslots or math.floor(args.slots or inventory.slots)
+    local weight = reset and shared.playerweight or math.floor(args.kg and args.kg * 1000 or inventory.maxWeight)
+
+    -- a grade vai ate 999: dali para cima sao os slots de equipamento
+    if slots < 1 or slots > 999 then return reply('Slots precisam ficar entre 1 e 999.', 'error') end
+    if weight < 1000 then return reply('Peso mínimo de 1 kg.', 'error') end
+
+    -- nao encolhe a grade por cima de item: os de fora sumiriam da tela ate o proximo login
+    for slot in pairs(inventory.items) do
+        if slot > slots and not Equipment.isSlot(slot) then
+            return reply(('O slot %d está ocupado; esvazie antes de reduzir para %d slots.'):format(slot, slots), 'error')
+        end
+    end
+
+    exports.bgrz_core:SetMetadata(inventory.id, 'inventory', not reset and { slots = slots, weight = weight } or false)
+    Inventory.SetSlotCount(inventory, slots)
+    Inventory.SetMaxWeight(inventory, weight)
+
+    local message = ('%s: %d slots e %s kg%s'):format(inventory.label, slots, weight / 1000, reset and ' (padrão)' or '')
+    reply(message, 'success')
+
+    if server.loglevel > 0 then
+        local admin = Inventory(source) or { label = 'console', owner = 'console' }
+        lib.logger(admin.owner, 'admin', ('"%s" setinv "%s": %d slots, %d g'):format(admin.label, inventory.label, slots, weight))
+    end
+end)
 
 lib.addCommand({ 'additem', 'giveitem' }, {
     help = 'Gives an item to a player with the given id',
