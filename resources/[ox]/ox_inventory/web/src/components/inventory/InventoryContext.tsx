@@ -133,10 +133,11 @@ const InventoryContext: React.FC = () => {
     <div className="context-menu-header">
       <span>{RARITY_LABELS[itemData?.rarity ?? ''] ?? 'Item'}</span>
       <p>{item.metadata?.label || itemData?.label || item.name}</p>
-      <div className="context-menu-meta">
-        <span>{item.count > 1 ? `${item.count.toLocaleString('pt-BR')} unidades` : '1 unidade'}</span>
-        {item.weight > 0 && <span>{formatWeight(item.weight)}</span>}
-      </div>
+      {item.weight > 0 && (
+        <div className="context-menu-meta">
+          <span>{formatWeight(item.weight)}</span>
+        </div>
+      )}
     </div>
   );
 
