@@ -7,7 +7,9 @@ import { Locale } from '../../store/locale';
 import { isSlotWithItem } from '../../helpers';
 import { setClipboard } from '../../utils/setClipboard';
 import { notify } from '../../utils/notify';
-import { store, useAppSelector } from '../../store';
+import { store, useAppDispatch, useAppSelector } from '../../store';
+import { AmountAction, openAmountDialog } from '../../store/contextMenu';
+import AmountDialog from './AmountDialog';
 import React from 'react';
 import { Menu, MenuItem } from '../utils/menu/Menu';
 import { InventoryType, SlotWithItem } from '../../typings';
@@ -26,16 +28,14 @@ const formatWeight = (weight: number) =>
     ? `${(weight / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} kg`
     : `${weight.toLocaleString('pt-BR')} g`;
 
-// Dividir: metade da pilha (ou a quantidade digitada, se menor) no primeiro slot vazio dos bolsos
-const splitItem = (item: SlotWithItem) => {
-  const { leftInventory, itemAmount } = store.getState().inventory;
+// Dividir: a quantidade escolhida vai para o primeiro slot vazio dos bolsos
+const splitItem = (item: SlotWithItem, count: number) => {
+  const { leftInventory } = store.getState().inventory;
   // bolsos primeiro (depois dos atalhos 1-5); atalho so se os bolsos estiverem cheios
   const isEmpty = (slot: SlotWithItem | { slot: number }) => !isSlotWithItem(slot);
   const emptySlot = leftInventory.items.slice(5).find(isEmpty) ?? leftInventory.items.slice(0, 5).find(isEmpty);
 
   if (!emptySlot) return notify('Sem espaço nos bolsos para dividir.');
-
-  const count = itemAmount > 0 && itemAmount < item.count ? itemAmount : Math.floor(item.count / 2);
 
   onDrop(
     { item: { name: item.name, slot: item.slot }, inventory: InventoryType.PLAYER },
@@ -69,9 +69,30 @@ interface ButtonWithIndex extends Button {
 
 interface GroupedButtons extends Array<Group> {}
 
+// Acoes com quantidade, ja confirmada na janela (ou 1, para item sem pilha)
+const runAmountAction = (action: AmountAction, item: SlotWithItem, count: number) => {
+  switch (action) {
+    case 'split':
+      return splitItem(item, count);
+    case 'give':
+      return onGive({ name: item.name, slot: item.slot }, count);
+    case 'drop':
+      return onDrop({ item: item, inventory: 'player' }, undefined, count);
+  }
+};
+
 const InventoryContext: React.FC = () => {
   const contextMenu = useAppSelector((state) => state.contextMenu);
+  const dispatch = useAppDispatch();
   const item = contextMenu.item;
+
+  // Dividir, Dar e Soltar pedem a quantidade quando ha mais de uma unidade
+  const withAmount = (action: AmountAction) => {
+    if (!item || !isSlotWithItem(item)) return;
+    if (item.count > 1) return dispatch(openAmountDialog({ action, item }));
+
+    runAmountAction(action, item, 1);
+  };
 
   const handleClick = (data: DataProps) => {
     if (!item) return;
@@ -81,13 +102,9 @@ const InventoryContext: React.FC = () => {
         onUse({ name: item.name, slot: item.slot });
         break;
       case 'split':
-        isSlotWithItem(item) && splitItem(item);
-        break;
       case 'give':
-        onGive({ name: item.name, slot: item.slot });
-        break;
       case 'drop':
-        isSlotWithItem(item) && onDrop({ item: item, inventory: 'player' });
+        withAmount(data.action as AmountAction);
         break;
       case 'remove':
         fetchNui('removeComponent', { component: data?.component, slot: data?.slot });
@@ -152,6 +169,7 @@ const InventoryContext: React.FC = () => {
 
   return (
     <>
+      <AmountDialog onConfirm={runAmountAction} />
       <Menu header={header} footer={footer}>
         <MenuItem primary onClick={() => handleClick({ action: 'use' })} label={Locale.ui_use || 'Usar'} />
         {canSplit && <MenuItem onClick={() => handleClick({ action: 'split' })} label="Dividir" />}

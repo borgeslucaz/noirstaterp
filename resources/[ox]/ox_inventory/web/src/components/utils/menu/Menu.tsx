@@ -29,7 +29,8 @@ import {
   useTypeahead,
 } from '@floating-ui/react';
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { useAppSelector } from '../../../store';
+import { useAppDispatch, useAppSelector } from '../../../store';
+import { closeContextMenu } from '../../../store/contextMenu';
 
 const MenuContext = React.createContext<{
   getItemProps: (userProps?: React.HTMLProps<HTMLElement>) => Record<string, unknown>;
@@ -57,7 +58,8 @@ interface MenuProps {
 export const MenuComponent = React.forwardRef<HTMLButtonElement, MenuProps & React.HTMLProps<HTMLButtonElement>>(
   ({ children, label, header, footer, ...props }, forwardedRef) => {
     const menu = useAppSelector((state) => state.contextMenu);
-    const [isOpen, setIsOpen] = useState(false);
+    const dispatch = useAppDispatch();
+    const [isOpen, setIsOpenState] = useState(false);
     const [hasFocusInside, setHasFocusInside] = useState(false);
     const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
@@ -71,6 +73,13 @@ export const MenuComponent = React.forwardRef<HTMLButtonElement, MenuProps & Rea
     const item = useListItem();
 
     const isNested = parentId != null;
+
+    // O menu raiz limpa a posicao guardada ao fechar; senao um novo botao direito no
+    // mesmo ponto nao muda o estado e o menu nao reabre.
+    const setIsOpen = (open: boolean) => {
+      setIsOpenState(open);
+      if (!open && !isNested) dispatch(closeContextMenu());
+    };
 
     const { floatingStyles, refs, context } = useFloating<HTMLButtonElement>({
       nodeId,
@@ -107,7 +116,7 @@ export const MenuComponent = React.forwardRef<HTMLButtonElement, MenuProps & Rea
       if (!menu.coords) {
         setIsOpen(false);
       }
-    }, [menu]);
+    }, [menu.coords, menu.item]);
 
     const hover = useHover(context, {
       enabled: isNested,
