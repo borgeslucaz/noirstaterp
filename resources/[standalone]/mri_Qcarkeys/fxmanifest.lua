@@ -13,14 +13,16 @@ client_scripts {
     -- '@ox_core/imports/client.lua', -- Can be commented in case not using ox_core to prevent warning on startup
     "bridge/framework/*.lua",
     "client/init.lua",
-    "client/qbx_vehiclekeys.lua"
+    "client/qbx_vehiclekeys.lua",
+    "client/keybag.lua"
 }
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
     -- '@ox_core/imports/server.lua', -- Can be commented in case not using ox_core to prevent warning on startup
     "server/commands.lua",
     "server/server.lua",
-    "server/qbx_vehiclekeys.lua"
+    "server/qbx_vehiclekeys.lua",
+    "server/keybag.lua"
 }
 files {
     "bridge/inventory/*.lua",

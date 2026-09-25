@@ -3224,7 +3224,7 @@ return {
         weight = 100,
         stack = false,
         close = true,
-        description = 'Um chaveiro com varias chaves',
-        client = { image = 'key.png' },
+        description = 'Arraste uma chave em cima para juntar; use para tirar',
+        client = { image = 'key.png', export = 'mri_Qcarkeys.openKeybag' },
     },
 }

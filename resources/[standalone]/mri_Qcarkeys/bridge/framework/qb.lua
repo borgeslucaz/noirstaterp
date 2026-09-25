@@ -60,7 +60,7 @@ if Shared.Framework == 'qb' then
             VehicleKeys:Init()
         end)
 
-        exports.ox_inventory:displayMetadata({platestxt = 'Vehicle Plates'})
+        exports.ox_inventory:displayMetadata({platestxt = 'Placas'})
     end
 
     function GetQBPlayerItem()

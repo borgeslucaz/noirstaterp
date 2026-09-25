@@ -30,5 +30,5 @@ if Shared.Framework == 'ox' then
         VehicleKeys:Init()
     end)
 
-    exports.ox_inventory:displayMetadata({platestxt = 'Vehicle Plates'})
+    exports.ox_inventory:displayMetadata({platestxt = 'Placas'})
 end
