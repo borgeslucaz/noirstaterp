@@ -1776,18 +1776,25 @@ RegisterNUICallback('giveItem', function(data, cb)
 
     if usingItem then return end
 
+	-- Dar fecha o inventario; sem ninguem para receber, avisa em vez de nao fazer nada
+	client.closeInventory()
+
+	local function noTarget()
+		lib.notify({ id = 'inventory_give', type = 'error', description = 'Ninguém por perto para receber.' })
+	end
+
 	if client.giveplayerlist then
 		local coords = cache.vehicle and GetWorldPositionOfEntityBone(playerPed, 0) or GetEntityCoords(playerPed)
 
 		local nearbyPlayers = lib.getNearbyPlayers(coords, 3.0)
         local nearbyCount = #nearbyPlayers
 
-		if nearbyCount == 0 then return end
+		if nearbyCount == 0 then return noTarget() end
 
         if nearbyCount == 1 then
 			local option = nearbyPlayers[1]
 
-            if not isGiveTargetValid(option.ped, option.coords) then return end
+            if not isGiveTargetValid(option.ped, option.coords) then return noTarget() end
 
             return giveItemToTarget(GetPlayerServerId(option.id), data.slot, data.count)
         end
@@ -1807,7 +1814,7 @@ RegisterNUICallback('giveItem', function(data, cb)
 			end
 		end
 
-        if n == 0 then return end
+        if n == 0 then return noTarget() end
 
 		lib.registerMenu({
 			id = 'ox_inventory:givePlayerList',
@@ -1831,7 +1838,7 @@ RegisterNUICallback('giveItem', function(data, cb)
 			end
 		end
 
-        return
+        return noTarget()
 	end
 
     local entity = Utils.Raycast(1|2|4|8|16, GetOffsetFromEntityInWorldCoords(cache.ped, 0.0, 3.0, 0.5), 0.2)
@@ -1839,6 +1846,8 @@ RegisterNUICallback('giveItem', function(data, cb)
     if entity and IsPedAPlayer(entity) and IsEntityVisible(entity) and #(GetEntityCoords(playerPed, true) - GetEntityCoords(entity, true)) < 3.0 then
         return giveItemToTarget(GetPlayerServerId(NetworkGetPlayerIndexFromPed(entity)), data.slot, data.count)
     end
+
+    noTarget()
 end)
 
 RegisterNUICallback('useButton', function(data, cb)
