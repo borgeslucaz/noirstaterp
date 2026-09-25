@@ -333,7 +333,7 @@ kbd {
 .is-worn {
   cursor: pointer;
   border-color: rgba($accent, 0.35);
-  background: linear-gradient(to top, rgba($accent, 0.12), transparent 70%), $slot;
+  background-image: linear-gradient(to top, rgba($accent, 0.12), transparent 70%);
 
   .equipment-slot-empty {
     color: $accent;
@@ -372,21 +372,23 @@ kbd {
   position: relative;
   box-sizing: border-box;
   overflow: hidden;
-  background: $slot;
+  // so background-color/-image: o atalho background zera tamanho e posicao da imagem
+  // que a notificacao e a hotbar poem no fundo do cartao
+  background-color: $slot;
   border: 1px solid $slotBorder;
   border-radius: $radius;
   color: $text;
   transition:
-    background 120ms,
+    background-color 120ms,
     border-color 120ms;
 
   &:hover {
-    background: $slotHover;
+    background-color: $slotHover;
   }
 
   &.is-over {
     border-color: $accent;
-    background: rgba($accent, 0.08);
+    background-color: rgba($accent, 0.08);
   }
 
   &.is-blocked {
@@ -395,7 +397,7 @@ kbd {
 
   @each $name, $color in $rarities {
     &.rarity-#{$name} {
-      background: linear-gradient(to top, rgba($color, 0.1), transparent 55%), $slot;
+      background-image: linear-gradient(to top, rgba($color, 0.1), transparent 55%);
 
       &::after {
         content: '';
@@ -803,6 +805,11 @@ button:active {
   background-repeat: no-repeat;
   background-position: center;
   background-size: 55%;
+
+  // nao sao clicaveis: sem destaque de hover
+  &:hover {
+    background-color: $panel;
+  }
 }
 
 .hotbar-slot-header-wrapper {
@@ -818,7 +825,8 @@ button:active {
   color: $muted;
 }
 
-.item-slot-wrapper > div:last-child > .inventory-slot-label-box {
+.item-slot-wrapper > div:last-child > .inventory-slot-label-box,
+.item-notification-item-box .inventory-slot-label-box {
   margin-top: auto;
 }
 
