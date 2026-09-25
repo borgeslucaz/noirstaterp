@@ -196,8 +196,9 @@ kbd {
   @return calc(var(--slot) * #{$n} + #{$gap} * #{$n - 1});
 }
 
+// bolsos: sempre 3 linhas (15 slots); o que passar disso rola
 .player-panel .inventory-grid-container {
-  max-height: rows(4);
+  height: rows(3);
 }
 
 .right-panel .inventory-grid-container {
