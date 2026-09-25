@@ -113,8 +113,9 @@ kbd {
 }
 
 .inventory-layout {
+  // a coluna do centro (corpo, bolsos, atalhos) define a altura; roupas e direita preenchem
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   gap: calc(var(--u) * 1.6);
   margin-top: calc(var(--u) * -2);
 }
@@ -203,21 +204,29 @@ kbd {
   height: rows(3);
 }
 
-.right-panel .inventory-grid-container {
-  height: rows(5);
-}
-
-.right-panel.with-equipment .inventory-grid-container {
-  height: rows(3);
-}
-
-.with-backpack {
-  .right-panel .inventory-grid-container {
-    height: rows(2);
+// Direita: preenche a altura do centro. Grades com altura 0 + flex nao empurram a
+// altura do layout; crescem ate o espaco que sobra e rolam o resto.
+.inventory-side {
+  .inventory-panel {
+    flex: 1 1 0;
+    min-height: 0;
   }
 
-  .backpack-panel .inventory-grid-container {
-    height: rows(3);
+  .inventory-grid-container {
+    flex: 1 1 0;
+    height: 0;
+    min-height: 0;
+  }
+
+  // com a mochila: bau/chao e mochila dividem 2:3
+  &.with-backpack {
+    .right-panel {
+      flex-grow: 2;
+    }
+
+    .backpack-panel {
+      flex-grow: 3;
+    }
   }
 }
 
@@ -250,15 +259,28 @@ kbd {
 
 // Roupas: coluna estreita a esquerda, uma peca por linha
 .clothing-rail {
+  // as 10 linhas dividem a altura do centro
+  display: flex;
+  flex-direction: column;
   padding: calc(var(--u) * 1.5);
   background: $panel;
   border: 1px solid $panelBorder;
   border-radius: calc(var(--u) * 1);
   box-shadow: 0 calc(var(--u) * 1) calc(var(--u) * 3) rgba(0, 0, 0, 0.35);
 
+  .equipment-group {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-height: 0;
+  }
+
   .equipment-grid {
+    flex: 1 1 0;
+    height: 0;
+    min-height: 0;
     grid-template-columns: calc(var(--slot) * 0.7);
-    grid-auto-rows: calc(var(--slot) * 0.66);
+    grid-auto-rows: minmax(0, 1fr);
   }
 
   .equipment-slot-empty span {
