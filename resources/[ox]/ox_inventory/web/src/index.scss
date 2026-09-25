@@ -44,6 +44,17 @@ $rarities: (
   --u: min(1vh, 0.5625vw);
   // lado de um slot da grade
   --slot: calc(var(--u) * 10.2);
+
+  // Alturas amarradas para as colunas fecharem em linhas inteiras de slot (S = slot, g = gap):
+  //   sobra de um painel O = 2*pad + hdr + 2*pgap + bar;  O + col = S + 2g
+  //   -> bau sozinho: 6 linhas; bau + mochila: 2 + 3; faixa Corpo: S + g + bar;
+  //      faixa da revista: vale 2 linhas (4 sem mochila, 2 + 1 com mochila)
+  // Bordas sao sombra interna: 1px de borda de verdade quebraria a conta.
+  --pad: calc(var(--u) * 2);
+  --pgap: calc(var(--u) * 1.3);
+  --hdr: calc(var(--u) * 2.7);
+  --bar: calc(var(--u) * 0.5);
+  --col: calc(var(--u) * 1.6);
 }
 
 body {
@@ -113,35 +124,39 @@ kbd {
 }
 
 .inventory-layout {
-  // a coluna do centro (corpo, bolsos, atalhos) define a altura; roupas e direita preenchem
+  // centro e direita fecham na mesma altura pela conta do :root; roupas preenchem
   display: flex;
   align-items: stretch;
-  gap: calc(var(--u) * 1.6);
+  gap: var(--col);
   margin-top: calc(var(--u) * -2);
 }
 
 .inventory-column {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 1.6);
+  gap: var(--col);
 }
 
 .inventory-panel {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 1);
-  padding: calc(var(--u) * 1.5);
+  gap: var(--pgap);
+  padding: var(--pad);
   background: $panel;
-  border: 1px solid $panelBorder;
   border-radius: calc(var(--u) * 1);
-  box-shadow: 0 calc(var(--u) * 1) calc(var(--u) * 3) rgba(0, 0, 0, 0.35);
+  box-shadow:
+    inset 0 0 0 1px $panelBorder,
+    0 calc(var(--u) * 1) calc(var(--u) * 3) rgba(0, 0, 0, 0.35);
 }
 
 .inventory-panel-header {
+  flex: none;
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: calc(var(--u) * 2);
+  height: var(--hdr);
+  line-height: 1.2;
 }
 
 .inventory-panel-title {
@@ -184,6 +199,7 @@ kbd {
 }
 
 .inventory-grid-container {
+  flex: none;
   display: grid;
   grid-template-columns: repeat(5, var(--slot));
   grid-auto-rows: var(--slot);
@@ -204,28 +220,28 @@ kbd {
   height: rows(3);
 }
 
-// Direita: preenche a altura do centro. Grades com altura 0 + flex nao empurram a
-// altura do layout; crescem ate o espaco que sobra e rolam o resto.
+// Direita: linhas inteiras pela conta do :root (o que passar rola)
 .inventory-side {
-  .inventory-panel {
-    flex: 1 1 0;
-    min-height: 0;
+  .right-panel .inventory-grid-container {
+    height: rows(6);
   }
 
-  .inventory-grid-container {
-    flex: 1 1 0;
-    height: 0;
-    min-height: 0;
+  &.with-equipment .right-panel .inventory-grid-container {
+    height: rows(4);
   }
 
-  // com a mochila: bau/chao e mochila dividem 2:3
   &.with-backpack {
-    .right-panel {
-      flex-grow: 2;
+    .right-panel .inventory-grid-container {
+      height: rows(2);
     }
 
-    .backpack-panel {
-      flex-grow: 3;
+    .backpack-panel .inventory-grid-container {
+      height: rows(3);
+    }
+
+    // revista com mochila: faixa (2) + 2 linhas do revistado, 1 da mochila
+    &.with-equipment .backpack-panel .inventory-grid-container {
+      height: rows(1);
     }
   }
 }
@@ -262,11 +278,12 @@ kbd {
   // as 10 linhas dividem a altura do centro
   display: flex;
   flex-direction: column;
-  padding: calc(var(--u) * 1.5);
+  padding: var(--pad);
   background: $panel;
-  border: 1px solid $panelBorder;
   border-radius: calc(var(--u) * 1);
-  box-shadow: 0 calc(var(--u) * 1) calc(var(--u) * 3) rgba(0, 0, 0, 0.35);
+  box-shadow:
+    inset 0 0 0 1px $panelBorder,
+    0 calc(var(--u) * 1) calc(var(--u) * 3) rgba(0, 0, 0, 0.35);
 
   .equipment-group {
     display: flex;
@@ -298,18 +315,32 @@ kbd {
   }
 }
 
-// Corpo: faixa horizontal dentro do painel do jogador, entre o peso e os bolsos
+// Corpo: faixa horizontal dentro do painel do jogador, entre o peso e os bolsos.
+// Altura S + g + bar (conta do :root): titulo, uma linha de slots e o divisor.
 .body-row {
+  flex: none;
+  box-sizing: border-box;
+  height: calc(var(--slot) + #{$gap} + var(--bar));
   padding-bottom: calc(var(--u) * 1);
-  border-bottom: 1px solid $panelBorder;
+  box-shadow: inset 0 -1px 0 $panelBorder;
+
+  .equipment-group {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
 
   .equipment-group h3 {
-    margin-top: calc(var(--u) * 0.4);
+    height: calc(var(--u) * 1.4);
+    margin: 0 0 calc(var(--u) * 0.8);
+    line-height: calc(var(--u) * 1.4);
   }
 
   .equipment-grid {
+    flex: 1;
+    min-height: 0;
     grid-template-columns: repeat(6, 1fr);
-    grid-auto-rows: calc(var(--slot) * 0.9);
+    grid-auto-rows: 100%;
     // mesma folga da grade dos bolsos (8px + barra), para as colunas alinharem
     padding-right: calc(8px + var(--u) * 0.4);
   }
@@ -317,8 +348,11 @@ kbd {
 
 // equipamento de quem esta sendo revistado, dentro do painel da direita
 .equipment-strip {
+  // vale exatamente 2 linhas de slot na grade do revistado (conta do :root)
+  flex: none;
   flex-direction: row;
   gap: calc(var(--u) * 1.6);
+  height: calc(2 * (var(--slot) + #{$gap}) - var(--pgap));
 
   .equipment-grid {
     grid-template-columns: repeat(5, calc(var(--slot) * 0.62));
@@ -544,7 +578,8 @@ kbd {
 }
 
 .weight-bar {
-  height: calc(var(--u) * 0.5);
+  flex: none;
+  height: var(--bar);
   border-radius: calc(var(--u) * 0.3);
   background: rgba(255, 255, 255, 0.08);
   overflow: hidden;

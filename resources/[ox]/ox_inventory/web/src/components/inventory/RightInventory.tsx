@@ -12,7 +12,9 @@ const RightInventory: React.FC = () => {
   const otherPlayer = rightInventory.type === InventoryType.OTHERPLAYER;
 
   return (
-    <div className={`inventory-column inventory-side${showBackpack ? ' with-backpack' : ''}`}>
+    <div
+      className={`inventory-column inventory-side${showBackpack ? ' with-backpack' : ''}${otherPlayer ? ' with-equipment' : ''}`}
+    >
       <InventoryGrid inventory={rightInventory} className={`right-panel${otherPlayer ? ' with-equipment' : ''}`}>
         {otherPlayer && (
           <EquipmentSlots
