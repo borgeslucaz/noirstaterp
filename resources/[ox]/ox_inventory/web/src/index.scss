@@ -207,8 +207,10 @@ kbd {
   // scroll (e nao auto): o espaco da barra fica sempre reservado, senao o painel
   // alarga quando a barra aparece (ex.: mochila equipada) e a tela inteira anda
   overflow-y: scroll;
-  // folga entre os slots e a barra de rolagem
+  // folga entre os slots e a barra de rolagem; folga e barra entram no padding
+  // direito do painel, para os slots ficarem com a mesma margem dos dois lados
   padding-right: 8px;
+  margin-right: calc(-8px - var(--u) * 0.4);
 }
 
 @function rows($n) {
@@ -341,8 +343,6 @@ kbd {
     min-height: 0;
     grid-template-columns: repeat(6, 1fr);
     grid-auto-rows: 100%;
-    // mesma folga da grade dos bolsos (8px + barra), para as colunas alinharem
-    padding-right: calc(8px + var(--u) * 0.4);
   }
 }
 
