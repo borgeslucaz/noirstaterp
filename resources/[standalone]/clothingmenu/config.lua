@@ -14,7 +14,7 @@ Config = {
 
     -- Framework: 'auto' | 'qbx' | 'qbcore' | 'esx' | 'standalone'
     -- 'auto' detects: QBX > QBCore > ESX (es_extended/esx-legacy) > Standalone
-    framework = 'auto',
+    framework = 'qbx',
 
     -- Sistema de itens: true = remover→inventário→vestir; false = alternância livre
     itemSystem = true,
@@ -47,7 +47,8 @@ Config = {
         targetRemoveLabel = 'Removendo roupa do jogador...',
         wearLabel = 'Vestindo roupa...',
         canCancel = true,
-        disable = { car = true, combat = true },
+        -- move: parado enquanto veste/tira; combat do ox_lib nao cobre soco (ver RunClothingProgress)
+        disable = { move = true, car = true, combat = true },
         wearAnim = { dict = 'clothingshirt', name = 'try_shirt_positive_d', flag = 49 },
         targetRemoveAnim = { dict = 'pickup_object', name = 'pickup_low' }
     },
@@ -55,7 +56,7 @@ Config = {
     target = {
         enabled = true,
         testingMode = false,
-        allowDead = true,
+        allowDead = false,
         allowHandcuffed = true,
         interactionDistance = 2.5,
         maxDistance = 5.0,

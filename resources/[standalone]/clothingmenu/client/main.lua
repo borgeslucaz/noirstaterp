@@ -355,6 +355,9 @@ local function SetupTarget()
     end)
 end
 
+-- Soco, chute e bloqueio: o combat do ox_lib so desliga mira e tiro.
+local MELEE_CONTROLS = { 24, 140, 141, 142, 143, 257, 263, 264 }
+
 local function RunClothingProgress(label, duration, anim)
     local progress = Config.Progress or {}
     local options = {
@@ -362,7 +365,7 @@ local function RunClothingProgress(label, duration, anim)
         label = label or progress.removeLabel or 'Removendo roupa...',
         useWhileDead = true,
         canCancel = progress.canCancel ~= false,
-        disable = progress.disable or { car = true, combat = true }
+        disable = progress.disable or { move = true, car = true, combat = true }
     }
 
     if anim and anim.dict then
@@ -373,7 +376,19 @@ local function RunClothingProgress(label, duration, anim)
         }
     end
 
-    return lib.progressBar(options)
+    local running = true
+
+    CreateThread(function()
+        while running do
+            for i = 1, #MELEE_CONTROLS do DisableControlAction(0, MELEE_CONTROLS[i], true) end
+            Wait(0)
+        end
+    end)
+
+    local completed = lib.progressBar(options)
+    running = false
+
+    return completed
 end
 
 local function GetCurrentVariation(ped, item)
