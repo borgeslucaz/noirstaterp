@@ -187,7 +187,9 @@ kbd {
   grid-template-columns: repeat(5, var(--slot));
   grid-auto-rows: var(--slot);
   gap: $gap;
-  overflow-y: auto;
+  // scroll (e nao auto): o espaco da barra fica sempre reservado, senao o painel
+  // alarga quando a barra aparece (ex.: mochila equipada) e a tela inteira anda
+  overflow-y: scroll;
   // folga entre os slots e a barra de rolagem
   padding-right: 8px;
 }
@@ -220,7 +222,7 @@ kbd {
 }
 
 .fast-slots .inventory-grid-container {
-  overflow: hidden;
+  height: var(--slot);
 }
 
 // ---------------------------------------------------------------- equipamento
@@ -286,7 +288,8 @@ kbd {
   .equipment-grid {
     grid-template-columns: repeat(6, 1fr);
     grid-auto-rows: calc(var(--slot) * 0.9);
-    padding-right: 8px;
+    // mesma folga da grade dos bolsos (8px + barra), para as colunas alinharem
+    padding-right: calc(8px + var(--u) * 0.4);
   }
 }
 
