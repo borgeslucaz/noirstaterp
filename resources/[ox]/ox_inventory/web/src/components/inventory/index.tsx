@@ -4,7 +4,6 @@ import InventoryControl from './InventoryControl';
 import InventoryHotbar from './InventoryHotbar';
 import { useAppDispatch } from '../../store';
 import { refreshSlots, setAdditionalMetadata, setBackpack, setupInventory, setWorn } from '../../store/inventory';
-import TotalWeight from './TotalWeight';
 import { useExitListener } from '../../hooks/useExitListener';
 import type { Inventory as InventoryProps } from '../../typings';
 import RightInventory from './RightInventory';
@@ -49,7 +48,6 @@ const Inventory: React.FC = () => {
     <>
       <Fade in={inventoryVisible}>
         <div className="inventory-wrapper">
-          <TotalWeight />
           <div className="inventory-layout">
             <LeftInventory />
             <RightInventory />
