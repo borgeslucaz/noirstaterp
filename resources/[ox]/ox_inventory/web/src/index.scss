@@ -13,8 +13,19 @@ $slotHover: rgba(255, 255, 255, 0.07);
 $slotBorder: rgba(255, 255, 255, 0.07);
 $menu: #11181c;
 
-$bodyFont: 'Roboto', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-$titleFont: 'Barlow Condensed', 'Roboto Condensed', 'Arial Narrow', $bodyFont;
+// Tipografia do DESIGN_v3 (resources/docs): Poppins hospedada no resource, Inter de fallback
+$bodyFont: 'Poppins', Inter, 'Segoe UI', Arial, sans-serif;
+$titleFont: $bodyFont;
+
+@each $weight in 400, 500, 600, 700 {
+  @font-face {
+    font-family: 'Poppins';
+    src: url('./fonts/Poppins-#{$weight}.woff2') format('woff2');
+    font-weight: $weight;
+    font-style: normal;
+    font-display: swap;
+  }
+}
 
 $gap: calc(var(--u) * 0.6);
 $radius: calc(var(--u) * 0.7);
@@ -78,7 +89,7 @@ kbd {
   background: rgba(255, 255, 255, 0.92);
   color: #0b1013;
   font-family: $bodyFont;
-  font-size: calc(var(--u) * 0.94);
+  font-size: 10px;
   font-weight: 700;
   text-align: center;
 }
@@ -140,7 +151,7 @@ kbd {
 
   p {
     font-family: $titleFont;
-    font-size: calc(var(--u) * 1.95);
+    font-size: 15px;
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
@@ -149,7 +160,7 @@ kbd {
 
   span {
     color: $muted;
-    font-size: calc(var(--u) * 1.1);
+    font-size: 11px;
     white-space: nowrap;
   }
 
@@ -165,7 +176,8 @@ kbd {
 
 .inventory-panel-weight {
   font-family: $titleFont;
-  font-size: calc(var(--u) * 1.53);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -221,9 +233,9 @@ kbd {
   margin: 0 0 calc(var(--u) * 0.8);
   color: $muted;
   font-family: $titleFont;
-  font-size: calc(var(--u) * 1.27);
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -252,7 +264,7 @@ kbd {
     }
 
     .equipment-slot-empty span {
-      font-size: calc(var(--u) * 0.89);
+      font-size: 10px;
       letter-spacing: 0;
     }
 
@@ -312,10 +324,8 @@ kbd {
 
   span {
     font-family: $titleFont;
-    font-size: calc(var(--u) * 1.1);
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    font-size: 11px;
+    font-weight: 500;
     color: $muted;
   }
 }
@@ -412,7 +422,8 @@ kbd {
   align-items: center;
   gap: calc(var(--u) * 0.5);
   padding: calc(var(--u) * 0.5) calc(var(--u) * 1.3) 0 calc(var(--u) * 0.6);
-  font-size: calc(var(--u) * 0.98);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
 
   .item-slot-weight {
     color: $muted;
@@ -429,7 +440,7 @@ kbd {
   border-radius: calc(var(--u) * 0.3);
   background: rgba(255, 255, 255, 0.9);
   color: #0b1013;
-  font-size: calc(var(--u) * 0.98);
+  font-size: 10px;
   font-weight: 700;
 }
 
@@ -458,10 +469,8 @@ kbd {
   white-space: nowrap;
   text-overflow: ellipsis;
   font-family: $titleFont;
-  font-size: calc(var(--u) * 1.15);
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
 }
 
 .item-slot-currency-wrapper,
@@ -473,7 +482,7 @@ kbd {
   padding-right: calc(var(--u) * 0.7);
 
   p {
-    font-size: calc(var(--u) * 1.19);
+    font-size: 12px;
     font-weight: 600;
     text-shadow: calc(var(--u) * 0.1) calc(var(--u) * 0.1) 0 rgba(0, 0, 0, 0.7);
   }
@@ -546,15 +555,16 @@ body.inv-dragging {
 
   span {
     color: $muted;
-    font-size: calc(var(--u) * 0.98);
+    font-size: 10px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
   }
 
   p {
     font-family: $titleFont;
-    font-size: calc(var(--u) * 1.78);
-    font-weight: 600;
+    font-size: 18px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
     margin-bottom: calc(var(--u) * 0.5);
   }
 
@@ -574,7 +584,7 @@ body.inv-dragging {
   align-items: center;
   justify-content: space-between;
   gap: calc(var(--u) * 2);
-  font-size: calc(var(--u) * 1.1);
+  font-size: 11px;
 
   .inventory-control-key {
     display: flex;
@@ -586,9 +596,8 @@ body.inv-dragging {
     border-radius: calc(var(--u) * 0.8);
     color: $text;
     font-family: $titleFont;
-    font-size: calc(var(--u) * 1.27);
+    font-size: 12px;
     font-weight: 600;
-    text-transform: uppercase;
     cursor: pointer;
   }
 
@@ -611,7 +620,8 @@ body.inv-dragging {
     background: rgba(0, 0, 0, 0.35);
     color: $text;
     font-family: $bodyFont;
-    font-size: calc(var(--u) * 1.27);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
     text-align: center;
 
     &:focus {
@@ -627,10 +637,8 @@ body.inv-dragging {
     background: $slot;
     color: $text;
     font-family: $titleFont;
-    font-size: calc(var(--u) * 1.27);
+    font-size: 12px;
     font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
     cursor: pointer;
     transition: 120ms;
 
@@ -653,7 +661,6 @@ body.inv-dragging {
       border: 1px solid $panelBorder;
       border-radius: calc(var(--u) * 0.8);
       color: $muted;
-      text-transform: uppercase;
       white-space: nowrap;
     }
   }
@@ -680,6 +687,7 @@ button:active {
 
 .context-menu-item {
   padding: 8px;
+  font-size: 12px;
   border-radius: 4px;
   background-color: transparent;
   outline: none;
@@ -713,7 +721,7 @@ button:active {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 
   p {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 400;
   }
 }
@@ -725,7 +733,7 @@ button:active {
 
   p {
     font-family: $titleFont;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
   }
 }
@@ -806,7 +814,7 @@ button:active {
 .item-slot-info-wrapper {
   display: flex;
   gap: calc(var(--u) * 0.4);
-  font-size: calc(var(--u) * 0.98);
+  font-size: 10px;
   color: $muted;
 }
 
@@ -836,7 +844,7 @@ button:active {
 
   p {
     padding: 2px;
-    font-size: calc(var(--u) * 0.94);
+    font-size: 10px;
     font-weight: 700;
   }
 }
