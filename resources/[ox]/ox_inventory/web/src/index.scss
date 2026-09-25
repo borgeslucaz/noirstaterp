@@ -273,8 +273,15 @@ kbd {
   }
 }
 
-// Corpo: faixa horizontal em cima dos bolsos, na largura deles
+// Corpo: faixa horizontal dentro do painel do jogador, entre o peso e os bolsos
 .body-row {
+  padding-bottom: calc(var(--u) * 1);
+  border-bottom: 1px solid $panelBorder;
+
+  .equipment-group h3 {
+    margin-top: calc(var(--u) * 0.4);
+  }
+
   .equipment-grid {
     grid-template-columns: repeat(6, 1fr);
     grid-auto-rows: calc(var(--slot) * 0.9);

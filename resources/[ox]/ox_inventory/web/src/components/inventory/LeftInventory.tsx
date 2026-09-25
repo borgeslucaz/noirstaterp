@@ -19,12 +19,9 @@ const LeftInventory: React.FC = () => {
         filter={(def) => def.group === 'clothing'}
       />
       <div className="inventory-column">
-        <EquipmentSlots
-          inventory={leftInventory}
-          className="inventory-panel body-row"
-          filter={(def) => def.group === 'body'}
-        />
-        <InventoryGrid inventory={leftInventory} start={HOTSLOTS} className="player-panel" />
+        <InventoryGrid inventory={leftInventory} start={HOTSLOTS} className="player-panel">
+          <EquipmentSlots inventory={leftInventory} className="body-row" filter={(def) => def.group === 'body'} />
+        </InventoryGrid>
         <div className="inventory-panel fast-slots">
           <div className="inventory-panel-header">
             <div className="inventory-panel-title">
