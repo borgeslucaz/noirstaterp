@@ -160,8 +160,9 @@ kbd {
 }
 
 .inventory-panel-title {
+  // titulo, contagem e barra verde centralizados na vertical
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: calc(var(--u) * 1.2);
   min-width: 0;
 
@@ -292,6 +293,12 @@ kbd {
     flex: 1 1 0;
     flex-direction: column;
     min-height: 0;
+  }
+
+  // centralizado; o recuo compensa o espacamento que sobra depois da ultima letra
+  .equipment-group h3 {
+    text-align: center;
+    text-indent: 0.1em;
   }
 
   .equipment-grid {
