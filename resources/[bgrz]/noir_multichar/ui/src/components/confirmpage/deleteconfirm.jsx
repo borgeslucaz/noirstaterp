@@ -1,77 +1,84 @@
-import React from "react";
-import { useState } from "react";
-import { nuicallback } from "../../utils/nuicallback";
-import { useEffect } from "react";
-import { useConfig } from "../../providers/configprovider";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
+import { nuicallback } from "../../utils/nuicallback";
+import { useConfig } from "../../providers/configprovider";
 import { updatescreen } from "../../store/screen/screen";
 import ESCButton from "../registeration/inputFields/ESCButton";
+import { CURTAIN_MS } from "../registeration/curtain";
+import "../registeration/registration.css";
+import "./deleteconfirm.css";
 
+// Mesmo padrão da criação: cortina preta, régua vertical e Montserrat. A confirmação continua
+// sendo segurar ENTER (cada repetição de tecla enche a barra; soltar zera).
 const DeleteConfirm = ({ id, characterName }) => {
-  const [confirmvalue, setConfirmvalue] = useState(0);
-
   const dispatch = useDispatch();
   const { config } = useConfig();
+  const [progress, setProgress] = useState(0);
+  // Contagem e disparo fora do setState: o updater pode rodar duas vezes (StrictMode), e a
+  // exclusão tem que sair uma vez só.
+  const progressRef = useRef(0);
+  const deletedRef = useRef(false);
+  const [leaving, setLeaving] = useState(false);
+  const leavingRef = useRef(false);
+
+  // Voltar: o conteúdo some e a cortina sobe; a seleção aparece quando ela termina.
+  const back = useCallback(() => {
+    if (leavingRef.current || deletedRef.current) return;
+    leavingRef.current = true;
+    setLeaving(true);
+    nuicallback("click");
+    setTimeout(() => dispatch(updatescreen("characterselection")), CURTAIN_MS);
+  }, [dispatch]);
 
   useEffect(() => {
-    const handlekey = (e) => {
-      if (e.keyCode === 27) {
-        dispatch(updatescreen("characterselection"));
-        nuicallback("click");
-      } else if (e.keyCode === 13) {
-        setConfirmvalue(confirmvalue + 2);
-        if (confirmvalue > 99) {
-          dispatch(updatescreen(""));
-          nuicallback("DeleteCharacter", id);
-        }
+    const handleDown = (event) => {
+      if (event.key === "Escape") return back();
+      if (event.key !== "Enter" || deletedRef.current || leavingRef.current) return;
+
+      progressRef.current += 2;
+      setProgress(progressRef.current);
+      if (progressRef.current > 100) {
+        deletedRef.current = true;
+        dispatch(updatescreen(""));
+        nuicallback("DeleteCharacter", id);
       }
     };
-
-    window.addEventListener("keydown", handlekey);
-    return () => window.removeEventListener("keydown", handlekey);
-  });
-
-  useEffect(() => {
-    const handlekey = () => {
-      setConfirmvalue(0);
+    const handleUp = () => {
+      progressRef.current = 0;
+      setProgress(0);
     };
 
-    window.addEventListener("keyup", handlekey);
-    return () => window.removeEventListener("keyup", handlekey);
-  });
+    window.addEventListener("keydown", handleDown);
+    window.addEventListener("keyup", handleUp);
+    return () => {
+      window.removeEventListener("keydown", handleDown);
+      window.removeEventListener("keyup", handleUp);
+    };
+  }, [back, dispatch, id]);
 
   return (
-    <>
-      <div className="h-screen bg-neutral-950 bg-opacity-90 an">
-        <div className="flex flex-col items-center gap-4 absolute center-abs">
-          <div className="text-[100px] font-bold text-white relative top-7">
-            CONFIRMAR
-          </div>
-          <div className="flex items-center justify-center gap-1">
-            <span className="text-white">{config.Lang.deletedescription}</span>
-          </div>
-          <div className="text-sm tracking-[0.28em] text-white/60 uppercase">{characterName}</div>
-          <div className="flex items-center justify-center">
-            <div className="relative flex items-center justify-center border-2 border-white w-[clamp(16rem,40vw,24rem)] h-10 overflow-hidden text-white">
-              <div
-                style={{ width: `${Math.min(confirmvalue, 100)}%` }}
-                className="absolute inset-y-0 left-0 bg-white tr2"
-              ></div>
-              <span className="relative z-10 whitespace-nowrap text-sm font-bold text-white mix-blend-difference">
-                {config.Lang.enter}
-              </span>
-            </div>
-          </div>
+    <section className={`noir-create noir-delete${leaving ? " is-leaving is-lifting" : ""}`} aria-label="Excluir personagem">
+      <div className="noir-create__curtain" />
+
+      <main className="noir-delete__panel">
+        <div className="noir-create__heading noir-delete__heading">
+          <span className="noir-delete__eyebrow">EXCLUIR PERSONAGEM</span>
+          <h1>{characterName}</h1>
+          <p>{config.Lang.deletedescription}</p>
         </div>
 
-        <ESCButton
-          exitfunc={() => {
-            dispatch(updatescreen("characterselection"));
-            nuicallback("click");
-          }}
-        />
-      </div>
-    </>
+        <div className="noir-delete__hold">
+          <div className="noir-delete__bar" aria-hidden="true">
+            <span style={{ width: `${Math.min(progress, 100)}%` }} />
+          </div>
+          <div className="noir-delete__hint">
+            Segure <kbd>ENTER</kbd> para excluir. Essa ação não pode ser desfeita.
+          </div>
+        </div>
+      </main>
+
+      <ESCButton exitfunc={back} />
+    </section>
   );
 };
 

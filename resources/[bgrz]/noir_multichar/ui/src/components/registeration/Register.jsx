@@ -11,6 +11,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { nuicallback } from '../../utils/nuicallback'
 import { updatescreen } from '../../store/screen/screen'
 import './registration.css'
+import { CURTAIN_MS } from './curtain'
 
 const Register = () => {
   const [user, setUser] = useState({
@@ -57,10 +58,25 @@ const Register = () => {
     })
   }
 
+  // Saída com a cortina ao contrário: o formulário some, o jogo leva a câmera de volta para a
+  // cena por trás do preto, e só então a cortina sobe e a seleção aparece.
+  const [leaving, setLeaving] = useState('')
+  const leavingRef = useRef(false)
+
+  useEffect(() => {
+    if (scene === 'charactercreator') {
+      leavingRef.current = false
+      setLeaving('')
+    }
+  }, [scene])
+
   const exit = useCallback(() => {
-    dispatch(updatescreen(''))
+    if (leavingRef.current) return
+    leavingRef.current = true
+    setLeaving('out')
     nuicallback('exitcharactercreator').then(() => {
-      dispatch(updatescreen('characterselection'))
+      setLeaving('lift')
+      setTimeout(() => dispatch(updatescreen('characterselection')), CURTAIN_MS)
     })
   }, [dispatch])
 
@@ -101,7 +117,7 @@ const Register = () => {
   if (scene !== 'charactercreator') return null
 
   return (
-    <section className='noir-create' ref={ref} tabIndex='-1' aria-label='Novo personagem'>
+    <section className={`noir-create${leaving ? ' is-leaving' : ''}${leaving === 'lift' ? ' is-lifting' : ''}`} ref={ref} tabIndex='-1' aria-label='Novo personagem'>
       <div className='noir-create__curtain' />
 
       {/* Formulário e logo num bloco centralizado: em tela larga o vão entre eles não cresce. */}

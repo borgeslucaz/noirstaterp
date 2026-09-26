@@ -4,7 +4,7 @@ game 'gta5'
 name 'noir_multichar'
 author 'Noir State'
 description 'Noir State multicharacter selection resource'
-version '2.0.0'
+version '2.1.0'
 
 shared_scripts {
     '@ox_lib/init.lua',

@@ -31,10 +31,6 @@
 .noir-toolbar button:hover { color: var(--noir-white); transform: translateY(-1px); }
 .noir-toolbar .noir-toolbar__danger:hover { color: var(--noir-danger); }
 .noir-toolbar svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-.noir-toolbar__sep { width: 1px; height: 26px; background: rgba(255,255,255,.55); }
-.noir-toolbar__danger + .noir-toolbar__sep { display: block; }
-.noir-toolbar__sep:first-child { display: none; }
-
 /* Roda de personagens à esquerda: o selecionado fica parado no meio da altura e os outros
    giram em volta. Posição, tamanho e opacidade transitam com a mesma duração e curva. */
 .noir-character-select { --row: clamp(24px, 1.75vw, 34px); --big: clamp(44px, 4.6vw, 96px); --gap: clamp(10px, 1.2vh, 20px); --wheel-ease: .45s cubic-bezier(.22,1,.36,1); }

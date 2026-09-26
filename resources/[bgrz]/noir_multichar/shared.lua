@@ -58,90 +58,112 @@ Config.CreateMenu = {
 
 Config.uniqueweathertime = true
 
+-- Poses do preview, as mesmas do noir_pausemenu (shared/config.lua). Sorteadas pelo gênero do
+-- personagem nas cenas que não definem pose própria.
+Config.AnimationPropPresets = {
+    phone_male = {
+        model = 'prop_phone_ing',
+        bone = 28422,
+        pos = { x = 0.0, y = 0.0, z = 0.0 },
+        rot = { x = 0.0, y = 0.0, z = 0.0 },
+        delay = 500,
+    },
+    phone_female = {
+        model = 'prop_phone_ing',
+        bone = 28422,
+        pos = { x = 0.0, y = 0.0, z = 0.0301 },
+        rot = { x = 0.0, y = 0.0, z = 0.0 },
+        delay = 500,
+    },
+    cigarette = {
+        model = 'prop_cs_ciggy_01',
+        bone = 28422,
+        pos = { x = 0.0, y = 0.0, z = 0.0 },
+        rot = { x = 0.0, y = 0.0, z = 0.0 },
+        delay = 400,
+    },
+}
+
+Config.Animations = {
+    male = {
+        { dict = 'amb@world_human_hang_out_street@male_a@idle_a', anim = 'idle_a' },
+        { dict = 'amb@world_human_hang_out_street@male_b@idle_a', anim = 'idle_a' },
+        { dict = 'amb@world_human_hang_out_street@male_c@idle_a', anim = 'idle_b' },
+        { dict = 'amb@world_human_stand_impatient@male@no_sign@idle_a', anim = 'idle_a' },
+        { dict = 'amb@world_human_stand_guard@male@idle_a', anim = 'idle_a' },
+        { dict = 'cellphone@', anim = 'cellphone_text_read_base', prop = 'phone_male' },
+        { dict = 'anim@amb@business@bgen@bgen_no_work@', anim = 'stand_phone_phoneputdown_idle_nowork' },
+        { dict = 'amb@world_human_smoking@male@male_a@idle_a', anim = 'idle_a', prop = 'cigarette' },
+        { dict = 'amb@world_human_aa_smoke@male@idle_a', anim = 'idle_c', prop = 'cigarette' },
+        { dict = 'amb@world_human_muscle_flex@arms_at_side@idle_a', anim = 'idle_a' },
+        { dict = 'anim@heists@heist_corona@single_team', anim = 'single_team_loop_boss' },
+    },
+    female = {
+        { dict = 'amb@world_human_hang_out_street@female_a@idle_a', anim = 'idle_a' },
+        { dict = 'amb@world_human_hang_out_street@female_hold_arm@idle_a', anim = 'idle_a' },
+        { dict = 'amb@world_human_hang_out_street@female_arms_crossed@idle_a', anim = 'idle_a' },
+        { dict = 'amb@world_human_hang_out_street@female_arm_side@idle_a', anim = 'idle_a' },
+        { dict = 'amb@world_human_stand_impatient@female@no_sign@idle_a', anim = 'idle_a' },
+        { dict = 'cellphone@female', anim = 'cellphone_text_read_base', prop = 'phone_female' },
+        { dict = 'anim@amb@business@bgen@bgen_no_work@', anim = 'stand_phone_phoneputdown_idle_nowork' },
+        { dict = 'amb@world_human_smoking@female@idle_a', anim = 'idle_b', prop = 'cigarette' },
+    },
+}
+
+-- Blur da seleção, o mesmo do noir_pausemenu (PauseMenuBlur): foco no ped, o resto desfocado.
+Config.SceneBlur = {
+    enabled = true,
+    strength = 1.0,         -- BlurStrength do pausemenu
+    focalMultiplier = 50.0, -- BlurFocalMultiplier do pausemenu
+    padding = 0.2,          -- BlurFocusPadding: metros nítidos antes e depois do ped
+}
+
+-- Sem som do mundo (trânsito, pedestres, vento) enquanto a seleção de personagem está na tela.
+Config.MuteScene = true
+
+-- Câmera viva na seleção de personagem: push-in lento + balanço leve de câmera na mão.
+Config.CinematicCamera = {
+    enabled = true,
+    pushDistance = 0.5,   -- metros que a câmera avança na direção em que olha
+    pushDuration = 20000, -- ms para percorrer esse trecho (bem lento de propósito)
+    fovDrop = 2.0,        -- FOV que fecha junto com o avanço (zoom leve)
+    shake = 0.12,         -- intensidade do HAND_SHAKE (0 desliga)
+}
+
+-- Cenas da seleção: uma é sorteada a cada abertura. Cena sem dict/anim sorteia a pose de
+-- Config.Animations; com dict/anim (sentado), usa a própria. Monte novas com /capturarcena
+-- (resource freecamera).
 Config.CharacterSelection = {
     {
-        id = 'casino',
+        id = 'vespucci',
         weather = 'EXTRASUNNY',
-        time = {
-            hours = 7,
-            minutes = 00,
-            seconds = 00
-        },
-        dict = 'amb@world_human_leaning@female@wall@back@holding_elbow@idle_a',
-        anim = 'idle_a',
-        vehicle = 'banshee2',
-        location = vec4(870.8840, -34.0424, 77.7642, 128.9946),
-        vehiclelocation = vec4(872.0671, -33.2925, 78.3486, 58.7252),
-        camlocation = vec3(866.0497, -35.3764, 78.7642),
-        camrotation = vec3(2.648569, 0.014925, -73.680183),
-        fov = 40.0,
-    },
-    {
-        id = 'zancudo',
-        weather = 'EXTRASUNNY',
-        time = {
-            hours = 20,
-            minutes = 0,
-            seconds = 00
-        },
-        dict = 'amb@world_human_picnic@female@idle_a',
-        anim = 'idle_a',
-        vehicle = 'banshee2',
-        location = vec4(-1146.6541, 2663.2451, 17.9856, 311.0547),
-        vehiclelocation = vec4(-1147.3054, 2663.8030, 17.6563, 221.6297),
-        camlocation = vec3(-1141.5577, 2663.3613, 18.0520),
-        camrotation = vec3(1.180936, 0.054204, 79.498993),
-        fov = 40.0,
-    },
-    {
-        id = 'sinner',
-        weather = 'EXTRASUNNY',
-        time = {
-            hours = 12,
-            minutes = 0,
-            seconds = 00
-        },
-        dict = 'amb@world_human_leaning@female@wall@back@holding_elbow@idle_a',
-        anim = 'idle_a',
-        vehicle = 'akuma',
-        location = vec4(453.4954, -764.8195, 26.3578, 41.3342),
-        vehiclelocation = vec4(453.8455, -765.2072, 26.8668, 312.7693),
-        camlocation = vec3(453.1763, -762.3759, 27.0578),
-        camrotation = vec3(15.472958, 0.021996, -171.108337),
-        fov = 40.0,
-    },
-    {
-        id = 'confine',
-        weather = 'EXTRASUNNY',
-        time = {
-            hours = 12,
-            minutes = 0,
-            seconds = 00
-        },
-        dict = 'amb@world_human_leaning@female@wall@back@holding_elbow@idle_a',
-        anim = 'idle_a',
+        time = { hours = 14, minutes = 57, seconds = 0 },
         vehicle = false,
-        location = vec4(402.8329, -996.3921, -100.0002, 181.3700),
-        camlocation = vec3(402.8754, -998.3820, -98.6040),
-        camrotation = vec3(-3.047215, 0.014113, -0.650071),
-        fov = 40.0,
+        location = vec4(-1331.4290, -1409.6901, 4.3135, 206.3320),
+        camlocation = vec3(-1329.5468, -1411.7997, 4.7608),
+        camrotation = vec3(-4.4723, -0.0000, 47.9334),
+        fov = 33.3,
     },
     {
-        id = 'xmas',
-        weather = 'XMAS',
-        time = {
-            hours = 20,
-            minutes = 0,
-            seconds = 00
-        },
-        dict = 'timetable@ron@ig_3_couch',
-        anim = 'base',
+        id = 'centro',
+        weather = 'EXTRASUNNY',
+        time = { hours = 15, minutes = 43, seconds = 0 },
         vehicle = false,
-        location = vec4(776.0637, 4185.4146, 40.7790, 103.7116),
-        camlocation = vec3(776.2673, 4187.0581, 41.8303),
-        camrotation = vector3(-5.791659, 0.012236, 174.061890),
-        fov = 40.0,
-    }
+        location = vec4(-506.8483, -622.1392, 34.6763, 97.7534),
+        camlocation = vec3(-508.9498, -623.1917, 34.9274),
+        camrotation = vec3(0.9448, 0.0000, -53.9188),
+        fov = 33.3,
+    },
+    {
+        id = 'vinewood',
+        weather = 'EXTRASUNNY',
+        time = { hours = 16, minutes = 16, seconds = 0 },
+        vehicle = false,
+        location = vec4(539.3155, 704.4937, 202.2889, 211.7955),
+        camlocation = vec3(541.6722, 703.1392, 203.0879),
+        camrotation = vec3(-11.2756, -0.0000, 67.8391),
+        fov = 33.3,
+    },
 }
 
 

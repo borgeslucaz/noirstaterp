@@ -1,42 +1,20 @@
-GetCurrentScene = function()
-    local id = GetResourceKvpString('IV:Multicharacter')
+-- Cena da seleção de personagem: sorteada a cada vez que a seleção monta a cena (abrir, excluir
+-- personagem, logout), evitando repetir a anterior. Não há mais escolha pelo jogador.
+local currentScene = nil
 
-    for i = 1, #Config.CharacterSelection do
-        if Config.CharacterSelection[i].id == id then
-            return Config.CharacterSelection[i]
-        end
+PickRandomScene = function()
+    local scenes = Config.CharacterSelection
+    local candidates = {}
+    for i = 1, #scenes do
+        if scenes[i] ~= currentScene then candidates[#candidates + 1] = scenes[i] end
     end
+    if #candidates == 0 then candidates = scenes end
+
+    currentScene = candidates[math.random(1, #candidates)]
+    return currentScene
 end
 
-
-RegisterNUICallback('UpdateScene', function(payload, cb)
-    local id = GetResourceKvpString('IV:Multicharacter')
-    if not (payload == id) then
-        PlaySoundFrontend(-1, "BACK", "HUD_FRONTEND_DEFAULT_SOUNDSET", 0)
-        SetResourceKvp('IV:Multicharacter', payload)
-
-        CreateCamScene(option[Previewcharacter])
-    end
-
-    cb({})
-end)
-
-
-RegisterNUICallback('getcurrentscene', function(payload, cb)
-    local id = GetResourceKvpString('IV:Multicharacter')
-    cb(id)
-end)
-
-
-
-CreateThread(function()
-    ::Repeat::
-
-    local key = GetResourceKvpString('IV:Multicharacter')
-    if key then
-        ------
-    else
-        SetResourceKvp('IV:Multicharacter', Config.CharacterSelection[1].id)
-        goto Repeat
-    end
-end)
+---Cena em uso agora (a criação de personagem volta para ela ao sair).
+GetCurrentScene = function()
+    return currentScene or PickRandomScene()
+end

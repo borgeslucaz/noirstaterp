@@ -40,9 +40,10 @@ RegisterNUICallback('PreviewCharacter', function(payload, cb)
     Previewcharacter = payload.counter + 1
 
     local char = option[payload.counter + 1]
-    local data = GetCurrentScene()
+    -- Cada personagem aparece numa cena sorteada; a troca acontece com a tela escura.
+    local data = PickRandomScene()
 
-    CreateLocalPed(char, data, true)
+    CreateLocalPed(char, data, true, true)
 
     cb { {} }
 end)

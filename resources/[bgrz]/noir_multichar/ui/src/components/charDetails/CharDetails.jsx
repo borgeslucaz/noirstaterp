@@ -12,7 +12,6 @@ const upper = (value, fallback = "DESCONHECIDO") => String(value || fallback).to
 
 function NoirIcon({ name }) {
   const paths = {
-    scene: <path d="M21 3 3 10.5l7.5 3L14 21z" />,
     delete: <path d="M5 7h14M9 7V4h6v3m2 0-1 14H8L7 7m4 4v6m3-6v6" />,
   };
   return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
@@ -123,8 +122,6 @@ export default function CharDetails() {
 
     <nav className="noir-toolbar" aria-label="Opções">
       {selected && !selected.emptyslot && <button type="button" className="noir-toolbar__danger" onClick={() => openScreen("deleteconfirm")} aria-label="Excluir personagem" title="Excluir personagem"><NoirIcon name="delete" /></button>}
-      <span className="noir-toolbar__sep" />
-      <button type="button" onClick={() => openScreen("settings")} aria-label="Trocar cena" title="Trocar cena"><NoirIcon name="scene" /></button>
     </nav>
 
     {selected ? <div className="noir-wheel-wrap">

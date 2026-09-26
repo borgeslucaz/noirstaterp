@@ -311,7 +311,15 @@
 .noir-create button { cursor: pointer; }
 .noir-create button:focus-visible { outline: 1px solid rgba(255, 255, 255, .72); outline-offset: 3px; }
 
+/* Saída: conteúdo some, cortina sobe (a entrada ao contrário). */
+.noir-create.is-leaving .noir-create__stage,
+.noir-create.is-leaving .noir-delete__panel { opacity: 0; transition: opacity 200ms ease; }
+.noir-create.is-leaving .noir-create__back { animation: noir-create-out 200ms ease forwards; }
+.noir-create.is-lifting .noir-create__curtain { animation: noir-create-curtain-up var(--curtain) cubic-bezier(.7, 0, .25, 1) forwards; }
+
 @keyframes noir-create-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes noir-create-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes noir-create-curtain-up { from { transform: translateY(0); } to { transform: translateY(-100%); } }
 @keyframes noir-logo-draw { to { stroke-dashoffset: 0; } }
 @keyframes noir-logo-flick { 0%, 100% { opacity: 0; } 12%, 70% { opacity: .9; } 74% { opacity: .1; } 78% { opacity: .85; } }
 @keyframes noir-create-curtain { from { transform: translateY(-100%); } to { transform: translateY(0); } }

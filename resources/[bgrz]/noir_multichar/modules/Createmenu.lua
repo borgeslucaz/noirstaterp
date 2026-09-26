@@ -53,6 +53,8 @@ end
 
 
 DeleteCreateCamScene = function()
+    UnmuteSceneAudio()
+    RemovePreviewProp()
     ClearFocus()
     SetCamActive(cam, false)
     DestroyCam(cam, true)

@@ -2,7 +2,6 @@ import { useState,useEffect } from "react";
 import "./App.css";
 import CharDetails from "./components/charDetails/CharDetails";
 import Register from "./components/registeration/Register";
-import SceneSelector from "./components/sceneselector/scenesselector";
 import Profiles from "./components/profilepicture/profiles";
 import { useDispatch, useSelector } from "react-redux";
 import AdminPanel from "./components/adminpanel/adminpanel";
@@ -45,7 +44,6 @@ function App() {
     {visible &&
       <div className="h-screen vignette ">
         <CharDetails />
-        <SceneSelector />
         <Register />
       </div>
       }

@@ -5,12 +5,10 @@ export const isBrowserDevelopment = () =>
 
 const browserResponses = {
   GetCharacters: () => players,
-  getcurrentscene: () => "casino",
   CreateCharacter: () => true,
   exitcharactercreator: () => true,
   DeleteCharacter: () => true,
   PreviewCharacter: () => true,
-  UpdateScene: () => true,
   playcharacter: (slot) => { const character = players.find((item) => item.id === slot); if (character?.emptyslot) window.postMessage({ action: "charactercreator", data: slot }, "*"); return true; },
   click: () => true,
   hover: () => true,
