@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" role="img" aria-labelledby="title desc">
+  <title id="title">PDS</title>
+  <desc id="desc">Puerto Del Sol Marina acronym mark</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a1b1e"/>
+      <stop offset="1" stop-color="#080809"/>
+    </linearGradient>
+    <linearGradient id="silver" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#b9bcc1"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="600" fill="url(#bg)"/>
+  <circle cx="600" cy="294" r="220" fill="#ffffff" fill-opacity=".012" stroke="#ffffff" stroke-opacity=".12" stroke-width="3"/>
+  <path d="M152 205h224l52-52M1048 205H824l-52-52" fill="none" stroke="#ffffff" stroke-opacity=".18" stroke-width="3"/>
+  <path d="M166 400c98-42 196-42 294 0s196 42 294 0 196-42 294 0" fill="none" stroke="#ffffff" stroke-opacity=".2" stroke-width="7"/>
+  <path d="M224 438c78-27 156-27 234 0s156 27 234 0 156-27 234 0" fill="none" stroke="#ffffff" stroke-opacity=".1" stroke-width="3"/>
+  <text x="600" y="350" fill="url(#silver)" font-family="Inter, Arial, sans-serif" font-size="190" font-weight="850" letter-spacing="-7" text-anchor="middle">PDS</text>
+  <rect x="468" y="382" width="264" height="4" rx="2" fill="#ffffff"/>
+  <text x="600" y="430" fill="#ffffff" fill-opacity=".62" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="650" letter-spacing="14" text-anchor="middle">MARINA</text>
+  <path d="M580 120h40v62l-20 28-20-28Z" fill="#ffffff" fill-opacity=".12" stroke="#ffffff" stroke-opacity=".4" stroke-width="2"/>
+</svg>

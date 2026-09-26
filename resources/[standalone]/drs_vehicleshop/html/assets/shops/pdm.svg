@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" role="img" aria-labelledby="title desc">
+  <title id="title">PDM</title>
+  <desc id="desc">Premium Deluxe Motorsport acronym mark</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a1b1e"/>
+      <stop offset="1" stop-color="#080809"/>
+    </linearGradient>
+    <linearGradient id="silver" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#b9bcc1"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="600" fill="url(#bg)"/>
+  <path d="M0 105h1200M0 495h1200" stroke="#ffffff" stroke-opacity=".05"/>
+  <path d="M108 180h210M882 180h210M108 420h210M882 420h210" stroke="#ffffff" stroke-opacity=".18" stroke-width="3"/>
+  <path d="M600 80 820 166v160c0 93-76 157-220 207-144-50-220-114-220-207V166Z" fill="#ffffff" fill-opacity=".015" stroke="#ffffff" stroke-opacity=".14" stroke-width="3"/>
+  <path d="M440 248h-80l-34 34h114M760 248h80l34 34H760" fill="none" stroke="#ffffff" stroke-opacity=".3" stroke-width="6"/>
+  <text x="600" y="345" fill="url(#silver)" font-family="Inter, Arial, sans-serif" font-size="176" font-style="italic" font-weight="850" letter-spacing="-10" text-anchor="middle">PDM</text>
+  <rect x="456" y="382" width="288" height="4" rx="2" fill="#ffffff"/>
+  <text x="600" y="430" fill="#ffffff" fill-opacity=".62" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="650" letter-spacing="12" text-anchor="middle">MOTORSPORT</text>
+  <circle cx="600" cy="470" r="5" fill="#ffffff"/>
+</svg>
