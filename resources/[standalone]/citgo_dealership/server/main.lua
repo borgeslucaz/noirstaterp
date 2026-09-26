@@ -1,16 +1,96 @@
 local isQbx  = GetResourceState('qbx_core') ~= 'missing'
 local QBCore = exports['qb-core']:GetCoreObject()
 
--- ── Routing Buckets ─────────────────────────────────────────────────────────
+-- ── Sessoes (noir) ──────────────────────────────────────────────────────────
+-- O original deixava qualquer cliente trocar de routing bucket e comprar de qualquer lugar.
+-- Agora a sessao so abre com o jogador junto de uma concessionaria (no getVehicles), o
+-- bucket so muda dentro de uma sessao aberta, e a compra exige sessao valida + estar na loja
+-- ou no ponto de preview.
+
+local SHOP_DISTANCE    = 10.0          -- a zona do ox_target tem 5 m
+local PREVIEW_DISTANCE = 25.0          -- o cliente fica em PreviewPoint.z - 5
+local SESSION_TTL      = 30 * 60       -- segundos
+local BUCKET_OFFSET    = 20000         -- illenium-appearance ja usa bucket = source
+
+local sessions = {}
+
+local function playerCoords(src)
+    local ped = GetPlayerPed(src)
+    if not ped or ped == 0 or not DoesEntityExist(ped) then return nil end
+    return GetEntityCoords(ped)
+end
+
+local function nearShop(src, shop)
+    local coords = playerCoords(src)
+    if not coords then return false end
+    local loc = shop.location
+    return #(coords - vector3(loc.x, loc.y, loc.z)) <= SHOP_DISTANCE
+end
+
+local function findShopByKey(shopKey)
+    for shopId, shop in pairs(Config.Dealerships) do
+        if shop.shopKey == shopKey then return shopId, shop end
+    end
+end
+
+local function activeSession(src)
+    local session = sessions[src]
+    if not session then return nil end
+    if os.time() > session.expiresAt then
+        sessions[src] = nil
+        return nil
+    end
+    return session
+end
+
+local function nearPreview(src)
+    local coords = playerCoords(src)
+    local pp = Config.PreviewPoint
+    return coords ~= nil and #(coords - vector3(pp.x, pp.y, pp.z)) <= PREVIEW_DISTANCE
+end
+
+local function canPurchase(src)
+    local session = activeSession(src)
+    if not session then return false end
+    local shop = Config.Dealerships[session.shopId]
+    if session.bucket then
+        return GetPlayerRoutingBucket(src) == session.bucket and nearPreview(src)
+    end
+    return nearShop(src, shop)
+end
+
+local function leaveBucket(src, session)
+    if not session or not session.bucket then return end
+    if GetPlayerRoutingBucket(src) == session.bucket then
+        SetPlayerRoutingBucket(src, session.previousBucket or 0)
+    end
+    session.bucket = nil
+end
 
 RegisterNetEvent('citgo_dealership:enterBucket', function()
     local src = source
-    SetPlayerRoutingBucket(src, src)
+    local session = activeSession(src)
+    if not session or session.bucket then return end
+    -- O cliente teleporta logo depois de disparar o evento; a posicao pode ja ser a do preview.
+    if not nearShop(src, Config.Dealerships[session.shopId]) and not nearPreview(src) then return end
+    session.previousBucket = GetPlayerRoutingBucket(src)
+    session.bucket = BUCKET_OFFSET + src
+    SetPlayerRoutingBucket(src, session.bucket)
 end)
 
 RegisterNetEvent('citgo_dealership:exitBucket', function()
     local src = source
-    SetPlayerRoutingBucket(src, 0)
+    -- So devolve quem a loja colocou no bucket; nao serve para sair de outra instancia.
+    leaveBucket(src, sessions[src])
+end)
+
+AddEventHandler('playerDropped', function()
+    sessions[source] = nil
+end)
+
+AddEventHandler('onResourceStop', function(resource)
+    if resource ~= GetCurrentResourceName() then return end
+    for src, session in pairs(sessions) do leaveBucket(src, session) end
 end)
 
 -- ── Helpers ─────────────────────────────────────────────────────────────────
@@ -167,6 +247,17 @@ end
 
 QBCore.Functions.CreateCallback('citgo_dealership:getVehicles', function(source, cb, shopKey, shopCategories)
     local vehicles = {}
+
+    -- noir: abre a sessao so junto da loja e usa as categorias do config, nao as do cliente.
+    local shopId, shop = findShopByKey(shopKey)
+    if not shop or not nearShop(source, shop) then
+        cb(vehicles)
+        return
+    end
+    local previous = sessions[source]
+    if previous and previous.bucket then leaveBucket(source, previous) end
+    sessions[source] = { shopId = shopId, expiresAt = os.time() + SESSION_TTL }
+    shopCategories = shop.categories
     local allVehicles = getAllVehicles()
 
     if isQbx then
@@ -263,6 +354,10 @@ QBCore.Functions.CreateCallback('citgo_dealership:purchaseVehicle', function(sou
     local src = source
     local Player = QBCore.Functions.GetPlayer(src)
     if not Player then cb({ success = false, message = 'Player not found' }) return end
+    if type(data) ~= 'table' or not canPurchase(src) then
+        cb({ success = false, message = 'Você precisa estar na concessionária.' })
+        return
+    end
 
     local model = data.model
     local plate = cleanPlate(data.plate)
@@ -300,6 +395,10 @@ QBCore.Functions.CreateCallback('citgo_dealership:financeVehicle', function(sour
     local src = source
     local Player = QBCore.Functions.GetPlayer(src)
     if not Player then cb({ success = false, message = 'Player not found' }) return end
+    if type(data) ~= 'table' or not canPurchase(src) then
+        cb({ success = false, message = 'Você precisa estar na concessionária.' })
+        return
+    end
 
     local model = data.model
     local plate = cleanPlate(data.plate)
