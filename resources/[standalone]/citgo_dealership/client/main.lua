@@ -46,7 +46,8 @@ end
 
 local function teleportToPreview()
     local ped = PlayerPedId()
-    savedCoords = GetEntityCoords(ped)
+    -- noir: um segundo preview sem sair do primeiro gravava o ponto subterraneo como volta.
+    savedCoords = savedCoords or GetEntityCoords(ped)
 
     TriggerServerEvent('citgo_dealership:enterBucket')
 
