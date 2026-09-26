@@ -1,68 +1,44 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import DeleteConfirm from "../confirmpage/deleteconfirm";
-import { formatNumberToCurrency } from "../../utils/formatNumbersToCurrency";
 import { nuicallback } from "../../utils/nuicallback";
 import { updatescreen } from "../../store/screen/screen";
+import "@fontsource/montserrat/latin-500.css";
+import "@fontsource/montserrat/latin-600.css";
+import "@fontsource/montserrat/latin-800.css";
 import "./charDetails.css";
 
 const upper = (value, fallback = "DESCONHECIDO") => String(value || fallback).toUpperCase();
-const padSlot = (value) => String(value || 0).padStart(2, "0");
 
 function NoirIcon({ name }) {
   const paths = {
-    cash: <path d="M3 6.5h18v11H3zM7 10h.01M17 14h.01M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z" />,
-    job: <path d="M9 6V4h6v2m-12 4h18v9H3zm0 0 7 4h4l7-4" />,
-    location: <path d="M12 21s6-5.1 6-11a6 6 0 1 0-12 0c0 5.9 6 11 6 11Zm0-8.5A2.5 2.5 0 1 0 12 7a2.5 2.5 0 0 0 0 5.5Z" />,
-    settings: <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm7-3.5 2-1-2-3-2.2.3-1.2-1L15 5h-3.5l-.8 2.3-1.3.8L7 8 5 11l1.7 1.5v1.2L5 15l2 3 2.4-.2 1.2.8.9 2.4H15l.7-2.4 1.2-.8 2.1.2 2-3-2-1Z" />,
+    scene: <path d="M21 3 3 10.5l7.5 3L14 21z" />,
     delete: <path d="M5 7h14M9 7V4h6v3m2 0-1 14H8L7 7m4 4v6m3-6v6" />,
   };
   return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
 }
 
-function CharacterInfo({ info }) {
-  const rows = [
-    ["cash", "DINHEIRO", formatNumberToCurrency(Number(info.cash) || 0, "$")],
-    ["job", "EMPREGO", upper(info.job, "DESEMPREGADO")],
-    ["location", "ÚLTIMA LOCALIZAÇÃO", upper(info.lastSeen)],
-  ];
+// Linhas retas finas no canto superior esquerdo, formando quadrados; puramente decorativas.
+// Tamanho do nome em destaque sai do comprimento; "NOVO PERSONAGEM" é o teto.
+const nameLength = (character) => character?.emptyslot
+  ? "NOVO PERSONAGEM".length
+  : Math.max(`${character?.firstname || ""} ${character?.lastname || ""}`.trim().length, "NOVO PERSONAGEM".length);
 
-  return <div className="noir-info">{rows.map(([icon, label, value]) => (
-    <div className="noir-info__row" key={label}>
-      <NoirIcon name={icon} />
-      <div><span>{label}</span><strong>{value}</strong></div>
-    </div>
-  ))}</div>;
-}
-
-function CharacterCard({ character, index, selected, onSelect }) {
-  const name = character.emptyslot
-    ? "NOVO PERSONAGEM"
-    : upper(`${character.firstname || ""} ${character.lastname || ""}`.trim());
-  const subtitle = character.emptyslot
-    ? "CRIE UMA NOVA HISTÓRIA"
-    : upper(character.additionalInfo?.job, "DESEMPREGADO");
-
-  return <button
-    type="button"
-    className={"noir-card" + (selected ? " noir-card--selected" : "")}
-    data-character-index={index}
-    aria-label={`Selecionar ${name}`}
-    aria-current={selected ? "true" : undefined}
-    onMouseEnter={() => !selected && nuicallback("hover").catch(() => {})}
-    onClick={() => onSelect(index)}
-  >
-    <span className="noir-card__number">{character.emptyslot ? "+" : padSlot(character.id)}</span>
-    <span className="noir-card__copy"><strong>{name}</strong><small>{subtitle}</small></span>
-  </button>;
+function CornerLines() {
+  return <svg className="noir-corner" viewBox="0 0 220 220" aria-hidden="true">
+    <path d="M0 56H180M0 132H110M56 0V190M132 0V120M92 56V170M0 96H70" />
+  </svg>;
 }
 
 export default function CharDetails() {
   const [characters, setCharacters] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const cardsRef = useRef(null);
   const dispatch = useDispatch();
   const scene = useSelector((state) => state.screen);
+  // Offsets da roda no último render, para saber qual item deu a volta (e não animar a travessia).
+  const wheelOffsets = useRef({});
+  const pendingOffsets = useRef({});
+  useEffect(() => { wheelOffsets.current = pendingOffsets.current; });
   const selected = characters[selectedIndex] ?? null;
 
   const setCharacterList = useCallback((nextCharacters) => {
@@ -94,28 +70,21 @@ export default function CharDetails() {
     nuicallback("PreviewCharacter", { emptyslot: character.emptyslot, counter: index }).catch(() => {});
   }, [characters, selectedIndex]);
 
-  const previous = useCallback(() => {
-    if (selectedIndex > 0) {
-      nuicallback("click", false).catch(() => {});
-      selectCharacter(selectedIndex - 1);
-    }
-  }, [selectCharacter, selectedIndex]);
+  // Ordem da lista embaixo do nome: personagens na ordem dos slots e um "novo personagem" no fim.
+  // ↑/↓ (e ←/→) andam nessa ordem, com volta ao início.
+  const cycle = useMemo(() => {
+    const filled = characters.map((character, index) => (character.emptyslot ? -1 : index)).filter((index) => index >= 0);
+    const empty = characters[selectedIndex]?.emptyslot ? selectedIndex : characters.findIndex((character) => character.emptyslot);
+    return empty >= 0 ? [...filled, empty] : filled;
+  }, [characters, selectedIndex]);
 
-  const next = useCallback(() => {
-    if (selectedIndex < characters.length - 1) {
-      nuicallback("click", true).catch(() => {});
-      selectCharacter(selectedIndex + 1);
-    }
-  }, [characters.length, selectCharacter, selectedIndex]);
-
-  useEffect(() => {
-    const container = cardsRef.current;
-    const card = container?.querySelector('[data-character-index="' + selectedIndex + '"]');
-    if (!container || !card) return;
-
-    const centeredPosition = card.offsetLeft - (container.clientWidth - card.offsetWidth) / 2;
-    container.scrollTo({ left: Math.max(0, centeredPosition), behavior: "smooth" });
-  }, [characters.length, selectedIndex]);
+  const step = useCallback((direction) => {
+    if (cycle.length < 2) return;
+    const position = cycle.indexOf(selectedIndex);
+    const target = cycle[(position + direction + cycle.length) % cycle.length];
+    nuicallback("click", direction > 0).catch(() => {});
+    selectCharacter(target);
+  }, [cycle, selectCharacter, selectedIndex]);
 
   const play = useCallback(() => {
     if (!selected) return;
@@ -126,13 +95,13 @@ export default function CharDetails() {
   useEffect(() => {
     if (scene !== "characterselection") return undefined;
     const handleKey = (event) => {
-      if (event.key === "ArrowLeft") previous();
-      if (event.key === "ArrowRight") next();
+      if (event.key === "ArrowUp" || event.key === "ArrowLeft") { event.preventDefault(); step(-1); }
+      if (event.key === "ArrowDown" || event.key === "ArrowRight") { event.preventDefault(); step(1); }
       if (event.key === "Enter") play();
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [next, play, previous, scene]);
+  }, [play, scene, step]);
 
   const displayName = useMemo(() => selected?.emptyslot
     ? "NOVO PERSONAGEM"
@@ -144,32 +113,94 @@ export default function CharDetails() {
 
   if (scene !== "characterselection") return null;
 
+  const wheelPosition = Math.max(cycle.indexOf(selectedIndex), 0);
+  pendingOffsets.current = {};
+  const openScreen = (screen) => { dispatch(updatescreen(screen)); nuicallback("click").catch(() => {}); };
+
   return <div className="noir-character-select">
-    <div className="noir-overlay noir-overlay--left" />
-    <div className="noir-overlay noir-overlay--bottom" />
-    <header className="noir-brand"><span className="noir-brand__mark">◇</span><div><strong>NOIR STATE</strong><small>ROLEPLAY</small></div></header>
+    <div className="noir-shade" />
+    <CornerLines />
 
-    {selected ? <main className={`noir-panel${selected.emptyslot ? " noir-panel--empty" : ""}`}>
-      <span className="noir-slot">{padSlot(selected.id)}</span>
-      <h1>{displayName}</h1>
-      <div className="noir-divider" />
-      {selected.emptyslot ? <p className="noir-empty-copy">CRIE UMA NOVA HISTÓRIA</p> : <CharacterInfo info={selected.additionalInfo || {}} />}
-      <button type="button" className="noir-primary" onMouseEnter={() => nuicallback("hover").catch(() => {})} onClick={play}>
-        <span>{selected.emptyslot ? "CRIAR PERSONAGEM" : "JOGAR COM PERSONAGEM"}</span><span aria-hidden="true">→</span>
-      </button>
-    </main> : <main className="noir-panel"><p className="noir-empty-copy">NENHUM PERSONAGEM DISPONÍVEL</p></main>}
-
-    <nav className="noir-carousel" aria-label="Personagens">
-      <button type="button" className="noir-arrow" onClick={previous} disabled={selectedIndex === 0} aria-label="Personagem anterior">‹</button>
-      <div className="noir-cards" ref={cardsRef}>{characters.map((character, index) => <CharacterCard key={character.citizenid !== "UNKNOWN" ? character.citizenid : `slot-${character.id}`} character={character} index={index} selected={index === selectedIndex} onSelect={selectCharacter} />)}</div>
-      <button type="button" className="noir-arrow" onClick={next} disabled={selectedIndex >= characters.length - 1} aria-label="Próximo personagem">›</button>
+    <nav className="noir-toolbar" aria-label="Opções">
+      {selected && !selected.emptyslot && <button type="button" className="noir-toolbar__danger" onClick={() => openScreen("deleteconfirm")} aria-label="Excluir personagem" title="Excluir personagem"><NoirIcon name="delete" /></button>}
+      <span className="noir-toolbar__sep" />
+      <button type="button" onClick={() => openScreen("settings")} aria-label="Trocar cena" title="Trocar cena"><NoirIcon name="scene" /></button>
     </nav>
 
-    <div className="noir-utilities">
-      <button type="button" onClick={() => { dispatch(updatescreen("settings")); nuicallback("click").catch(() => {}); }}><NoirIcon name="settings" />CONFIGURAÇÕES</button>
-      {selected && !selected.emptyslot && <button type="button" className="noir-delete" onClick={() => { dispatch(updatescreen("deleteconfirm")); nuicallback("click").catch(() => {}); }}><NoirIcon name="delete" />EXCLUIR PERSONAGEM</button>}
-    </div>
+    {selected ? <div className="noir-wheel-wrap">
+      {cycle.length > 1 && <div className="noir-wheel__arrows">
+        <button type="button" onClick={() => step(-1)} aria-label="Personagem anterior">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6" /></svg>
+        </button>
+        <button type="button" className="noir-wheel__down" onClick={() => step(1)} aria-label="Próximo personagem">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        </button>
+      </div>}
 
-    <div className="noir-counter"><strong>{padSlot(selectedIndex + 1)}</strong><span>/ {padSlot(characters.length)}</span></div>
+      {/* Roda vertical circular: o selecionado fica parado no meio e os outros giram em volta.
+          Cada item se posiciona pela distância circular (--off) até o selecionado; os pequenos
+          têm altura fixa, então nada precisa ser medido. */}
+      <ol className="noir-wheel" style={{ "--sel-len": nameLength(selected) }} aria-label="Personagens">
+        {cycle.map((index, position) => {
+          const character = characters[index];
+          const isSelected = index === selectedIndex;
+          const key = character.citizenid !== "UNKNOWN" ? character.citizenid : "novo";
+          const name = character.emptyslot
+            ? (isSelected ? "NOVO PERSONAGEM" : "+ NOVO PERSONAGEM")
+            : upper(`${character.firstname || ""} ${character.lastname || ""}`.trim());
+          let offset = (position - wheelPosition + cycle.length) % cycle.length;
+          if (offset > Math.floor(cycle.length / 2)) offset -= cycle.length;
+          const previous = wheelOffsets.current[key];
+          const jumped = previous !== undefined && Math.abs(offset - previous) > 1;
+          pendingOffsets.current[key] = offset;
+          return <li
+            key={key}
+            className={"noir-wheel__item"
+              + (offset === 0 ? " is-selected" : offset > 0 ? " is-below" : " is-above")
+              + (character.emptyslot ? " is-new" : "")
+              + (Math.abs(offset) > 2 ? " is-far" : "")
+              + (jumped ? " is-jump" : "")}
+            style={{ "--off": offset, "--len": nameLength(character) }}
+            aria-current={isSelected ? "true" : undefined}
+          >
+            <button
+              type="button"
+              className="noir-wheel__name"
+              tabIndex={isSelected ? -1 : 0}
+              onMouseEnter={() => !isSelected && nuicallback("hover").catch(() => {})}
+              onClick={() => { if (!isSelected) { nuicallback("click").catch(() => {}); selectCharacter(index); } }}
+            >{name}</button>
+          </li>;
+        })}
+      </ol>
+    </div> : <div className="noir-wheel-wrap"><p className="noir-wheel__empty">SEM PERSONAGENS</p></div>}
+
+    {selected?.emptyslot && <dl key={selectedIndex} className="noir-facts">
+      <div>
+        <dd>COMECE SUA NOVA HISTÓRIA</dd>
+      </div>
+    </dl>}
+
+    {selected && !selected.emptyslot && <dl key={selectedIndex} className="noir-facts">
+      <div>
+        <dt>EMPREGO</dt>
+        <dd>{upper(selected.additionalInfo?.job, "DESEMPREGADO")}</dd>
+      </div>
+      {selected.additionalInfo?.gang && <div>
+        <dt>GANG</dt>
+        <dd>{upper(selected.additionalInfo.gang)}{selected.additionalInfo.gangGrade ? <small> · {upper(selected.additionalInfo.gangGrade)}</small> : null}</dd>
+      </div>}
+    </dl>}
+
+    {selected && <div className="noir-cta">
+      <button type="button" className="noir-cta__action" onMouseEnter={() => nuicallback("hover").catch(() => {})} onClick={play}>
+        {selected.emptyslot ? "CRIAR" : "JOGAR"}
+      </button>
+      <div className="noir-hint">
+        ou pressione <kbd>ENTER</kbd> para {selected.emptyslot ? "criar" : "jogar"}
+      </div>
+    </div>}
+
+    <span className="noir-mark" aria-hidden="true">◇</span>
   </div>;
 }

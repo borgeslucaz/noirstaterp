@@ -19,17 +19,14 @@ RegisterNUICallback('playcharacter', function(payload, cb)
 
         else
 
+            CancelPreviewTransition()
             Nuicontrol(false)
             DoScreenFadeOut(500)
             Wait(500)
             Nuimessage('visible', false)
             DeleteCamScene()
 
-            if Config.framework == 'qbx' then
-                SelectCharacter(character.citizenid)
-            else
-                TriggerServerEvent('IV:CharacterChosen', character)
-            end
+            SelectCharacter(character.citizenid)
 
             
             SignIn()
@@ -45,7 +42,7 @@ RegisterNUICallback('PreviewCharacter', function(payload, cb)
     local char = option[payload.counter + 1]
     local data = GetCurrentScene()
 
-    CreateLocalPed(char, data)
+    CreateLocalPed(char, data, true)
 
     cb { {} }
 end)
@@ -74,11 +71,7 @@ RegisterNUICallback('CreateCharacter', function(payload, cb)
     Nuicontrol(false)
     DoScreenFadeOut(500)
     Wait(500)
-    if Config.framework == 'qbx' then
-        Createcharacter(payload)
-    else
-        TriggerServerEvent('IV:CreateCharacters', payload)
-    end
+    Createcharacter(payload)
    
     cb(true)
 end)
@@ -93,12 +86,7 @@ RegisterNUICallback('DeleteCharacter', function(payload, cb)
             break
         end
     end
-    if Config.framework == 'qbx' then
-        lib.callback.await('qbx_core:server:deleteCharacter', false, option[key].citizenid)
-    else
-        print('a')
-    local response = lib.callback.await('IV:DeleteCharacters',false, option[key])
-    end
+    lib.callback.await('qbx_core:server:deleteCharacter', false, option[key].citizenid)
 
 
         PlaySoundFrontend(-1, "FocusOut",  "HintCamSounds",  0)

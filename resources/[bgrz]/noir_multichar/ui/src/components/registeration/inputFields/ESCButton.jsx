@@ -4,7 +4,7 @@ import { nuicallback } from '../../../utils/nuicallback'
 const ESCButton = ({ exitfunc }) => (
   <button type='button' className='noir-create__back' onMouseEnter={() => nuicallback('hover')} onClick={exitfunc}>
     <span className='noir-create__key'>ESC</span>
-    <span>BACK</span>
+    <span>VOLTAR</span>
   </button>
 )
 

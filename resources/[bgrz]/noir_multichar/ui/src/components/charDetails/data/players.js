@@ -7,7 +7,7 @@ export const players = [
     emptyslot: false,
     img: "",
     sex: true,
-    additionalInfo: { cash: 1840, job: "Mecânico", lastSeen: "Rockford Hills" },
+    additionalInfo: { cash: 1840, job: "Mecânico", gang: "Ballas", gangGrade: "Soldado", lastSeen: "Rockford Hills" },
   },
   {
     id: 2,

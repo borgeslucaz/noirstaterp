@@ -2,7 +2,7 @@ import React from 'react'
 import { nuicallback } from '../../../utils/nuicallback'
 
 const Input = ({ name, label, value, handleChange }) => (
-  <label className='noir-create__field'>
+  <label className='noir-create__field noir-create__tile'>
     <span className='noir-create__label'>{label}</span>
     <input
       className='noir-create__control'

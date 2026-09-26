@@ -3,10 +3,12 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 const VIEWPORT_MARGIN = 16
 const POPOVER_GAP = 20
 
-export const usePopoverPlacement = (open, onClose) => {
+export const usePopoverPlacement = (open, onClose, { below = false } = {}) => {
   const anchorRef = useRef(null)
   const popoverRef = useRef(null)
-  const [placement, setPlacement] = useState('left')
+  // O formulário fica à esquerda da tela, então o popover abre à direita dele; sem espaço,
+  // abre embaixo.
+  const [placement, setPlacement] = useState('right')
 
   useLayoutEffect(() => {
     if (!open) return undefined
@@ -15,10 +17,20 @@ export const usePopoverPlacement = (open, onClose) => {
       const anchor = anchorRef.current
       const popover = popoverRef.current
       if (!anchor || !popover) return
+      if (below) {
+        setPlacement('below')
+        return
+      }
 
-      const availableLeft = anchor.getBoundingClientRect().left - VIEWPORT_MARGIN
-      const requiredLeft = popover.getBoundingClientRect().width + POPOVER_GAP
-      setPlacement(availableLeft >= requiredLeft ? 'left' : 'below')
+      // Abre à direita do formulário inteiro, não só do campo: senão o popover de um campo
+      // da coluna da esquerda cobre a coluna da direita.
+      const anchorRight = anchor.getBoundingClientRect().right
+      const formRight = anchor.closest('form')?.getBoundingClientRect().right ?? anchorRight
+      anchor.style.setProperty('--popover-shift', `${formRight - anchorRight}px`)
+
+      const availableRight = window.innerWidth - formRight - VIEWPORT_MARGIN
+      const required = popover.getBoundingClientRect().width + POPOVER_GAP
+      setPlacement(availableRight >= required ? 'right' : 'below')
     }
 
     const frame = window.requestAnimationFrame(updatePlacement)
@@ -27,7 +39,7 @@ export const usePopoverPlacement = (open, onClose) => {
       window.cancelAnimationFrame(frame)
       window.removeEventListener('resize', updatePlacement)
     }
-  }, [open])
+  }, [below, open])
 
   useEffect(() => {
     if (!open) return undefined

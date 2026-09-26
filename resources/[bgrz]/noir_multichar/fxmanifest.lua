@@ -4,7 +4,7 @@ game 'gta5'
 name 'noir_multichar'
 author 'Noir State'
 description 'Noir State multicharacter selection resource'
-version '1.0.0'
+version '2.0.0'
 
 shared_scripts {
     '@ox_lib/init.lua',
@@ -15,8 +15,6 @@ shared_scripts {
 
 client_scripts {
     'util/util.lua',
-    'Framework/qb/client.lua',
-    'Framework/esx/client.lua',
     'Framework/qbx/client.lua',
     'modules/*.lua'
 }
@@ -25,13 +23,9 @@ server_scripts {
     '@oxmysql/lib/MySQL.lua',
     'server/server.lua',
     'Framework/qbx/server.lua',
-    'Framework/qb/server.lua',
-    'Framework/esx/server.lua',
 }
 
 escrow_ignore {
-    'Framework/qb/client.lua',
-    'Framework/esx/client.lua',
     'Framework/qbx/client.lua',
     'util.lua',
     'shared.lua'
@@ -48,8 +42,8 @@ files {
     'ui/dist/assets/*.gif',
     'ui/dist/assets/*.ttf',
     'ui/dist/assets/*.otf',
+    'ui/dist/assets/*.woff2',
+    'ui/dist/assets/*.woff',
     'ui/dist/*.svg',
 }
 
-
-provide 'esx_multicharacter'

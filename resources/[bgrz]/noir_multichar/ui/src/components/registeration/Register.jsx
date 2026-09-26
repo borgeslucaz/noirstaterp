@@ -6,6 +6,7 @@ import SelectGender from './inputFields/SelectGender'
 import SubmitButton from './inputFields/SubmitButton'
 import DatePicker from './inputFields/DatePicker'
 import ESCButton from './inputFields/ESCButton'
+import NoirLogo from './NoirLogo'
 import { useDispatch, useSelector } from 'react-redux'
 import { nuicallback } from '../../utils/nuicallback'
 import { updatescreen } from '../../store/screen/screen'
@@ -100,19 +101,15 @@ const Register = () => {
   if (scene !== 'charactercreator') return null
 
   return (
-    <section className='noir-create' ref={ref} tabIndex='-1' aria-label='Create character'>
-      <div className='noir-create__vignette' />
-      <header className='noir-brand'>
-        <span className='noir-brand__mark'>◇</span>
-        <div><strong>NOIR STATE</strong><small>ROLEPLAY</small></div>
-      </header>
+    <section className='noir-create' ref={ref} tabIndex='-1' aria-label='Novo personagem'>
+      <div className='noir-create__curtain' />
 
+      {/* Formulário e logo num bloco centralizado: em tela larga o vão entre eles não cresce. */}
+      <div className='noir-create__stage'>
       <main className='noir-create__panel'>
         <div className='noir-create__heading'>
-          <span className='noir-create__section'>02</span>
-          <h1>CREATE CHARACTER</h1>
-          <p>CREATE YOUR STORY</p>
-          <div className='noir-create__divider' />
+          <h1>NOVO PERSONAGEM</h1>
+          <p>Preencha a identidade do seu personagem</p>
         </div>
 
         <form className='noir-create__form' onSubmit={handleSubmit} autoComplete='off'>
@@ -134,6 +131,9 @@ const Register = () => {
           <SubmitButton />
         </form>
       </main>
+
+      <NoirLogo />
+      </div>
 
       <ESCButton exitfunc={exit} />
     </section>

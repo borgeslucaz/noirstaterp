@@ -7,6 +7,9 @@ CreateMenu = function(slot)
     ped = PlayerPedId()
     InMenu = true
 
+    -- A UI abre na hora: a cortina preta cai enquanto a câmera ainda se move por trás dela.
+    Nuimessage('charactercreator', slot)
+
     local offset = GetOffsetFromEntityInWorldCoords(ped, 0, 2.5, 0.5 )
 
     SetCamParams(cam,  offset.x + Config.CreateMenu.camoffset.x, offset.y + Config.CreateMenu.camoffset.y, offset.z + Config.CreateMenu.camoffset.z, Config.CreateMenu.camrotation.x, Config.CreateMenu.camrotation.y, Config.CreateMenu.camrotation.z, Config.CreateMenu.fov,1000, 0, 0, 2)
@@ -26,9 +29,6 @@ CreateMenu = function(slot)
         end
     end)
 
-    Wait(1000)
-
-    Nuimessage('charactercreator', slot)
 end
 
 -- ---@return integer

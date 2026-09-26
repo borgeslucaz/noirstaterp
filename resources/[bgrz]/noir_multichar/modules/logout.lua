@@ -19,11 +19,7 @@ end
 Logout = function()
     if Canlogout then
 
-        if Config.framework == 'qbx' then
-            TriggerServerEvent('qbx:Logout')
-        else
-            TriggerServerEvent("IV:Relog")
-        end
+        TriggerServerEvent('qbx:Logout')
         Wait(1000)
         LogoutPlayer()
     end

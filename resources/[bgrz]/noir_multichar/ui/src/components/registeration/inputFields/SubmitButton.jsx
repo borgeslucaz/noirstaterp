@@ -3,7 +3,7 @@ import { nuicallback } from '../../../utils/nuicallback'
 
 const SubmitButton = () => (
   <button type='submit' onMouseEnter={() => nuicallback('hover')} className='noir-create__submit'>
-    <span>CREATE CHARACTER</span>
+    <span>CRIAR PERSONAGEM</span>
     <span className='noir-create__submit-arrow' aria-hidden='true'>→</span>
   </button>
 )

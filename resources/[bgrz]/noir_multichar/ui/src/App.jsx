@@ -18,6 +18,8 @@ function App() {
   useEffect(() => {
     if (browserDevelopment) {
       dispatch(updatescreen("characterselection"));
+      // No navegador não existe a cena do jogo por trás da NUI; usa uma imagem de cena no lugar.
+      document.documentElement.style.setProperty("background", "url(/images/sinner.png) center/cover", "important");
     }
   }, [browserDevelopment, dispatch]);
   
