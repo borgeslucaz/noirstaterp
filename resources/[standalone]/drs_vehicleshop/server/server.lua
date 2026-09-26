@@ -2650,9 +2650,25 @@ local function UnregisterWithGarage(plate, netId, registeredResource)
     end)
 end
 
+-- noir: o mri_Qcarkeys (provide qbx_vehiclekeys) nao entrega chave de carro com dono pelo
+-- GiveKeys; a chave definitiva e um item que sai so pelo export GivePermanentKey, o mesmo que o
+-- qbx_garages usa. Idempotente: nao duplica se o jogador ja tem a chave desta placa.
+local function GivePermanentKey(src, plate)
+    if GetResourceState('mri_Qcarkeys') ~= 'started' then return nil end
+    local ok, given = pcall(function()
+        return exports.mri_Qcarkeys:GivePermanentKey(src, plate)
+    end)
+    return ok and given == true
+end
+
 local function GiveVehicleKeys(src, entity, plate, temporary)
     local configured = tostring(Config.KeySystem or 'auto'):lower()
     if configured == 'none' then return true end
+
+    if not temporary then
+        local given = GivePermanentKey(src, plate)
+        if given ~= nil then return given end
+    end
 
     if configured == 'qbx_vehiclekeys' or (configured == 'auto' and GetResourceState('qbx_vehiclekeys') == 'started') then
         if GetResourceState('qbx_vehiclekeys') ~= 'started' then return false end
@@ -3588,6 +3604,12 @@ local function PurchaseVehicle(src, model, shopId, quoteId)
 
         context.vehicleId = vehicleId
         ReleasePlateReservation(orderId)
+
+        -- noir: a chave vem com a compra, tambem quando o carro vai direto para a garagem ou cai
+        -- no fallback de guardar; sem isso so a entrega na concessionaria entregava chave.
+        if PlayerIdentityMatches(src, data.citizenid) and GivePermanentKey(src, plate) == false then
+            Notify(src, 'Não coube a chave do veículo no inventário. Peça uma cópia na garagem.', 'error')
+        end
         if not UpdateOrder(orderId, 'vehicle_created', { vehicleId = vehicleId }) then
             return StoredPurchaseResult(context, 'vehicle_created_journal_failed',
                 ('Vehicle purchased and stored at %s because the delivery journal was unavailable.'):format(garage))
