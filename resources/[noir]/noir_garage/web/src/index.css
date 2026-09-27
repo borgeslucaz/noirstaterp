@@ -35,6 +35,14 @@
 
 @font-face {
   font-family: "Big Shoulders Display";
+  src: url("./assets/fonts/BigShouldersDisplay-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Big Shoulders Display";
   src: url("./assets/fonts/BigShouldersDisplay-800.woff2") format("woff2");
   font-weight: 800;
   font-style: normal;
@@ -1001,7 +1009,7 @@ html[data-garage-theme="street"] .menu-item[data-reveal] {
 html[data-garage-theme="street"] .menu-item__label {
   font-family: var(--font-display);
   font-size: 19px;
-  font-weight: 800;
+  font-weight: 500;
   line-height: 1.15;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -1070,7 +1078,7 @@ html[data-garage-theme="street"] .menu__summary {
 html[data-garage-theme="street"] .menu__summary-name {
   font-family: var(--font-display);
   font-size: 24px;
-  font-weight: 800;
+  font-weight: 500;
   line-height: 1.05;
   text-transform: uppercase;
 }
