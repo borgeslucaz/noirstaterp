@@ -248,7 +248,9 @@ local function createZones(garageName, garage, accessPoint, accessPointIndex)
         -- Raio em que o marcador e desenhado (a zona do lib.zones roda o `inside` a cada frame nele):
         -- 60 m era mais do que se enxerga do marcador; fora disso o resource fica em 0 ms.
         local drawRadius = accessPoint.drawRadius or 25
-        local dropDrawRadius = accessPoint.dropDrawRadius or 30
+        -- Ponto de guardar: marcador so a 3 m (o bastante para achar a vaga de carro). A zona externa
+        -- tambem cria a zona do E, entao nunca fica menor que o raio de uso dela.
+        local dropDrawRadius = accessPoint.dropDrawRadius or math.max(3.0, (accessPoint.dropUseRadius or 1.5) + 0.5)
         -- Com atendente, o jogador para ao lado dele (nao em cima): o raio do balcao cresce um pouco.
         local useRadius = accessPoint.useRadius or (accessPoint.ped and 1.6 or 1)
         local dropUseRadius = accessPoint.dropUseRadius or 1.5
