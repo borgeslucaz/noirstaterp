@@ -547,36 +547,6 @@ button[aria-disabled="true"] {
 .menu__notice[data-tone="danger"] { --notice-color: var(--noir-danger-hover); }
 .menu__notice[data-tone="success"] { --notice-color: var(--noir-success); }
 
-.menu__footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 36px;
-  padding: 0 16px;
-  border-top: 1px solid var(--noir-divider);
-  background: var(--noir-panel);
-  font-size: 11px;
-  color: var(--noir-text-muted);
-}
-
-.menu__keys {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-kbd {
-  padding: 1px 5px;
-  border: 1px solid var(--noir-border);
-  border-radius: var(--radius-xs);
-  background: var(--noir-field);
-  font: 600 10px/1.4 var(--font-ui);
-  color: var(--noir-text);
-}
-
 .plate {
   padding: 1px 6px;
   border: 1px solid var(--noir-border);

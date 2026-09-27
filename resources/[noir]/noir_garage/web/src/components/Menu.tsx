@@ -216,14 +216,6 @@ const Menu: React.FC<{
         })}
       </div>
 
-      <footer className="menu__footer">
-        <span className="menu__keys">
-          <span><kbd>↑</kbd> <kbd>↓</kbd> navegar</span>
-          <span><kbd>Enter</kbd> escolher</span>
-          <span><kbd>⌫</kbd> {onBack ? 'voltar' : 'fechar'}</span>
-        </span>
-        <span className="tabular">{items.length > 0 && !loading ? `${index + 1}/${items.length}` : ''}</span>
-      </footer>
     </div>
   );
 };
