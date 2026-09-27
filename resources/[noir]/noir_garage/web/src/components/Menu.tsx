@@ -93,6 +93,7 @@ const Menu: React.FC<{
   useEffect(() => {
     if (!active) return;
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.target instanceof Element && event.target.closest('.modal-backdrop')) return;
       const typing = event.target instanceof HTMLInputElement;
       switch (event.key) {
         case 'ArrowDown':

@@ -1,10 +1,11 @@
 import React, { useCallback, useState } from 'react';
 import {
-  ArrowLeftRight, CarFront, Eye, EyeOff, Fuel, Gauge, History, KeyRound, Lock, Pencil, Save, Search,
-  Star, Warehouse, Wrench, Undo2, Check,
+  ArrowLeftRight, CarFront, Eye, EyeOff, Fuel, Gauge, History, KeyRound, Lock, Pencil, Search,
+  Star, Warehouse, Wrench,
 } from 'lucide-react';
 
 import Menu, { MenuItem, MenuNotice } from '../components/Menu';
+import { LockDialog, RenameDialog, TransferDialog } from '../components/Dialogs';
 import { VehicleIcon, vehicleStatus } from '../components/vehicle';
 import { fetchNui } from '../utils/fetchNui';
 import { useNuiEvent } from '../hooks/useNuiEvent';
@@ -26,10 +27,6 @@ const loadFavorites = (): Record<string, boolean> => {
 type Page =
   | { id: 'root' }
   | { id: 'vehicle' }
-  | { id: 'rename' }
-  | { id: 'transfer' }
-  | { id: 'transferConfirm'; target: GarageOption }
-  | { id: 'lock' }
   | { id: 'history' }
   | { id: 'stats' };
 
@@ -52,9 +49,8 @@ const App: React.FC = () => {
   const [search, setSearch] = useState('');
   const [notice, setNotice] = useState<MenuNotice | null>(null);
 
-  const [renameValue, setRenameValue] = useState('');
+  const [dialog, setDialog] = useState<'rename' | 'transfer' | 'lock' | null>(null);
   const [logs, setLogs] = useState<LogProps[] | null>(null);
-  const [targets, setTargets] = useState<GarageOption[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   const [previewing, setPreviewing] = useState(false);
@@ -79,6 +75,7 @@ const App: React.FC = () => {
     setSearch('');
     setNotice(null);
     setBusy(null);
+    setDialog(null);
   };
 
   const close = () => {
@@ -197,59 +194,28 @@ const App: React.FC = () => {
     }).then(response => setLogs(Array.isArray(response) ? [...response].reverse() : []));
   };
 
-  const openRename = () => {
+  const renamed = (name: string) => {
     if (!vehicle) return;
-    setRenameValue(vehicle.name);
-    push({ id: 'rename' });
+    setDialog(null);
+    setVehicles(previous => previous.map(v => (v.id === vehicle.id ? { ...v, name } : v)));
+    setNotice({ tone: 'success', text: `Apelido salvo: ${name}.` });
   };
 
-  const renameInvalid = !vehicle || !garage
-    || !renameValue.trim()
-    || renameValue.trim().length > garage.renameMaxLength
-    || renameValue.trim() === vehicle.name;
-
-  const saveRename = async () => {
-    if (!vehicle || renameInvalid || busy) return;
-    const name = renameValue.trim();
-    setBusy('rename');
-    const result = await fetchNui<string | false>('updateVehicleName', { vehicleId: vehicle.id, newName: name }, { data: name, delay: 500 });
-    setBusy(null);
-    if (!result) {
-      setNotice({ tone: 'danger', text: 'Não foi possível salvar o apelido.' });
-      return;
-    }
-    setVehicles(previous => previous.map(v => (v.id === vehicle.id ? { ...v, name: result } : v)));
-    back();
-    setNotice({ tone: 'success', text: `Apelido salvo: ${result}.` });
-  };
-
-  const openTransfer = () => {
+  const transferred = (target: GarageOption) => {
     if (!vehicle) return;
-    setTargets(null);
-    push({ id: 'transfer' });
-    fetchNui<GarageOption[]>('getGarageList', { vehicleId: vehicle.id }, {
-      data: [
-        { value: 'pillboxgarage', label: 'Pillbox Garage Parking' },
-        { value: 'sapcounsel', label: 'San Andreas Parking' },
-      ],
-      delay: 300,
-    }).then(response => setTargets(Array.isArray(response) ? response : []));
-  };
-
-  const transfer = async (target: GarageOption) => {
-    if (!vehicle || busy) return;
-    setBusy('transfer');
-    const success = await fetchNui<boolean>('updateGarageName', { vehicleId: vehicle.id, garage: target.value }, { data: true, delay: 500 });
-    setBusy(null);
-    if (!success) {
-      setNotice({ tone: 'danger', text: 'Não foi possível transferir o veículo.' });
-      return;
-    }
+    setDialog(null);
     stopPreview();
     setVehicles(previous => previous.filter(v => v.id !== vehicle.id));
     setSelectedId(null);
     setStack(ROOT);
     setNotice({ tone: 'success', text: `${vehicle.name} foi para ${target.label}.` });
+  };
+
+  const lockChanged = (success: boolean) => {
+    setDialog(null);
+    setNotice(success
+      ? { tone: 'success', text: 'Fechadura trocada. Só a chave nova abre o veículo.' }
+      : { tone: 'danger', text: 'Não foi possível trocar a fechadura.' });
   };
 
   const buyKeyCopy = async () => {
@@ -260,17 +226,6 @@ const App: React.FC = () => {
     setNotice(success
       ? { tone: 'success', text: 'Cópia da chave entregue.' }
       : { tone: 'danger', text: 'Não foi possível fazer a cópia da chave.' });
-  };
-
-  const changeLock = async () => {
-    if (!vehicle || busy) return;
-    setBusy('lock');
-    const success = await fetchNui<boolean>('lockChange', { vehicleId: vehicle.id }, { data: true, delay: 500 });
-    setBusy(null);
-    back();
-    setNotice(success
-      ? { tone: 'success', text: 'Fechadura trocada. Só a chave nova abre o veículo.' }
-      : { tone: 'danger', text: 'Não foi possível trocar a fechadura.' });
   };
 
   if (!visible || !garage) return null;
@@ -390,8 +345,7 @@ const App: React.FC = () => {
           key: 'rename',
           label: 'Mudar apelido',
           icon: <Pencil size={18} aria-hidden="true" />,
-          submenu: true,
-          onSelect: openRename,
+          onSelect: () => setDialog('rename'),
         });
       }
 
@@ -401,8 +355,7 @@ const App: React.FC = () => {
           label: 'Transferir de garagem',
           icon: <ArrowLeftRight size={18} aria-hidden="true" />,
           value: garage.transferPrice > 0 ? money(garage.transferPrice) : 'Grátis',
-          submenu: true,
-          onSelect: openTransfer,
+          onSelect: () => setDialog('transfer'),
         });
       }
 
@@ -422,8 +375,7 @@ const App: React.FC = () => {
             label: 'Trocar fechadura',
             icon: <Lock size={18} aria-hidden="true" />,
             value: money(garage.keys.lock),
-            submenu: true,
-            onSelect: () => push({ id: 'lock' }),
+            onSelect: () => setDialog('lock'),
           },
         );
       }
@@ -446,79 +398,6 @@ const App: React.FC = () => {
         activeDescription: 'Favoritos aparecem no topo da lista.',
         onSelect: () => toggleFavorite(vehicle.id),
       });
-    } else if (page.id === 'rename') {
-      title = 'Mudar apelido';
-      eyebrow = undefined;
-      items = [
-        {
-          key: 'input',
-          label: 'Apelido',
-          icon: <Pencil size={18} aria-hidden="true" />,
-          input: {
-            value: renameValue,
-            maxLength: garage.renameMaxLength,
-            placeholder: 'Carro do trampo',
-            onChange: value => { setRenameValue(value); setNotice(null); },
-            onSubmit: saveRename,
-          },
-        },
-        {
-          key: 'save',
-          label: 'Salvar apelido',
-          icon: <Save size={18} aria-hidden="true" />,
-          description: `Até ${garage.renameMaxLength} caracteres.`,
-          disabled: renameInvalid,
-          busy: busy === 'rename',
-          onSelect: saveRename,
-        },
-      ];
-    } else if (page.id === 'transfer') {
-      title = 'Transferir de garagem';
-      eyebrow = undefined;
-      loading = targets === null ? 'Carregando garagens…' : null;
-      empty = 'Nenhuma outra garagem aceita este veículo.';
-      items = (targets ?? []).map(target => ({
-        key: target.value,
-        label: target.label,
-        icon: <Warehouse size={18} aria-hidden="true" />,
-        value: garage.transferPrice > 0 ? money(garage.transferPrice) : undefined,
-        submenu: true,
-        onSelect: () => push({ id: 'transferConfirm', target }),
-      }));
-    } else if (page.id === 'transferConfirm') {
-      title = page.target.label;
-      eyebrow = 'Transferir para';
-      pageNotice = pageNotice ?? { tone: 'warning', text: `${vehicle.name} sai desta garagem e fica guardado em ${page.target.label}.` };
-      items = [
-        {
-          key: 'confirm',
-          label: 'Transferir veículo',
-          icon: <Check size={18} aria-hidden="true" />,
-          value: garage.transferPrice > 0 ? money(garage.transferPrice) : 'Grátis',
-          busy: busy === 'transfer',
-          onSelect: () => transfer(page.target),
-        },
-        { key: 'cancel', label: 'Cancelar', icon: <Undo2 size={18} aria-hidden="true" />, onSelect: back },
-      ];
-    } else if (page.id === 'lock' && garage.keys) {
-      title = 'Trocar fechadura';
-      eyebrow = undefined;
-      pageNotice = pageNotice ?? {
-        tone: 'danger',
-        text: 'Todas as chaves deste veículo deixam de funcionar, inclusive as cópias com outras pessoas. Você recebe uma chave nova.',
-      };
-      items = [
-        { key: 'cancel', label: 'Cancelar', icon: <Undo2 size={18} aria-hidden="true" />, onSelect: back },
-        {
-          key: 'confirm',
-          label: 'Trocar fechadura',
-          icon: <Lock size={18} aria-hidden="true" />,
-          value: money(garage.keys.lock),
-          tone: 'danger',
-          busy: busy === 'lock',
-          onSelect: changeLock,
-        },
-      ];
     } else if (page.id === 'history') {
       title = 'Histórico';
       eyebrow = undefined;
@@ -559,7 +438,7 @@ const App: React.FC = () => {
             icon={level === 0 ? <span className="menu__mark"><Warehouse size={18} aria-hidden="true" /></span> : undefined}
             items={view.items}
             index={index}
-            active={isTop}
+            active={isTop && !dialog}
             onIndexChange={setIndex}
             onPick={i => pick(level, i, view.items[i])}
             onBack={level > 0 ? back : undefined}
@@ -573,6 +452,16 @@ const App: React.FC = () => {
           />
         );
       })}
+
+      {dialog === 'rename' && vehicle && (
+        <RenameDialog vehicle={vehicle} maxLength={garage.renameMaxLength} onDone={renamed} onClose={() => setDialog(null)} />
+      )}
+      {dialog === 'transfer' && vehicle && (
+        <TransferDialog vehicle={vehicle} price={garage.transferPrice} onDone={transferred} onClose={() => setDialog(null)} />
+      )}
+      {dialog === 'lock' && vehicle && garage.keys && (
+        <LockDialog vehicle={vehicle} price={garage.keys.lock} onDone={lockChanged} onClose={() => setDialog(null)} />
+      )}
     </div>
   );
 };
