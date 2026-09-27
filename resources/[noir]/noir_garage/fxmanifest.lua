@@ -42,7 +42,8 @@ dependencies {
     'ox_lib',
     'oxmysql',
     'qbx_core',
-    'qbx_vehicles',
+    -- qbx_vehicles fica fora: e server_only, o cliente nao o recebe e a checagem
+    -- de dependencia derruba o noir_garage no cliente. Sobe antes pelo ensure [qbx].
 }
 
 lua54 'yes'
