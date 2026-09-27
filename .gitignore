@@ -30,3 +30,6 @@ Thumbs.db
 *.log
 *.tmp
 *.bak
+
+# sky_phone: config com os peppers das senhas do celular (ver docs/SKY_PHONE_CHANGES.md)
+**/sky_phone/config/config.lua

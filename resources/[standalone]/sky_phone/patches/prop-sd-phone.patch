@@ -1,0 +1,27 @@
+--- a/sky_phone/source/shared/phone_prop.lua	2026-09-27 02:44:23.025768407 +0000
++++ b/sky_phone/source/shared/phone_prop.lua	2026-09-27 02:44:23.134768776 +0000
+@@ -26,7 +26,16 @@
+         and Config.Animations.WorldDisplayEnabled == true
+ end
+ 
++-- Cores que o sd-phone-props tem; as outras molduras do sky_phone caem no preto.
++local SD_PHONE_FRAMES = {
++    black = true, blue = true, green = true, orange = true,
++    pink = true, purple = true, red = true, yellow = true,
++}
++
+ function SkyPhoneProp.Model(frame, configured)
++    if configured == "sd_phone_black" then
++        return "sd_phone_" .. (SD_PHONE_FRAMES[frame] and frame or "black")
++    end
+     if not SkyPhoneProp.Models[joaat(configured)] then return configured end
+     if configured == "sky_phone_prop_burgundy" then return configured end
+     local selected = SkyPhoneProp.Frames[frame] and frame or "black"
+--- a/sky_phone/fxmanifest.lua	2026-09-27 02:44:22.938768112 +0000
++++ b/sky_phone/fxmanifest.lua	2026-09-27 02:44:23.095768644 +0000
+@@ -195,4 +195,4 @@
+ 
+ dependency 'oxmysql'
+ 
+-data_file 'DLC_ITYP_REQUEST' 'stream/phone_prop/sky_phone_prop.ytyp'
++-- Props proprios (RSC7 v165) removidos: o servidor espera v159. O prop vem do sd-phone-props.

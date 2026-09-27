@@ -889,15 +889,38 @@ return {
         },
     },
 
+    -- sky_phone em teste: o export do cliente passa o slot e o servidor revalida.
     ['phone'] = {
-        label = 'Phone',
+        label = 'Celular',
         rarity = 'uncommon',
         weight = 190,
         stack = false,
-        consume = 0, -- never consumed on use; opens sd-phone (black frame)
-        server = {
-            export = 'sd-phone.usePhone'
-        }
+        close = true,
+        consume = 0,
+        client = { export = 'sky_phone.UsePhoneItem' },
+        buttons = {
+            { label = 'Ejetar SIM', action = function(slot) exports.sky_phone:EjectSimFromSlot(slot) end },
+        },
+    },
+
+    ['sky_phone_sim_registered'] = {
+        label = 'Chip registrado',
+        rarity = 'uncommon',
+        weight = 5,
+        stack = false,
+        close = true,
+        consume = 0,
+        client = { export = 'sky_phone.UseSimItem' },
+    },
+
+    ['sky_phone_sim_anonymous'] = {
+        label = 'Chip anônimo',
+        rarity = 'uncommon',
+        weight = 5,
+        stack = false,
+        close = true,
+        consume = 0,
+        client = { export = 'sky_phone.UseSimItem' },
     },
 
     ['phone_black'] = {

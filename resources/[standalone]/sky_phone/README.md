@@ -1,0 +1,757 @@
+<p align="center">
+  <img src="config/images/phone.png" alt="Sky Phone, the free FiveM phone script" width="128">
+</p>
+
+<h1 align="center">Sky Phone: Free FiveM Phone Script</h1>
+
+For server-only Discord webhooks, Phonepanel editing, app coverage and the
+optional avatar URL, see [Discord logging](LOGGING.md).
+
+<p align="center">
+  <strong>The complete, free FiveM phone for ESX, QBCore, and Qbox.</strong><br>
+  A premium-grade smartphone experience with 41 built-in apps, LB Phone migration, and first-class custom app support.
+</p>
+
+<p align="center">
+  <a href="https://www.sky-systems.net/shop/phone#live-demo">
+    <img alt="Try the interactive Sky Phone live demo" src="../readme-assets/live-demo-button.svg" width="780">
+  </a>
+</p>
+
+<p align="center">
+  <strong>Explore the real phone directly in your browser.</strong><br>
+  No download, no FiveM server, and no installation required.
+</p>
+
+<p align="center">
+  <img alt="Free and open source" src="https://img.shields.io/badge/price-free-22c55e?style=for-the-badge">
+  <img alt="GPL 3.0 license" src="https://img.shields.io/badge/license-GPL--3.0-2563eb?style=for-the-badge">
+  <img alt="FiveM frameworks: ESX, QBCore, Qbox" src="https://img.shields.io/badge/FiveM-ESX%20%7C%20QBCore%20%7C%20Qbox-f97316?style=for-the-badge">
+</p>
+
+<p align="center">
+  <a href="https://www.sky-systems.net/shop/phone#live-demo"><strong>Live demo</strong></a>
+  &nbsp;&bull;&nbsp;
+  <a href="https://github.com/sky-systems/sky_phone"><strong>Download for free</strong></a>
+  &nbsp;&bull;&nbsp;
+  <a href="https://discord.gg/sky-systems"><strong>Discord support</strong></a>
+</p>
+
+---
+
+**Jump to:** [App ecosystem](#one-phone-a-complete-app-ecosystem) · [Compatibility](#compatibility-at-a-glance) · [Installation](#quick-installation) · [LB Phone migration](#lb-phone-migration) · [Custom apps](#external-custom-apps) · [Support](#support-and-community)
+
+Sky Phone is a **free and open-source FiveM phone script** built to give serious roleplay servers the depth, polish, and flexibility normally associated with paid marketplace phones. It combines a modern iPhone-inspired interface, persistent devices and SIM cards, social networks, media, business tools, services, games, and broad framework support in one complete resource.
+
+Instead of maintaining separate ESX phone, QBCore phone, or Qbox phone versions, Sky Phone supports all three frameworks through one standalone resource.
+
+**Coming from LB Phone?** Sky Phone is designed to replace it. A controlled migration workflow transfers supported player data, while compatibility adapters keep supported LB Phone custom apps available. You can preview the import, migrate when you are ready, retry safely, and roll back migration-created Sky Phone records.
+
+This is not a cut-down free alternative. Sky Phone includes the core experience server owners and players expect from a leading paid FiveM phone, plus full source access, no purchase price, no feature paywalls, and no forced ecosystem lock-in.
+
+The production frontend is included, so a normal server installation does not require Node.js or pnpm.
+
+## Why Sky Phone stands out
+
+| What matters | What Sky Phone delivers |
+| --- | --- |
+| **Value** | A complete FiveM phone that is free to download, use, inspect, and customize under GPL-3.0. |
+| **Player experience** | A cohesive, responsive Sky UI with light and dark modes, persistent accounts, devices, SIM cards, media, social apps, services, and games. |
+| **Feature depth** | 41 built-in apps covering communication, social roleplay, business, navigation, media, utilities, and entertainment. |
+| **LB Phone replacement** | Command-only migration with dry runs, progress output, safe retries, and removal of migration-created records. |
+| **Custom apps** | Native custom app APIs plus compatibility adapters for LB Phone, 17Movement, High Phone, Quasar Smartphone, and YSeries app contracts. |
+| **Server flexibility** | ESX, QBCore, and Qbox support with adapters for popular inventories, voice systems, garages, and housing resources. |
+| **Ownership** | Readable source code, automatic database upgrades, customer-owned configuration, and no paid add-on packs required for the complete core experience. |
+| **Help when needed** | Installation and configuration help from the Sky-Systems community on the [official Discord](https://discord.gg/sky-systems). |
+
+Sky Phone is built to be the **free FiveM phone you can choose without accepting a downgrade**. Instead of paying first and discovering limitations later, server owners get the complete foundation, the source, migration tooling, and room to extend it from day one.
+
+## One phone, a complete app ecosystem
+
+| Category | Included apps and experiences |
+| --- | --- |
+| **Communication** | Phone, Messages, Mail, DarkChat, Radio, EasyShare, group messaging, company calls, voice messages, and world payphones |
+| **Social** | Picstagram, FlipTok, Feather, Flare, and CrewLink |
+| **City & business** | Banking, Billing, Companies, CityMarkt, Local Pages, Garage, Housing, Maps, SkyRide, Weazel News, CityWarn, Crypto, and Health |
+| **Media & productivity** | Camera, Photos, Music, Calendar, Clock, Notes, Voice Memos, Calculator, and Weather |
+| **Games** | Snake, Memory, Number Merge, Minesweeper, Tower Stack, Sky Flappy, and Neon Drop |
+| **Phone system** | App Store, Settings, lock screen, setup assistant, notifications, widgets, folders, passcodes, multiple wallpapers, and light/dark appearance |
+
+## Built for players, owners, and developers
+
+| For players | For server owners | For developers |
+| --- | --- | --- |
+| A polished phone that feels like one connected product | A free replacement for fragmented or expensive phone setups | Full source access and a documented-in-code integration surface |
+| Persistent phones, SIMs, accounts, settings, and content | Automatic schema installation and upgrades | Client and server exports for custom app lifecycle and permissions |
+| Social, business, media, utility, and game experiences | Framework, inventory, voice, garage, and housing bridges | Compatibility layers for established FiveM phone app ecosystems |
+| English and German localization | Controlled LB Phone migration with preview and rollback | Vue 3, TypeScript, Pinia, Vite, and reusable Sky UI components |
+
+## Compatibility at a glance
+
+| Layer | Supported options |
+| --- | --- |
+| **Frameworks** | ESX Legacy, QBCore, Qbox |
+| **Inventories** | ox_inventory, qb-inventory, lj-inventory, qs-inventory, codem-inventory, core_inventory, mf-inventory, smx-inventory, hex_4_inventory, and native ESX inventory |
+| **Calls** | YACA, PMA Voice, SaltyChat |
+| **Radio** | YACA, PMA Voice, SaltyChat |
+| **Housing** | RTX Housing, Quasar Housing, VMS Housing, RX Housing, NoLag Properties, SN Properties, ESX Property, qbx_properties |
+| **Garages** | Built-in/custom data and a broad set of popular garage providers configured through the bridge |
+| **Custom app contracts** | Sky Phone, LB Phone, 17Movement, High Phone, Quasar Smartphone, YSeries |
+| **Languages** | English, German |
+| **Database** | MySQL or MariaDB through oxmysql |
+
+## Feature highlights
+
+- Modern Sky UI with responsive interactions, light and dark appearance, widgets, folders, notifications, and a full setup flow
+- Unique physical handsets with IMEI metadata or one persistent virtual phone per character
+- Registered, anonymous, physical, and automatic virtual SIM card modes
+- Calls, group messages, reactions, media, contacts, location sharing, money sharing, voice messages, and payphones
+- Real account-backed social and service apps with persistent player content
+- Camera photos and videos, Gallery, Voice Memos, server music, YouTube playback, and EasyShare
+- Banking, invoices, garages, housing, companies, ride hailing, news, marketplace listings, maps, and weather
+- Seven built-in games plus an App Store for optional and custom apps
+- Automatic database installation and versioned upgrades
+- LB Phone migration with preview, progress reporting, safe retries, and rollback support
+- Custom app APIs and compatibility adapters for established phone ecosystems
+- English and German localization throughout the player-facing interface
+
+## Requirements
+
+### Required
+
+- MySQL or MariaDB
+- `oxmysql`
+- One supported framework:
+  - ESX Legacy (`es_extended`)
+  - Qbox (`qbx_core`)
+  - QBCore (`qb-core`)
+- One supported inventory path:
+  - `ox_inventory`
+  - `qb-inventory`
+  - `lj-inventory`
+  - `qs-inventory`
+  - `codem-inventory`
+  - `core_inventory`
+  - `mf-inventory`
+  - `smx-inventory`
+  - `hex_4_inventory`
+  - Native ESX inventory
+
+`mf-inventory` and `smx-inventory` are supported with ESX. The native ESX and HEX adapters use count-based items, so Sky Phone automatically disables unique phones and physical SIM cards while either adapter is active.
+
+### Voice
+
+Phone calls support:
+
+- YACA
+- PMA Voice
+- SaltyChat
+
+The Radio app supports:
+
+- YACA
+- PMA Voice
+- SaltyChat
+
+Start the selected voice resource before Sky Phone.
+
+### Optional services
+
+- FiveManage V3 Media API for Camera uploads, videos, Voice Memos, and remote Gallery deletion
+- GIPHY API for GIF search
+- Supported Garage and Housing resources when those apps should use external provider data
+
+## Quick installation
+
+> **Read this first:** [PHONE_INSTALLATION_IMPORTANT.md](PHONE_INSTALLATION_IMPORTANT.md) contains the required item, shop, startup-order, metadata, multi-device, and troubleshooting steps.
+
+1. Copy the resource into your FiveM resources directory.
+2. Keep the resource folder name `sky_phone`.
+3. Start `oxmysql`, your framework, inventory, and voice resource before Sky Phone.
+4. Review `sky_phone/config/config.lua` and `sky_phone/config/media.lua`.
+5. Add the required [inventory items and their images](#inventory-items). With **ox_inventory**, also remove the existing NPWD phone handler as described below.
+6. Add `ensure sky_phone` to `server.cfg`.
+7. Restart the server and watch the console for warnings.
+
+> [!WARNING]
+> **Using ox_inventory? Removing its NPWD phone handler is a required installation step when that block exists.**
+> Changing `data/items.lua` alone is not enough. Follow [Remove the NPWD phone handler](#1-remove-the-npwd-phone-handler-required) before testing the phone item, even if NPWD is stopped or not installed.
+
+Example start order:
+
+```cfg
+ensure oxmysql
+ensure es_extended
+ensure ox_inventory
+ensure pma-voice
+ensure sky_phone
+```
+
+Replace the example framework, inventory, and voice resources with the providers used by your server.
+
+Sky Phone creates and upgrades its database tables automatically. A manual SQL import is normally not required.
+
+## Configuration
+
+Customer settings are organized in:
+
+```text
+sky_phone/config/config.lua
+sky_phone/config/media.lua
+```
+
+The files contain clearly separated sections for:
+
+| Section | Purpose |
+| --- | --- |
+| `Config.Bridge` | Framework, inventory, language, callback timeout, and debug mode |
+| `Config.CommandPermissions` | Fixed groups for the admin panel, test data, verification commands, and social moderation |
+| `Config.Phone` | Phone item, movement, unique-device mode, and development command |
+| `Config.Sim` | Physical or virtual SIM behavior and number formatting |
+| `Config.Calls` / `Config.Radio` | Voice providers, call behavior, radio limits, and permissions |
+| `Config.Payphones` | Payphone pricing, detected props, validation, and custom spawned locations |
+| `Config.Animations` | Phone prop, animations, and portrait/landscape transforms |
+| App sections | Limits and behavior for every built-in app |
+| `Config.Server` | Stable password and passcode peppers |
+| `Config.Companies` | Company directory, jobs, services, and permissions |
+| `Config.Media` (`config/media.lua`) | FiveManage, GIPHY, uploads, and Gallery imports |
+| `Config.Music` | Server music library and playlist limits |
+| `Config.Migrations` | Manual LB Phone migration domains |
+| `Config.WeazelNews` | Editorial jobs, categories, and article limits |
+
+Restart `sky_phone` after changing Lua configuration.
+
+When `Config.PhoneConfigurator.Enabled` is enabled, the generated `source/shared/config_default.lua`
+provides the shipped SQL baseline. The frontend build recreates it from `config.lua` and the
+server-only `media.lua`; do not edit the generated snapshot directly.
+
+`Config.PhoneConfigurator` and `Config.CommandPermissions` remain file-owned and are omitted from
+the generated default snapshot. Permissions are not displayed in the Phone Configurator and stay
+authoritative while SQL configuration is enabled. Their stable keys do not change when a command is
+renamed in the panel. ESX and QBCore use their framework permissions. Qbox checks the configured ACE
+objects first and then its framework groups, so the standard `permissions.cfg` mapping from
+`group.admin` to the `admin` ACE works with the shipped `phonepanel` permission list. Restart
+`sky_phone` after changing fixed permissions.
+
+### Language
+
+Available locales:
+
+- English: `en`
+- German: `de`
+
+Select the language near the top of `config.lua`:
+
+```lua
+Config.Bridge.Locale = "en"
+```
+
+or:
+
+```lua
+Config.Bridge.Locale = "de"
+```
+
+Locale files are stored separately:
+
+```text
+sky_phone/config/locales/en.lua
+sky_phone/config/locales/de.lua
+```
+
+The German locale uses the complete English structure as a fallback, so newly introduced keys never leave the interface without text.
+
+### Debug output
+
+```lua
+Config.Bridge.Debug = false
+```
+
+When enabled, Sky Phone prints debug and informational messages. Warnings and errors are always shown.
+
+The short LB Phone detection notice also remains visible when debug mode is disabled.
+
+## Security values
+
+Sky Phone ships with stable generated defaults in `Config.Server`:
+
+```lua
+Config.Server = {
+    PasscodePepper = "...",
+    FlipTokPasswordPepper = "...",
+    PicstagramPasswordPepper = "...",
+}
+```
+
+For a production server, replace them with your own long, random, different values before players create passcodes or social accounts.
+
+Important:
+
+- Keep the values private and stable.
+- Changing `PasscodePepper` invalidates existing device passcodes.
+- Changing a social-app pepper invalidates existing passwords for that app.
+- Do not replace these values during routine updates.
+
+Sky Cloud logins are in-character credentials for the roleplay phone. Players must never reuse a
+real-world password. FlipTok and Picstagram passwords are stored as salted hashes using their
+configured peppers.
+
+The server-only block is evaluated only on the server. Because the project uses a customer-requested single configuration file that is also present in the client resource package, protect access to your distributed resource files if these values must remain strictly secret.
+
+## Inventory items
+
+This resource includes an image for each default item in `config/images/`:
+
+| Item | Image |
+| --- | --- |
+| `phone` | `phone.png` |
+| `sky_phone_sim_registered` | `sky_phone_sim_registered.png` |
+| `sky_phone_sim_anonymous` | `sky_phone_sim_anonymous.png` |
+
+Copy these PNG files into your inventory's item image directory. For the default `ox_inventory` image path, use `ox_inventory/web/images/`. Other inventories use their own image directory. If you change an item name in `Config.Phone` or `Config.Sim`, give its image the same name expected by your inventory.
+
+### ox_inventory
+
+#### 1. Remove the NPWD phone handler (required)
+
+> [!WARNING]
+> **Remove the old NPWD handler before using Sky Phone.** It can intercept the `phone` item even when NPWD is stopped or not installed. Updating the item definition in `data/items.lua` does not remove this separate handler.
+
+Search the **entire `ox_inventory` resource** for `Item('phone'` (or `Item("phone"` if the file uses double quotes). Check these locations:
+
+- Current releases: `ox_inventory/modules/items/client.lua`
+- Older releases: `ox_inventory/items/client.lua`
+
+**REMOVE the following complete NPWD block if present, from `Item('phone', ...` through its final `end)`. This is code to delete, not code to add:**
+
+```lua
+-- REMOVE this entire NPWD block if present. Do not add it.
+Item('phone', function(data, slot)
+    local success, result = pcall(function()
+        return exports.npwd:isPhoneVisible()
+    end)
+
+    if success then
+        exports.npwd:setPhoneVisible(not result)
+    end
+end)
+```
+
+Keep the `phone` item definition in `ox_inventory/data/items.lua`; remove only the NPWD handler above. If no matching NPWD handler exists, continue with the item definitions.
+
+#### 2. Add the inventory items
+
+Default entries in `ox_inventory/data/items.lua` for unique phones with physical SIM cards:
+
+```lua
+["phone"] = {
+    label = "iFruit Phone",
+    weight = 200,
+    stack = false,
+    close = true,
+    consume = 0,
+    client = { export = "sky_phone.UsePhoneItem" },
+},
+
+["sky_phone_sim_registered"] = {
+    label = "Registered SIM",
+    weight = 5,
+    stack = false,
+    close = true,
+    consume = 0,
+    client = { export = "sky_phone.UseSimItem" },
+},
+
+["sky_phone_sim_anonymous"] = {
+    label = "Anonymous SIM",
+    weight = 5,
+    stack = false,
+    close = true,
+    consume = 0,
+    client = { export = "sky_phone.UseSimItem" },
+},
+```
+
+Do not configure an LB Phone client event or client export. The shown Sky Phone exports are slot-aware and revalidate the selected item on the server. The server-side inventory registration remains as a fallback for item definitions without `client.export`; do not configure both handlers.
+
+**Restart the complete server after both changes**, then verify that using the `phone` item opens Sky Phone. Recheck the NPWD handler after updating or replacing ox_inventory, as an update may restore it.
+
+The server registers `Config.Phone.Item` as usable for every supported inventory adapter: `ox`, `qb`, `lj`, `qs`, `codem`, `core`, `mf`, `smx`, `hex`, and `esx`. Resource startup fails visibly if the selected adapter cannot complete that registration.
+
+The `hex` and `esx` adapters use ESX's count-based item API, which cannot persist per-item phone or physical SIM metadata. Sky Phone automatically forces `Config.Phone.Unique = false` and `Config.Sim.Enabled = false` while either adapter is active. `auto` selects `hex` when `hex_4_inventory` is started and otherwise falls back to `esx` on an ESX server when no metadata-capable inventory is detected.
+
+### QBCore-style item tables
+
+- Set the phone's `unique` value to match `Config.Phone.Unique`.
+- Set `useable = true` and `shouldClose = true`.
+- Physical SIM items must always be unique.
+- SIM items are not required when `Config.Sim.Enabled = false`.
+
+## Phone and SIM modes
+
+The two mode switches are independent:
+
+```lua
+Config.Phone.Unique = true
+Config.Sim.Enabled = true
+```
+
+| Phone mode | Behavior |
+| --- | --- |
+| `Unique = true` | Every phone item receives its own IMEI. Settings, apps, local data, linked account, and SIM move with the item. The item must not stack. |
+| `Unique = false` | Every framework character receives one persistent virtual device. Any configured phone item opens that device. The item may stack. |
+
+With unique phones, using an inventory item selects that exact handset whenever the inventory reports its slot. The F1 hotkey reopens the last selected IMEI; if no handset has been selected yet, the server chooses the first concrete phone slot. The client never supplies a slot or IMEI.
+
+| SIM mode | Behavior |
+| --- | --- |
+| `Enabled = true` | A registered or anonymous physical SIM item is required for cellular service. |
+| `Enabled = false` | Sky Phone creates a persistent automatic number for devices without a SIM. Physical SIM items are not required. |
+
+When changing these modes on an existing production server, restart the resource and test with a copy of the database first. The first phone used after switching to non-unique mode may adopt an existing valid IMEI so its local data is preserved.
+
+## Database
+
+Runtime migrations create and update the Sky Phone schema automatically.
+
+For hosts that require a manual fresh installation, import:
+
+```text
+sky_phone/sql/install.sql
+```
+
+Keep runtime migrations enabled after importing the SQL file because they remain responsible for future upgrades.
+
+A Sky Cloud account is optional. Devices without an account retain local settings and supported local app data. Linking an account synchronizes supported data across linked devices.
+
+## Media and uploads
+
+Configure FiveManage in the server-only `sky_phone/config/media.lua` file:
+
+```lua
+Config.Media.FiveManage.ApiKey = "your-fivemanage-v3-media-token"
+```
+
+Without a valid token:
+
+- Camera uploads are disabled
+- Video uploads are disabled
+- Voice Memo uploads are disabled
+- FiveManage Gallery imports are unavailable
+
+Configure GIF search with:
+
+```lua
+Config.Media.GiphyApiKey = "your-giphy-api-key"
+```
+
+Gallery import websites are configured under `Config.Media.Import.Websites`. Direct URLs are accepted only when their HTTPS hostname matches the configured allowed hosts.
+
+## Music
+
+Place server-owned audio files anywhere below:
+
+```text
+sky_phone/config/music/
+```
+
+Supported audio formats:
+
+- OGG
+- MP3
+
+Optional artwork may use:
+
+- WEBP
+- PNG
+- JPG
+- JPEG
+
+Configure each track in `Config.Music.Tracks`:
+
+```lua
+Config.Music.Tracks = {
+    {
+        Id = "night-drive",
+        Title = "Night Drive",
+        Artist = "Sky Records",
+    },
+}
+```
+
+Name the audio and artwork files after the stable track ID, for example:
+
+```text
+night-drive.ogg
+night-drive.webp
+```
+
+Restart Sky Phone after adding files. A frontend rebuild is not required.
+
+Players may also add public YouTube video links to their personal music library.
+
+## Voice and Radio
+
+### Calls
+
+```lua
+Config.Calls.VoiceProvider = "pma"
+```
+
+Supported values:
+
+- `yaca` or `yaca-voice`
+- `pma` or `pma-voice`
+- `saltychat` or `salty`
+
+YACA supports calls, payphone calls, provider-backed speaker mode, and real microphone mute. SaltyChat supports provider-backed speaker mode. PMA Voice keeps speaker and mute controls unavailable.
+
+### Radio
+
+```lua
+Config.Radio.VoiceProvider = "auto"
+```
+
+Automatic selection checks YACA, PMA Voice, and SaltyChat. Restricted frequency ranges and job access are configured in `Config.Radio.LockedChannels`.
+
+Radio display-name permissions are configured in `Config.Radio.DisplayName.AllowedJobs`.
+
+## Payphones
+
+Sky Phone automatically detects nearby world props listed in `Config.Payphones.Props`; GTA V payphones do not need configured coordinates. Pricing, payment account, prop models, and validation distances are configured under `Config.Payphones`.
+
+Use `CustomLocations` only when Sky Phone should spawn additional payphone props at custom positions:
+
+```lua
+Config.Payphones.CustomProp = "prop_phonebox_01b"
+Config.Payphones.CustomLocations = {
+    vector4(123.45, 678.90, 21.0, 90.0),
+}
+```
+
+`CustomProp` must also be listed in `Config.Payphones.Props`. Each custom position uses `vector4(x, y, z, heading)`.
+
+## Commands
+
+`Config.Phone.Keybind` defaults to `F1` and can be rebound in FiveM's key bindings. Set it to `false` to disable the phone hotkey.
+
+| Command | Where | Purpose |
+| --- | --- | --- |
+| `/phone` | In game | Opens the development phone command when `Config.Phone.DevelopmentCommand` is enabled |
+| `/phonetestdata` | In game | Creates customer-scoped test data when `Config.TestData.Enabled` is enabled |
+| `/fliptokverify <@handle> [on\|off]` | In game | Toggles or sets FlipTok verification for configured admin groups |
+| `/picstagramverify <@handle> <on\|off>` | In game | Sets Picstagram verification for configured admin groups |
+| `skyphone:migrate lb-phone dry` | Server console | Previews the LB Phone migration |
+| `skyphone:migrate lb-phone` | Server console | Imports enabled LB Phone domains |
+| `skyphone:migrate lb-phone force` | Server console | Re-runs enabled domains idempotently |
+| `skyphone:migrate lb-phone remove` | Server console | Removes imported Sky Phone records and migration markers |
+
+Command names and admin groups for the social apps are configurable.
+
+Disable test data on production servers:
+
+```lua
+Config.TestData.Enabled = false
+```
+
+## LB Phone migration
+
+Sky Phone detects supported LB Phone database tables during startup and prints a short notice. Detection never starts a migration automatically.
+
+Recommended workflow:
+
+1. Create a database backup.
+2. Run the preview:
+   `skyphone:migrate lb-phone dry`
+3. Review the domain summaries.
+4. Run the import:
+   `skyphone:migrate lb-phone`
+5. Restart and verify the migrated accounts and apps.
+
+The importer:
+
+- Reads LB Phone source tables without modifying them
+- Supports preserved `_lb` tables created by sd-phone migrations
+- Records per-domain completion markers
+- Can be retried safely with `force`
+- Can remove migration-created Sky Phone data with `remove`
+- Reports unsupported source records instead of forcing them into incompatible Sky Phone structures
+
+For Picstagram, FlipTok, and Feather, the active LB Phone login is attached to the migrated player's Sky Cloud account. If LB has no active-login row, the oldest mapped profile is used. Additional social profiles remain separate, and a normal import automatically runs versioned ownership repairs for older Sky Phone migrations.
+
+Supported domains include devices, settings, alarms, contacts, blocked numbers, calls, messages, photos, notes, wallet, voice memos, Picstagram, Mail, map markers, compatible DarkChat data, FlipTok, Feather, and Flare (LB Tinder profiles, photos, swipes, and mutual matches).
+
+The migration command is server-console only.
+
+## Garage, Housing, and Companies
+
+### Garage
+
+Select the provider under `Config.Garage.System`. Vehicle images use the configured CDN template with an icon fallback when no image is available.
+
+For MSK Garage, select `msk` (or use `auto`) and start `msk_garage` before `sky_phone`.
+With the Phone Configurator enabled, set `Garage.System` to `msk` in `/phonepanel` instead.
+Automatic detection checks `jg-advancedgarages` before `msk_garage`; select `msk` explicitly if both run.
+The adapter uses MSK's standard framework vehicle schema: ESX `owned_vehicles` / `stored`,
+or QBCore and Qbox `player_vehicles` / `state` (MSK 5.6+). It reads the garage ID,
+custom vehicle name, properties and fuel, and changes only the parked flag for valet orders.
+MSK treats unparked vehicles as impound candidates; the phone shows them as out and only
+delivers parked, personally owned vehicles. Cancelled or failed deliveries restore the parked flag.
+With `msk_fuel`, valet preserves liters; the fuel percentage is available when that resource
+configures a tank capacity for the model. Otherwise the percentage is shown as unavailable.
+See the [MSK database contract](https://docu.msk-scripts.de/docs/msk_garage/database/).
+
+### Housing
+
+Select `rtx`, `quasar`, `vms`, `rx`, `nolag`, `sn`, `esx_property`, or `qbx_properties` under `Config.Housing.System`. Automatic mode uses `Config.Housing.AutoPriority` and keeps the existing `esx_property` and `qbx_properties` defaults ahead of newly supported providers. Select a provider explicitly when multiple housing resources are running. Each bridge exposes only the capabilities supported by the documented provider API.
+
+### Companies
+
+Company jobs, public profiles, service numbers, services, permissions, locations, and default availability are configured under `Config.Companies.Definitions`.
+
+Company names are limited to 32 Unicode characters in Lua and the Phone Configurator; Discover
+wraps names instead of truncating them. Shorten any existing longer names before restarting.
+Set each definition's `CoverUrl` to an HTTPS image URL in the configuration or Phone Configurator
+(an empty value hides the cover). Set `LogoUrl` to the company logo HTTPS URL in the same definition. Both images are
+admin-managed; job members cannot change them through Companies. Previously uploaded job
+logos and covers are no longer used automatically.
+
+Opening hours use 24-hour `HH:MM` input. `ServiceLine.CanMessage` enables company SMS and defaults
+to `true` for new companies and the shipped service lines. On the first restart after this update,
+the Phone Configurator enables SMS once for the stored `ambulance`, `fire`, `mechanic`, and `taxi`
+definitions; later admin changes are preserved. App requests still require the company and the
+selected public service to accept requests, plus a registered SIM.
+
+### Weazel News
+
+Configure editorial jobs and minimum grades:
+
+```lua
+Config.WeazelNews.AllowedJobs = {
+    weazel = 0,
+    reporter = 2,
+}
+```
+
+Unlisted jobs can read news but cannot manage articles.
+
+## External custom apps
+
+Sky Phone is not limited to the apps that ship with it. Other resources can register installable custom apps, publish them through the App Store, exchange messages with their NUI, send notifications, and use server-controlled permissions and storage.
+
+Its native custom app surface includes client and server exports for app registration, lifecycle control, messaging, notifications, capability discovery, and policy management. Sky Phone also normalizes supported custom-app contracts from:
+
+- LB Phone
+- 17Movement
+- High Phone
+- Quasar Smartphone
+- YSeries
+
+The resource provides the compatibility aliases `lb-phone`, `17mov_Phone`, `high-phone`, `qs-smartphone`, and `yseries`.
+
+That means servers can replace LB Phone without giving up supported custom apps, while developers can build directly against Sky Phone for deeper lifecycle, permission, and storage integration.
+
+Start Sky Phone before the custom app resources and do not start the original phone resource for an alias at the same time. For example, an unchanged app using `exports["lb-phone"]:AddCustomApp(...)` must run with `sky_phone`, not with the original `lb-phone`, as the active provider. Two active providers expose the same FiveM export event and can send registrations to the wrong phone.
+
+## Frontend development
+
+Customers installing a release do not need to build the frontend.
+
+For development:
+
+```powershell
+cd frontend
+pnpm install
+pnpm dev
+```
+
+Create a production frontend build with:
+
+```powershell
+pnpm build
+```
+
+The production output is written to `sky_phone/source/html`.
+
+Useful checks:
+
+```powershell
+pnpm typecheck
+pnpm test
+pnpm lint
+pnpm build
+```
+
+## Troubleshooting
+
+### CityWarn map blips
+
+Active CityWarn warnings with coordinates appear on the GTA map and minimap for
+all players, including with the phone closed. Radius warnings include a translucent
+area; district warnings with coordinates use a point marker. City-wide warnings
+and districts without coordinates remain available in the phone app without an
+invented map location. The existing in-app map and its personal filters still work;
+those filters do not hide the public GTA warning blips.
+
+Publishing or updating a warning triggers a server sync. Resolving it removes its
+blips immediately, and expiration removes them locally even if a server request
+times out. Joining or restarting the resource restores active warnings, with a
+30-second reconciliation for missed events and a 5-second retry after failures.
+Disabling `Config.CityWarn.Enabled` through the Phone Configurator or stopping the
+resource removes the blips. No additional configuration or SQL migration is needed.
+
+### The phone item does nothing
+
+- Confirm the framework and inventory are supported and started first.
+- Confirm the item name matches `Config.Phone.Item`.
+- Confirm the item is usable.
+- In unique mode, confirm the phone is non-stackable.
+- Check the server console for inventory adapter warnings.
+
+### Calls connect without audio
+
+- Confirm the configured voice resource is running.
+- Confirm `Config.Calls.VoiceProvider` matches the installed provider.
+- Start the voice resource before Sky Phone.
+
+### Camera or Voice Memos cannot upload
+
+- Configure a valid FiveManage V3 Media API token.
+- Confirm the token has the required file permissions.
+- Restart Sky Phone after changing the token.
+
+### Social app password or passcode warnings appear
+
+- Check the values in `Config.Server`.
+- Use long, stable values.
+- Do not change them after accounts or passcodes have been created.
+
+### The LB Phone notice appears
+
+This is only a detection notice. No data is imported automatically. Run the `dry` command from the server console when you are ready.
+
+### More diagnostic output is needed
+
+Enable:
+
+```lua
+Config.Bridge.Debug = true
+```
+
+Reproduce the problem, collect the relevant server and client console lines, and disable debug mode again afterward.
+
+## Support and community
+
+Sky Phone is free, but you are not left alone with it. For installation help, configuration questions, bug reports, integration discussions, and community support, join the official Sky-Systems Discord:
+
+**[Join the Sky-Systems Discord](https://discord.gg/sky-systems)**
+
+If Sky Phone helps your server, star the repository and share it with other FiveM developers. Feedback and focused pull requests are welcome.
+
+## License, credits, and notices
+
+Sky Phone is free and open-source software licensed under the [GNU General Public License v3.0](LICENSE).
+
+Third-party acknowledgements and complete library license texts are included in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The GPL and these notices accompany the resource in release and pull-request packages. The listed licenses apply to the identified components; they do not grant additional rights to unrelated artwork, maps, or audio.
+
+The corresponding Vue/TypeScript and Lua sources, dependency lockfile, and build scripts are available in the [public repository](https://github.com/sky-systems/sky_phone). Published release and pull-request packages include `SOURCE.txt` with links to the exact source commit and its archive. A pull-request filename identifies the PR head; `SOURCE.txt` records the actual checkout tested by CI, which may be GitHub's merge commit. Published releases also provide the matching version tag and source archives on the [releases page](https://github.com/sky-systems/sky_phone/releases).

@@ -1,0 +1,2038 @@
+Bridge.Database.AfterMigration("sky_phone", function()
+
+SkyPhoneCalls = {}
+
+local calls = {}
+local function player_blocked(source)
+    return source and Bridge.PlayerState and Bridge.PlayerState.GetBlockReason(source)
+end
+AddEventHandler("sky_phone:player:restricted", function(source)
+    -- Ring-all: release this employee without cancelling other employees' rings.
+    SkyPhoneCalls.EndForSource(source)
+end)
+local active_by_source = {}
+local active_by_sim = {}
+local dial_locks = {}
+local dialing_by_sim = {}
+local next_voice_channel = 10000
+local reroute_company_call
+
+local function uuid()
+    local rows = Bridge.Database.Query("SELECT UUID() AS `id`", {})
+    if not rows[1] or type(rows[1].id) ~= "string" then
+        error("[sky_phone] Database did not generate a call UUID.")
+    end
+    return rows[1].id
+end
+
+local function is_uuid(value)
+    return type(value) == "string"
+        and value:match(
+            "^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$"
+        ) ~= nil
+end
+
+local function trim(value)
+    if type(value) ~= "string" then
+        return nil
+    end
+    return value:match("^%s*(.-)%s*$")
+end
+
+local function is_player_source(value)
+    return type(value) == "number"
+        and value == value
+        and value ~= math.huge
+        and value ~= -math.huge
+        and value >= 1
+        and value % 1 == 0
+end
+
+local function normalize_contact_email(value)
+    local email = trim(value)
+    if not email or email == "" then
+        return ""
+    end
+    email = email:lower()
+    local local_part = email
+    if email:find("@", 1, true) then
+        local_part = email:match("^([^@]+)@" .. Config.Mail.Domain:gsub("%.", "%%.") .. "$")
+    end
+    if not local_part
+        or #local_part < Config.Mail.LocalPartMinLength
+        or #local_part > Config.Mail.LocalPartMaxLength
+        or not local_part:match("^[a-z0-9][a-z0-9._-]*[a-z0-9]$")
+        or local_part:find("..", 1, true)
+    then
+        return nil
+    end
+    return local_part .. "@" .. Config.Mail.Domain
+end
+
+local function scope_for_device(device)
+    if device.account_id then
+        return tonumber(device.account_id), nil
+    end
+    return nil, device.imei
+end
+
+local function current_scope(source)
+    local session, error_response = SkyPhone.RequireSession(source)
+    if not session then
+        return nil, error_response
+    end
+    local device = SkyPhone.LoadDevice(session.imei)
+    if not device then
+        return nil, { success = false, error = "device_not_found" }
+    end
+    local account_id, device_imei = scope_for_device(device)
+    return {
+        account_id = account_id,
+        source = source,
+        device = device,
+        device_imei = device_imei,
+        session = session,
+    }
+end
+
+local function scope_condition(scope, alias)
+    local prefix = alias and (alias .. ".") or ""
+    if scope.account_id then
+        return prefix .. "`account_id` = ?", { scope.account_id }
+    end
+    return prefix .. "`device_imei` = ?", { scope.device_imei }
+end
+
+local function find_device_holder(imei)
+    for _, player_source in ipairs(Bridge.Framework.GetPlayers()) do
+        local source = tonumber(player_source) or player_source
+        if SkyPhone.FindDeviceSlots(source, imei)[1] then
+            return source
+        end
+    end
+    return nil
+end
+
+local function call_settings(imei)
+    local rows = Bridge.Database.Query([[
+        SELECT `payload` FROM `sky_phone_device_data`
+        WHERE `device_imei` = ? AND `namespace` = 'settings' LIMIT 1
+    ]], { imei })
+    if not rows[1] then
+        return {}
+    end
+    local payload = json.decode(rows[1].payload)
+    return type(payload) == "table" and type(payload.settings) == "table" and payload.settings or {}
+end
+
+local function airplane_mode(imei)
+    return call_settings(imei).airplaneMode == true
+end
+
+local function visible_caller_number(call)
+    -- Never send the hidden number to recipients or their synced call history.
+    return call.hide_caller_id and "" or call.caller_number
+end
+
+local function add_call_entry(call_id, device, direction, status, other_number)
+    local account_id, device_imei = scope_for_device(device)
+    local result = Bridge.Database.Query([[
+        INSERT INTO `sky_phone_call_entries`
+            (`call_id`, `account_id`, `device_imei`, `direction`, `status`, `other_number`)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ]], { call_id, account_id, device_imei, direction, status, other_number })
+    return type(result) == "table" and result.insertId or nil
+end
+
+local function call_payload(call, source, state, channel)
+    local outgoing = source == call.caller_source
+    local speaker_supported = Bridge.Speaker.IsEnabled() and (
+        call.voice_provider == "yaca"
+        or call.voice_provider == "saltychat"
+        or call.voice_provider == "pma"
+        or (not call.voice_provider and Bridge.Calls.SupportsSpeaker())
+    )
+    local mute_supported = call.voice_provider == "yaca"
+        or call.voice_provider == "saltychat"
+        or call.voice_provider == "pma"
+        or (not call.voice_provider and Bridge.Calls.SupportsMute())
+    local payload = {
+        id = call.id,
+        video = call.video == true,
+        videoRequested = call.video_requester ~= nil,
+        videoIncoming = call.video_requester ~= nil and call.video_requester ~= source,
+        state = state,
+        direction = outgoing and "outgoing" or "incoming",
+        anonymous = call.hide_caller_id == true,
+        otherNumber = outgoing and call.callee_number or visible_caller_number(call),
+        startedAt = call.started_at,
+        answeredAt = call.answered_at,
+        elapsedSeconds = call.answered_at and math.max(0, os.time() - call.answered_at) or 0,
+        channel = channel,
+        speakerEnabled = call.speakers and call.speakers[source] == true or false,
+        speakerSupported = speaker_supported,
+        muted = call.muted and call.muted[source] == true or false,
+        muteSupported = mute_supported,
+    }
+    if call.payphone and outgoing then
+        payload.elapsedSeconds = call.payphone.elapsed_seconds or 0
+        payload.totalCost = call.payphone.total_cost or 0
+    end
+    return payload, outgoing
+end
+
+local function call_snapshot(call, source)
+    local state = call.answered_at and "connected" or "ringing"
+    local channel = state == "connected" and call.channel or nil
+    local payload, outgoing = call_payload(call, source, state, channel)
+    payload.caller = {
+        number = call.caller_number,
+        source = call.caller_source,
+    }
+    if call.hide_caller_id and not outgoing then
+        payload.caller = { number = "" }
+    end
+    -- Compatibility snapshots show the recipient's own offer (or one pending
+    -- recipient for caller/ID lookups); only answering assigns the actual callee.
+    local callee_source = call.callee_source
+    if not callee_source and call.ringing_targets then
+        callee_source = call.ringing_targets[source] and source or next(call.ringing_targets)
+    end
+    payload.callee = {
+        number = call.callee_number,
+        source = callee_source,
+    }
+    payload.companyId = call.company_id
+    payload.payphone = call.payphone ~= nil
+    payload.video = call.video == true
+    return payload
+end
+
+local function log_call(call, action, status, actor_source, extra)
+    if not SkyPhoneLog then return end
+    SkyPhoneLog.Record("Calls", "calls:" .. action, status, actor_source or call.caller_source, {
+        id = call.id,
+        caller = { source = call.caller_source, number = call.caller_number, simId = call.caller_sim_id },
+        callee = { source = call.callee_source, number = call.callee_number, simId = call.callee_sim_id },
+        companyId = call.company_id,
+        payphone = call.payphone ~= nil,
+        startedAt = call.started_at,
+        answeredAt = call.answered_at,
+        durationSeconds = call.answered_at and math.max(0, os.time() - call.answered_at) or 0,
+        voiceProvider = call.voice_provider,
+        totalCost = call.payphone and call.payphone.total_cost or nil,
+        extra = extra,
+    })
+end
+
+local function send_state(call, source, state, channel)
+    local payload, outgoing = call_payload(call, source, state, channel)
+    if call.payphone and outgoing then
+        TriggerClientEvent("sky_phone:payphone:state", source, payload)
+        return
+    end
+    TriggerClientEvent("sky_phone:call:state", source, payload)
+end
+
+local function notify_recents(device, source)
+    if device.account_id then
+        SkyPhone.NotifyAccount(device.account_id, "sky_phone:calls:changed", {})
+    elseif source then
+        TriggerClientEvent("sky_phone:calls:changed", source)
+    end
+end
+
+local function settle_payphone_call(call, duration)
+    local payphone = call.payphone
+    local elapsed_seconds = math.max(0, math.floor(tonumber(duration) or 0))
+    local price_per_second = math.max(0, math.floor(tonumber(payphone.price_per_second) or 0))
+    local billable_seconds = elapsed_seconds
+    local total_cost = billable_seconds * price_per_second
+
+    if total_cost > 0 then
+        local available_money = tonumber(Bridge.Framework.GetMoney(call.caller_source, Config.Payphones.PaymentAccount))
+        if not available_money then
+            Bridge.Debug(
+                "error",
+                "[sky_phone] Payphone settlement could not read the balance for source %s.",
+                tostring(call.caller_source)
+            )
+            billable_seconds = 0
+            total_cost = 0
+        elseif available_money < total_cost then
+            billable_seconds = math.min(elapsed_seconds, math.floor(math.max(0, available_money) / price_per_second))
+            total_cost = billable_seconds * price_per_second
+        end
+    end
+
+    local charged = total_cost == 0
+    if total_cost > 0 then
+        local success, result = pcall(
+            Bridge.Framework.RemoveMoney,
+            call.caller_source,
+            Config.Payphones.PaymentAccount,
+            total_cost
+        )
+        charged = success and result and true or false
+        if not success then
+            Bridge.Debug(
+                "error",
+                "[sky_phone] Payphone settlement failed for source %s: %s",
+                tostring(call.caller_source),
+                tostring(result)
+            )
+        elseif not result then
+            Bridge.Debug(
+                "warn",
+                "[sky_phone] Payphone settlement was rejected for source %s.",
+                tostring(call.caller_source)
+            )
+        end
+    end
+
+    payphone.elapsed_seconds = elapsed_seconds
+    payphone.total_cost = charged and total_cost or 0
+    return charged and billable_seconds == elapsed_seconds
+end
+
+local function send_payphone_visual(call, action, delay_ms)
+    if not call.payphone then
+        return
+    end
+    local coords = call.payphone.coords
+    local payload = {
+        id = call.id,
+        callerSource = call.caller_source,
+        model = call.payphone.model,
+        coords = { x = coords.x, y = coords.y, z = coords.z },
+    }
+    local event_name = ("sky_phone:payphone:visual:%s"):format(action)
+    local routing_bucket = call.payphone.routing_bucket
+    local targets = {}
+    if action == "stop" and call.payphone.visual_targets then
+        for _, target in ipairs(call.payphone.visual_targets) do
+            targets[#targets + 1] = target
+        end
+    else
+        for _, player_source in ipairs(Bridge.Framework.GetPlayers()) do
+            local target = tonumber(player_source) or player_source
+            if GetPlayerRoutingBucket(target) == routing_bucket then
+                targets[#targets + 1] = target
+            end
+        end
+        if action == "start" then
+            call.payphone.visual_targets = targets
+        end
+    end
+    local function dispatch()
+        for _, target in ipairs(targets) do
+            TriggerClientEvent(event_name, target, payload)
+        end
+    end
+    if delay_ms and delay_ms > 0 then
+        SetTimeout(delay_ms, dispatch)
+    else
+        dispatch()
+    end
+end
+
+local function is_callee(call, source)
+    return call.callee_source == source
+        or (call.ringing_targets ~= nil and call.ringing_targets[source] ~= nil)
+end
+
+-- Release in memory before any database work can yield to another call.
+local function release_ringing_target(call, target, status)
+    call.ringing_targets[target.source] = nil
+    if target.entry_id then
+        call.ringing_entry_statuses = call.ringing_entry_statuses or {}
+        call.ringing_entry_statuses[target.entry_id] = status
+    end
+    if active_by_source[target.source] == call.id then
+        active_by_source[target.source] = nil
+    end
+    if active_by_sim[target.sim_id] == call.id then
+        active_by_sim[target.sim_id] = nil
+    end
+    send_state(call, target.source, status)
+end
+
+local function finish_call(call, status)
+    if not call or call.ended then
+        return
+    end
+    call.ended = true
+    call.terminal_status = status
+    if call.voice_started then
+        local player_handles = { call.caller_source, call.callee_source }
+        for _, player_source in ipairs(player_handles) do
+            if call.muted and call.muted[player_source] then
+                Bridge.Calls.SetMuted(player_source, false, call.voice_provider)
+            end
+            if call.speakers and call.speakers[player_source] then
+                Bridge.Calls.SetSpeaker(player_source, false, call.voice_provider)
+            end
+        end
+        Bridge.Calls.Stop(call.id, player_handles, call.voice_provider)
+        call.speakers = {}
+        call.muted = {}
+        call.voice_started = false
+    end
+    local ended_at = os.time()
+    local duration = call.answered_at and math.max(0, ended_at - call.answered_at) or 0
+    if call.payphone and call.answered_at and not settle_payphone_call(call, duration)
+        and status ~= "disconnected"
+    then
+        status = "insufficient_funds"
+    end
+    call.terminal_status = status
+    local callee_status = status
+    if status == "no_answer" or status == "cancelled" then
+        callee_status = "missed"
+    end
+    if call.payphone and call.answered_at and status == "insufficient_funds" then
+        callee_status = "completed"
+    end
+    local ringing_targets = {}
+    for _, target in pairs(call.ringing_targets or {}) do
+        ringing_targets[#ringing_targets + 1] = target
+    end
+    for _, target in ipairs(ringing_targets) do
+        release_ringing_target(call, target, callee_status)
+    end
+    if not call.payphone then
+        local statements = {
+            {
+                query = [[
+                    UPDATE `sky_phone_calls`
+                    SET `status` = ?, `ended_at` = CURRENT_TIMESTAMP, `duration_seconds` = ?
+                    WHERE `id` = ?
+                ]],
+                params = { status, duration, call.id },
+            },
+            {
+                query = [[
+                    UPDATE `sky_phone_call_entries` SET `status` = ?
+                    WHERE `call_id` = ? AND `direction` = 'outgoing' AND `status` IN ('ringing', 'connected')
+                ]],
+                params = { status, call.id },
+            },
+            {
+                query = [[
+                    UPDATE `sky_phone_call_entries` SET `status` = ?
+                    WHERE `call_id` = ? AND `direction` = 'incoming' AND `status` IN ('ringing', 'connected')
+                ]],
+                params = { callee_status, call.id },
+            },
+        }
+        for entry_id, entry_status in pairs(call.ringing_entry_statuses or {}) do
+            statements[#statements + 1] = {
+                query = "UPDATE `sky_phone_call_entries` SET `status` = ? WHERE `id` = ? AND `call_id` = ?",
+                params = { entry_status, entry_id, call.id },
+            }
+        end
+        Bridge.Database.Transaction(statements)
+    end
+    active_by_source[call.caller_source] = nil
+    if call.caller_sim_id then
+        active_by_sim[call.caller_sim_id] = nil
+    end
+    if call.callee_source then
+        active_by_source[call.callee_source] = nil
+    end
+    if call.callee_sim_id then
+        active_by_sim[call.callee_sim_id] = nil
+    end
+    send_state(call, call.caller_source, status)
+    if call.callee_source then
+        send_state(call, call.callee_source, callee_status)
+    end
+    if call.caller_device then
+        notify_recents(call.caller_device, call.caller_source)
+    end
+    if call.callee_device and not call.payphone then
+        notify_recents(call.callee_device, call.callee_source)
+    end
+    if not call.payphone then
+        for _, target in ipairs(ringing_targets) do
+            notify_recents(target.device, target.source)
+        end
+    end
+    if call.payphone then
+        local hangup_duration = math.max(
+            250,
+            math.floor(tonumber(Config.Payphones.Animation.HangupDurationMs) or 2000)
+        )
+        send_payphone_visual(call, "stop", hangup_duration)
+    end
+    log_call(call, "ended", status, nil, { calleeStatus = callee_status, endedAt = ended_at })
+    calls[call.id] = nil
+end
+
+local function remove_ringing_target(call, source, status)
+    local target = call.ringing_targets and call.ringing_targets[source]
+    if not target then
+        return false
+    end
+    release_ringing_target(call, target, status)
+    if not call.payphone then
+        Bridge.Database.Query([[
+            UPDATE `sky_phone_call_entries` SET `status` = ?
+            WHERE `id` = ? AND `call_id` = ? AND `status` = 'ringing'
+        ]], { status, target.entry_id, call.id })
+        notify_recents(target.device, source)
+    end
+    if not call.ended and not call.answered_at and not next(call.ringing_targets) then
+        finish_call(call, status == "declined" and "declined" or "unavailable")
+    end
+    return true
+end
+
+local function active_call_for_source(source)
+    local call_id = active_by_source[source]
+    local call = call_id and calls[call_id] or nil
+    if not call or call.ended
+        or (call.caller_source ~= source and not is_callee(call, source))
+    then
+        return nil
+    end
+    return call
+end
+
+local function end_active_call(call, source)
+    if remove_ringing_target(call, source, "declined") then
+        return true
+    end
+    if call.company_service_call and not call.answered_at and call.callee_source == source then
+        if call.rerouting then
+            return false, "call_not_found"
+        end
+        if not reroute_company_call(call, "declined") then
+            finish_call(call, "declined")
+        end
+        return true
+    end
+
+    finish_call(call, call.answered_at and "completed" or "cancelled")
+    return true
+end
+
+function SkyPhoneCalls.GetForSource(source)
+    if not is_player_source(source) then
+        Bridge.Debug("error", "[sky_phone] Rejected invalid player source for call lookup.")
+        return nil, "invalid_source"
+    end
+
+    local call = active_call_for_source(source)
+    if not call then
+        return nil, "call_not_found"
+    end
+
+    return call_snapshot(call, source)
+end
+
+function SkyPhoneCalls.GetById(call_id)
+    if not is_uuid(call_id) then
+        Bridge.Debug("error", "[sky_phone] Rejected invalid call ID for call lookup.")
+        return nil, "invalid_call_id"
+    end
+
+    local call = calls[call_id]
+    if not call or call.ended then
+        return nil, "call_not_found"
+    end
+
+    return call_snapshot(call, call.caller_source)
+end
+
+function SkyPhoneCalls.IsActiveForSource(source)
+    if not is_player_source(source) then
+        return false
+    end
+    return active_call_for_source(source) ~= nil
+end
+
+function SkyPhoneCalls.EndForSource(source)
+    if not is_player_source(source) then
+        Bridge.Debug("error", "[sky_phone] Rejected invalid player source for call termination.")
+        return false, "invalid_source"
+    end
+
+    local call = active_call_for_source(source)
+    if not call then
+        return false, "call_not_found"
+    end
+    return end_active_call(call, source)
+end
+
+function SkyPhoneCalls.TerminateForSource(source)
+    if not is_player_source(source) then
+        Bridge.Debug("error", "[sky_phone] Rejected invalid player source for forced call termination.")
+        return false, "invalid_source"
+    end
+
+    local call = active_call_for_source(source)
+    if not call then
+        return false, "call_not_found"
+    end
+    finish_call(call, call.answered_at and "completed" or "cancelled")
+    return true
+end
+
+function SkyPhoneCalls.EndForSim(sim_id, reason)
+    local call_id = active_by_sim[sim_id]
+    local call = call_id and calls[call_id] or nil
+    if not call then
+        return
+    end
+    for source, target in pairs(call.ringing_targets or {}) do
+        if target.sim_id == sim_id then
+            remove_ringing_target(call, source, "missed")
+            return
+        end
+    end
+    if call.callee_sim_id == sim_id and call.company_service_call and not call.answered_at then
+        if not reroute_company_call(call, "missed") then
+            finish_call(call, "unavailable")
+        end
+        return
+    end
+    finish_call(call, reason or "ended")
+end
+
+function SkyPhoneCalls.LinkAccountData(account_id, imei)
+    local counts = Bridge.Database.Query([[
+        SELECT
+            (SELECT COUNT(*) FROM `sky_phone_contacts` WHERE `account_id` = ?) AS `contacts`,
+            (SELECT COUNT(*) FROM `sky_phone_call_entries` WHERE `account_id` = ?) AS `recents`
+    ]], { account_id, account_id })
+    local has_cloud_data = counts[1] and ((tonumber(counts[1].contacts) or 0) > 0 or (tonumber(counts[1].recents) or 0) > 0)
+    if has_cloud_data then
+        return Bridge.Database.Transaction({
+            { query = "DELETE FROM `sky_phone_contacts` WHERE `device_imei` = ? AND `account_id` IS NULL", params = { imei } },
+            { query = "DELETE FROM `sky_phone_call_entries` WHERE `device_imei` = ? AND `account_id` IS NULL", params = { imei } },
+        })
+    end
+    return Bridge.Database.Transaction({
+        {
+            query = "UPDATE `sky_phone_contacts` SET `account_id` = ?, `device_imei` = NULL WHERE `device_imei` = ? AND `account_id` IS NULL",
+            params = { account_id, imei },
+        },
+        {
+            query = "UPDATE `sky_phone_call_entries` SET `account_id` = ?, `device_imei` = NULL WHERE `device_imei` = ? AND `account_id` IS NULL",
+            params = { account_id, imei },
+        },
+    })
+end
+
+function SkyPhoneCalls.CopyCloudToDevice(account_id, imei)
+    return Bridge.Database.Transaction({
+        { query = "DELETE FROM `sky_phone_contacts` WHERE `device_imei` = ? AND `account_id` IS NULL", params = { imei } },
+        { query = "DELETE FROM `sky_phone_call_entries` WHERE `device_imei` = ? AND `account_id` IS NULL", params = { imei } },
+        {
+            query = [[
+                INSERT INTO `sky_phone_contacts`
+                    (`id`, `contact_id`, `device_imei`, `name`, `notes`, `organization`, `email`, `phone_number`, `avatar_media_id`, `favorite`, `created_at`, `updated_at`)
+                SELECT UUID(), `contact_id`, ?, `name`, `notes`, `organization`, `email`, `phone_number`, NULL, `favorite`, `created_at`, `updated_at`
+                FROM `sky_phone_contacts` WHERE `account_id` = ?
+            ]],
+            params = { imei, account_id },
+        },
+        {
+            query = [[
+                INSERT INTO `sky_phone_call_entries`
+                    (`call_id`, `device_imei`, `direction`, `status`, `other_number`, `created_at`)
+                SELECT `call_id`, ?, `direction`, `status`, `other_number`, `created_at`
+                FROM `sky_phone_call_entries` WHERE `account_id` = ?
+            ]],
+            params = { imei, account_id },
+        },
+    })
+end
+
+Bridge.Callbacks.Register("sky_phone:contacts:list", function(source)
+    local scope, error_response = current_scope(source)
+    if not scope then
+        return error_response
+    end
+    local condition, params = scope_condition(scope)
+    local rows = Bridge.Database.Query(([[
+        SELECT `contact_id` AS `id`, `name`, `notes`, `organization`, `email`, `phone_number`, `avatar_media_id`, `favorite`,
+            (SELECT media.`url` FROM `sky_phone_media` media WHERE media.`id` = `avatar_media_id`) AS `avatar_url`,
+            `created_at`, `updated_at`
+        FROM `sky_phone_contacts` WHERE %s ORDER BY LOWER(`name`), `phone_number`
+    ]]):format(condition), params)
+    local system_contacts = SkyPhoneCompanies.GetSystemContacts()
+    local system_ids = {}
+    local contacts = {}
+    for _, contact in ipairs(system_contacts) do
+        system_ids[contact.id] = true
+        contacts[#contacts + 1] = contact
+    end
+    for _, contact in ipairs(rows) do
+        if not system_ids[contact.id] and not SkyPhoneCompanies.IsSystemContactNumber(contact.phone_number) then
+            contacts[#contacts + 1] = contact
+        end
+    end
+    table.sort(contacts, function(left, right)
+        local left_name = tostring(left.name):lower()
+        local right_name = tostring(right.name):lower()
+        if left_name == right_name then
+            return tostring(left.phone_number) < tostring(right.phone_number)
+        end
+        return left_name < right_name
+    end)
+    return { success = true, data = contacts }
+end)
+
+Bridge.Callbacks.Register("sky_phone:contacts:save", function(source, data)
+    if not SkyPhone.AllowOperation(source, "contact_save", 30, 60) or type(data) ~= "table" then
+        return { success = false, error = "invalid_request" }
+    end
+    local scope, error_response = current_scope(source)
+    if not scope then
+        return error_response
+    end
+    local name = trim(data.name)
+    local notes = trim(data.notes) or ""
+    local organization = trim(data.organization) or ""
+    local email = normalize_contact_email(data.email)
+    local number = SkyPhoneSimNumber.Normalize(data.phoneNumber, Config.Sim.NumberLength, Config.Sim.NumberPrefix)
+    local avatar_media_id = tonumber(data.avatarMediaId) or 0
+    if not name or name == "" or #name > Config.Calls.ContactNameMaxLength
+        or #notes > Config.Calls.ContactNotesMaxLength
+        or #organization > Config.Calls.ContactNameMaxLength
+        or email == nil or not number
+    then
+        return { success = false, error = "invalid_contact" }
+    end
+    if (type(data.id) == "string" and data.id:sub(1, 8) == "company:")
+        or SkyPhoneCompanies.IsSystemContactNumber(number)
+    then
+        Bridge.Debug(
+            "warn",
+            "[sky_phone] Source %s attempted to modify a read-only company contact.",
+            tostring(source)
+        )
+        return { success = false, error = "readonly_contact" }
+    end
+    if avatar_media_id < 0 or avatar_media_id ~= math.floor(avatar_media_id) then
+        return { success = false, error = "invalid_contact" }
+    end
+    local avatar_url
+    if avatar_media_id > 0 then
+        local media_error
+        avatar_url, media_error = SkyPhoneMedia.ResolveOwnedMedia(source, tostring(avatar_media_id), "photo")
+        if not avatar_url then
+            return { success = false, error = media_error }
+        end
+    end
+    local condition, condition_params = scope_condition(scope)
+    local id = type(data.id) == "string" and data.id or uuid()
+    if data.id then
+        local owned_params = { id }
+        for _, value in ipairs(condition_params) do
+            owned_params[#owned_params + 1] = value
+        end
+        local owned = Bridge.Database.Query(("SELECT `id` FROM `sky_phone_contacts` WHERE `contact_id` = ? AND %s LIMIT 1"):format(condition), owned_params)
+        if not owned[1] then
+            return { success = false, error = "contact_not_found" }
+        end
+        local params = { name, notes, organization, email, number, avatar_media_id, id }
+        for _, value in ipairs(condition_params) do
+            params[#params + 1] = value
+        end
+        Bridge.Database.Query(([[
+            UPDATE `sky_phone_contacts` SET `name` = ?, `notes` = NULLIF(?, ''), `organization` = NULLIF(?, ''), `email` = NULLIF(?, ''), `phone_number` = ?, `avatar_media_id` = NULLIF(?, 0)
+            WHERE `contact_id` = ? AND %s
+        ]]):format(condition), params)
+    else
+        Bridge.Database.Query([[
+            INSERT INTO `sky_phone_contacts` (`id`, `contact_id`, `account_id`, `device_imei`, `name`, `notes`, `organization`, `email`, `phone_number`, `avatar_media_id`)
+            VALUES (?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, NULLIF(?, 0))
+        ]], { uuid(), id, scope.account_id, scope.device_imei, name, notes, organization, email, number, avatar_media_id })
+    end
+    if scope.account_id then
+        SkyPhone.NotifyAccount(scope.account_id, "sky_phone:contacts:changed", {})
+    end
+    return {
+        success = true,
+        data = {
+            id = id,
+            name = name,
+            notes = notes ~= "" and notes or nil,
+            organization = organization ~= "" and organization or nil,
+            email = email ~= "" and email or nil,
+            phone_number = number,
+            avatar_media_id = avatar_media_id > 0 and avatar_media_id or nil,
+            avatar_url = avatar_url,
+        },
+    }
+end)
+
+Bridge.Callbacks.Register("sky_phone:contacts:favorite", function(source, data)
+    if not SkyPhone.AllowOperation(source, "contact_favorite", 60, 60) or type(data) ~= "table" or type(data.id) ~= "string" or type(data.favorite) ~= "boolean" then
+        return { success = false, error = "invalid_request" }
+    end
+    local scope, error_response = current_scope(source)
+    if not scope then
+        return error_response
+    end
+    local condition, condition_params = scope_condition(scope)
+    local owned_params = { data.id }
+    for _, value in ipairs(condition_params) do
+        owned_params[#owned_params + 1] = value
+    end
+    local owned = Bridge.Database.Query(("SELECT `id` FROM `sky_phone_contacts` WHERE `contact_id` = ? AND %s LIMIT 1"):format(condition), owned_params)
+    if not owned[1] then
+        return { success = false, error = "contact_not_found" }
+    end
+    local params = { data.favorite and 1 or 0, data.id }
+    for _, value in ipairs(condition_params) do
+        params[#params + 1] = value
+    end
+    Bridge.Database.Query(("UPDATE `sky_phone_contacts` SET `favorite` = ? WHERE `contact_id` = ? AND %s"):format(condition), params)
+    if scope.account_id then
+        SkyPhone.NotifyAccount(scope.account_id, "sky_phone:contacts:changed", {})
+    end
+    return { success = true, data = { id = data.id, favorite = data.favorite } }
+end)
+
+Bridge.Callbacks.Register("sky_phone:contacts:delete", function(source, data)
+    if type(data) ~= "table" or type(data.id) ~= "string" then
+        return { success = false, error = "invalid_request" }
+    end
+    local scope, error_response = current_scope(source)
+    if not scope then
+        return error_response
+    end
+    if data.id:sub(1, 8) == "company:" then
+        Bridge.Debug(
+            "warn",
+            "[sky_phone] Source %s attempted to delete a read-only company contact.",
+            tostring(source)
+        )
+        return { success = false, error = "readonly_contact" }
+    end
+    local condition, values = scope_condition(scope)
+    local params = { data.id }
+    for _, value in ipairs(values) do
+        params[#params + 1] = value
+    end
+    Bridge.Database.Query(("DELETE FROM `sky_phone_contacts` WHERE `contact_id` = ? AND %s"):format(condition), params)
+    if scope.account_id then
+        SkyPhone.NotifyAccount(scope.account_id, "sky_phone:contacts:changed", {})
+    end
+    return { success = true }
+end)
+
+Bridge.Callbacks.Register("sky_phone:calls:recents", function(source)
+    local scope, error_response = current_scope(source)
+    if not scope then
+        return error_response
+    end
+    local condition, params = scope_condition(scope, "e")
+    params[#params + 1] = Config.Calls.RecentPageSize
+    local rows = Bridge.Database.Query(([[
+        SELECT e.`id`, e.`call_id`, e.`direction`, e.`status`, e.`other_number`, e.`created_at`,
+            c.`duration_seconds`
+        FROM `sky_phone_call_entries` e
+        JOIN `sky_phone_calls` c ON c.`id` = e.`call_id`
+        WHERE %s ORDER BY e.`created_at` DESC, e.`id` DESC LIMIT ?
+    ]]):format(condition), params)
+    return { success = true, data = rows }
+end)
+
+local function create_terminal_call(scope, number, target_sim, status, caller_number)
+    local id = uuid()
+    Bridge.Database.Query([[
+        INSERT INTO `sky_phone_calls`
+            (`id`, `caller_sim_id`, `callee_sim_id`, `caller_number`, `callee_number`, `status`, `ended_at`)
+        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ]], {
+        id,
+        scope.device.sim_id,
+        target_sim and target_sim.id or nil,
+        caller_number or scope.device.phone_number,
+        number,
+        status,
+    })
+    add_call_entry(id, scope.device, "outgoing", status, number)
+    notify_recents(scope.device, nil)
+    log_call({
+        id = id, caller_source = scope.source,
+        caller_number = caller_number or scope.device.phone_number,
+        caller_sim_id = scope.device.sim_id, callee_number = number,
+        callee_sim_id = target_sim and target_sim.id, started_at = os.time(),
+    }, "ended", status)
+    return {
+        id = id,
+        state = status,
+        direction = "outgoing",
+        otherNumber = number,
+        startedAt = os.time(),
+    }
+end
+
+local function company_call_target(company_id, caller_source, caller_sim_id, excluded_sim_ids, ring_all)
+    local has_busy_target = false
+    local targets = {}
+    local first_target
+    for _, candidate in ipairs(SkyPhoneCompanies.GetCallTargets(company_id)) do
+        local candidate_source = tonumber(candidate.source)
+        local candidate_sim_id = candidate.simId
+        local candidate_imei = candidate.imei
+        if candidate_source and type(candidate_sim_id) == "string" and type(candidate_imei) == "string"
+            and not player_blocked(candidate_source)
+            and SkyPhoneCellular.HasSignal(candidate_source)
+            and candidate_source ~= caller_source and candidate_sim_id ~= caller_sim_id
+            and (not excluded_sim_ids or not excluded_sim_ids[candidate_sim_id])
+        then
+            if active_by_source[candidate_source] or dial_locks[candidate_source] or active_by_sim[candidate_sim_id]
+                or dialing_by_sim[candidate_sim_id]
+            then
+                has_busy_target = true
+            else
+                dialing_by_sim[candidate_sim_id] = true
+                local device = SkyPhone.LoadDevice(candidate_imei)
+                local holder = device and find_device_holder(candidate_imei) or nil
+                if not device or device.sim_id ~= candidate_sim_id or holder ~= candidate_source then
+                    dialing_by_sim[candidate_sim_id] = nil
+                elseif SkyPhoneCompanies.IsServiceNumber(device.phone_number) then
+                    dialing_by_sim[candidate_sim_id] = nil
+                    Bridge.Debug(
+                        "error",
+                        "[sky_phone] Company call target %s uses reserved service number %s.",
+                        tostring(candidate_source),
+                        tostring(device.phone_number)
+                    )
+                elseif player_blocked(candidate_source) or airplane_mode(candidate_imei) then
+                    dialing_by_sim[candidate_sim_id] = nil
+                elseif active_by_source[candidate_source] or dial_locks[candidate_source] or active_by_sim[candidate_sim_id]
+                    or not SkyPhoneCompanies.CanAnswerCompanyCall(
+                        candidate_source, company_id, candidate_imei, candidate_sim_id
+                    )
+                then
+                    dialing_by_sim[candidate_sim_id] = nil
+                else
+                    local target = {
+                        device = device,
+                        sim_id = candidate_sim_id,
+                        source = candidate_source,
+                    }
+                    if not ring_all then
+                        return target
+                    end
+                    targets[candidate_source] = target
+                    first_target = first_target or target
+                end
+            end
+        end
+    end
+    if first_target then
+        return first_target, nil, targets
+    end
+    return nil, has_busy_target and "busy" or "unavailable"
+end
+
+local handle_no_answer
+
+local function ring_callee(call, target)
+    local source = target and target.source or call.callee_source
+    local device = target and target.device or call.callee_device
+    if call.ended or call.answered_at or (target and call.ringing_targets[source] ~= target) then
+        return
+    end
+    if player_blocked(source) or player_blocked(call.caller_source) then return end
+    if not SkyPhone.OpenDeviceForCall(source, device.imei) then return end
+    if player_blocked(source) or player_blocked(call.caller_source) then return end
+    if call.ended or call.answered_at or (target and call.ringing_targets[source] ~= target) then
+        return
+    end
+    local payload = call_payload(call, source, "ringing")
+    payload.device = { imei = device.imei, name = device.device_name }
+    TriggerClientEvent("sky_phone:call:incoming", source, payload)
+end
+
+local function schedule_no_answer(call)
+    call.ring_attempt = (call.ring_attempt or 0) + 1
+    local ring_attempt = call.ring_attempt
+    SetTimeout(call.ring_seconds * 1000, function()
+        local active_call = calls[call.id]
+        if active_call and not active_call.answered_at and active_call.ring_attempt == ring_attempt then
+            handle_no_answer(active_call)
+        end
+    end)
+end
+
+local function start_ringing_call(call, ring_seconds)
+    if call.caller_device and not call.payphone then
+        call.hide_caller_id = call_settings(call.caller_device.imei).hideCallerId == true
+    end
+    if call.ringing_targets then
+        -- There is no callee until one of the ringing employees answers.
+        call.callee_source, call.callee_sim_id, call.callee_device = nil, nil, nil
+    end
+    if not call.payphone then
+        Bridge.Database.Query([[
+            INSERT INTO `sky_phone_calls`
+                (`id`, `caller_sim_id`, `callee_sim_id`, `caller_number`, `callee_number`, `status`)
+            VALUES (?, ?, ?, ?, ?, 'ringing')
+        ]], { call.id, call.caller_sim_id, call.callee_sim_id, call.caller_number, call.callee_number })
+        add_call_entry(call.id, call.caller_device, "outgoing", "ringing", call.callee_number)
+        if call.ringing_targets then
+            for _, target in pairs(call.ringing_targets) do
+                target.entry_id = add_call_entry(call.id, target.device, "incoming", "ringing", visible_caller_number(call))
+            end
+        else
+            add_call_entry(call.id, call.callee_device, "incoming", "ringing", visible_caller_number(call))
+        end
+    end
+
+    calls[call.id] = call
+    active_by_source[call.caller_source] = call.id
+    if call.callee_source then
+        active_by_source[call.callee_source] = call.id
+    end
+    if call.caller_sim_id then
+        active_by_sim[call.caller_sim_id] = call.id
+        dialing_by_sim[call.caller_sim_id] = nil
+    end
+    if call.callee_sim_id then
+        active_by_sim[call.callee_sim_id] = call.id
+        dialing_by_sim[call.callee_sim_id] = nil
+    end
+    for source, target in pairs(call.ringing_targets or {}) do
+        active_by_source[source] = call.id
+        active_by_sim[target.sim_id] = call.id
+        dialing_by_sim[target.sim_id] = nil
+    end
+    dial_locks[call.caller_source] = nil
+
+    if player_blocked(call.caller_source) or player_blocked(call.callee_source) then
+        finish_call(call, "unavailable")
+        return call_payload(call, call.caller_source, "unavailable")
+    end
+    send_state(call, call.caller_source, "ringing")
+    if call.payphone then
+        send_payphone_visual(call, "start")
+    end
+    call.ring_seconds = math.max(1, math.floor(tonumber(ring_seconds) or Config.Calls.RingSeconds))
+    schedule_no_answer(call)
+    if call.ringing_targets then
+        local targets = {}
+        for _, target in pairs(call.ringing_targets) do
+            targets[#targets + 1] = target
+        end
+        for _, target in ipairs(targets) do
+            ring_callee(call, target)
+        end
+    else
+        ring_callee(call)
+    end
+
+    -- Opening several devices can yield long enough for an answer or cancellation.
+    -- Do not overwrite that state with a late ringing response on the caller's UI.
+    if call.ended or call.answered_at then
+        local state = call.terminal_status or "connected"
+        local payload = call_payload(call, call.caller_source, state, not call.ended and call.channel or nil)
+        return payload
+    end
+
+    log_call(call, "created", "ringing")
+
+    local result = call_payload(call, call.caller_source, "ringing")
+    if call.payphone then
+        result.elapsedSeconds = 0
+        result.totalCost = 0
+    end
+    return result
+end
+
+reroute_company_call = function(call, previous_status)
+    if not call.company_service_call or call.company_routing == "ring_all" or call.company_attempts_remaining <= 0 then
+        return false
+    end
+    if call.rerouting then
+        return true
+    end
+    call.rerouting = true
+    local next_target = company_call_target(
+        call.company_id,
+        call.caller_source,
+        call.caller_sim_id,
+        call.company_attempted_sims
+    )
+    if not next_target then
+        call.rerouting = nil
+        return false
+    end
+    if call.ended or calls[call.id] ~= call then
+        dialing_by_sim[next_target.sim_id] = nil
+        call.rerouting = nil
+        return true
+    end
+
+    local previous_source = call.callee_source
+    local previous_sim_id = call.callee_sim_id
+    local previous_device = call.callee_device
+    if not call.payphone then
+        local next_account_id, next_device_imei = scope_for_device(next_target.device)
+        local updated = Bridge.Database.Transaction({
+            {
+                query = "UPDATE `sky_phone_calls` SET `callee_sim_id` = ? WHERE `id` = ? AND `status` = 'ringing'",
+                params = { next_target.sim_id, call.id },
+            },
+            {
+                query = [[
+                    UPDATE `sky_phone_call_entries` SET `status` = ?
+                    WHERE `call_id` = ? AND `direction` = 'incoming' AND `status` = 'ringing'
+                ]],
+                params = { previous_status, call.id },
+            },
+            {
+                query = [[
+                    INSERT INTO `sky_phone_call_entries`
+                        (`call_id`, `account_id`, `device_imei`, `direction`, `status`, `other_number`)
+                    SELECT `id`, ?, ?, 'incoming', 'ringing', ?
+                    FROM `sky_phone_calls`
+                    WHERE `id` = ? AND `status` = 'ringing'
+                ]],
+                params = { next_account_id, next_device_imei, visible_caller_number(call), call.id },
+            },
+        })
+        if not updated then
+            dialing_by_sim[next_target.sim_id] = nil
+            call.rerouting = nil
+            Bridge.Debug(
+                "error",
+                "[sky_phone] Could not reroute company call %s to the next target.",
+                tostring(call.id)
+            )
+            return false
+        end
+        if call.ended or calls[call.id] ~= call then
+            dialing_by_sim[next_target.sim_id] = nil
+            call.rerouting = nil
+            return true
+        end
+    end
+
+    send_state(call, previous_source, previous_status)
+    if active_by_source[previous_source] == call.id then
+        active_by_source[previous_source] = nil
+    end
+    if active_by_sim[previous_sim_id] == call.id then
+        active_by_sim[previous_sim_id] = nil
+    end
+    if not call.payphone then
+        notify_recents(previous_device, previous_source)
+    end
+    if call.ended or calls[call.id] ~= call then
+        dialing_by_sim[next_target.sim_id] = nil
+        call.rerouting = nil
+        return true
+    end
+
+    call.callee_source = next_target.source
+    call.callee_sim_id = next_target.sim_id
+    call.callee_device = next_target.device
+    call.company_attempted_sims[next_target.sim_id] = true
+    call.company_attempts_remaining = call.company_attempts_remaining - 1
+    active_by_source[call.callee_source] = call.id
+    active_by_sim[call.callee_sim_id] = call.id
+    dialing_by_sim[call.callee_sim_id] = nil
+    call.rerouting = nil
+    ring_callee(call)
+    schedule_no_answer(call)
+    log_call(call, "rerouted", "ringing", nil, { previousSource = previous_source, previousStatus = previous_status })
+    return true
+end
+
+handle_no_answer = function(call)
+    if not reroute_company_call(call, "missed") then
+        finish_call(call, "no_answer")
+    end
+end
+
+local function lock_direct_target(caller_source, target, caller_sim_id)
+    if not target or not target.imei then
+        return nil, "unavailable"
+    end
+    if caller_sim_id then
+        local blocks = Bridge.Database.Query([[
+            SELECT 1 FROM `sky_phone_call_blocks`
+            WHERE `blocker_sim_id` = ? AND `blocked_sim_id` = ? LIMIT 1
+        ]], { target.id, caller_sim_id })
+        if blocks[1] then
+            return nil, "declined"
+        end
+    end
+    local callee_source = find_device_holder(target.imei)
+    if not callee_source or callee_source == caller_source or player_blocked(callee_source)
+        or not SkyPhoneCellular.HasSignal(callee_source) then
+        return nil, "unavailable"
+    end
+    if active_by_source[callee_source] or active_by_sim[target.id] or dialing_by_sim[target.id] then
+        return nil, "busy"
+    end
+    dialing_by_sim[target.id] = true
+    if airplane_mode(target.imei) then
+        dialing_by_sim[target.id] = nil
+        return nil, "unavailable"
+    end
+    return callee_source
+end
+
+function SkyPhoneCalls.StartCompanyCall(source, company_id, customer_number)
+    if not SkyPhoneCellular.HasSignal(source) then return { success = false, error = "no_signal" } end
+    local blocked = player_blocked(source)
+    if blocked then return { success = false, error = blocked } end
+    source = tonumber(source)
+    if not source or type(company_id) ~= "string" then
+        return { success = false, error = "invalid_request" }
+    end
+    if not SkyPhoneCompanies.CanPlaceCompanyCall(source, company_id) then
+        return { success = false, error = "not_authorized" }
+    end
+    if not SkyPhone.AllowOperation(source, "company_call_customer", 15, 60) then
+        return { success = false, error = "rate_limited" }
+    end
+    if dial_locks[source] then
+        return { success = false, error = "busy" }
+    end
+
+    local service_line = SkyPhoneCompanies.GetServiceLineForCompany(company_id)
+    if not service_line or not service_line.canCall then
+        return { success = false, error = "company_unavailable" }
+    end
+    local scope, error_response = current_scope(source)
+    if not scope then
+        return error_response
+    end
+    if not scope.device.sim_id then
+        return { success = false, error = "no_sim" }
+    end
+    if SkyPhoneCompanies.IsServiceNumber(scope.device.phone_number) then
+        Bridge.Debug(
+            "error",
+            "[sky_phone] Source %s attempted to call from a SIM using reserved service number %s.",
+            tostring(source),
+            tostring(scope.device.phone_number)
+        )
+        return { success = false, error = "invalid_sim" }
+    end
+    if airplane_mode(scope.device.imei) then
+        return { success = false, error = "airplane_mode" }
+    end
+
+    local number = SkyPhoneSimNumber.Normalize(customer_number, Config.Sim.NumberLength, Config.Sim.NumberPrefix)
+    if not number or SkyPhoneCompanies.IsServiceNumber(number) then
+        return { success = false, error = "invalid_number" }
+    end
+    if number == scope.device.phone_number then
+        return { success = false, error = "self_call" }
+    end
+    if active_by_source[source] or active_by_sim[scope.device.sim_id] or dialing_by_sim[scope.device.sim_id] then
+        return { success = false, error = "busy" }
+    end
+
+    dial_locks[source] = true
+    dialing_by_sim[scope.device.sim_id] = true
+    local targets = Bridge.Database.Query([[
+        SELECT s.`id`, s.`phone_number`, d.`imei`, d.`account_id`, d.`device_name`
+        FROM `sky_phone_sims` s LEFT JOIN `sky_phone_devices` d ON d.`sim_id` = s.`id`
+        WHERE s.`phone_number` = ? LIMIT 1
+    ]], { number })
+    local target = targets[1]
+    local callee_source, target_status = lock_direct_target(source, target, scope.device.sim_id)
+    if not callee_source then
+        local terminal = create_terminal_call(scope, number, target, target_status, service_line.number)
+        dialing_by_sim[scope.device.sim_id] = nil
+        dial_locks[source] = nil
+        return { success = true, data = terminal }
+    end
+
+    return {
+        success = true,
+        data = start_ringing_call({
+            id = uuid(),
+            caller_source = source,
+            caller_sim_id = scope.device.sim_id,
+            caller_number = service_line.number,
+            caller_device = scope.device,
+            callee_source = callee_source,
+            callee_sim_id = target.id,
+            callee_number = number,
+            callee_device = target,
+            company_id = company_id,
+            started_at = os.time(),
+        }, Config.Calls.RingSeconds),
+    }
+end
+
+Bridge.Callbacks.Register("sky_phone:calls:dial", function(source, data)
+    if not SkyPhoneCellular.HasSignal(source) then return { success = false, error = "no_signal" } end
+    local blocked = player_blocked(source)
+    if blocked then return { success = false, error = blocked } end
+    if not SkyPhone.AllowOperation(source, "call_dial", 15, 60) then
+        return { success = false, error = "rate_limited" }
+    end
+    if type(data) ~= "table" then
+        return { success = false, error = "invalid_request" }
+    end
+    if dial_locks[source] then
+        return { success = false, error = "busy" }
+    end
+    dial_locks[source] = true
+    local scope, error_response = current_scope(source)
+    if not scope then
+        dial_locks[source] = nil
+        return error_response
+    end
+    if not scope.device.sim_id then
+        dial_locks[source] = nil
+        return { success = false, error = "no_sim" }
+    end
+    if SkyPhoneCompanies.IsServiceNumber(scope.device.phone_number) then
+        Bridge.Debug(
+            "error",
+            "[sky_phone] Source %s attempted to call from a SIM using reserved service number %s.",
+            tostring(source),
+            tostring(scope.device.phone_number)
+        )
+        dial_locks[source] = nil
+        return { success = false, error = "invalid_sim" }
+    end
+    if airplane_mode(scope.device.imei) then
+        dial_locks[source] = nil
+        return { success = false, error = "airplane_mode" }
+    end
+    local service_line = type(data.company) == "string"
+        and SkyPhoneCompanies.GetServiceLineForCompany(data.company)
+        or SkyPhoneCompanies.GetServiceLine(data.phoneNumber)
+    local number = service_line and service_line.number
+        or SkyPhoneSimNumber.Normalize(data.phoneNumber, Config.Sim.NumberLength, Config.Sim.NumberPrefix)
+    if not number then
+        dial_locks[source] = nil
+        return { success = false, error = "invalid_number" }
+    end
+    if number == scope.device.phone_number then
+        dial_locks[source] = nil
+        return { success = false, error = "self_call" }
+    end
+    if active_by_source[source] or active_by_sim[scope.device.sim_id] or dialing_by_sim[scope.device.sim_id] then
+        dial_locks[source] = nil
+        return { success = false, error = "busy" }
+    end
+    dialing_by_sim[scope.device.sim_id] = true
+    if service_line then
+        if not service_line.canCall then
+            local terminal = create_terminal_call(scope, number, nil, "unavailable")
+            dialing_by_sim[scope.device.sim_id] = nil
+            dial_locks[source] = nil
+            return { success = true, data = terminal }
+        end
+        local company_target, target_status, ringing_targets = company_call_target(
+            service_line.companyId,
+            source,
+            scope.device.sim_id,
+            nil,
+            service_line.routing == "ring_all"
+        )
+        if not company_target then
+            local terminal = create_terminal_call(scope, number, nil, target_status)
+            dialing_by_sim[scope.device.sim_id] = nil
+            dial_locks[source] = nil
+            return { success = true, data = terminal }
+        end
+        return {
+            success = true,
+            data = start_ringing_call({
+                id = uuid(),
+                caller_source = source,
+                caller_sim_id = scope.device.sim_id,
+                caller_number = scope.device.phone_number,
+                caller_device = scope.device,
+                video = data.video == true and Config.Realtime and Config.Realtime.Enabled and Config.Realtime.VideoCalls or false,
+                callee_source = company_target.source,
+                callee_sim_id = company_target.sim_id,
+                callee_number = service_line.number,
+                callee_device = company_target.device,
+                company_id = service_line.companyId,
+                company_service_call = true,
+                company_routing = service_line.routing,
+                ringing_targets = ringing_targets,
+                company_attempted_sims = { [company_target.sim_id] = true },
+                company_attempts_remaining = math.max(
+                    0,
+                    math.floor(tonumber(Config.Companies.CallRouting.MaxAttempts) or 1) - 1
+                ),
+                started_at = os.time(),
+            }, Config.Companies.CallRouting.RingSeconds),
+        }
+    end
+
+    local targets = Bridge.Database.Query([[
+        SELECT s.`id`, s.`phone_number`, d.`imei`, d.`account_id`, d.`device_name`
+        FROM `sky_phone_sims` s LEFT JOIN `sky_phone_devices` d ON d.`sim_id` = s.`id`
+        WHERE s.`phone_number` = ? LIMIT 1
+    ]], { number })
+    local target = targets[1]
+    if not target then
+        dialing_by_sim[scope.device.sim_id] = nil
+        dial_locks[source] = nil
+        return { success = false, error = "recipient_not_found" }
+    end
+    local callee_source, target_status = lock_direct_target(source, target, scope.device.sim_id)
+    if not callee_source then
+        local terminal = create_terminal_call(scope, number, target, target_status)
+        dialing_by_sim[scope.device.sim_id] = nil
+        dial_locks[source] = nil
+        return { success = true, data = terminal }
+    end
+
+    return {
+        success = true,
+        data = start_ringing_call({
+            id = uuid(),
+            caller_source = source,
+            caller_sim_id = scope.device.sim_id,
+            caller_number = scope.device.phone_number,
+            caller_device = scope.device,
+            video = data.video == true and Config.Realtime and Config.Realtime.Enabled and Config.Realtime.VideoCalls or false,
+            callee_source = callee_source,
+            callee_sim_id = target.id,
+            callee_number = number,
+            callee_device = target,
+            started_at = os.time(),
+        }, Config.Calls.RingSeconds),
+    }
+end)
+
+local payphone_models = {}
+
+local function refresh_payphone_models()
+    payphone_models = {}
+    for _, model_name in ipairs(Config.Payphones.Props or {}) do
+        if type(model_name) == "string" then
+            payphone_models[model_name] = true
+        end
+    end
+end
+
+refresh_payphone_models()
+
+if Config.Payphones.Enabled and not next(payphone_models) then
+    Bridge.Debug(
+        "error",
+        "[sky_phone] Payphones are enabled, but Config.Payphones.Props contains no valid models; payphone calls will be rejected.",
+        { always = true }
+    )
+end
+
+AddEventHandler("sky_phone:configurator:serverUpdated", function()
+    refresh_payphone_models()
+end)
+
+local function valid_payphone_position(source, detected_booth)
+    local ped = GetPlayerPed(source)
+    if not ped or ped == 0 then
+        return nil
+    end
+    local location = SkyPhonePayphones.ValidateDetected(
+        detected_booth,
+        payphone_models,
+        GetEntityCoords(ped),
+        Config.Payphones.ServerValidationDistance
+    )
+    if not location then
+        return nil
+    end
+    return vector3(location.coords.x, location.coords.y, location.coords.z), location.model
+end
+
+local function payphone_terminal(number, state, player_source)
+    local result = {
+        id = ("payphone-terminal-%s-%s"):format(os.time(), math.random(100000, 999999)),
+        state = state,
+        direction = "outgoing",
+        otherNumber = number,
+        startedAt = os.time(),
+        elapsedSeconds = 0,
+        totalCost = 0,
+    }
+    log_call({ id = result.id, caller_source = player_source, callee_number = number,
+        started_at = result.startedAt, payphone = {} }, "ended", state)
+    return result
+end
+
+Bridge.Callbacks.Register("sky_phone:payphone:dial", function(source, data)
+    local blocked = player_blocked(source)
+    if blocked then return { success = false, error = blocked } end
+    if type(data) ~= "table" then
+        return { success = false, error = "invalid_request" }
+    end
+    if not Config.Payphones.Enabled or not SkyPhone.AllowOperation(source, "payphone_dial", 15, 60) then
+        return { success = false, error = "rate_limited" }
+    end
+    local booth_coords, booth_model = valid_payphone_position(source, data)
+    if not booth_coords then
+        return { success = false, error = "invalid_payphone" }
+    end
+    if active_by_source[source] or dial_locks[source] then
+        return { success = false, error = "busy" }
+    end
+
+    local service_line = SkyPhoneCompanies.GetServiceLine(data.phoneNumber)
+    local number = service_line and service_line.number
+        or SkyPhoneSimNumber.Normalize(data.phoneNumber, Config.Sim.NumberLength, Config.Sim.NumberPrefix)
+    if not number then
+        return { success = false, error = "invalid_number" }
+    end
+    local price_per_second = math.max(0, math.floor(tonumber(Config.Payphones.PricePerSecond) or 0))
+    local available_money = Bridge.Framework.GetMoney(source, Config.Payphones.PaymentAccount)
+    if price_per_second > 0 and (not available_money or available_money < price_per_second) then
+        return { success = false, error = "insufficient_funds" }
+    end
+
+    dial_locks[source] = true
+    if service_line then
+        if not service_line.canCall then
+            dial_locks[source] = nil
+            return { success = true, data = payphone_terminal(number, "unavailable", source) }
+        end
+        local company_target, target_status, ringing_targets = company_call_target(
+            service_line.companyId, source, nil, nil, service_line.routing == "ring_all"
+        )
+        if not company_target then
+            dial_locks[source] = nil
+            return { success = true, data = payphone_terminal(number, target_status, source) }
+        end
+        return {
+            success = true,
+            data = start_ringing_call({
+                id = uuid(),
+                caller_source = source,
+                caller_number = Config.Payphones.CallerNumber,
+                callee_source = company_target.source,
+                callee_sim_id = company_target.sim_id,
+                callee_number = service_line.number,
+                callee_device = company_target.device,
+                company_id = service_line.companyId,
+                company_service_call = true,
+                company_routing = service_line.routing,
+                ringing_targets = ringing_targets,
+                company_attempted_sims = { [company_target.sim_id] = true },
+                company_attempts_remaining = math.max(
+                    0,
+                    math.floor(tonumber(Config.Companies.CallRouting.MaxAttempts) or 1) - 1
+                ),
+                started_at = os.time(),
+                payphone = {
+                    elapsed_seconds = 0,
+                    total_cost = 0,
+                    coords = booth_coords,
+                    model = booth_model,
+                    price_per_second = price_per_second,
+                    routing_bucket = GetPlayerRoutingBucket(source),
+                },
+            }, Config.Companies.CallRouting.RingSeconds),
+        }
+    end
+
+    local targets = Bridge.Database.Query([[
+        SELECT s.`id`, s.`phone_number`, d.`imei`, d.`account_id`, d.`device_name`
+        FROM `sky_phone_sims` s LEFT JOIN `sky_phone_devices` d ON d.`sim_id` = s.`id`
+        WHERE s.`phone_number` = ? LIMIT 1
+    ]], { number })
+    local target = targets[1]
+    local callee_source, target_status = lock_direct_target(source, target)
+    if not callee_source then
+        dial_locks[source] = nil
+        return { success = true, data = payphone_terminal(number, target_status, source) }
+    end
+
+    return {
+        success = true,
+        data = start_ringing_call({
+            id = uuid(),
+            caller_source = source,
+            caller_number = Config.Payphones.CallerNumber,
+            callee_source = callee_source,
+            callee_sim_id = target.id,
+            callee_number = number,
+            callee_device = target,
+            started_at = os.time(),
+            payphone = {
+                elapsed_seconds = 0,
+                total_cost = 0,
+                coords = booth_coords,
+                model = booth_model,
+                price_per_second = price_per_second,
+                routing_bucket = GetPlayerRoutingBucket(source),
+            },
+        }, Config.Payphones.NoAnswerTimeoutSeconds),
+    }
+end)
+
+Bridge.Callbacks.Register("sky_phone:calls:answer", function(source, data)
+    if not SkyPhoneCellular.HasSignal(source) then return { success = false, error = "no_signal" } end
+    local blocked = player_blocked(source)
+    if blocked then return { success = false, error = blocked } end
+    local call = type(data) == "table" and calls[data.id] or nil
+    if not call or call.ended or not is_callee(call, source)
+        or call.answered_at or call.rerouting or call.answering_source
+    then
+        return { success = false, error = "call_not_found" }
+    end
+    if data.video ~= nil and type(data.video) ~= "boolean" then
+        return { success = false, error = "invalid_request" }
+    end
+    if data.video == true and (not call.video or call.payphone
+        or not Config.Realtime or not Config.Realtime.Enabled or not Config.Realtime.VideoCalls)
+    then
+        return { success = false, error = "feature_disabled" }
+    end
+    -- Claim synchronously: framework, inventory, voice and SQL calls can yield.
+    call.answering_source = source
+    local target = call.ringing_targets and call.ringing_targets[source]
+    local device = target and target.device or call.callee_device
+    local sim_id = target and target.sim_id or call.callee_sim_id
+    local function still_ringing()
+        return not call.ended and calls[call.id] == call and is_callee(call, source)
+            and not player_blocked(source) and not player_blocked(call.caller_source)
+            and SkyPhoneCellular.HasSignal(source)
+            and (call.payphone or SkyPhoneCellular.HasSignal(call.caller_source))
+    end
+    local function reject(error_code)
+        call.answering_source = nil
+        return { success = false, error = error_code }
+    end
+    if call.company_service_call and not SkyPhoneCompanies.CanAnswerCompanyCall(
+        source,
+        call.company_id,
+        device.imei,
+        sim_id
+    ) then
+        if target then
+            remove_ringing_target(call, source, "missed")
+        elseif still_ringing() and not reroute_company_call(call, "missed") then
+            finish_call(call, "unavailable")
+        end
+        return reject("call_not_found")
+    end
+    if not SkyPhone.FindDeviceSlots(source, device.imei)[1] then
+        if target then
+            remove_ringing_target(call, source, "missed")
+        elseif still_ringing() then
+            finish_call(call, "unavailable")
+        end
+        return reject("phone_not_owned")
+    end
+    if target then
+        local current_device = SkyPhone.LoadDevice(device.imei)
+        if not current_device or current_device.sim_id ~= sim_id
+            or not SkyPhoneCompanies.CanUseServiceDevice(current_device)
+            or airplane_mode(device.imei)
+        then
+            remove_ringing_target(call, source, "missed")
+            return reject("call_not_found")
+        end
+    end
+    if not still_ringing() then
+        return reject("call_not_found")
+    end
+    if not Bridge.Calls.IsAvailable() then
+        return reject("voice_unavailable")
+    end
+    local voice_channel = next_voice_channel
+    next_voice_channel = next_voice_channel + 1
+    local voice_started, voice_provider = Bridge.Calls.Start(call.id, {
+        call.caller_source,
+        source,
+    }, voice_channel)
+    if not still_ringing() then
+        if voice_started then
+            Bridge.Calls.Stop(call.id, { call.caller_source, source }, voice_provider)
+        end
+        return reject("call_not_found")
+    end
+    if not voice_started then
+        return reject("voice_unavailable")
+    end
+    call.callee_source, call.callee_sim_id, call.callee_device = source, sim_id, device
+    call.voice_provider = voice_provider
+    call.voice_started = true
+    call.speakers = {}
+    call.muted = {}
+    -- Answering with audio explicitly declines the initial camera invitation.
+    call.video = call.video == true and data.video == true
+    call.answered_at = os.time()
+    call.channel = voice_channel
+    local other_targets = {}
+    if target then
+        for other_source, other_target in pairs(call.ringing_targets) do
+            if other_source ~= source then
+                other_targets[#other_targets + 1] = other_target
+            end
+        end
+        for _, other_target in ipairs(other_targets) do
+            release_ringing_target(call, other_target, "cancelled")
+        end
+        call.ringing_targets = nil
+    end
+    if not call.payphone then
+        local statements = {
+            {
+                query = [[
+                    UPDATE `sky_phone_calls`
+                    SET `status` = 'connected', `answered_at` = CURRENT_TIMESTAMP, `callee_sim_id` = ?
+                    WHERE `id` = ? AND `status` = 'ringing'
+                ]],
+                params = { sim_id, call.id },
+            },
+        }
+        for entry_id, entry_status in pairs(call.ringing_entry_statuses or {}) do
+            statements[#statements + 1] = {
+                query = [[
+                    UPDATE `sky_phone_call_entries` SET `status` = ?
+                    WHERE `id` = ? AND `call_id` = ?
+                ]],
+                params = { entry_status, entry_id, call.id },
+            }
+        end
+        statements[#statements + 1] = {
+            query = [[
+                UPDATE `sky_phone_call_entries` SET `status` = 'connected'
+                WHERE `call_id` = ? AND `status` = 'ringing'
+            ]],
+            params = { call.id },
+        }
+        if not Bridge.Database.Transaction(statements) then
+            Bridge.Debug("error", "[sky_phone] Could not persist answered call %s.", tostring(call.id))
+            finish_call(call, "disconnected")
+            return reject("request_failed")
+        end
+        for _, other_target in ipairs(other_targets) do
+            notify_recents(other_target.device, other_target.source)
+        end
+    end
+    call.answering_source = nil
+    if call.ended or calls[call.id] ~= call then
+        return { success = false, error = "call_not_found" }
+    end
+    send_state(call, call.caller_source, "connected", call.channel)
+    send_state(call, call.callee_source, "connected", call.channel)
+    log_call(call, "answered", "connected", source)
+    return { success = true, data = call_payload(call, source, "connected", call.channel) }
+end)
+
+function SkyPhoneCalls.StopVideo(id)
+    local call = calls[id]
+    if not call or not call.answered_at then return end
+    call.video, call.video_requester = false, nil
+    send_state(call, call.caller_source, "connected", call.channel)
+    send_state(call, call.callee_source, "connected", call.channel)
+end
+
+Bridge.Callbacks.Register("sky_phone:calls:video", function(source, data)
+    local blocked = player_blocked(source)
+    if blocked then return { success = false, error = blocked } end
+    if not Config.Realtime or not Config.Realtime.Enabled or not Config.Realtime.VideoCalls then
+        return { success = false, error = "feature_disabled" }
+    end
+    if type(data) ~= "table" or not SkyPhone.AllowOperation(source, "call_video", 20, 60) then
+        return { success = false, error = "invalid_request" }
+    end
+    local call = active_call_for_source(source)
+    if not call or call.id ~= data.id or not call.answered_at or call.payphone then
+        return { success = false, error = "call_not_found" }
+    end
+    if data.action == "request" then
+        if call.video or call.video_requester then return { success = false, error = "busy" } end
+        call.video_requester = source
+        SetTimeout(30000, function()
+            if active_call_for_source(source) == call and call.video_requester == source then
+                call.video_requester = nil
+                send_state(call, call.caller_source, "connected", call.channel)
+                send_state(call, call.callee_source, "connected", call.channel)
+            end
+        end)
+    elseif data.action == "accept" then
+        if not call.video_requester or call.video_requester == source then return { success = false, error = "invalid_request" } end
+        call.video, call.video_requester = true, nil
+    elseif data.action == "decline" or data.action == "stop" then
+        call.video, call.video_requester = false, nil
+    else return { success = false, error = "invalid_request" } end
+    send_state(call, call.caller_source, "connected", call.channel)
+    send_state(call, call.callee_source, "connected", call.channel)
+    return { success = true }
+end)
+
+Bridge.Callbacks.Register("sky_phone:calls:set-speaker", function(source, data)
+    local blocked = player_blocked(source)
+    if blocked then return { success = false, error = blocked } end
+    if type(data) ~= "table" or type(data.id) ~= "string" or type(data.enabled) ~= "boolean" then
+        return { success = false, error = "invalid_request" }
+    end
+    if not SkyPhone.AllowOperation(source, "call_speaker", 30, 60) then
+        return { success = false, error = "rate_limited" }
+    end
+
+    local call_id = active_by_source[source]
+    local call = call_id and calls[call_id] or nil
+    if not call or call.id ~= data.id or not call.answered_at or call.ended or not call.voice_started then
+        return { success = false, error = "call_not_found" }
+    end
+    if call.voice_provider ~= "yaca" and call.voice_provider ~= "saltychat"
+        and call.voice_provider ~= "pma" then
+        return { success = false, error = "speaker_unsupported" }
+    end
+    if not Bridge.Speaker.IsEnabled() then
+        return { success = false, error = "speaker_unsupported" }
+    end
+    if not Bridge.Calls.SetSpeaker(source, data.enabled, call.voice_provider) then
+        return { success = false, error = "voice_unavailable" }
+    end
+
+    call.speakers[source] = data.enabled
+    send_state(call, source, "connected", call.channel)
+    return {
+        success = true,
+        data = {
+            speakerEnabled = data.enabled,
+            speakerSupported = true,
+        },
+    }
+end)
+
+Bridge.Callbacks.Register("sky_phone:calls:set-muted", function(source, data)
+    local blocked = player_blocked(source)
+    if blocked then return { success = false, error = blocked } end
+    if type(data) ~= "table" or type(data.id) ~= "string" or type(data.enabled) ~= "boolean" then
+        return { success = false, error = "invalid_request" }
+    end
+    if not SkyPhone.AllowOperation(source, "call_mute", 30, 60) then
+        return { success = false, error = "rate_limited" }
+    end
+
+    local call_id = active_by_source[source]
+    local call = call_id and calls[call_id] or nil
+    if not call or call.id ~= data.id or not call.answered_at or call.ended or not call.voice_started then
+        return { success = false, error = "call_not_found" }
+    end
+    if call.voice_provider ~= "yaca" and call.voice_provider ~= "saltychat"
+        and call.voice_provider ~= "pma" then
+        return { success = false, error = "mute_unsupported" }
+    end
+    if not Bridge.Calls.SetMuted(source, data.enabled, call.voice_provider) then
+        return { success = false, error = "voice_unavailable" }
+    end
+
+    call.muted[source] = data.enabled
+    send_state(call, source, "connected", call.channel)
+    return {
+        success = true,
+        data = {
+            muted = data.enabled,
+            muteSupported = true,
+        },
+    }
+end)
+
+Bridge.Callbacks.Register("sky_phone:calls:decline", function(source, data)
+    local call = type(data) == "table" and calls[data.id] or nil
+    if not call or call.ended or not is_callee(call, source) or call.answered_at or call.rerouting then
+        return { success = false, error = "call_not_found" }
+    end
+    if remove_ringing_target(call, source, "declined") then
+        return { success = true }
+    end
+    if not reroute_company_call(call, "declined") then
+        finish_call(call, "declined")
+    end
+    return { success = true }
+end)
+
+Bridge.Callbacks.Register("sky_phone:calls:hangup", function(source, data)
+    local call_id = active_by_source[source]
+    local call = call_id and calls[call_id] or nil
+    if not call or (call.payphone and call.caller_source == source)
+        or (type(data) == "table" and data.id and data.id ~= call.id)
+    then
+        return { success = false, error = "call_not_found" }
+    end
+    local success, call_error = end_active_call(call, source)
+    return { success = success, error = call_error }
+end)
+
+Bridge.Callbacks.Register("sky_phone:calls:terminate", function(source, data)
+    local call_id = active_by_source[source]
+    local call = call_id and calls[call_id] or nil
+    if not call
+        or type(data) ~= "table"
+        or data.id ~= call.id
+    then
+        return { success = false, error = "call_not_found" }
+    end
+    finish_call(call, call.answered_at and "completed" or "cancelled")
+    return { success = true }
+end)
+
+Bridge.Callbacks.Register("sky_phone:calls:block", function(source, data)
+    if not SkyPhone.AllowOperation(source, "call_block", 10, 60) then
+        return { success = false, error = "rate_limited" }
+    end
+    local scope, error_response = current_scope(source)
+    if not scope then
+        return error_response
+    end
+    if not scope.device.sim_id then
+        return { success = false, error = "no_sim" }
+    end
+    local number = type(data) == "table" and SkyPhoneSimNumber.Normalize(
+        data.phoneNumber,
+        Config.Sim.NumberLength,
+        Config.Sim.NumberPrefix
+    ) or nil
+    if not number then
+        return { success = false, error = "invalid_number" }
+    end
+    if number == scope.device.phone_number then
+        return { success = false, error = "self_call" }
+    end
+    local rows = Bridge.Database.Query(
+        "SELECT `id` FROM `sky_phone_sims` WHERE `phone_number` = ? LIMIT 1",
+        { number }
+    )
+    if not rows[1] then
+        return { success = false, error = "recipient_not_found" }
+    end
+    Bridge.Database.Query([[
+        INSERT IGNORE INTO `sky_phone_call_blocks` (`blocker_sim_id`, `blocked_sim_id`)
+        VALUES (?, ?)
+    ]], { scope.device.sim_id, rows[1].id })
+
+    local call_id = active_by_source[source]
+    local call = call_id and calls[call_id] or nil
+    if call then
+        local other_number = source == call.caller_source and call.callee_number or call.caller_number
+        if other_number == number then
+            finish_call(call, call.answered_at and "completed" or "declined")
+        end
+    end
+    return { success = true }
+end)
+
+Bridge.Callbacks.Register("sky_phone:payphone:hangup", function(source, data)
+    local call_id = active_by_source[source]
+    local call = call_id and calls[call_id] or nil
+    if not call or not call.payphone or call.caller_source ~= source
+        or (type(data) == "table" and data.id and data.id ~= call.id)
+    then
+        return { success = false, error = "call_not_found" }
+    end
+    finish_call(call, call.answered_at and "completed" or "cancelled")
+    return { success = true }
+end)
+
+CreateThread(function()
+    while true do
+        Wait(1000)
+        local calls_to_finish = {}
+        for call_id, call in pairs(calls) do
+            local caller_valid = true
+            if call.payphone then
+                local caller_ped = GetPlayerPed(call.caller_source)
+                caller_valid = caller_ped and caller_ped ~= 0
+                if caller_valid then
+                    caller_valid = #(GetEntityCoords(caller_ped) - call.payphone.coords)
+                        <= Config.Payphones.MaximumCallDistance
+                end
+            else
+                caller_valid = SkyPhone.FindDeviceSlots(call.caller_source, call.caller_device.imei)[1] ~= nil
+            end
+            local callee_valid = not call.callee_source
+                or SkyPhone.FindDeviceSlots(call.callee_source, call.callee_device.imei)[1] ~= nil
+            caller_valid = caller_valid and not player_blocked(call.caller_source)
+                and (call.payphone or SkyPhoneCellular.HasSignal(call.caller_source))
+            callee_valid = callee_valid and not player_blocked(call.callee_source)
+                and (not call.callee_source or SkyPhoneCellular.HasSignal(call.callee_source))
+            if not caller_valid then
+                calls_to_finish[call_id] = "disconnected"
+            elseif call.ringing_targets then
+                local invalid_sources = {}
+                for target_source, target in pairs(call.ringing_targets) do
+                    if player_blocked(target_source) or not SkyPhoneCellular.HasSignal(target_source)
+                        or not SkyPhone.FindDeviceSlots(target_source, target.device.imei)[1]
+                        or not SkyPhoneCompanies.CanAnswerCompanyCall(
+                            target_source, call.company_id, target.device.imei, target.sim_id
+                        )
+                    then
+                        invalid_sources[#invalid_sources + 1] = target_source
+                    end
+                end
+                for _, target_source in ipairs(invalid_sources) do
+                    remove_ringing_target(call, target_source, "missed")
+                end
+            elseif not callee_valid then
+                if call.company_service_call and not call.answered_at then
+                    if not reroute_company_call(call, "missed") then
+                        calls_to_finish[call_id] = "unavailable"
+                    end
+                else
+                    calls_to_finish[call_id] = "disconnected"
+                end
+            elseif call.payphone and call.answered_at and not call.ended then
+                local elapsed_seconds = math.max(0, os.time() - call.answered_at)
+                local total_cost = elapsed_seconds * call.payphone.price_per_second
+                local available_money = tonumber(
+                    Bridge.Framework.GetMoney(call.caller_source, Config.Payphones.PaymentAccount)
+                )
+                if total_cost > 0 and (not available_money or available_money < total_cost) then
+                    calls_to_finish[call_id] = "insufficient_funds"
+                elseif call.payphone.elapsed_seconds ~= elapsed_seconds then
+                    call.payphone.elapsed_seconds = elapsed_seconds
+                    call.payphone.total_cost = total_cost
+                    send_state(call, call.caller_source, "connected", call.channel)
+                end
+            end
+        end
+        for call_id, status in pairs(calls_to_finish) do
+            finish_call(calls[call_id], status)
+        end
+    end
+end)
+
+AddEventHandler("playerDropped", function()
+    local call_id = active_by_source[source]
+    local call = call_id and calls[call_id] or nil
+    if not call then
+        return
+    end
+    if remove_ringing_target(call, source, "missed") then
+        return
+    end
+    if call.callee_source == source and call.company_service_call and not call.answered_at then
+        if not reroute_company_call(call, "missed") then
+            finish_call(call, "unavailable")
+        end
+        return
+    end
+    finish_call(call, "disconnected")
+end)
+
+AddEventHandler("onResourceStop", function(resource_name)
+    if resource_name ~= GetCurrentResourceName() then
+        return
+    end
+    local call_ids = {}
+    for call_id in pairs(calls) do
+        call_ids[#call_ids + 1] = call_id
+    end
+    for _, call_id in ipairs(call_ids) do
+        finish_call(calls[call_id], "disconnected")
+    end
+end)
+end)

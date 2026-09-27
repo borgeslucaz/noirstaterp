@@ -1,0 +1,1 @@
+import{p as s,o as t,e as o,bg as c}from"./sky-main-BG-vTFpi.js";const r={},a={class:"sky-messages-title"};function n(e,l){return t(),o("p",a,[c(e.$slots,"default")])}const f=s(r,[["render",n]]);export{f as S};

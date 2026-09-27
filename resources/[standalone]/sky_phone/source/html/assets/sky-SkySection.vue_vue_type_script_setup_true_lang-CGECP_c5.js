@@ -1,0 +1,1 @@
+import{d as s,o,e as a,i as n,t as r,bg as i,be as c}from"./sky-main-BG-vTFpi.js";const l={class:"sky-section__title"},m=s({inheritAttrs:!1,__name:"SkySection",props:{title:{}},setup(t){return(e,p)=>(o(),a("section",c(e.$attrs,{class:"sky-section"}),[n("h2",l,r(t.title),1),i(e.$slots,"default")],16))}});export{m as _};

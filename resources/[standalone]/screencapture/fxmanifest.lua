@@ -18,7 +18,9 @@ files {
 provide 'screenshot-basic'
 
 -- use 'nui' if you're having trouble with uploads
-protocol 'http'
+-- nui: o upload volta pelo evento do jogo. Em 'http' o cliente dava 'Failed to fetch' no
+-- endpoint http://<servidor>/screencapture/upload.
+protocol 'nui'
 
 -- bytes per second for nui protocol
 -- change this as you like

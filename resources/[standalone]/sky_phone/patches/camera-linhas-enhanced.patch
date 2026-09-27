@@ -1,0 +1,114 @@
+diff --git a/frontend/src/utils/gameView.test.ts b/frontend/src/utils/gameView.test.ts
+index f4482dd..85caa98 100644
+--- a/frontend/src/utils/gameView.test.ts
++++ b/frontend/src/utils/gameView.test.ts
+@@ -1,6 +1,10 @@
+ import { describe, expect, it, vi } from 'vitest'
+ 
+-import { createGameView, gameViewGeometry } from '@/utils/gameView'
++import {
++  createGameView,
++  gameViewGeometry,
++  paddedRowPixels,
++} from '@/utils/gameView'
+ 
+ describe('gameViewGeometry', () => {
+   it('center-crops a widescreen game view for 3:4 portrait output', () => {
+@@ -117,6 +121,8 @@ describe('createGameView', () => {
+       texImage2D: vi.fn(),
+       texParameterf: vi.fn(),
+       uniform1i: vi.fn(),
++      uniform1f: vi.fn(),
++      uniform2f: vi.fn(),
+       useProgram: vi.fn(),
+       vertexAttribPointer: vi.fn(),
+       viewport: vi.fn(),
+@@ -149,3 +155,18 @@ describe('createGameView', () => {
+     view.dispose()
+   })
+ })
++
++describe('paddedRowPixels', () => {
++  it('keeps widths whose rows are already 256-byte aligned', () => {
++    expect(paddedRowPixels(1920)).toBe(1920)
++    expect(paddedRowPixels(2560)).toBe(2560)
++    expect(paddedRowPixels(3840)).toBe(3840)
++  })
++
++  it('pads other widths to the next 64-pixel row', () => {
++    // 3024 was measured from a corrupted FiveM Enhanced capture: rows really were 3072 px.
++    expect(paddedRowPixels(3024)).toBe(3072)
++    expect(paddedRowPixels(3440)).toBe(3456)
++    expect(paddedRowPixels(1366)).toBe(1408)
++  })
++})
+diff --git a/frontend/src/utils/gameView.ts b/frontend/src/utils/gameView.ts
+index 9feb503..2440f18 100644
+--- a/frontend/src/utils/gameView.ts
++++ b/frontend/src/utils/gameView.ts
+@@ -8,14 +8,41 @@ const VERTEX_SHADER = `
+   }
+ `
+ 
++// FiveM Enhanced hands the game backbuffer to CEF with every row padded to 256 bytes, but CEF
++// reads it as tightly packed (width * 4). Whenever the width is not a multiple of 64 px (e.g.
++// 3024 or 3440) each row starts a little further along and the image turns into horizontal
++// stripes. Undo that here: find where the wanted pixel really sits in the padded memory and
++// sample that texel. u_pitch == u_size.x (1920, 2560, 3840) leaves the lookup untouched.
+ const FRAGMENT_SHADER = `
++  precision highp float;
+   varying highp vec2 v_texcoord;
+   uniform sampler2D u_texture;
++  uniform vec2 u_size;
++  uniform float u_pitch;
+   void main() {
+-    gl_FragColor = texture2D(u_texture, v_texcoord);
++    vec2 uv = v_texcoord;
++    if (u_pitch > u_size.x) {
++      // The texture's v=0 row is the bottom of the image (it is drawn upright with v=0 at the
++      // bottom of the canvas), while the padding lives in memory order, top row first. Work in
++      // memory rows and flip back.
++      float x = floor(uv.x * u_size.x);
++      float memoryRow = u_size.y - 1.0 - floor(uv.y * u_size.y);
++      float linear = memoryRow * u_pitch + x;
++      float row = floor((linear + 0.5) / u_size.x);
++      float column = linear - row * u_size.x;
++      // The padded rows run out before the texture does: the bottom few rows repeat.
++      row = min(row, u_size.y - 1.0);
++      uv = vec2((column + 0.5) / u_size.x, (u_size.y - 1.0 - row + 0.5) / u_size.y);
++    }
++    gl_FragColor = texture2D(u_texture, uv);
+   }
+ `
+ 
++/** Row length, in pixels, of the padded buffer FiveM Enhanced shares (256-byte rows). */
++export function paddedRowPixels(width: number): number {
++  return Math.ceil((width * 4) / 256) * 64
++}
++
+ export interface GameView {
+   readonly canvas: HTMLCanvasElement
+   dispose(): void
+@@ -219,6 +246,8 @@ export function createGameView(
+     gl.texParameterf(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
+     gl.texParameterf(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+     gl.uniform1i(gl.getUniformLocation(program, 'u_texture'), 0)
++    gl.uniform2f(gl.getUniformLocation(program, 'u_size'), 1, 1)
++    gl.uniform1f(gl.getUniformLocation(program, 'u_pitch'), 1)
+     gl.clearColor(0, 0, 0, 1)
+   }
+ 
+@@ -242,6 +271,13 @@ export function createGameView(
+       gl.DYNAMIC_DRAW,
+     )
+     gl.viewport(0, 0, lastSize.width, lastSize.height)
++    if (program) {
++      const sourceWidth = Math.round(lastSize.sourceWidth)
++      const sourceHeight = Math.round(lastSize.sourceHeight)
++      gl.useProgram(program)
++      gl.uniform2f(gl.getUniformLocation(program, 'u_size'), sourceWidth, sourceHeight)
++      gl.uniform1f(gl.getUniformLocation(program, 'u_pitch'), paddedRowPixels(sourceWidth))
++    }
+   }
+ 
+   const onContextLost = (event: Event) => {
