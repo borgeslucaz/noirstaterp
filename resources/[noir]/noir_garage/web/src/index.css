@@ -845,9 +845,10 @@ select.field option {
   color: var(--noir-text);
 }
 
+/* Cancelar e a acao dividem o rodape em duas metades iguais. */
 .modal__footer {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   padding: 0 20px 20px;
 }

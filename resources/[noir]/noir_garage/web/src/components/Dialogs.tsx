@@ -59,7 +59,7 @@ export const RenameDialog: React.FC<{
       closable={!saving}
       footer={(
         <>
-          <button type="button" className="button button--ghost" onClick={onClose} disabled={saving}>Cancelar</button>
+          <button type="button" className="button" onClick={onClose} disabled={saving}>Cancelar</button>
           <button type="button" className="button button--primary" onClick={save} disabled={invalid || saving} aria-busy={saving}>
             {saving && <Spinner />}
             Salvar apelido
@@ -152,7 +152,7 @@ export const TransferDialog: React.FC<{
       closable={!saving}
       footer={(
         <>
-          <button type="button" className="button button--ghost" onClick={onClose} disabled={saving}>Cancelar</button>
+          <button type="button" className="button" onClick={onClose} disabled={saving}>Cancelar</button>
           <button type="button" className="button button--primary" onClick={transfer} disabled={!selected || saving} aria-busy={saving}>
             {saving && <Spinner />}
             {price > 0 ? `Transferir por $${formatMoney(price)}` : 'Transferir veículo'}
@@ -211,7 +211,7 @@ export const LockDialog: React.FC<{
       closable={!busy}
       footer={(
         <>
-          <button type="button" className="button button--ghost" data-autofocus onClick={onClose} disabled={busy}>Cancelar</button>
+          <button type="button" className="button" data-autofocus onClick={onClose} disabled={busy}>Cancelar</button>
           <button type="button" className="button button--primary" onClick={confirm} disabled={busy} aria-busy={busy}>
             {busy && <Spinner />}
             Confirmar
