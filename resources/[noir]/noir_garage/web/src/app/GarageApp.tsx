@@ -261,7 +261,10 @@ const App: React.FC = () => {
       for (const v of list) {
         const status = vehicleStatus(v, garage.isDepot);
         // Na rua (sem poder retirar daqui) ou apreendido: so informa, nao abre o menu do carro.
-        const locked = !v.canTakeOut && (v.state === 0 || v.state === 2);
+        // Excecao: no patio, o carro que ainda esta na rua abre para o dono comprar chave ou trocar a
+        // fechadura (quem perdeu a chave com o carro trancado na rua).
+        const keyService = garage.isDepot && v.state === 0 && v.canManageKeys && !!garage.keys;
+        const locked = !v.canTakeOut && (v.state === 2 || (v.state === 0 && !keyService));
         items.push({
           key: `vehicle-${v.id}`,
           label: v.name,
