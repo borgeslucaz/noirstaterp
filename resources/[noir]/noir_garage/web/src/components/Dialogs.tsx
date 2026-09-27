@@ -212,18 +212,16 @@ export const LockDialog: React.FC<{
       footer={(
         <>
           <button type="button" className="button button--ghost" data-autofocus onClick={onClose} disabled={busy}>Cancelar</button>
-          <button type="button" className="button button--danger" onClick={confirm} disabled={busy} aria-busy={busy}>
+          <button type="button" className="button button--primary" onClick={confirm} disabled={busy} aria-busy={busy}>
             {busy && <Spinner />}
-            Trocar fechadura por ${formatMoney(price)}
+            Confirmar
           </button>
         </>
       )}
     >
       <VehicleLine vehicle={vehicle} />
-      <p className="modal__warning">
-        <CircleAlert size={16} aria-hidden="true" />
-        Todas as chaves deste veículo deixam de funcionar, inclusive as cópias com outras pessoas. Você recebe uma chave nova.
-      </p>
+      <p>Todas as chaves deste veículo deixam de funcionar, inclusive as cópias com outras pessoas. Você recebe uma chave nova.</p>
+      <p className="modal__cost">Custo: <strong className="tabular">${formatMoney(price)}</strong></p>
     </Modal>
   );
 };

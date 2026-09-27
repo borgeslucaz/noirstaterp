@@ -847,7 +847,7 @@ select.field option {
 
 .modal__footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 8px;
   padding: 0 20px 20px;
 }
@@ -868,21 +868,13 @@ select.field option {
   white-space: nowrap;
 }
 
-.modal__warning {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--noir-border-soft);
-  border-left: 3px solid var(--noir-danger-hover);
-  border-radius: var(--radius-sm);
-  background: var(--noir-card);
+.modal__cost {
+  color: var(--noir-text);
 }
 
-.modal__warning svg {
-  flex: 0 0 auto;
-  margin-top: 2px;
-  color: var(--noir-danger-hover);
+.modal__cost strong {
+  font-weight: 600;
+  color: var(--noir-text-strong);
 }
 
 @keyframes fade-in {
