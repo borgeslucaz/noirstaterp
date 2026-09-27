@@ -122,6 +122,17 @@ local function gizmoLoop(entity)
 		DisableControlAction(0, 140, true) -- r
 		DisablePlayerFiring(cache.playerId, true)
 
+		-- Noir State: no GTA V Enhanced o EnterCursorMode liga o modo cursor (a camera trava e o G
+		-- alterna), mas nao desenha a seta. A seta nativa precisa ser pedida a cada frame, e o ponto
+		-- marca a ponta do cursor caso o build nao desenhe nem a nativa.
+		if isCursorActive then
+			SetMouseCursorActiveThisFrame()
+			SetMouseCursorSprite(1)
+			local cx, cy = GetControlNormal(0, 239), GetControlNormal(0, 240)
+			DrawRect(cx, cy, 0.0045, 0.008, 0, 0, 0, 200)
+			DrawRect(cx, cy, 0.0025, 0.0045, 255, 255, 255, 255)
+		end
+
 		local matrixBuffer = makeEntityMatrix(entity)
 		local changed = Citizen.InvokeNative(0xEB2EDCA2, matrixBuffer:Buffer(), 'Editor1',
 			Citizen.ReturnResultAnyway())
