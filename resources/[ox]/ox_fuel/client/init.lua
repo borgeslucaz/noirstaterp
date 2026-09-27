@@ -25,9 +25,16 @@ local function startDrivingVehicle()
 
 	if not vehState.fuel then
 		TriggerServerEvent('ox_fuel:setFuel', GetVehicleFuelLevel(vehicle))
-		while not vehState.fuel do Wait(0) end
+		-- Noir State: a espera nao tinha saida. Se o carro some (streaming, troca, delete) antes do
+		-- statebag chegar, o laco ficava para sempre ou o SetVehicleFuelLevel abaixo rodava num
+		-- handle morto ("No vehicle was found for ID").
+		while not vehState.fuel do
+			if not DoesEntityExist(vehicle) or cache.vehicle ~= vehicle then return end
+			Wait(0)
+		end
 	end
 
+	if not DoesEntityExist(vehicle) then return end
 	SetVehicleFuelLevel(vehicle, vehState.fuel)
 
 	local fuelTick = 0
