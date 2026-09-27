@@ -94,9 +94,54 @@ RegisterNUICallback('editor:capture', function(data, cb)
     cb(result)
 end)
 
----Posiciona o atendente com o object_gizmo: cria um PED de teste onde ele estaria, abre o gizmo e
----devolve posicao e direcao ao apertar Enter. O modelo e conferido antes (no Enhanced, modelo
----inexistente derruba o cliente).
+---Posiciona o atendente com o object_gizmo. Segue o padrao do noir_guncraft, onde o cursor funciona:
+---o gizmo roda numa thread propria, fora do callback da NUI (que responde na hora), e o resultado volta
+---para a tela por mensagem. O modelo e conferido antes (no Enhanced, modelo inexistente derruba o cliente).
+local function gizmoLog(fmt, ...)
+    print(('[noir_garage:gizmo] ' .. fmt):format(...))
+end
+
+---@param index integer ponto do rascunho (so ecoado de volta para a tela)
+---@param model integer
+---@param start table
+local function runPedGizmo(index, model, start)
+    SendNUIMessage({ action = 'editor', data = { hidden = true } })
+    SetNuiFocus(false, false)
+    Wait(250)
+    gizmoLog('antes do gizmo: nuiFocused=%s keepInput=%s', tostring(IsNuiFocused()), tostring(IsNuiFocusKeepingInput()))
+    lib.notify({
+        description = 'G: cursor · W: mover · R: girar · Alt: chão · Enter: confirmar',
+        type = 'inform',
+        duration = 8000,
+    })
+
+    local ped = CreatePed(4, model, start.x, start.y, start.z - 1.0, start.w or 0.0, false, false)
+    SetModelAsNoLongerNeeded(model)
+    local result = false
+    if ped ~= 0 then
+        SetEntityInvincible(ped, true)
+        SetBlockingOfNonTemporaryEvents(ped, true)
+        FreezeEntityPosition(ped, true)
+        local ok, gizmo = pcall(function() return exports.object_gizmo:useGizmo(ped) end)
+        gizmoLog('gizmo terminou: ok=%s retorno=%s', tostring(ok), ok and 'sim' or tostring(gizmo))
+        if ok and gizmo and DoesEntityExist(ped) then
+            local c = GetEntityCoords(ped)
+            result = { x = c.x, y = c.y, z = c.z, w = GetEntityHeading(ped) }
+        end
+        if DoesEntityExist(ped) then
+            SetEntityAsMissionEntity(ped, true, true)
+            DeleteEntity(ped)
+        end
+    else
+        gizmoLog('CreatePed falhou')
+    end
+
+    if editorOpen then
+        SendNUIMessage({ action = 'editor', data = { hidden = false, gizmo = { index = index, result = result } } })
+        SetNuiFocus(true, true)
+    end
+end
+
 RegisterNUICallback('editor:gizmoPed', function(data, cb)
     if not editorOpen or type(data) ~= 'table' or type(data.model) ~= 'string' then return cb(false) end
     if GetResourceState('object_gizmo') ~= 'started' then
@@ -117,40 +162,8 @@ RegisterNUICallback('editor:gizmoPed', function(data, cb)
         start = { x = c.x, y = c.y, z = c.z, w = (GetEntityHeading(cache.ped) + 180.0) % 360 }
     end
 
-    SendNUIMessage({ action = 'editor', data = { hidden = true } })
-    SetNuiFocus(false, false)
-    -- Soltar o foco da NUI desliga o cursor do jogo no frame seguinte: se o gizmo abrir antes disso,
-    -- o EnterCursorMode dele e desfeito e o cursor nao aparece.
-    Wait(250)
-    lib.notify({
-        description = 'G: cursor · W: mover · R: girar · Alt: chão · Enter: confirmar',
-        type = 'inform',
-        duration = 8000,
-    })
-
-    local ped = CreatePed(4, model, start.x, start.y, start.z - 1.0, start.w or 0.0, false, false)
-    SetModelAsNoLongerNeeded(model)
-    local result = false
-    if ped ~= 0 then
-        SetEntityInvincible(ped, true)
-        SetBlockingOfNonTemporaryEvents(ped, true)
-        FreezeEntityPosition(ped, true)
-        local ok, gizmo = pcall(exports.object_gizmo.useGizmo, exports.object_gizmo, ped)
-        if ok and gizmo and DoesEntityExist(ped) then
-            local c = GetEntityCoords(ped)
-            result = { x = c.x, y = c.y, z = c.z, w = GetEntityHeading(ped) }
-        end
-        if DoesEntityExist(ped) then
-            SetEntityAsMissionEntity(ped, true, true)
-            DeleteEntity(ped)
-        end
-    end
-
-    if editorOpen then
-        SendNUIMessage({ action = 'editor', data = { hidden = false } })
-        SetNuiFocus(true, true)
-    end
-    cb(result)
+    cb(true)
+    CreateThread(function() runPedGizmo(data.index, model, start) end)
 end)
 
 AddEventHandler('onResourceStop', function(resource)

@@ -90,7 +90,23 @@ const EditorApp: React.FC = () => {
   const [confirm, setConfirm] = useState<Confirm | null>(null);
 
 
-  useNuiEvent('editor', (data: { visible?: boolean; hidden?: boolean; garages?: EditorGarage[]; groups?: EditorGroupOptions }) => {
+  useNuiEvent('editor', (data: {
+    visible?: boolean;
+    hidden?: boolean;
+    garages?: EditorGarage[];
+    groups?: EditorGroupOptions;
+    gizmo?: { index: number; result: Vec4 | false };
+  }) => {
+    if (data.gizmo) {
+      const { index, result } = data.gizmo;
+      if (result) {
+        updatePoint(index, p => {
+          if (!p.ped) return;
+          p.ped.position = result;
+          delete p.ped.rotation;
+        });
+      }
+    }
     if (data.hidden !== undefined) {
       setHidden(data.hidden);
       return;
@@ -201,21 +217,19 @@ const EditorApp: React.FC = () => {
     });
   };
 
-  /** Gizmo do object_gizmo no jogo; a tela some enquanto isso. */
+  /** Gizmo do object_gizmo no jogo; a tela some e o resultado volta pela mensagem 'editor' (gizmo). */
   const placePed = async (index: number) => {
     const point = draft?.accessPoints[index];
     if (!point?.ped) return;
     const start = point.ped.position ?? point.coords;
-    const result = await fetchNui<Vec4 | false>('editor:gizmoPed', { model: point.ped.model, position: start }, {
-      data: start ? { ...start, x: start.x + 1.2, w: (start.w + 30) % 360 } : { x: 215.3, y: -810.1, z: 30.7, w: 90 },
-      delay: 400,
+    const started = await fetchNui<boolean>('editor:gizmoPed', { index, model: point.ped.model, position: start }, {
+      data: true,
+      delay: 100,
     });
-    if (!result) return;
-    updatePoint(index, p => {
-      if (!p.ped) return;
-      p.ped.position = result;
-      delete p.ped.rotation;
-    });
+    if (started && isEnvBrowser()) {
+      const result = start ? { ...start, x: start.x + 1.2, w: (start.w + 30) % 360 } : { x: 215.3, y: -810.1, z: 30.7, w: 90 };
+      window.dispatchEvent(new MessageEvent('message', { data: { action: 'editor', data: { hidden: false, gizmo: { index, result } } } }));
+    }
   };
 
   const save = async () => {
