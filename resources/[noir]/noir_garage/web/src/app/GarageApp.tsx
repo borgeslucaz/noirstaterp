@@ -295,7 +295,7 @@ const App: React.FC = () => {
         label: 'Buscar',
         hideLabel: true,
         icon: <Search size={18} aria-hidden="true" />,
-        input: { value: search, placeholder: 'Nome, modelo ou placa', onChange: setSearch },
+        input: { value: search, placeholder: 'Buscar por nome, modelo ou placa', onChange: setSearch },
       }];
 
       for (const v of list) {
