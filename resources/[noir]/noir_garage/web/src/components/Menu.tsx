@@ -59,9 +59,11 @@ const Menu: React.FC<{
   /** X no cabecalho (submenus): fecha esta coluna e substitui o botao do rodape. */
   headerClose?: boolean;
   notice?: MenuNotice | null;
+  /** Bloco fixo entre o cabecalho e as opcoes (dados do carro). */
+  summary?: React.ReactNode;
   empty?: string;
   loading?: string | null;
-}> = ({ title, eyebrow, icon, items, index, active, onIndexChange, onPick, onBack, onClose, closeLabel, headerClose, notice, empty, loading }) => {
+}> = ({ title, eyebrow, icon, items, index, active, onIndexChange, onPick, onBack, onClose, closeLabel, headerClose, notice, summary, empty, loading }) => {
   const listRef = useRef<HTMLDivElement>(null);
   const current = items[index];
 
@@ -152,6 +154,8 @@ const Menu: React.FC<{
           </button>
         )}
       </header>
+
+      {summary && <div className="menu__summary">{summary}</div>}
 
       {notice && (
         <p className="menu__notice" data-tone={notice.tone ?? 'warning'} role="status">

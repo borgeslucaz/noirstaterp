@@ -284,6 +284,7 @@ const App: React.FC = () => {
     let empty: string | undefined;
     let loading: string | null = null;
     let pageNotice = isTop ? notice : null;
+    let summary: React.ReactNode = null;
 
     if (page.id === 'root' || !vehicle) {
       const term = search.trim().toLowerCase();
@@ -329,8 +330,21 @@ const App: React.FC = () => {
       }
     } else if (page.id === 'vehicle') {
       const status = vehicleStatus(vehicle, garage.isDepot);
-      title = vehicle.name;
-      eyebrow = vehicle.name === vehicle.modelLabel ? vehicle.plate : `${vehicle.modelLabel} · ${vehicle.plate}`;
+      title = 'Veículo';
+      eyebrow = undefined;
+      summary = (
+        <>
+          <span className="menu__summary-icon"><VehicleIcon icon={vehicle.icon} size={22} /></span>
+          <span className="menu__summary-text">
+            <span className="menu__summary-name" title={vehicle.name}>{vehicle.name}</span>
+            {vehicle.name !== vehicle.modelLabel && <span className="menu__summary-model">{vehicle.modelLabel}</span>}
+            <span className="menu__summary-meta">
+              <span className="plate">{vehicle.plate}</span>
+              <span className="status" data-tone={status.tone}>{status.label}</span>
+            </span>
+          </span>
+        </>
+      );
       if (!pageNotice && vehicle.notice) pageNotice = { tone: vehicle.state === 2 ? 'danger' : 'warning', text: vehicle.notice };
 
       const payToTakeOut = garage.isDepot && vehicle.canTakeOut && vehicle.depotPrice > 0;
@@ -339,7 +353,6 @@ const App: React.FC = () => {
         label: payToTakeOut ? 'Pagar e retirar' : 'Retirar veículo',
         icon: <CarFront size={18} aria-hidden="true" />,
         value: payToTakeOut ? money(vehicle.depotPrice) : undefined,
-        description: <span className="status" data-tone={status.tone}>{status.label}</span>,
         disabled: !vehicle.canTakeOut,
         onSelect: takeOut,
       });
@@ -528,7 +541,7 @@ const App: React.FC = () => {
       ];
       items = rows.map(([key, label]) => ({ key, label, value: `${stats[key]}`, progress: stats[key] }));
     }
-    return { title, eyebrow, items, empty, loading, notice: pageNotice };
+    return { title, eyebrow, items, empty, loading, notice: pageNotice, summary };
   };
 
   // Coluna 0 (a garagem) fica colada na borda direita; cada submenu abre a esquerda da anterior.
@@ -554,6 +567,7 @@ const App: React.FC = () => {
             closeLabel="Fechar"
             headerClose={level > 0}
             notice={view.notice}
+            summary={view.summary}
             empty={view.empty}
             loading={view.loading}
           />
