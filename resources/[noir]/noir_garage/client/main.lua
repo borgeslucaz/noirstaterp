@@ -359,11 +359,13 @@ local function createZones(garageName, garage, accessPoint, accessPointIndex)
                 end
                 attendant.remove()
             end,
-            inside = function()
-                -- O atendente ou o alvo ja mostram onde e o balcao: o marcador so fica no modo E sem PED.
-                if accessPoint.ped or useTarget then return end
+            -- O atendente ou o alvo ja mostram onde e o balcao: o marcador so existe no modo E sem PED.
+            -- Sem marcador, a zona nao registra `inside` e o lib.zones nem roda o laco por frame dela.
+            inside = not (accessPoint.ped or useTarget) and function()
+                -- De carro, com ponto de guardar proprio, o balcao nao serve: nao desenha.
+                if cache.vehicle and accessPoint.dropPoint then return end
                 config.drawGarageMarker(accessPoint.coords.xyz, useRadius)
-            end,
+            end or nil,
             debug = config.debugPoly,
         })
 
@@ -381,6 +383,8 @@ local function createZones(garageName, garage, accessPoint, accessPointIndex)
                     end
                 end,
                 inside = function()
+                    -- O ponto de guardar so interessa a quem esta num carro.
+                    if not cache.vehicle then return end
                     config.drawDropOffMarker(accessPoint.dropPoint, dropUseRadius, accessPoint)
                 end,
                 debug = config.debugPoly,

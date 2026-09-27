@@ -88,6 +88,18 @@ end
 
 exports('SetVehicleDepotPrice', setVehicleDepotPrice)
 
+---Placas de todos os veiculos no mundo, uma leitura por veiculo. Quem confere varias placas de uma
+---vez (a lista da garagem) monta isto uma vez so, em vez de percorrer o mundo por carro.
+---@return table<string, true>
+function GetPlatesOnServer()
+    local plates = {}
+    local vehicles = GetAllVehicles()
+    for i = 1, #vehicles do
+        plates[qbx.string.trim(GetVehicleNumberPlateText(vehicles[i]))] = true
+    end
+    return plates
+end
+
 ---@param plate string
 ---@return boolean
 function FindPlateOnServer(plate)
@@ -289,10 +301,11 @@ lib.callback.register('noir_garage:server:getGarageVehicles', function(source, g
     if not playerVehicles[1] then return garageInfo, {} end
 
     local list = {}
+    local platesOnServer = GetPlatesOnServer()
     for _, vehicle in pairs(playerVehicles) do
         -- No patio, o carro que ainda esta no mundo tambem aparece (so com as opcoes de chave): e o
         -- unico caminho para quem perdeu a chave com o carro trancado na rua. Retirar continua barrado.
-        local onServer = FindPlateOnServer(vehicle.props.plate)
+        local onServer = platesOnServer[qbx.string.trim(vehicle.props.plate or '')] == true
         if (not onServer or isDepot) and VEHICLES[vehicle.modelName] and garage.vehicleType == GetVehicleType(vehicle) then
             vehicle.onServer = onServer
             OverrideFreeDepotPriceForOutVehicle(vehicle)
