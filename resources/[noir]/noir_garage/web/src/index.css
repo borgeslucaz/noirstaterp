@@ -415,10 +415,9 @@ button[aria-disabled="true"] {
   white-space: nowrap;
 }
 
+/* Sem faixa propria: o botao flutua sobre o mesmo fundo da coluna. */
 .menu__footer {
   padding: 12px;
-  border-top: 1px solid var(--noir-divider);
-  background: var(--noir-panel);
 }
 
 .button--block {
