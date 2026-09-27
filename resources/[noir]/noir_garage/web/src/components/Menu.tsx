@@ -252,15 +252,6 @@ const Menu: React.FC<{
         })}
       </div>
 
-      {/* Dicas de teclado: so aparecem no tema "rua" (o tema noir usa o botao Fechar). */}
-      {active && (
-        <div className="menu__keys" aria-hidden="true">
-          <span className="menu__key"><kbd>↵</kbd> Escolher</span>
-          <span className="menu__key-sep">/</span>
-          <span className="menu__key"><kbd>Esc</kbd> {onBack ? 'Voltar' : 'Fechar'}</span>
-        </div>
-      )}
-
       {!headerClose && (
         <footer className="menu__footer">
           <button type="button" className="button button--block" onClick={onClose}>{closeLabel}</button>

@@ -470,6 +470,15 @@ const App: React.FC = () => {
         );
       })}
 
+      {/* Dicas de teclado no canto inferior direito da tela: so aparecem no tema "rua". */}
+      {!dialog && (
+        <div className="menu__keys" aria-hidden="true">
+          <span className="menu__key"><kbd>↵</kbd> Escolher</span>
+          <span className="menu__key-sep">/</span>
+          <span className="menu__key"><kbd>Esc</kbd> {stack.length > 1 ? 'Voltar' : 'Fechar'}</span>
+        </div>
+      )}
+
       {dialog === 'rename' && vehicle && (
         <RenameDialog vehicle={vehicle} maxLength={garage.renameMaxLength} onDone={renamed} onClose={() => setDialog(null)} />
       )}
