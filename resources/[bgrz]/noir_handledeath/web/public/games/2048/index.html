@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>2048</title>
+  <link href="style/main.css" rel="stylesheet" type="text/css">
+  <link href="style/embed.css" rel="stylesheet" type="text/css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, minimal-ui">
+</head>
+<body>
+  <div class="container">
+    <div class="game-panel">
+      <header class="top-bar">
+        <div class="scores-container">
+          <div class="score-container">0</div>
+          <div class="best-container">0</div>
+          <a class="restart-button">Novo jogo</a>
+        </div>
+      </header>
+
+      <div class="game-container">
+        <div class="game-message">
+          <p></p>
+          <div class="lower">
+            <a class="keep-playing-button">Continuar</a>
+            <a class="retry-button">Tentar de novo</a>
+          </div>
+        </div>
+
+        <div class="grid-container">
+          <div class="grid-row">
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+          </div>
+          <div class="grid-row">
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+          </div>
+          <div class="grid-row">
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+          </div>
+          <div class="grid-row">
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+          </div>
+        </div>
+
+        <div class="tile-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/bind_polyfill.js"></script>
+  <script src="js/classlist_polyfill.js"></script>
+  <script src="js/animframe_polyfill.js"></script>
+  <script src="js/keyboard_input_manager.js"></script>
+  <script src="js/html_actuator.js"></script>
+  <script src="js/grid.js"></script>
+  <script src="js/tile.js"></script>
+  <script src="js/local_storage_manager.js"></script>
+  <script src="js/game_manager.js"></script>
+  <script src="js/application.js"></script>
+  <script>
+    // O tabuleiro tem tamanho fixo (500 px + placar); reduz para caber inteiro na janela.
+    (function () {
+      var panel = document.querySelector('.game-panel');
+      function fit() {
+        panel.style.zoom = 1;
+        var scale = Math.min(1, (window.innerHeight - 24) / panel.offsetHeight, (window.innerWidth - 24) / panel.offsetWidth);
+        panel.style.zoom = scale;
+      }
+      window.addEventListener('resize', fit);
+      fit();
+    })();
+  </script>
+  <script>
+    // Com o foco dentro do jogo o Esc nao chega na tela de fora: repassa para ela fechar.
+    window.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') window.parent.postMessage({ type: 'minigame-escape' }, '*');
+    });
+  </script>
+</body>
+</html>

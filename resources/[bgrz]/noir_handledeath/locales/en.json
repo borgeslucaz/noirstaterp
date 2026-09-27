@@ -1,0 +1,18 @@
+{
+    "blip": "Doctor",
+    "revived": "You were revived. Paid: $%s",
+    "alert_sent": "Call sent to paramedics",
+    "error": {
+        "not_downed": "You are not downed",
+        "already_called": "The ambulance is already on the way",
+        "doctor_too_soon": "The private doctor can't be called yet",
+        "cooldown": "Wait a moment before calling again",
+        "ems_online": "Paramedics are on duty, call EMS",
+        "no_ems": "No paramedics on duty",
+        "no_money": "You can't afford the treatment",
+        "unavailable": "Service unavailable right now",
+        "no_road": "The ambulance couldn't find a way to you",
+        "failed": "The treatment was not completed",
+        "respawn_locked": "You can't give up yet"
+    }
+}

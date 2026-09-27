@@ -1,0 +1,18 @@
+{
+    "blip": "Médico",
+    "revived": "Você foi reanimado. Pago: $%s",
+    "alert_sent": "Chamado enviado aos paramédicos",
+    "error": {
+        "not_downed": "Você não está caído",
+        "already_called": "A ambulância já está a caminho",
+        "doctor_too_soon": "O médico particular ainda não pode ser chamado",
+        "cooldown": "Aguarde um pouco antes de chamar de novo",
+        "ems_online": "Há paramédicos em serviço, chame o EMS",
+        "no_ems": "Nenhum paramédico em serviço",
+        "no_money": "Você não tem dinheiro para pagar o atendimento",
+        "unavailable": "Atendimento indisponível no momento",
+        "no_road": "A ambulância não encontrou caminho até você",
+        "failed": "O atendimento não foi concluído",
+        "respawn_locked": "Ainda não é possível desistir"
+    }
+}

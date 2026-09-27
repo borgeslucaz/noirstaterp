@@ -1,0 +1,31 @@
+<!DOCTYPE HTML>
+<html lang="tr">
+    <head>
+        <title>Flappy Bird</title>
+        <link rel="stylesheet" type="text/css" media="screen" href="index.css">
+        <meta id="viewport" name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+        <meta charset="UTF-8" />
+    </head>
+    <body>
+        <div id="screen"></div>
+
+        <script type="text/javascript" src="js/melonJS-min.js"></script>
+        <script type="text/javascript" src="js/game.js"></script>
+        <script type="text/javascript" src="js/entities/entities.js"></script>
+        <script type="text/javascript" src="js/entities/HUD.js"></script>
+        <script type="text/javascript" src="js/screens/title.js"></script>
+        <script type="text/javascript" src="js/screens/play.js"></script>
+        <script type="text/javascript" src="js/screens/gameover.js"></script>
+        <script type="text/javascript">
+            window.onReady(function onReady() {
+                game.onload();
+            });
+        </script>
+      <script>
+    // Com o foco dentro do jogo o Esc nao chega na tela de fora: repassa para ela fechar.
+    window.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') window.parent.postMessage({ type: 'minigame-escape' }, '*');
+    });
+  </script>
+</body>
+</html>

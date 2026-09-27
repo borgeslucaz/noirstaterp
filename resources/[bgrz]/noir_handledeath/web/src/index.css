@@ -1,0 +1,438 @@
+/* Tela de morte: painel no centro inferior da tela, sobre o jogo. Fundamentos do DESIGN_v4
+   (resources/docs/DESIGN_v4.md): Saira Condensed + Rajdhani, raiz transparente, raio 2 px. */
+
+@font-face {
+  font-family: "Rajdhani";
+  src: url("./assets/fonts/Rajdhani-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Rajdhani";
+  src: url("./assets/fonts/Rajdhani-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Rajdhani";
+  src: url("./assets/fonts/Rajdhani-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Saira Condensed";
+  src: url("./assets/fonts/SairaCondensed-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Saira Condensed";
+  src: url("./assets/fonts/SairaCondensed-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-display: "Saira Condensed", "Rajdhani", Arial, sans-serif;
+  --font-ui: "Rajdhani", Arial, sans-serif;
+
+  --noir-panel-raised: #171719;
+  --noir-overlay: rgba(0, 0, 0, 0.76);
+  --noir-text-strong: rgba(255, 255, 255, 0.96);
+  --noir-text: rgba(255, 255, 255, 0.76);
+  --noir-text-muted: rgba(255, 255, 255, 0.5);
+  --noir-border: rgba(255, 255, 255, 0.11);
+  --noir-scroll-thumb: rgba(255, 255, 255, 0.13);
+  --noir-scroll-thumb-hover: rgba(255, 255, 255, 0.28);
+
+  --noir-success: #39df45;
+  --noir-warning: #d7a84b;
+  --noir-danger: #d51a1a;
+
+  --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.62);
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent !important;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-weight: 500;
+  color: var(--noir-text);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+button:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.78);
+  outline-offset: -2px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-color: var(--noir-scroll-thumb);
+  background-clip: content-box;
+}
+
+/* Painel */
+
+.death {
+  position: fixed;
+  left: 50%;
+  bottom: 56px;
+  width: min(520px, 100vw - 48px);
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, rgba(12, 14, 18, 0.94), rgba(12, 14, 18, 0.8));
+  border-radius: 2px;
+  animation: panel-in 240ms var(--ease-soft);
+}
+
+.death__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 16px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.25));
+  border-left: 3px solid var(--noir-danger);
+}
+
+.death__title {
+  margin: 0;
+  font: 700 34px/1 var(--font-display);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--noir-text-strong);
+}
+
+.death__subtitle {
+  margin: 6px 0 0;
+  font-size: 15px;
+  color: var(--noir-text);
+}
+
+.death__clock {
+  font: 700 44px/1 var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--noir-text-strong);
+}
+
+.death__clock--low {
+  color: var(--noir-danger);
+}
+
+.death__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 12.5px;
+  color: var(--noir-text-muted);
+}
+
+.death__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--noir-text-muted);
+}
+
+.death__dot--on {
+  background: var(--noir-success);
+}
+
+.death__doctor {
+  margin: 0 20px 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 2px;
+}
+
+.death__doctor-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.death__doctor-label {
+  font: 500 18px var(--font-display);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--noir-text-strong);
+}
+
+.death__doctor-value {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--noir-text-strong);
+}
+
+.death__bar {
+  height: 4px;
+  margin-top: 8px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.death__bar > div {
+  height: 100%;
+  background: #f2f2f2;
+  transition: width 250ms linear;
+}
+
+/* Acoes: linhas de lista (raio 0), selecao branca no hover */
+
+.death__actions,
+.window__list {
+  margin: 0;
+  padding: 0 0 8px;
+  list-style: none;
+}
+
+.death__action {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 20px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms var(--ease-soft), color 150ms var(--ease-soft);
+}
+
+.death__action-icon {
+  flex: none;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.death__action-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.death__action-label {
+  font: 500 18px var(--font-display);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--noir-text-strong);
+}
+
+.death__action-desc {
+  font-size: 12.5px;
+  color: var(--noir-text-muted);
+}
+
+.death__action-value {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--noir-text-strong);
+}
+
+.death__action:not(:disabled):hover {
+  background: #f2f2f2;
+}
+
+.death__action:not(:disabled):hover .death__action-icon,
+.death__action:not(:disabled):hover .death__action-label,
+.death__action:not(:disabled):hover .death__action-value {
+  color: #111113;
+}
+
+.death__action:not(:disabled):hover .death__action-desc {
+  color: rgba(17, 17, 19, 0.72);
+}
+
+.death__action:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.death__action[aria-busy="true"] {
+  opacity: 1;
+}
+
+.death__feedback {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0 20px 14px;
+  font-size: 14px;
+  color: var(--noir-danger);
+}
+
+.death__feedback--ok {
+  color: var(--noir-success);
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 900ms linear infinite;
+}
+
+/* Janela central dos jogos (DESIGN_v4 §6) */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  background: var(--noir-overlay);
+  animation: fade-in 180ms ease-out;
+}
+
+.window {
+  width: min(430px, 100vw - 48px);
+  background: var(--noir-panel-raised);
+  border: 1px solid var(--noir-border);
+  border-radius: 2px;
+  box-shadow: var(--shadow-modal);
+  animation: window-in 220ms var(--ease-soft);
+}
+
+.window--game {
+  width: min(760px, 100vw - 48px);
+}
+
+.window__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px 12px 20px;
+}
+
+.window__title {
+  flex: 1;
+  margin: 0;
+  font: 700 24px var(--font-display);
+  text-transform: uppercase;
+  color: var(--noir-text-strong);
+}
+
+.window__frame {
+  display: block;
+  width: 100%;
+  height: min(560px, 100vh - 160px);
+  border: 0;
+  background: #000;
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--noir-text);
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--noir-text-strong);
+}
+
+/* Preview no navegador */
+
+.debug {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 420px;
+}
+
+.debug button {
+  padding: 6px 10px;
+  border: 1px solid var(--noir-border);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.72);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 16px);
+  }
+}
+
+@keyframes window-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
