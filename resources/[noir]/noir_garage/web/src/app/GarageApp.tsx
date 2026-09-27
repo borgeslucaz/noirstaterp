@@ -552,6 +552,7 @@ const App: React.FC = () => {
             onBack={level > 0 ? back : undefined}
             onClose={level === 0 ? close : () => goToLevel(level - 1)}
             closeLabel={level === 0 ? 'Fechar' : 'Voltar'}
+            headerClose={level > 0}
             notice={view.notice}
             empty={view.empty}
             loading={view.loading}

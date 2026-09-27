@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { ChevronRight, LoaderCircle, TriangleAlert } from "lucide-react";
+import { ChevronRight, LoaderCircle, TriangleAlert, X } from "lucide-react";
 
 export type MenuTone = 'danger';
 
@@ -56,10 +56,12 @@ const Menu: React.FC<{
   onBack?: () => void;
   onClose: () => void;
   closeLabel: string;
+  /** X no cabecalho (submenus): fecha esta coluna, como o botao do rodape. */
+  headerClose?: boolean;
   notice?: MenuNotice | null;
   empty?: string;
   loading?: string | null;
-}> = ({ title, eyebrow, icon, items, index, active, onIndexChange, onPick, onBack, onClose, closeLabel, notice, empty, loading }) => {
+}> = ({ title, eyebrow, icon, items, index, active, onIndexChange, onPick, onBack, onClose, closeLabel, headerClose, notice, empty, loading }) => {
   const listRef = useRef<HTMLDivElement>(null);
   const current = items[index];
 
@@ -144,6 +146,11 @@ const Menu: React.FC<{
         {icon}
         <h1 className="menu__title" title={title}>{title}</h1>
         {eyebrow && <p className="eyebrow menu__eyebrow" title={eyebrow}>{eyebrow}</p>}
+        {headerClose && (
+          <button type="button" className="icon-button icon-button--small" aria-label="Fechar este menu" title="Fechar" onClick={onClose}>
+            <X size={18} aria-hidden="true" />
+          </button>
+        )}
       </header>
 
       {notice && (
