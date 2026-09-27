@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { ChevronRight, LoaderCircle, TriangleAlert, X } from "lucide-react";
+import { LoaderCircle, TriangleAlert, X } from "lucide-react";
 
 export type MenuTone = 'danger';
 
@@ -208,7 +208,6 @@ const Menu: React.FC<{
               {!item.input && (
                 <span className="menu-item__value">
                   {item.busy ? <LoaderCircle className="spin" size={16} aria-hidden="true" /> : item.value}
-                  {kind === 'action' && <ChevronRight className="menu-item__chevron" size={16} aria-hidden="true" />}
                 </span>
               )}
             </>

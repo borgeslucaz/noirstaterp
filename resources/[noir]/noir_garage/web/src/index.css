@@ -341,13 +341,19 @@ button[aria-disabled="true"] {
   background: var(--noir-canvas-solid);
 }
 
-.menu[data-active="false"] .menu__items,
-.menu[data-active="false"] .menu__header {
+.menu[data-active="false"] .menu__header,
+.menu[data-active="false"] .menu__summary,
+.menu[data-active="false"] .menu-item:not([data-active="true"]) {
   opacity: 0.72;
 }
 
+/* Item que abriu a coluna da esquerda: vira uma "aba" encostada nela (sem seta, a barra do acento
+   fica na borda que toca a coluna aberta). */
 .menu[data-active="false"] .menu-item[data-active="true"] {
-  box-shadow: inset 3px 0 0 var(--noir-accent-deep);
+  border-color: var(--noir-border-strong);
+  background: var(--noir-card-hover);
+  color: var(--noir-text-strong);
+  box-shadow: inset 4px 0 0 var(--noir-accent);
 }
 
 @keyframes menu-in {
@@ -608,18 +614,6 @@ button[aria-disabled="true"] {
   color: var(--noir-text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.menu-item__chevron {
-  color: var(--noir-text-faint);
-}
-
-.menu-item[data-active="true"] .menu-item__chevron {
-  color: var(--noir-text-strong);
-}
-
-.menu-item[aria-disabled="true"] .menu-item__chevron {
-  opacity: 0.45;
 }
 
 .menu-item__lock {
