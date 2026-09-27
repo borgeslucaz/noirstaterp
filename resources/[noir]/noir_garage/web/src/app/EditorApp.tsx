@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
   ArrowLeftRight, Car, Check, Eye, MapPin, Navigation, Palette, Plus, Save, Search, Shapes, Tag, Trash2,
   Users, Warehouse, Share2, CircleParking, Map as MapIcon, Briefcase, Skull, Square, SquareCheck, TriangleAlert,
-  Crosshair, Keyboard, PersonStanding, Shirt, Clapperboard,
+  Crosshair, Keyboard, PersonStanding, Shirt, Clapperboard, RotateCw,
 } from 'lucide-react';
 
 import Menu, { MenuItem, MenuNotice } from '../components/Menu';
@@ -514,6 +514,16 @@ const EditorApp: React.FC = () => {
                   if (p.ped) p.ped.model = value.replace(/[^\w]/g, '').toLowerCase();
                 }),
               },
+            },
+            {
+              key: 'pedRotation',
+              label: 'Girar atendente',
+              icon: <RotateCw size={18} aria-hidden="true" />,
+              value: ped.rotation ? `+${ped.rotation}°` : 'Como marcado',
+              activeDescription: 'Enter gira 45°; +180° fica de frente para você.',
+              onSelect: () => updatePoint(i, p => {
+                if (p.ped) p.ped.rotation = ((p.ped.rotation ?? 0) + 45) % 360 || undefined;
+              }),
             },
             {
               key: 'pedScenario',

@@ -202,8 +202,10 @@ local function createAttendant(accessPoint, onSpawn)
                 return
             end
             if not pcall(lib.requestModel, model, 5000) or myToken ~= token then return end
+            -- Direcao de quem marcou o balcao, mais o giro escolhido no editor.
             local c = accessPoint.coords
-            local created = CreatePed(4, model, c.x, c.y, c.z - 1.0, c.w, false, false)
+            local heading = (c.w + (tonumber(cfg.rotation) or 0)) % 360
+            local created = CreatePed(4, model, c.x, c.y, c.z - 1.0, heading, false, false)
             SetModelAsNoLongerNeeded(model)
             if created == 0 then return end
             if myToken ~= token then

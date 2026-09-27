@@ -56,7 +56,7 @@ local function serialize(garage)
             spawn = vecToTable(point.spawn),
             dropPoint = vecToTable(point.dropPoint),
             blip = point.blip and { name = point.blip.name, sprite = point.blip.sprite, color = point.blip.color } or nil,
-            ped = point.ped and { model = point.ped.model, scenario = point.ped.scenario } or nil,
+            ped = point.ped and { model = point.ped.model, scenario = point.ped.scenario, rotation = point.ped.rotation } or nil,
             interaction = point.interaction,
         }
         for _, key in ipairs(POINT_NUMBERS) do p[key] = point[key] end
@@ -255,7 +255,14 @@ local function validate(input)
             if ped.scenario ~= nil and not PED_SCENARIOS[ped.scenario] then
                 return nil, ('Ponto %d: animação do atendente inválida.'):format(i)
             end
-            point.ped = { model = ped.model:lower(), scenario = ped.scenario }
+            if ped.rotation ~= nil and not (validInteger(ped.rotation, 0, 315) and ped.rotation % 45 == 0) then
+                return nil, ('Ponto %d: giro do atendente inválido.'):format(i)
+            end
+            point.ped = {
+                model = ped.model:lower(),
+                scenario = ped.scenario,
+                rotation = ped.rotation ~= 0 and ped.rotation or nil,
+            }
         end
         if p.interaction ~= nil then
             if not INTERACTIONS[p.interaction] then return nil, ('Ponto %d: interação inválida.'):format(i) end

@@ -34,7 +34,8 @@ blip, atendente e interação). "Marcar" esconde o editor: ande até o lugar e a
 - Cada ponto pode ter um atendente (PED local, com modelo e animação) e abrir
   por "Aperte E" (marcador no chão) ou por ox_target (no atendente ou numa esfera
   no balcão), pelo target do `bgrz_core`. Guardar o carro continua no E. O
-  modelo do PED é conferido no cliente antes de criar: modelo inexistente não
+  atendente nasce na posição e direção de quem marcou o balcão, com giro de 45°
+  em 45° no editor. O modelo do PED é conferido no cliente antes de criar: modelo inexistente não
   cria nada (no Enhanced, derrubaria o jogo).
 
 ## Configuração

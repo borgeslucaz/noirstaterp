@@ -78,7 +78,8 @@ export interface EditorPoint {
     dropPoint?: Vec3;
     blip?: EditorBlip;
     /** Atendente no balcao (PED local). */
-    ped?: { model: string; scenario?: string };
+    /** rotation: giro em graus (multiplos de 45) sobre a direcao marcada no balcao. */
+    ped?: { model: string; scenario?: string; rotation?: number };
     /** Como abre o balcao a pe: 'key' (marcador + E, padrao) ou 'target' (ox_target). */
     interaction?: 'key' | 'target';
     /** Raios que a tela nao edita; voltam ao servidor como vieram. */
