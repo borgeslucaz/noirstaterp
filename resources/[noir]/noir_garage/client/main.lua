@@ -245,8 +245,10 @@ local function createZones(garageName, garage, accessPoint, accessPointIndex)
     CreateThread(function()
         if handles.removed then return end
         accessPoint.dropPoint = accessPoint.dropPoint or accessPoint.spawn
-        local drawRadius = accessPoint.drawRadius or 60
-        local dropDrawRadius = accessPoint.dropDrawRadius or 60
+        -- Raio em que o marcador e desenhado (a zona do lib.zones roda o `inside` a cada frame nele):
+        -- 60 m era mais do que se enxerga do marcador; fora disso o resource fica em 0 ms.
+        local drawRadius = accessPoint.drawRadius or 25
+        local dropDrawRadius = accessPoint.dropDrawRadius or 30
         -- Com atendente, o jogador para ao lado dele (nao em cima): o raio do balcao cresce um pouco.
         local useRadius = accessPoint.useRadius or (accessPoint.ped and 1.6 or 1)
         local dropUseRadius = accessPoint.dropUseRadius or 1.5
@@ -379,7 +381,7 @@ local function createZones(garageName, garage, accessPoint, accessPointIndex)
                     end
                 end,
                 inside = function()
-                    config.drawDropOffMarker(accessPoint.dropPoint, dropUseRadius)
+                    config.drawDropOffMarker(accessPoint.dropPoint, dropUseRadius, accessPoint)
                 end,
                 debug = config.debugPoly,
             })
