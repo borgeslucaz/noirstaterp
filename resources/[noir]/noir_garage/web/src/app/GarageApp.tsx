@@ -551,7 +551,7 @@ const App: React.FC = () => {
             onPick={i => pick(level, i, view.items[i])}
             onBack={level > 0 ? back : undefined}
             onClose={level === 0 ? close : () => goToLevel(level - 1)}
-            closeLabel={level === 0 ? 'Fechar' : 'Voltar'}
+            closeLabel="Fechar"
             headerClose={level > 0}
             notice={view.notice}
             empty={view.empty}

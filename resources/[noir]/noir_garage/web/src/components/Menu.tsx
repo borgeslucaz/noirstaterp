@@ -56,7 +56,7 @@ const Menu: React.FC<{
   onBack?: () => void;
   onClose: () => void;
   closeLabel: string;
-  /** X no cabecalho (submenus): fecha esta coluna, como o botao do rodape. */
+  /** X no cabecalho (submenus): fecha esta coluna e substitui o botao do rodape. */
   headerClose?: boolean;
   notice?: MenuNotice | null;
   empty?: string;
@@ -248,9 +248,11 @@ const Menu: React.FC<{
         })}
       </div>
 
-      <footer className="menu__footer">
-        <button type="button" className="button button--block" onClick={onClose}>{closeLabel}</button>
-      </footer>
+      {!headerClose && (
+        <footer className="menu__footer">
+          <button type="button" className="button button--block" onClick={onClose}>{closeLabel}</button>
+        </footer>
+      )}
     </section>
   );
 };
