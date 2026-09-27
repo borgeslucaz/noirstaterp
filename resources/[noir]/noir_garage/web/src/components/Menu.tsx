@@ -55,15 +55,14 @@ const Menu: React.FC<{
   onPick: (index: number) => void;
   onBack?: () => void;
   onClose: () => void;
+  /** Rotulo do X do cabecalho: fecha a garagem (coluna 0) ou so esta coluna. */
   closeLabel: string;
-  /** X no cabecalho (submenus): fecha esta coluna e substitui o botao do rodape. */
-  headerClose?: boolean;
   notice?: MenuNotice | null;
   /** Bloco fixo entre o cabecalho e as opcoes (dados do carro). */
   summary?: React.ReactNode;
   empty?: string;
   loading?: string | null;
-}> = ({ title, eyebrow, icon, items, index, active, onIndexChange, onPick, onBack, onClose, closeLabel, headerClose, notice, summary, empty, loading }) => {
+}> = ({ title, eyebrow, icon, items, index, active, onIndexChange, onPick, onBack, onClose, closeLabel, notice, summary, empty, loading }) => {
   const listRef = useRef<HTMLDivElement>(null);
   const current = items[index];
 
@@ -149,11 +148,9 @@ const Menu: React.FC<{
         {icon}
         <h1 className="menu__title" title={title}>{title}</h1>
         {eyebrow && <p className="eyebrow menu__eyebrow" title={eyebrow}>{eyebrow}</p>}
-        {headerClose && (
-          <button type="button" className="icon-button icon-button--small" aria-label="Fechar este menu" title="Fechar" onClick={onClose}>
-            <X size={18} aria-hidden="true" />
-          </button>
-        )}
+        <button type="button" className="icon-button icon-button--small" aria-label={closeLabel} title={closeLabel} onClick={onClose}>
+          <X size={18} aria-hidden="true" />
+        </button>
       </header>
 
       {summary && <div className="menu__summary">{summary}</div>}
@@ -252,11 +249,6 @@ const Menu: React.FC<{
         })}
       </div>
 
-      {!headerClose && (
-        <footer className="menu__footer">
-          <button type="button" className="button button--block" onClick={onClose}>{closeLabel}</button>
-        </footer>
-      )}
     </section>
   );
 };

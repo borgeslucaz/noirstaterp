@@ -1,85 +1,6 @@
-/* Garagem: menu compacto a direita, no estilo do lib.registerMenu do ox_lib (lista navegavel por
-   teclado e submenus). Tokens, fonte e estados vem do DESIGN_v3 (resources/docs/DESIGN_v3.md). */
-
-@font-face {
-  font-family: "Poppins";
-  src: url("./assets/fonts/Poppins-400.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Poppins";
-  src: url("./assets/fonts/Poppins-500.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Poppins";
-  src: url("./assets/fonts/Poppins-600.woff2") format("woff2");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Poppins";
-  src: url("./assets/fonts/Poppins-700.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Big Shoulders Display";
-  src: url("./assets/fonts/BigShouldersDisplay-500.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Big Shoulders Display";
-  src: url("./assets/fonts/BigShouldersDisplay-800.woff2") format("woff2");
-  font-weight: 800;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Barlow";
-  src: url("./assets/fonts/Barlow-400.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Barlow";
-  src: url("./assets/fonts/Barlow-500.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Barlow";
-  src: url("./assets/fonts/Barlow-600.woff2") format("woff2");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Barlow";
-  src: url("./assets/fonts/Barlow-700.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
+/* Garagem: menu em colunas a direita, no estilo do lib.registerMenu do ox_lib (lista navegavel por
+   teclado e submenus). Tokens e estados vem do DESIGN_v3 (resources/docs/DESIGN_v3.md); fontes
+   Saira Condensed (titulo e itens) e Rajdhani (textos). */
 
 @font-face {
   font-family: "Rajdhani";
@@ -114,22 +35,6 @@
 }
 
 @font-face {
-  font-family: "Oswald";
-  src: url("./assets/fonts/Oswald-500.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Oswald";
-  src: url("./assets/fonts/Oswald-700.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
   font-family: "Saira Condensed";
   src: url("./assets/fonts/SairaCondensed-500.woff2") format("woff2");
   font-weight: 500;
@@ -146,7 +51,7 @@
 }
 
 :root {
-  --font-ui: "Poppins", Inter, "Segoe UI", Arial, sans-serif;
+  --font-ui: "Rajdhani", Arial, sans-serif;
 
   --noir-canvas: rgba(7, 7, 8, 0.94);
   --noir-canvas-solid: #080809;
@@ -525,11 +430,6 @@ button[aria-disabled="true"] {
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* Sem faixa propria: o botao flutua sobre o mesmo fundo da coluna. */
-.menu__footer {
-  padding: 12px;
 }
 
 .button--block {
@@ -1018,58 +918,54 @@ select.field option {
 
 /* ── Tema "rua" (teste de interface) ─────────────────────────────────────
    Titulo e rotulos condensados, em caixa alta; item ativo em branco com texto escuro;
-   teclas em pilulas no rodape. Liga so com html[data-garage-theme="street"] (botao do preview). */
+   teclas em pilulas no rodape. Liga so com :root (botao do preview). */
 
-.menu__keys {
-  display: none;
+:root {
+  /* Titulo e itens: Saira Condensed. */
+  --font-display: "Saira Condensed", "Rajdhani", Arial, sans-serif;
+  /* Secundaria: Rajdhani. */
+  --font-ui: "Rajdhani", Arial, sans-serif;
 }
 
-html[data-garage-theme="street"] {
-  /* Titulo em teste: Saira Condensed (Oswald e Big Shoulders Display continuam empacotadas para comparar). */
-  --font-display: "Saira Condensed", "Oswald", sans-serif;
-  /* Secundaria em teste: Rajdhani (antes Barlow, que continua empacotada para comparar). */
-  --font-ui: "Rajdhani", "Barlow", Arial, sans-serif;
-}
-
-/* A Barlow desenha menor que a Poppins: um degrau a mais nos textos pequenos. */
-html[data-garage-theme="street"] .menu-item__description,
-html[data-garage-theme="street"] .menu-item__meta,
-html[data-garage-theme="street"] .menu-item__reveal,
-html[data-garage-theme="street"] .menu__summary-meta {
+/* A Rajdhani desenha pequena: textos miudos um degrau acima do padrao. */
+:root .menu-item__description,
+:root .menu-item__meta,
+:root .menu-item__reveal,
+:root .menu__summary-meta {
   font-size: 12.5px;
 }
 
-html[data-garage-theme="street"] .menu-item__reveal {
+:root .menu-item__reveal {
   line-height: 1.3;
 }
 
-html[data-garage-theme="street"] .plate {
+:root .plate {
   font-size: 11.5px;
   letter-spacing: 0.08em;
 }
 
-html[data-garage-theme="street"] .menu-item__value {
+:root .menu-item__value {
   font-size: 14px;
   font-weight: 600;
 }
 
-html[data-garage-theme="street"] .field,
-html[data-garage-theme="street"] .modal__body,
-html[data-garage-theme="street"] .menu__notice {
+:root .field,
+:root .modal__body,
+:root .menu__notice {
   font-size: 14px;
 }
 
-html[data-garage-theme="street"] .menu {
+:root .menu {
   border-left: 0;
   background: linear-gradient(180deg, rgba(12, 14, 18, 0.94) 0%, rgba(12, 14, 18, 0.80) 100%);
   box-shadow: none;
 }
 
-html[data-garage-theme="street"] .menu[data-active="false"] {
+:root .menu[data-active="false"] {
   background: linear-gradient(180deg, rgba(12, 14, 18, 0.86) 0%, rgba(12, 14, 18, 0.70) 100%);
 }
 
-html[data-garage-theme="street"] .menu__header {
+:root .menu__header {
   position: relative;
   min-height: 104px;
   flex-direction: column;
@@ -1081,12 +977,12 @@ html[data-garage-theme="street"] .menu__header {
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.25));
 }
 
-html[data-garage-theme="street"] .menu__header::before,
-html[data-garage-theme="street"] .menu__mark {
+:root .menu__header::before,
+:root .menu__mark {
   display: none;
 }
 
-html[data-garage-theme="street"] .menu__title {
+:root .menu__title {
   flex: 0 0 auto;
   max-width: 100%;
   font-family: var(--font-display);
@@ -1097,7 +993,7 @@ html[data-garage-theme="street"] .menu__title {
   text-transform: uppercase;
 }
 
-html[data-garage-theme="street"] .menu__eyebrow {
+:root .menu__eyebrow {
   max-width: 100%;
   font-family: var(--font-ui);
   font-size: 15px;
@@ -1108,32 +1004,32 @@ html[data-garage-theme="street"] .menu__eyebrow {
   color: var(--noir-text);
 }
 
-html[data-garage-theme="street"] .menu__header .icon-button {
+:root .menu__header .icon-button {
   position: absolute;
   top: 14px;
   right: 12px;
 }
 
-html[data-garage-theme="street"] .menu__items {
+:root .menu__items {
   padding: 4px 0;
 }
 
-html[data-garage-theme="street"] .menu-item {
+:root .menu-item {
   min-height: 48px;
   border: 0;
   border-radius: 0;
   padding: 6px 20px;
 }
 
-html[data-garage-theme="street"] .menu-item + .menu-item {
+:root .menu-item + .menu-item {
   margin-top: 0;
 }
 
-html[data-garage-theme="street"] .menu-item[data-reveal] {
+:root .menu-item[data-reveal] {
   height: 56px;
 }
 
-html[data-garage-theme="street"] .menu-item__label {
+:root .menu-item__label {
   font-family: var(--font-display);
   font-size: 18px;
   font-weight: 500;
@@ -1142,45 +1038,45 @@ html[data-garage-theme="street"] .menu-item__label {
   text-transform: uppercase;
 }
 
-html[data-garage-theme="street"] .menu-item__icon,
-html[data-garage-theme="street"] .menu-item > svg {
+:root .menu-item__icon,
+:root .menu-item > svg {
   color: rgba(255, 255, 255, 0.82);
 }
 
-html[data-garage-theme="street"] .menu-item[data-active="true"] {
+:root .menu-item[data-active="true"] {
   background: #f2f2f2;
   color: #111113;
   box-shadow: none;
 }
 
-html[data-garage-theme="street"] .menu-item[data-active="true"] .menu-item__icon,
-html[data-garage-theme="street"] .menu-item[data-active="true"] .menu-item__value,
-html[data-garage-theme="street"] .menu-item[data-active="true"] .menu-item__lock {
+:root .menu-item[data-active="true"] .menu-item__icon,
+:root .menu-item[data-active="true"] .menu-item__value,
+:root .menu-item[data-active="true"] .menu-item__lock {
   color: #111113;
 }
 
-html[data-garage-theme="street"] .menu-item[data-active="true"] .menu-item__description,
-html[data-garage-theme="street"] .menu-item[data-active="true"] .menu-item__meta,
-html[data-garage-theme="street"] .menu-item[data-active="true"] .menu-item__reveal,
-html[data-garage-theme="street"] .menu-item[data-active="true"] .status {
+:root .menu-item[data-active="true"] .menu-item__description,
+:root .menu-item[data-active="true"] .menu-item__meta,
+:root .menu-item[data-active="true"] .menu-item__reveal,
+:root .menu-item[data-active="true"] .status {
   color: rgba(17, 17, 19, 0.72);
 }
 
-html[data-garage-theme="street"] .menu-item[data-active="true"] .plate {
+:root .menu-item[data-active="true"] .plate {
   border-color: rgba(17, 17, 19, 0.35);
   color: #111113;
 }
 
-html[data-garage-theme="street"] .menu-item[data-active="true"] .menu-item__progress {
+:root .menu-item[data-active="true"] .menu-item__progress {
   background: rgba(17, 17, 19, 0.15);
 }
 
-html[data-garage-theme="street"] .menu-item[data-active="true"][data-tone="danger"] .menu-item__label {
+:root .menu-item[data-active="true"][data-tone="danger"] .menu-item__label {
   color: var(--noir-danger);
 }
 
 /* Coluna de tras: o item que abriu a seguinte fica branco, sem apagar. */
-html[data-garage-theme="street"] .menu[data-active="false"] .menu-item[data-active="true"] {
+:root .menu[data-active="false"] .menu-item[data-active="true"] {
   border: 0;
   background: rgba(242, 242, 242, 0.88);
   color: #111113;
@@ -1188,21 +1084,21 @@ html[data-garage-theme="street"] .menu[data-active="false"] .menu-item[data-acti
 }
 
 
-html[data-garage-theme="street"] .menu-item[aria-disabled="true"] {
+:root .menu-item[aria-disabled="true"] {
   opacity: 0.5;
 }
 
-html[data-garage-theme="street"] .menu-item[aria-disabled="true"] .menu-item__label,
-html[data-garage-theme="street"] .menu-item[aria-disabled="true"] .menu-item__icon {
+:root .menu-item[aria-disabled="true"] .menu-item__label,
+:root .menu-item[aria-disabled="true"] .menu-item__icon {
   opacity: 1;
 }
 
-html[data-garage-theme="street"] .menu__summary {
+:root .menu__summary {
   border-bottom: 0;
   background: rgba(255, 255, 255, 0.04);
 }
 
-html[data-garage-theme="street"] .menu__summary-name {
+:root .menu__summary-name {
   font-family: var(--font-display);
   font-size: 22px;
   font-weight: 500;
@@ -1210,19 +1106,15 @@ html[data-garage-theme="street"] .menu__summary-name {
   text-transform: uppercase;
 }
 
-html[data-garage-theme="street"] .menu__summary-icon,
-html[data-garage-theme="street"] .field,
-html[data-garage-theme="street"] .button,
-html[data-garage-theme="street"] .modal,
-html[data-garage-theme="street"] .menu__notice {
+:root .menu__summary-icon,
+:root .field,
+:root .button,
+:root .modal,
+:root .menu__notice {
   border-radius: 2px;
 }
 
-html[data-garage-theme="street"] .menu__footer {
-  display: none;
-}
-
-html[data-garage-theme="street"] .menu__keys {
+:root .menu__keys {
   position: fixed;
   right: 16px;
   bottom: 16px;
@@ -1233,11 +1125,11 @@ html[data-garage-theme="street"] .menu__keys {
 }
 
 /* A coluna da garagem cresce ate o rodape: folga para as teclas nao cobrirem o ultimo carro. */
-html[data-garage-theme="street"] .menu__items {
+:root .menu__items {
   padding-bottom: 64px;
 }
 
-html[data-garage-theme="street"] .menu__key {
+:root .menu__key {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1252,7 +1144,7 @@ html[data-garage-theme="street"] .menu__key {
   color: #fff;
 }
 
-html[data-garage-theme="street"] .menu__key kbd {
+:root .menu__key kbd {
   min-width: 22px;
   padding: 1px 5px;
   border-radius: 2px;
@@ -1263,22 +1155,22 @@ html[data-garage-theme="street"] .menu__key kbd {
   color: #111113;
 }
 
-html[data-garage-theme="street"] .menu__key-sep {
+:root .menu__key-sep {
   font-family: var(--font-display);
   font-size: 14px;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.7);
 }
 
-html[data-garage-theme="street"] .modal__title {
+:root .modal__title {
   font-family: var(--font-display);
   font-size: 24px;
   font-weight: 700;
   text-transform: uppercase;
 }
 
-html[data-garage-theme="street"] .button--success,
-html[data-garage-theme="street"] .button {
+:root .button--success,
+:root .button {
   font-family: var(--font-display);
   font-size: 15px;
   font-weight: 700;

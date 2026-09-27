@@ -6,7 +6,8 @@ Garagens e pátio da Noir State. Substitui o `qbx_garages`.
   desligado, porta destrancada, modelo validado pela lista do `qbx_core`, cópia
   da chave e troca de fechadura pelo `mri_Qcarkeys`).
 - Interface: menu na lateral direita, no estilo do `lib.registerMenu` do ox_lib
-  (setas, Enter e Backspace), com os tokens e a fonte do `docs/DESIGN_v3.md`.
+  (setas, Enter e Backspace), em colunas lado a lado, com os tokens do
+  `docs/DESIGN_v3.md` e as fontes Saira Condensed e Rajdhani (empacotadas).
   Prévia 3D, apelido, histórico, transferência entre garagens, cópia de chave e
   troca de fechadura. A câmera da prévia vem do
   [rhd_garage](https://github.com/RHD-FiveM/rhd_garage) 1.0.0.

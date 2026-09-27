@@ -460,8 +460,7 @@ const App: React.FC = () => {
             onPick={i => pick(level, i, view.items[i])}
             onBack={level > 0 ? back : undefined}
             onClose={level === 0 ? close : () => goToLevel(level - 1)}
-            closeLabel="Fechar"
-            headerClose={level > 0}
+            closeLabel={level === 0 ? 'Fechar garagem' : 'Fechar este menu'}
             notice={view.notice}
             summary={view.summary}
             empty={view.empty}
@@ -470,7 +469,7 @@ const App: React.FC = () => {
         );
       })}
 
-      {/* Dicas de teclado no canto inferior direito da tela: so aparecem no tema "rua". */}
+      {/* Dicas de teclado no canto inferior direito da tela. */}
       {!dialog && (
         <div className="menu__keys" aria-hidden="true">
           <span className="menu__key"><kbd>↵</kbd> Escolher</span>
