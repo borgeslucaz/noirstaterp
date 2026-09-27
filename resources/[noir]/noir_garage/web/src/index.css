@@ -33,6 +33,14 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Big Shoulders Display";
+  src: url("./assets/fonts/BigShouldersDisplay-800.woff2") format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --font-ui: "Poppins", Inter, "Segoe UI", Arial, sans-serif;
 
@@ -902,6 +910,251 @@ select.field option {
     opacity: 0;
     transform: translateY(8px);
   }
+}
+
+/* ── Tema "rua" (teste de interface) ─────────────────────────────────────
+   Titulo e rotulos condensados, em italico e caixa alta; item ativo em branco com texto escuro;
+   teclas em pilulas no rodape. Liga so com html[data-garage-theme="street"] (botao do preview). */
+
+.menu__keys {
+  display: none;
+}
+
+html[data-garage-theme="street"] {
+  --font-display: "Big Shoulders Display", "Poppins", sans-serif;
+}
+
+html[data-garage-theme="street"] .menu {
+  border-left: 0;
+  background: linear-gradient(180deg, rgba(12, 14, 18, 0.94) 0%, rgba(12, 14, 18, 0.80) 100%);
+  box-shadow: none;
+}
+
+html[data-garage-theme="street"] .menu[data-active="false"] {
+  background: linear-gradient(180deg, rgba(12, 14, 18, 0.86) 0%, rgba(12, 14, 18, 0.70) 100%);
+}
+
+html[data-garage-theme="street"] .menu__header {
+  position: relative;
+  min-height: 104px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  padding: 18px 56px 16px 20px;
+  border-bottom: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.25));
+}
+
+html[data-garage-theme="street"] .menu__header::before,
+html[data-garage-theme="street"] .menu__mark {
+  display: none;
+}
+
+html[data-garage-theme="street"] .menu__title {
+  flex: 0 0 auto;
+  max-width: 100%;
+  font-family: var(--font-display);
+  font-size: 38px;
+  font-weight: 800;
+  font-style: italic;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+html[data-garage-theme="street"] .menu__eyebrow {
+  max-width: 100%;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-align: left;
+  text-transform: none;
+  color: var(--noir-text);
+}
+
+html[data-garage-theme="street"] .menu__header .icon-button {
+  position: absolute;
+  top: 14px;
+  right: 12px;
+}
+
+html[data-garage-theme="street"] .menu__items {
+  padding: 4px 0;
+}
+
+html[data-garage-theme="street"] .menu-item {
+  min-height: 48px;
+  border: 0;
+  border-radius: 0;
+  padding: 6px 20px;
+}
+
+html[data-garage-theme="street"] .menu-item + .menu-item {
+  margin-top: 0;
+}
+
+html[data-garage-theme="street"] .menu-item[data-reveal] {
+  height: 56px;
+}
+
+html[data-garage-theme="street"] .menu-item__label {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 800;
+  font-style: italic;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+html[data-garage-theme="street"] .menu-item__icon,
+html[data-garage-theme="street"] .menu-item > svg {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+html[data-garage-theme="street"] .menu-item[data-active="true"] {
+  background: #f2f2f2;
+  color: #111113;
+  box-shadow: none;
+}
+
+html[data-garage-theme="street"] .menu-item[data-active="true"] .menu-item__icon,
+html[data-garage-theme="street"] .menu-item[data-active="true"] .menu-item__value,
+html[data-garage-theme="street"] .menu-item[data-active="true"] .menu-item__lock {
+  color: #111113;
+}
+
+html[data-garage-theme="street"] .menu-item[data-active="true"] .menu-item__description,
+html[data-garage-theme="street"] .menu-item[data-active="true"] .menu-item__meta,
+html[data-garage-theme="street"] .menu-item[data-active="true"] .menu-item__reveal,
+html[data-garage-theme="street"] .menu-item[data-active="true"] .status {
+  color: rgba(17, 17, 19, 0.72);
+}
+
+html[data-garage-theme="street"] .menu-item[data-active="true"] .plate {
+  border-color: rgba(17, 17, 19, 0.35);
+  color: #111113;
+}
+
+html[data-garage-theme="street"] .menu-item[data-active="true"] .menu-item__progress {
+  background: rgba(17, 17, 19, 0.15);
+}
+
+html[data-garage-theme="street"] .menu-item[data-active="true"][data-tone="danger"] .menu-item__label {
+  color: var(--noir-danger);
+}
+
+/* Coluna de tras: o item que abriu a seguinte fica branco, sem apagar. */
+html[data-garage-theme="street"] .menu[data-active="false"] .menu-item[data-active="true"] {
+  border: 0;
+  background: rgba(242, 242, 242, 0.88);
+  color: #111113;
+  box-shadow: none;
+}
+
+/* O italico passa da caixa do texto: sem folga, a ultima letra corta no overflow. */
+html[data-garage-theme="street"] .menu__title,
+html[data-garage-theme="street"] .menu__summary-name,
+html[data-garage-theme="street"] .menu-item__label {
+  padding-right: 0.2em;
+}
+
+html[data-garage-theme="street"] .menu-item[aria-disabled="true"] {
+  opacity: 0.5;
+}
+
+html[data-garage-theme="street"] .menu-item[aria-disabled="true"] .menu-item__label,
+html[data-garage-theme="street"] .menu-item[aria-disabled="true"] .menu-item__icon {
+  opacity: 1;
+}
+
+html[data-garage-theme="street"] .menu__summary {
+  border-bottom: 0;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+html[data-garage-theme="street"] .menu__summary-name {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+  font-style: italic;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+html[data-garage-theme="street"] .menu__summary-icon,
+html[data-garage-theme="street"] .field,
+html[data-garage-theme="street"] .button,
+html[data-garage-theme="street"] .modal,
+html[data-garage-theme="street"] .menu__notice {
+  border-radius: 2px;
+}
+
+html[data-garage-theme="street"] .menu__footer {
+  display: none;
+}
+
+html[data-garage-theme="street"] .menu__keys {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px 16px;
+}
+
+html[data-garage-theme="street"] .menu__key {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 6px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.72);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+html[data-garage-theme="street"] .menu__key kbd {
+  min-width: 22px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: #f2f2f2;
+  font: 700 11px/1.4 var(--font-ui);
+  font-style: normal;
+  text-align: center;
+  color: #111113;
+}
+
+html[data-garage-theme="street"] .menu__key-sep {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+html[data-garage-theme="street"] .modal__title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+}
+
+html[data-garage-theme="street"] .button--success,
+html[data-garage-theme="street"] .button {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 @media (max-height: 760px) {
