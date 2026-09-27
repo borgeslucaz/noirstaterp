@@ -10,10 +10,10 @@ local function closeEditor()
     SetNuiFocus(false, false)
 end
 
-RegisterNetEvent('noir_garage:client:openEditor', function(list)
+RegisterNetEvent('noir_garage:client:openEditor', function(list, groups)
     if type(list) ~= 'table' then return end
     editorOpen = true
-    SendNUIMessage({ action = 'editor', data = { visible = true, garages = list } })
+    SendNUIMessage({ action = 'editor', data = { visible = true, garages = list, groups = groups } })
     SetNuiFocus(true, true)
 end)
 

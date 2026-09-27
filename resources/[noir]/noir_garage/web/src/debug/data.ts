@@ -1,4 +1,4 @@
-import { EditorGarage, GarageDataProps, VehicleProps } from "../utils/interface";
+import { EditorGarage, EditorGroupOptions, GarageDataProps, VehicleProps } from "../utils/interface";
 
 // Dados falsos para abrir a tela no navegador (npm run dev).
 
@@ -152,13 +152,23 @@ export const debugEditorGarages: EditorGarage[] = [
         vehicleType: 'car',
         depot: false,
         shared: true,
-        groups: { police: 0 },
+        groups: { police: 2 },
         stored: 0,
         accessPoints: [{
             coords: { x: 454.6, y: -1017.4, z: 28.4, w: 90 },
             spawn: { x: 438.4, y: -1018.3, z: 27.7, w: 90 },
             dropPoint: { x: 434.1, y: -1016.5, z: 28.6 },
         }],
+    },
+    {
+        name: 'cartelgarage',
+        label: 'Garagem do Cartel',
+        vehicleType: 'car',
+        depot: false,
+        shared: true,
+        groups: { cartel: 0 },
+        stored: 0,
+        accessPoints: [{ coords: { x: 1394.2, y: 1141.6, z: 114.6, w: 90 } }],
     },
     {
         name: 'impoundlot',
@@ -174,3 +184,19 @@ export const debugEditorGarages: EditorGarage[] = [
         }],
     },
 ];
+
+const grades = (...names: string[]) => names.map((name, level) => ({ level, name }));
+
+export const debugGroupOptions: EditorGroupOptions = {
+    jobs: [
+        { name: 'ambulance', label: 'EMS', grades: grades('Recruit', 'Paramedic', 'Doctor', 'Surgeon', 'Chief') },
+        { name: 'police', label: 'LSPD', grades: grades('Recruit', 'Officer', 'Sergeant', 'Lieutenant', 'Chief') },
+        { name: 'mechanic', label: 'Mecânico', grades: grades('Recruit', 'Novice', 'Experienced', 'Advanced', 'Manager') },
+        { name: 'taxi', label: 'Taxi', grades: grades('Recruit', 'Driver', 'Event Driver', 'Sales', 'Manager') },
+    ],
+    gangs: [
+        { name: 'ballas', label: 'Ballas', grades: grades('Novato', 'Membro', 'Tenente', 'Chefe') },
+        { name: 'families', label: 'Families', grades: grades('Novato', 'Membro', 'Chefe') },
+        { name: 'vagos', label: 'Vagos', grades: grades('Novato', 'Membro', 'Chefe') },
+    ],
+};

@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import {
   ArrowLeftRight, Car, Check, Eye, MapPin, Navigation, Palette, Plus, Save, Search, Shapes, Tag, Trash2,
-  Users, Warehouse, Share2, CircleParking, Map as MapIcon,
+  Users, Warehouse, Share2, CircleParking, Map as MapIcon, Briefcase, Skull, Square, SquareCheck, TriangleAlert,
 } from 'lucide-react';
 
 import Menu, { MenuItem, MenuNotice } from '../components/Menu';
@@ -9,9 +9,11 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { fetchNui } from '../utils/fetchNui';
 import { useNuiEvent } from '../hooks/useNuiEvent';
 import { isEnvBrowser } from '../utils/misc';
-import { EditorGarage, EditorPoint, EditorResult, EditorVehicleType, Vec3, Vec4 } from '../utils/interface';
+import {
+  EditorGarage, EditorGroupOption, EditorGroupOptions, EditorPoint, EditorResult, EditorVehicleType, Vec3, Vec4,
+} from '../utils/interface';
 
-type Page = { id: 'root' } | { id: 'garage' } | { id: 'point'; index: number };
+type Page = { id: 'root' } | { id: 'garage' } | { id: 'groups' } | { id: 'point'; index: number };
 
 interface StackEntry {
   page: Page;
@@ -29,18 +31,19 @@ const TYPE_LABEL: Record<EditorVehicleType, string> = { car: 'Carro', air: 'Aero
 
 const fmt = (v?: Vec3) => (v ? `${v.x.toFixed(1)}, ${v.y.toFixed(1)}, ${v.z.toFixed(1)}` : undefined);
 
-/** "police, ballas:2" <-> { police: 0, ballas: 2 } */
-const groupsToText = (groups?: Record<string, number>) =>
-  Object.entries(groups ?? {}).map(([name, grade]) => (grade > 0 ? `${name}:${grade}` : name)).join(', ');
+/** Proximo cargo minimo ao apertar Enter: desligado -> cada cargo em ordem -> desligado. */
+const nextGrade = (option: EditorGroupOption, current?: number): number | undefined => {
+  const levels = option.grades.length > 0 ? option.grades.map(g => g.level) : [0];
+  if (current === undefined) return levels[0];
+  const i = levels.indexOf(current);
+  return i >= 0 && i < levels.length - 1 ? levels[i + 1] : undefined;
+};
 
-const textToGroups = (text: string): Record<string, number> | undefined => {
-  const groups: Record<string, number> = {};
-  for (const token of text.split(',')) {
-    const [name, grade] = token.trim().split(':').map(part => part.trim());
-    if (!name) continue;
-    groups[name] = grade ? Number.parseInt(grade, 10) || 0 : 0;
-  }
-  return Object.keys(groups).length > 0 ? groups : undefined;
+const gradeLabel = (option: EditorGroupOption, level: number) => {
+  const first = option.grades[0]?.level ?? 0;
+  if (level === first) return 'Qualquer cargo';
+  const grade = option.grades.find(g => g.level === level);
+  return `${grade?.name ?? `Cargo ${level}`} ou acima`;
 };
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
@@ -62,7 +65,7 @@ const EditorApp: React.FC = () => {
   const [garages, setGarages] = useState<EditorGarage[]>([]);
   const [stack, setStack] = useState<StackEntry[]>(ROOT);
   const [draft, setDraft] = useState<EditorGarage | null>(null);
-  const [groupsText, setGroupsText] = useState('');
+  const [groupOptions, setGroupOptions] = useState<EditorGroupOptions>({ jobs: [], gangs: [] });
   const [dirty, setDirtyState] = useState(false);
   // A confirmacao de descartar roda a acao seguinte na mesma volta: ela precisa ler o valor atual.
   const dirtyRef = useRef(false);
@@ -76,7 +79,7 @@ const EditorApp: React.FC = () => {
   const [confirm, setConfirm] = useState<Confirm | null>(null);
 
 
-  useNuiEvent('editor', (data: { visible?: boolean; hidden?: boolean; garages?: EditorGarage[] }) => {
+  useNuiEvent('editor', (data: { visible?: boolean; hidden?: boolean; garages?: EditorGarage[]; groups?: EditorGroupOptions }) => {
     if (data.hidden !== undefined) {
       setHidden(data.hidden);
       return;
@@ -86,6 +89,7 @@ const EditorApp: React.FC = () => {
       return;
     }
     setGarages(Array.isArray(data.garages) ? data.garages : []);
+    setGroupOptions({ jobs: data.groups?.jobs ?? [], gangs: data.groups?.gangs ?? [] });
     setStack(ROOT);
     setDraft(null);
     setDirty(false);
@@ -148,7 +152,6 @@ const EditorApp: React.FC = () => {
     const next = garage ? clone(garage) : newGarage();
     const open = () => {
       setDraft(next);
-      setGroupsText(groupsToText(next.groups));
       setDirty(!garage);
       setNotice(null);
       setStack([...ROOT, { page: { id: 'garage' }, index: 0 }]);
@@ -189,7 +192,7 @@ const EditorApp: React.FC = () => {
 
   const save = async () => {
     if (!draft || busy) return;
-    const garage = { ...draft, groups: textToGroups(groupsText) };
+    const garage = { ...draft, groups: draft.groups && Object.keys(draft.groups).length > 0 ? draft.groups : undefined };
     delete garage.stored;
     delete garage.name;
     setBusy('save');
@@ -312,15 +315,18 @@ const EditorApp: React.FC = () => {
           onSelect: () => update(g => { g.shared = !g.shared; }),
         });
       }
+      const allGroups = [...groupOptions.jobs, ...groupOptions.gangs];
+      const chosen = Object.keys(draft.groups ?? {});
       items.push({
         key: 'groups',
         label: 'Grupos (job ou gang)',
         icon: <Users size={18} aria-hidden="true" />,
-        input: {
-          value: groupsText,
-          placeholder: 'Vazio = todos · police, ballas:2',
-          onChange: value => { setGroupsText(value); setDirty(true); setNotice(null); },
-        },
+        description: chosen.length === 0
+          ? 'Todos podem usar'
+          : chosen.map(name => allGroups.find(g => g.name === name)?.label ?? name).join(', '),
+        value: chosen.length > 0 ? `${chosen.length}` : undefined,
+        submenu: true,
+        onSelect: () => push({ id: 'groups' }),
       });
 
       draft.accessPoints.forEach((point, i) => {
@@ -366,6 +372,61 @@ const EditorApp: React.FC = () => {
           activeDescription: draft.stored ? 'Transfira os carros guardados antes.' : 'Some do mapa na hora.',
           busy: busy === 'delete',
           onSelect: () => setConfirm({ kind: 'delete' }),
+        });
+      }
+    } else if (page.id === 'groups') {
+      title = 'Grupos';
+      eyebrow = undefined;
+      const selected = draft.groups ?? {};
+      const toggle = (option: EditorGroupOption) => update(g => {
+        const grade = nextGrade(option, g.groups?.[option.name]);
+        const groups = { ...(g.groups ?? {}) };
+        if (grade === undefined) delete groups[option.name];
+        else groups[option.name] = grade;
+        g.groups = groups;
+      });
+      const section = (key: string, label: string, icon: React.ReactNode, options: EditorGroupOption[]) => {
+        items.push({
+          key: `hdr-${key}`,
+          label,
+          icon,
+          description: options.length === 0 ? 'Nenhum configurado' : 'Enter liga, sobe o cargo mínimo e, depois do último, tira',
+        });
+        for (const option of options) {
+          const on = selected[option.name] !== undefined;
+          items.push({
+            key: `${key}-${option.name}`,
+            label: option.label,
+            icon: on ? <SquareCheck size={18} aria-hidden="true" /> : <Square size={18} aria-hidden="true" />,
+            description: on ? gradeLabel(option, selected[option.name]) : option.name,
+            onSelect: () => toggle(option),
+          });
+        }
+      };
+      items.push({
+        key: 'clear',
+        label: 'Liberar para todos',
+        icon: <Users size={18} aria-hidden="true" />,
+        disabled: Object.keys(selected).length === 0,
+        activeDescription: 'Tira todos os grupos: qualquer jogador usa.',
+        onSelect: () => update(g => { g.groups = undefined; }),
+      });
+      section('job', 'Jobs', <Briefcase size={18} aria-hidden="true" />, groupOptions.jobs);
+      section('gang', 'Gangs', <Skull size={18} aria-hidden="true" />, groupOptions.gangs);
+
+      const known = new Set([...groupOptions.jobs, ...groupOptions.gangs].map(g => g.name));
+      for (const name of Object.keys(selected).filter(n => !known.has(n))) {
+        items.push({
+          key: `missing-${name}`,
+          label: `${name} (não existe mais)`,
+          icon: <TriangleAlert size={18} aria-hidden="true" />,
+          tone: 'danger',
+          activeDescription: 'Enter tira este grupo da garagem.',
+          onSelect: () => update(g => {
+            const groups = { ...(g.groups ?? {}) };
+            delete groups[name];
+            g.groups = groups;
+          }),
         });
       }
     } else if (page.id === 'point') {

@@ -100,6 +100,56 @@ local function deserialize(data)
     return garage
 end
 
+-- ── Grupos (jobs e gangs) ─────────────────────────────────────────────────
+
+---Jobs (Qbox) e gangs (noir_gangs), os dois pelo bgrz_core, com os cargos em lista ordenada.
+---@return { jobs: table[], gangs: table[] }
+local function groupOptions()
+    local function withGrades(name, label, grades)
+        local list = {}
+        for level, gradeName in pairs(grades or {}) do
+            list[#list + 1] = { level = level, name = type(gradeName) == 'table' and gradeName.name or gradeName }
+        end
+        table.sort(list, function(a, b) return a.level < b.level end)
+        return { name = name, label = label, grades = list }
+    end
+
+    local jobs = {}
+    for _, job in ipairs(exports.bgrz_core:GetJobList() or {}) do
+        if job.name ~= 'unemployed' then
+            jobs[#jobs + 1] = withGrades(job.name, job.label, job.grades)
+        end
+    end
+
+    local gangs = {}
+    for _, gang in ipairs(exports.bgrz_core:GetGangList() or {}) do
+        local info = exports.bgrz_core:GetGangInfo(gang.name)
+        gangs[#gangs + 1] = withGrades(gang.name, gang.label, info and info.grades)
+    end
+    return { jobs = jobs, gangs = gangs }
+end
+
+---@param groups table<string, integer>
+---@return string? error
+local function checkGroupsExist(groups)
+    if not groups then return end
+    local options = groupOptions()
+    local known = {}
+    for _, list in pairs(options) do
+        for _, group in ipairs(list) do
+            local levels = {}
+            for _, grade in ipairs(group.grades) do levels[grade.level] = true end
+            known[group.name] = levels
+        end
+    end
+    for name, grade in pairs(groups) do
+        if not known[name] then return ('O grupo %s não existe (nem job nem gang).'):format(name) end
+        if next(known[name]) and not known[name][grade] then
+            return ('O cargo %d não existe em %s.'):format(grade, name)
+        end
+    end
+end
+
 -- ── Validacao ─────────────────────────────────────────────────────────────
 
 local function finite(n)
@@ -275,7 +325,7 @@ lib.addCommand('garagem', {
     restricted = 'group.admin',
 }, function(source)
     if not isAdmin(source) then return end
-    TriggerClientEvent('noir_garage:client:openEditor', source, editorList())
+    TriggerClientEvent('noir_garage:client:openEditor', source, editorList(), groupOptions())
 end)
 
 lib.callback.register('noir_garage:admin:list', function(source)
@@ -292,6 +342,10 @@ lib.callback.register('noir_garage:admin:save', function(source, name, input)
 
     local data, err = validate(input)
     if not data then return { ok = false, error = err } end
+    -- So ao salvar pelo editor: no carregamento do banco, uma gang que deixou de existir nao pode
+    -- sumir com a garagem inteira.
+    err = checkGroupsExist(data.groups)
+    if err then return { ok = false, error = err } end
 
     local created = name == nil
     name = name or slugFor(data.label)

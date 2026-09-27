@@ -44,6 +44,7 @@ dependencies {
     'ox_lib',
     'oxmysql',
     'qbx_core',
+    'bgrz_core',
     -- qbx_vehicles fica fora: e server_only, o cliente nao o recebe e a checagem
     -- de dependencia derruba o noir_garage no cliente. Sobe antes pelo ensure [qbx].
 }

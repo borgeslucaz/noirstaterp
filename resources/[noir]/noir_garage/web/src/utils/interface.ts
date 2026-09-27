@@ -105,3 +105,14 @@ export interface EditorResult {
     name?: string;
     list?: EditorGarage[];
 }
+
+export interface EditorGroupOption {
+    name: string;
+    label: string;
+    grades: { level: number; name: string }[];
+}
+
+export interface EditorGroupOptions {
+    jobs: EditorGroupOption[];
+    gangs: EditorGroupOption[];
+}

@@ -158,10 +158,7 @@ end
 ---@param garage GarageConfig
 ---@return boolean
 local function checkCanAccess(garage)
-    if garage.groups and not exports.qbx_core:HasPrimaryGroup(garage.groups, QBX.PlayerData) then
-        exports.qbx_core:Notify(locale('error.no_access'), 'error')
-        return false
-    end
+    -- Grupo (job ou gang) so o servidor confere: a gang vem do noir_gangs, que o PlayerData daqui nao ve.
     if cache.vehicle and not isOfType(garage.vehicleType, cache.vehicle) then
         exports.qbx_core:Notify(locale('error.not_correct_type'), 'error')
         return false

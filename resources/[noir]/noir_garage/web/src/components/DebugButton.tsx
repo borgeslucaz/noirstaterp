@@ -1,7 +1,7 @@
 import React from "react";
 import { isEnvBrowser } from "../utils/misc";
 import { debugData } from "../utils/debugData";
-import { debugDepot, debugEditorGarages, debugGarage, defaultVehicles, depotVehicles } from "../debug/data";
+import { debugDepot, debugEditorGarages, debugGarage, debugGroupOptions, defaultVehicles, depotVehicles } from "../debug/data";
 
 const open = (garage: typeof debugGarage, vehicles: typeof defaultVehicles) => {
     debugData([{ action: 'setVisible', data: { visible: true, vehicles, garage } }], 0);
@@ -17,7 +17,7 @@ const GarageDev: React.FC = () => {
             <button
                 type="button"
                 className="button button--small"
-                onClick={() => debugData([{ action: 'editor', data: { visible: true, garages: debugEditorGarages } }], 0)}
+                onClick={() => debugData([{ action: 'editor', data: { visible: true, garages: debugEditorGarages, groups: debugGroupOptions } }], 0)}
             >
                 Abrir editor
             </button>

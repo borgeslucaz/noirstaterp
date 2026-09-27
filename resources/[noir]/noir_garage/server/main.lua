@@ -141,11 +141,29 @@ function TryGetGarage(source, garageName)
     })
 end
 
+---`groups` da garagem em nome -> cargo minimo (o config aceita texto, lista ou tabela).
+---@param groups string | string[] | table<string, integer>
+---@return table<string, integer>
+function NormalizeGroups(groups)
+    if type(groups) == 'string' then return { [groups] = 0 } end
+    local normalized = {}
+    for key, value in pairs(groups) do
+        if type(key) == 'number' then
+            normalized[value] = 0
+        else
+            normalized[key] = tonumber(value) or 0
+        end
+    end
+    return normalized
+end
+
+---Job primario pelo Qbox e gang pelo noir_gangs, os dois pelo bgrz_core (o PlayerData.gang do
+---Qbox nao e mais sincronizado com o noir_gangs).
 ---@param player table
 ---@param garage GarageConfig
 ---@return boolean
 function CanAccessGarage(player, garage)
-    if garage.groups and not exports.qbx_core:HasPrimaryGroup(player.PlayerData.source, garage.groups) then
+    if garage.groups and not exports.bgrz_core:HasGroupAccess(player.PlayerData.source, NormalizeGroups(garage.groups)) then
         return false
     end
     if garage.canAccess ~= nil and not garage.canAccess(player.PlayerData.source) then
@@ -163,7 +181,10 @@ function GetGarageAtAccessPoint(source, garageName, accessPointIndex)
     local player = exports.qbx_core:GetPlayer(source)
     local garage = TryGetGarage(source, garageName)
     if not player or not garage then return end
-    if not CanAccessGarage(player, garage) then return end
+    if not CanAccessGarage(player, garage) then
+        exports.qbx_core:Notify(source, locale('error.no_access'), 'error')
+        return
+    end
 
     local accessPoint = type(accessPointIndex) == 'number' and garage.accessPoints[accessPointIndex]
     if not accessPoint then return end
