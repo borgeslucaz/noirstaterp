@@ -126,9 +126,13 @@ const App: React.FC = () => {
     setStack(previous => previous.slice(0, level + 1));
   };
 
-  /** Clique numa coluna de tras: volta para ela, marca o item e o escolhe. */
+  /**
+   * Clique numa coluna de tras: volta para ela, marca o item e o escolhe. Nos submenus do carro, clicar
+   * de novo no item que abriu a coluna seguinte (Historico com o historico aberto) so fecha essa coluna.
+   */
   const pick = (level: number, index: number, item?: MenuItem) => {
     goToLevel(level);
+    if (level >= 1 && item?.submenu && stack[level]?.index === index) return;
     setStack(previous => previous.map((entry, i) => (i === level ? { ...entry, index } : entry)));
     if (item && !item.disabled && !item.busy && !item.input) item.onSelect?.();
   };
