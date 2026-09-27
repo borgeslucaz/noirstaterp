@@ -129,6 +129,22 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Saira Condensed";
+  src: url("./assets/fonts/SairaCondensed-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Saira Condensed";
+  src: url("./assets/fonts/SairaCondensed-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --font-ui: "Poppins", Inter, "Segoe UI", Arial, sans-serif;
 
@@ -1009,8 +1025,8 @@ select.field option {
 }
 
 html[data-garage-theme="street"] {
-  /* Titulo em teste: Oswald (antes Big Shoulders Display, que continua empacotada para comparar). */
-  --font-display: "Oswald", "Big Shoulders Display", sans-serif;
+  /* Titulo em teste: Saira Condensed (Oswald e Big Shoulders Display continuam empacotadas para comparar). */
+  --font-display: "Saira Condensed", "Oswald", sans-serif;
   /* Secundaria em teste: Rajdhani (antes Barlow, que continua empacotada para comparar). */
   --font-ui: "Rajdhani", "Barlow", Arial, sans-serif;
 }
@@ -1074,7 +1090,7 @@ html[data-garage-theme="street"] .menu__title {
   flex: 0 0 auto;
   max-width: 100%;
   font-family: var(--font-display);
-  font-size: 30px;
+  font-size: 34px;
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0.01em;
@@ -1119,7 +1135,7 @@ html[data-garage-theme="street"] .menu-item[data-reveal] {
 
 html[data-garage-theme="street"] .menu-item__label {
   font-family: var(--font-display);
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 500;
   line-height: 1.15;
   letter-spacing: 0.02em;
@@ -1188,7 +1204,7 @@ html[data-garage-theme="street"] .menu__summary {
 
 html[data-garage-theme="street"] .menu__summary-name {
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 500;
   line-height: 1.05;
   text-transform: uppercase;
@@ -1229,7 +1245,7 @@ html[data-garage-theme="street"] .menu__key {
   border-radius: 2px;
   background: rgba(0, 0, 0, 0.72);
   font-family: var(--font-display);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -1249,14 +1265,14 @@ html[data-garage-theme="street"] .menu__key kbd {
 
 html[data-garage-theme="street"] .menu__key-sep {
   font-family: var(--font-display);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.7);
 }
 
 html[data-garage-theme="street"] .modal__title {
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -1264,7 +1280,7 @@ html[data-garage-theme="street"] .modal__title {
 html[data-garage-theme="street"] .button--success,
 html[data-garage-theme="street"] .button {
   font-family: var(--font-display);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
