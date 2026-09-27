@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight, LoaderCircle, TriangleAlert, X } from "lucide-react";
+import { ChevronRight, LoaderCircle, TriangleAlert, X } from "lucide-react";
 
 export type MenuTone = 'danger';
 
@@ -12,6 +12,7 @@ export interface MenuItem {
   /** Descricao que so aparece com o item ativo (como no ox_lib). */
   activeDescription?: React.ReactNode;
   value?: React.ReactNode;
+  /** Abre outra coluna a esquerda (Seta para a esquerda tambem abre). */
   submenu?: boolean;
   disabled?: boolean;
   busy?: boolean;
@@ -36,30 +37,39 @@ export interface MenuNotice {
 
 const meterTone = (value: number) => value <= 35 ? 'danger' : value <= 60 ? 'warning' : undefined;
 
+/**
+ * Uma coluna do menu. So a coluna `active` (a mais a esquerda) responde ao teclado; as de tras
+ * continuam visiveis com o item que abriu a coluna seguinte marcado, e um clique nelas volta para la.
+ */
 const Menu: React.FC<{
   title: string;
   eyebrow?: string;
   icon?: React.ReactNode;
   items: MenuItem[];
   index: number;
+  active: boolean;
   onIndexChange: (index: number) => void;
+  /** Clique num item de uma coluna de tras: fecha as colunas a esquerda dela e escolhe o item. */
+  onPick: (index: number) => void;
   onBack?: () => void;
   onClose: () => void;
+  closeLabel: string;
   notice?: MenuNotice | null;
   empty?: string;
   loading?: string | null;
-}> = ({ title, eyebrow, icon, items, index, onIndexChange, onBack, onClose, notice, empty, loading }) => {
+}> = ({ title, eyebrow, icon, items, index, active, onIndexChange, onPick, onBack, onClose, closeLabel, notice, empty, loading }) => {
   const listRef = useRef<HTMLDivElement>(null);
-  const active = items[index];
+  const current = items[index];
 
   // O item ativo fica sempre visivel; se for um campo, ele recebe o foco para digitar direto.
   useEffect(() => {
     const element = listRef.current?.querySelector<HTMLElement>(`[data-index="${index}"]`);
     element?.scrollIntoView({ block: 'nearest' });
+    if (!active) return;
     const input = element?.querySelector<HTMLInputElement>('input');
     if (input) input.focus();
     else if (document.activeElement instanceof HTMLInputElement) document.activeElement.blur();
-  }, [index, items.length, title]);
+  }, [index, items.length, title, active]);
 
   const move = (delta: number) => {
     if (items.length === 0) return;
@@ -72,7 +82,10 @@ const Menu: React.FC<{
     else item.onSelect?.();
   };
 
+  const goBack = () => (onBack ? onBack() : onClose());
+
   useEffect(() => {
+    if (!active) return;
     const onKeyDown = (event: KeyboardEvent) => {
       const typing = event.target instanceof HTMLInputElement;
       switch (event.key) {
@@ -83,6 +96,16 @@ const Menu: React.FC<{
         case 'ArrowUp':
           event.preventDefault();
           move(-1);
+          break;
+        case 'ArrowLeft':
+          if (typing || !current?.submenu) return;
+          event.preventDefault();
+          activate(current);
+          break;
+        case 'ArrowRight':
+          if (typing || !onBack) return;
+          event.preventDefault();
+          onBack();
           break;
         case 'Home':
           if (typing) return;
@@ -96,18 +119,16 @@ const Menu: React.FC<{
           break;
         case 'Enter':
           event.preventDefault();
-          activate(active);
+          activate(current);
           break;
         case 'Backspace':
           if (typing) return;
           event.preventDefault();
-          if (onBack) onBack();
-          else onClose();
+          goBack();
           break;
         case 'Escape':
           event.preventDefault();
-          if (onBack) onBack();
-          else onClose();
+          goBack();
           break;
       }
     };
@@ -116,19 +137,14 @@ const Menu: React.FC<{
   });
 
   return (
-    <div className="menu" data-service="garage" role="dialog" aria-label={title}>
+    <section className="menu" data-active={active} aria-label={title}>
       <header className="menu__header">
-        {onBack && (
-          <button type="button" className="icon-button icon-button--small" aria-label="Voltar" title="Voltar (Backspace)" onClick={onBack}>
-            <ChevronLeft size={18} aria-hidden="true" />
-          </button>
-        )}
-        {!onBack && icon}
+        {icon}
         <div className="menu__titles">
           {eyebrow && <p className="eyebrow">{eyebrow}</p>}
           <h1 className="menu__title" title={title}>{title}</h1>
         </div>
-        <button type="button" className="icon-button icon-button--small" aria-label="Fechar" title="Fechar" onClick={onClose}>
+        <button type="button" className="icon-button icon-button--small" aria-label={closeLabel} title={closeLabel} onClick={onClose}>
           <X size={18} aria-hidden="true" />
         </button>
       </header>
@@ -146,9 +162,9 @@ const Menu: React.FC<{
         ) : items.length === 0 ? (
           <p className="menu__empty">{empty ?? 'Nada por aqui.'}</p>
         ) : items.map((item, i) => {
-          const isActive = i === index;
+          const isCurrent = i === index;
           const kind = item.input ? 'input' : item.onSelect ? 'action' : 'info';
-          const description = isActive && item.activeDescription ? item.activeDescription : item.description;
+          const description = isCurrent && active && item.activeDescription ? item.activeDescription : item.description;
           const content = (
             <>
               <span className="menu-item__icon">{item.icon}</span>
@@ -164,7 +180,7 @@ const Menu: React.FC<{
                     maxLength={item.input.maxLength}
                     aria-label={item.label}
                     onChange={event => item.input!.onChange(event.target.value)}
-                    onFocus={() => onIndexChange(i)}
+                    onFocus={() => (active ? onIndexChange(i) : onPick(i))}
                   />
                 ) : description && (
                   typeof description === 'string'
@@ -180,7 +196,7 @@ const Menu: React.FC<{
               {!item.input && (
                 <span className="menu-item__value">
                   {item.busy ? <LoaderCircle className="spin" size={16} aria-hidden="true" /> : item.value}
-                  {item.submenu && <ChevronRight size={16} aria-hidden="true" />}
+                  {kind === 'action' && <ChevronRight className="menu-item__chevron" size={16} aria-hidden="true" />}
                 </span>
               )}
             </>
@@ -188,12 +204,12 @@ const Menu: React.FC<{
 
           const common = {
             'data-index': i,
-            'data-active': isActive,
+            'data-active': isCurrent,
             'data-kind': kind,
             'data-tone': item.tone,
             'data-meter': item.progress !== undefined ? meterTone(item.progress) : undefined,
             className: `menu-item${item.input ? ' menu-item--input' : ''}`,
-            onMouseEnter: () => onIndexChange(i),
+            onMouseEnter: active ? () => onIndexChange(i) : undefined,
           };
 
           if (item.input) {
@@ -207,16 +223,23 @@ const Menu: React.FC<{
               role="menuitem"
               aria-disabled={item.disabled || item.busy || undefined}
               aria-busy={item.busy || undefined}
-              tabIndex={isActive ? 0 : -1}
-              onClick={() => { onIndexChange(i); if (kind === 'action') activate(item); }}
+              aria-expanded={item.submenu ? (isCurrent && !active) : undefined}
+              tabIndex={isCurrent && active ? 0 : -1}
+              onClick={() => {
+                if (!active) {
+                  onPick(i);
+                  return;
+                }
+                onIndexChange(i);
+                if (kind === 'action') activate(item);
+              }}
             >
               {content}
             </button>
           );
         })}
       </div>
-
-    </div>
+    </section>
   );
 };
 

@@ -115,6 +115,24 @@ const App: React.FC = () => {
     setStack(previous => previous.map((entry, i) => (i === previous.length - 1 ? { ...entry, index } : entry)));
   };
 
+  /** Fecha as colunas a esquerda de `level`, que volta a ser a ativa. */
+  const goToLevel = (level: number) => {
+    if (level >= stack.length - 1) return;
+    setNotice(null);
+    if (stack.slice(level + 1).some(entry => entry.page.id === 'vehicle')) {
+      stopPreview();
+      setSelectedId(null);
+    }
+    setStack(previous => previous.slice(0, level + 1));
+  };
+
+  /** Clique numa coluna de tras: volta para ela, marca o item e o escolhe. */
+  const pick = (level: number, index: number, item?: MenuItem) => {
+    goToLevel(level);
+    setStack(previous => previous.map((entry, i) => (i === level ? { ...entry, index } : entry)));
+    if (item && !item.disabled && !item.busy && !item.input) item.onSelect?.();
+  };
+
   const toggleFavorite = (id: number) => {
     setFavorites(previous => {
       const next = { ...previous, [id]: !previous[id] };
@@ -255,271 +273,287 @@ const App: React.FC = () => {
 
   // ── Paginas ────────────────────────────────────────────────────────────
 
-  const page = top.page;
-  let title = garage.label;
-  let eyebrow: string | undefined = garage.isDepot ? 'Pátio' : 'Garagem';
-  let items: MenuItem[] = [];
-  let empty: string | undefined;
-  let loading: string | null = null;
-  let pageNotice = notice;
+  const describe = (page: Page, isTop: boolean) => {
+    let title = garage.label;
+    let eyebrow: string | undefined = garage.isDepot ? 'Pátio' : 'Garagem';
+    let items: MenuItem[] = [];
+    let empty: string | undefined;
+    let loading: string | null = null;
+    let pageNotice = isTop ? notice : null;
 
-  if (page.id === 'root' || !vehicle) {
-    const term = search.trim().toLowerCase();
-    const list = vehicles
-      .filter(v => !term
-        || v.name.toLowerCase().includes(term)
-        || v.modelLabel.toLowerCase().includes(term)
-        || v.plate.toLowerCase().includes(term))
-      .sort((a, b) => Number(!!favorites[b.id]) - Number(!!favorites[a.id]) || a.name.localeCompare(b.name, 'pt-BR'));
+    if (page.id === 'root' || !vehicle) {
+      const term = search.trim().toLowerCase();
+      const list = vehicles
+        .filter(v => !term
+          || v.name.toLowerCase().includes(term)
+          || v.modelLabel.toLowerCase().includes(term)
+          || v.plate.toLowerCase().includes(term))
+        .sort((a, b) => Number(!!favorites[b.id]) - Number(!!favorites[a.id]) || a.name.localeCompare(b.name, 'pt-BR'));
 
-    items = [{
-      key: 'search',
-      label: 'Buscar',
-      icon: <Search size={18} aria-hidden="true" />,
-      input: { value: search, placeholder: 'Nome, modelo ou placa', onChange: setSearch },
-    }];
+      items = [{
+        key: 'search',
+        label: 'Buscar',
+        icon: <Search size={18} aria-hidden="true" />,
+        input: { value: search, placeholder: 'Nome, modelo ou placa', onChange: setSearch },
+      }];
 
-    for (const v of list) {
-      const status = vehicleStatus(v, garage.isDepot);
+      for (const v of list) {
+        const status = vehicleStatus(v, garage.isDepot);
+        items.push({
+          key: `vehicle-${v.id}`,
+          label: v.name,
+          icon: <VehicleIcon icon={v.icon} size={18} />,
+          description: (
+            <>
+              <span className="plate">{v.plate}</span>
+              <span className="status" data-tone={status.tone}>{status.label}</span>
+            </>
+          ),
+          value: favorites[v.id] ? <Star className="favorite" size={14} fill="currentColor" aria-label="Favorito" /> : undefined,
+          submenu: true,
+          onSelect: () => openVehicle(v.id),
+        });
+      }
+
+      if (list.length === 0) {
+        items.push({
+          key: 'no-results',
+          label: vehicles.length === 0 ? 'Nenhum veículo aqui' : 'Nenhum resultado',
+          description: vehicles.length === 0 ? 'Os veículos guardados aparecem nesta lista.' : 'Tente outro nome, modelo ou placa.',
+        });
+      }
+    } else if (page.id === 'vehicle') {
+      const status = vehicleStatus(vehicle, garage.isDepot);
+      title = vehicle.name;
+      eyebrow = vehicle.name === vehicle.modelLabel ? vehicle.plate : `${vehicle.modelLabel} · ${vehicle.plate}`;
+      if (!pageNotice && vehicle.notice) pageNotice = { tone: vehicle.state === 2 ? 'danger' : 'warning', text: vehicle.notice };
+
+      const payToTakeOut = garage.isDepot && vehicle.canTakeOut && vehicle.depotPrice > 0;
       items.push({
-        key: `vehicle-${v.id}`,
-        label: v.name,
-        icon: <VehicleIcon icon={v.icon} size={18} />,
-        description: (
-          <>
-            <span className="plate">{v.plate}</span>
-            <span className="status" data-tone={status.tone}>{status.label}</span>
-          </>
-        ),
-        value: favorites[v.id] ? <Star className="favorite" size={14} fill="currentColor" aria-label="Favorito" /> : undefined,
-        submenu: true,
-        onSelect: () => openVehicle(v.id),
+        key: 'takeOut',
+        label: payToTakeOut ? 'Pagar e retirar' : 'Retirar veículo',
+        icon: <CarFront size={18} aria-hidden="true" />,
+        value: payToTakeOut ? money(vehicle.depotPrice) : undefined,
+        description: <span className="status" data-tone={status.tone}>{status.label}</span>,
+        disabled: !vehicle.canTakeOut,
+        onSelect: takeOut,
       });
-    }
 
-    if (list.length === 0) {
       items.push({
-        key: 'no-results',
-        label: vehicles.length === 0 ? 'Nenhum veículo aqui' : 'Nenhum resultado',
-        description: vehicles.length === 0 ? 'Os veículos guardados aparecem nesta lista.' : 'Tente outro nome, modelo ou placa.',
+        key: 'preview',
+        label: previewing ? 'Parar a prévia' : 'Ver na cena',
+        icon: previewing ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />,
+        activeDescription: previewing
+          ? 'Arraste com o botão direito para girar e use a roda do mouse para o zoom.'
+          : 'Mostra o veículo no ponto de retirada.',
+        busy: busy === 'preview',
+        onSelect: togglePreview,
       });
-    }
-  } else if (page.id === 'vehicle') {
-    const status = vehicleStatus(vehicle, garage.isDepot);
-    title = vehicle.name;
-    eyebrow = vehicle.name === vehicle.modelLabel ? vehicle.plate : `${vehicle.modelLabel} · ${vehicle.plate}`;
-    if (!pageNotice && vehicle.notice) pageNotice = { tone: vehicle.state === 2 ? 'danger' : 'warning', text: vehicle.notice };
 
-    const payToTakeOut = garage.isDepot && vehicle.canTakeOut && vehicle.depotPrice > 0;
-    items.push({
-      key: 'takeOut',
-      label: payToTakeOut ? 'Pagar e retirar' : 'Retirar veículo',
-      icon: <CarFront size={18} aria-hidden="true" />,
-      value: payToTakeOut ? money(vehicle.depotPrice) : undefined,
-      description: <span className="status" data-tone={status.tone}>{status.label}</span>,
-      disabled: !vehicle.canTakeOut,
-      onSelect: takeOut,
-    });
+      if (previewing && stats) {
+        items.push({
+          key: 'stats',
+          label: 'Desempenho',
+          icon: <Gauge size={18} aria-hidden="true" />,
+          submenu: true,
+          onSelect: () => push({ id: 'stats' }),
+        });
+      }
 
-    items.push({
-      key: 'preview',
-      label: previewing ? 'Parar a prévia' : 'Ver na cena',
-      icon: previewing ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />,
-      activeDescription: previewing
-        ? 'Arraste com o botão direito para girar e use a roda do mouse para o zoom.'
-        : 'Mostra o veículo no ponto de retirada.',
-      busy: busy === 'preview',
-      onSelect: togglePreview,
-    });
-
-    if (previewing && stats) {
-      items.push({
-        key: 'stats',
-        label: 'Desempenho',
-        icon: <Gauge size={18} aria-hidden="true" />,
-        submenu: true,
-        onSelect: () => push({ id: 'stats' }),
-      });
-    }
-
-    const { fuel, body, engine } = vehicle.vehicle_status;
-    items.push(
-      { key: 'fuel', label: 'Combustível', icon: <Fuel size={18} aria-hidden="true" />, value: `${fuel}%`, progress: fuel },
-      { key: 'body', label: 'Carroceria', icon: <CarFront size={18} aria-hidden="true" />, value: `${body}%`, progress: body },
-      { key: 'engine', label: 'Motor', icon: <Wrench size={18} aria-hidden="true" />, value: `${engine}%`, progress: engine },
-    );
-
-    if (vehicle.canRename) {
-      items.push({
-        key: 'rename',
-        label: 'Mudar apelido',
-        icon: <Pencil size={18} aria-hidden="true" />,
-        submenu: true,
-        onSelect: openRename,
-      });
-    }
-
-    if (vehicle.canTransfer) {
-      items.push({
-        key: 'transfer',
-        label: 'Transferir de garagem',
-        icon: <ArrowLeftRight size={18} aria-hidden="true" />,
-        value: garage.transferPrice > 0 ? money(garage.transferPrice) : 'Grátis',
-        submenu: true,
-        onSelect: openTransfer,
-      });
-    }
-
-    if (vehicle.canManageKeys && garage.keys) {
+      const { fuel, body, engine } = vehicle.vehicle_status;
       items.push(
+        { key: 'fuel', label: 'Combustível', icon: <Fuel size={18} aria-hidden="true" />, value: `${fuel}%`, progress: fuel },
+        { key: 'body', label: 'Carroceria', icon: <CarFront size={18} aria-hidden="true" />, value: `${body}%`, progress: body },
+        { key: 'engine', label: 'Motor', icon: <Wrench size={18} aria-hidden="true" />, value: `${engine}%`, progress: engine },
+      );
+
+      if (vehicle.canRename) {
+        items.push({
+          key: 'rename',
+          label: 'Mudar apelido',
+          icon: <Pencil size={18} aria-hidden="true" />,
+          submenu: true,
+          onSelect: openRename,
+        });
+      }
+
+      if (vehicle.canTransfer) {
+        items.push({
+          key: 'transfer',
+          label: 'Transferir de garagem',
+          icon: <ArrowLeftRight size={18} aria-hidden="true" />,
+          value: garage.transferPrice > 0 ? money(garage.transferPrice) : 'Grátis',
+          submenu: true,
+          onSelect: openTransfer,
+        });
+      }
+
+      if (vehicle.canManageKeys && garage.keys) {
+        items.push(
+          {
+            key: 'keyCopy',
+            label: 'Cópia da chave',
+            icon: <KeyRound size={18} aria-hidden="true" />,
+            value: money(garage.keys.copy),
+            activeDescription: 'Uma chave a mais para este veículo.',
+            busy: busy === 'keyCopy',
+            onSelect: buyKeyCopy,
+          },
+          {
+            key: 'lock',
+            label: 'Trocar fechadura',
+            icon: <Lock size={18} aria-hidden="true" />,
+            value: money(garage.keys.lock),
+            submenu: true,
+            onSelect: () => push({ id: 'lock' }),
+          },
+        );
+      }
+
+      if (vehicle.isOwner) {
+        items.push({
+          key: 'history',
+          label: 'Histórico',
+          icon: <History size={18} aria-hidden="true" />,
+          submenu: true,
+          onSelect: openHistory,
+        });
+      }
+
+      const favorite = !!favorites[vehicle.id];
+      items.push({
+        key: 'favorite',
+        label: favorite ? 'Tirar dos favoritos' : 'Favoritar',
+        icon: <Star size={18} fill={favorite ? 'currentColor' : 'none'} aria-hidden="true" />,
+        activeDescription: 'Favoritos aparecem no topo da lista.',
+        onSelect: () => toggleFavorite(vehicle.id),
+      });
+    } else if (page.id === 'rename') {
+      title = 'Mudar apelido';
+      eyebrow = vehicle.modelLabel;
+      items = [
         {
-          key: 'keyCopy',
-          label: 'Cópia da chave',
-          icon: <KeyRound size={18} aria-hidden="true" />,
-          value: money(garage.keys.copy),
-          activeDescription: 'Uma chave a mais para este veículo.',
-          busy: busy === 'keyCopy',
-          onSelect: buyKeyCopy,
+          key: 'input',
+          label: 'Apelido',
+          icon: <Pencil size={18} aria-hidden="true" />,
+          input: {
+            value: renameValue,
+            maxLength: garage.renameMaxLength,
+            placeholder: 'Carro do trampo',
+            onChange: value => { setRenameValue(value); setNotice(null); },
+            onSubmit: saveRename,
+          },
         },
         {
-          key: 'lock',
+          key: 'save',
+          label: 'Salvar apelido',
+          icon: <Save size={18} aria-hidden="true" />,
+          description: `Até ${garage.renameMaxLength} caracteres.`,
+          disabled: renameInvalid,
+          busy: busy === 'rename',
+          onSelect: saveRename,
+        },
+      ];
+    } else if (page.id === 'transfer') {
+      title = 'Transferir de garagem';
+      eyebrow = vehicle.name;
+      loading = targets === null ? 'Carregando garagens…' : null;
+      empty = 'Nenhuma outra garagem aceita este veículo.';
+      items = (targets ?? []).map(target => ({
+        key: target.value,
+        label: target.label,
+        icon: <Warehouse size={18} aria-hidden="true" />,
+        value: garage.transferPrice > 0 ? money(garage.transferPrice) : undefined,
+        submenu: true,
+        onSelect: () => push({ id: 'transferConfirm', target }),
+      }));
+    } else if (page.id === 'transferConfirm') {
+      title = page.target.label;
+      eyebrow = 'Transferir para';
+      pageNotice = pageNotice ?? { tone: 'warning', text: `${vehicle.name} sai desta garagem e fica guardado em ${page.target.label}.` };
+      items = [
+        {
+          key: 'confirm',
+          label: 'Transferir veículo',
+          icon: <Check size={18} aria-hidden="true" />,
+          value: garage.transferPrice > 0 ? money(garage.transferPrice) : 'Grátis',
+          busy: busy === 'transfer',
+          onSelect: () => transfer(page.target),
+        },
+        { key: 'cancel', label: 'Cancelar', icon: <Undo2 size={18} aria-hidden="true" />, onSelect: back },
+      ];
+    } else if (page.id === 'lock' && garage.keys) {
+      title = 'Trocar fechadura';
+      eyebrow = vehicle.name;
+      pageNotice = pageNotice ?? {
+        tone: 'danger',
+        text: 'Todas as chaves deste veículo deixam de funcionar, inclusive as cópias com outras pessoas. Você recebe uma chave nova.',
+      };
+      items = [
+        { key: 'cancel', label: 'Cancelar', icon: <Undo2 size={18} aria-hidden="true" />, onSelect: back },
+        {
+          key: 'confirm',
           label: 'Trocar fechadura',
           icon: <Lock size={18} aria-hidden="true" />,
           value: money(garage.keys.lock),
-          submenu: true,
-          onSelect: () => push({ id: 'lock' }),
+          tone: 'danger',
+          busy: busy === 'lock',
+          onSelect: changeLock,
         },
-      );
+      ];
+    } else if (page.id === 'history') {
+      title = 'Histórico';
+      eyebrow = vehicle.name;
+      loading = logs === null ? 'Carregando histórico…' : null;
+      empty = 'Nenhum registro ainda.';
+      items = (logs ?? []).map((log, i) => ({
+        key: `log-${i}`,
+        label: log.message,
+        description: log.date,
+      }));
+    } else if (page.id === 'stats' && stats) {
+      title = 'Desempenho';
+      eyebrow = vehicle.name;
+      const rows: [keyof VehicleStatsProps, string][] = [
+        ['speed', 'Velocidade'],
+        ['acceleration', 'Aceleração'],
+        ['braking', 'Frenagem'],
+        ['handling', 'Dirigibilidade'],
+        ['traction', 'Tração'],
+      ];
+      items = rows.map(([key, label]) => ({ key, label, value: `${stats[key]}`, progress: stats[key] }));
     }
+    return { title, eyebrow, items, empty, loading, notice: pageNotice };
+  };
 
-    if (vehicle.isOwner) {
-      items.push({
-        key: 'history',
-        label: 'Histórico',
-        icon: <History size={18} aria-hidden="true" />,
-        submenu: true,
-        onSelect: openHistory,
-      });
-    }
-
-    const favorite = !!favorites[vehicle.id];
-    items.push({
-      key: 'favorite',
-      label: favorite ? 'Tirar dos favoritos' : 'Favoritar',
-      icon: <Star size={18} fill={favorite ? 'currentColor' : 'none'} aria-hidden="true" />,
-      activeDescription: 'Favoritos aparecem no topo da lista.',
-      onSelect: () => toggleFavorite(vehicle.id),
-    });
-  } else if (page.id === 'rename') {
-    title = 'Mudar apelido';
-    eyebrow = vehicle.modelLabel;
-    items = [
-      {
-        key: 'input',
-        label: 'Apelido',
-        icon: <Pencil size={18} aria-hidden="true" />,
-        input: {
-          value: renameValue,
-          maxLength: garage.renameMaxLength,
-          placeholder: 'Carro do trampo',
-          onChange: value => { setRenameValue(value); setNotice(null); },
-          onSubmit: saveRename,
-        },
-      },
-      {
-        key: 'save',
-        label: 'Salvar apelido',
-        icon: <Save size={18} aria-hidden="true" />,
-        description: `Até ${garage.renameMaxLength} caracteres.`,
-        disabled: renameInvalid,
-        busy: busy === 'rename',
-        onSelect: saveRename,
-      },
-    ];
-  } else if (page.id === 'transfer') {
-    title = 'Transferir de garagem';
-    eyebrow = vehicle.name;
-    loading = targets === null ? 'Carregando garagens…' : null;
-    empty = 'Nenhuma outra garagem aceita este veículo.';
-    items = (targets ?? []).map(target => ({
-      key: target.value,
-      label: target.label,
-      icon: <Warehouse size={18} aria-hidden="true" />,
-      value: garage.transferPrice > 0 ? money(garage.transferPrice) : undefined,
-      submenu: true,
-      onSelect: () => push({ id: 'transferConfirm', target }),
-    }));
-  } else if (page.id === 'transferConfirm') {
-    title = page.target.label;
-    eyebrow = 'Transferir para';
-    pageNotice = pageNotice ?? { tone: 'warning', text: `${vehicle.name} sai desta garagem e fica guardado em ${page.target.label}.` };
-    items = [
-      {
-        key: 'confirm',
-        label: 'Transferir veículo',
-        icon: <Check size={18} aria-hidden="true" />,
-        value: garage.transferPrice > 0 ? money(garage.transferPrice) : 'Grátis',
-        busy: busy === 'transfer',
-        onSelect: () => transfer(page.target),
-      },
-      { key: 'cancel', label: 'Cancelar', icon: <Undo2 size={18} aria-hidden="true" />, onSelect: back },
-    ];
-  } else if (page.id === 'lock' && garage.keys) {
-    title = 'Trocar fechadura';
-    eyebrow = vehicle.name;
-    pageNotice = pageNotice ?? {
-      tone: 'danger',
-      text: 'Todas as chaves deste veículo deixam de funcionar, inclusive as cópias com outras pessoas. Você recebe uma chave nova.',
-    };
-    items = [
-      { key: 'cancel', label: 'Cancelar', icon: <Undo2 size={18} aria-hidden="true" />, onSelect: back },
-      {
-        key: 'confirm',
-        label: 'Trocar fechadura',
-        icon: <Lock size={18} aria-hidden="true" />,
-        value: money(garage.keys.lock),
-        tone: 'danger',
-        busy: busy === 'lock',
-        onSelect: changeLock,
-      },
-    ];
-  } else if (page.id === 'history') {
-    title = 'Histórico';
-    eyebrow = vehicle.name;
-    loading = logs === null ? 'Carregando histórico…' : null;
-    empty = 'Nenhum registro ainda.';
-    items = (logs ?? []).map((log, i) => ({
-      key: `log-${i}`,
-      label: log.message,
-      description: log.date,
-    }));
-  } else if (page.id === 'stats' && stats) {
-    title = 'Desempenho';
-    eyebrow = vehicle.name;
-    const rows: [keyof VehicleStatsProps, string][] = [
-      ['speed', 'Velocidade'],
-      ['acceleration', 'Aceleração'],
-      ['braking', 'Frenagem'],
-      ['handling', 'Dirigibilidade'],
-      ['traction', 'Tração'],
-    ];
-    items = rows.map(([key, label]) => ({ key, label, value: `${stats[key]}`, progress: stats[key] }));
-  }
-
+  // Coluna 0 (a garagem) fica colada na borda direita; cada submenu abre a esquerda da anterior.
   return (
-    <Menu
-      title={title}
-      eyebrow={eyebrow}
-      icon={<span className="menu__mark"><Warehouse size={18} aria-hidden="true" /></span>}
-      items={items}
-      index={Math.min(top.index, Math.max(0, items.length - 1))}
-      onIndexChange={setIndex}
-      onBack={stack.length > 1 ? back : undefined}
-      onClose={close}
-      notice={pageNotice}
-      empty={empty}
-      loading={loading}
-    />
+    <div className="menus" data-service="garage">
+      {stack.map((entry, level) => {
+        const isTop = level === stack.length - 1;
+        const view = describe(entry.page, isTop);
+        const index = Math.min(entry.index, Math.max(0, view.items.length - 1));
+        return (
+          <Menu
+            key={`${level}-${entry.page.id}`}
+            title={view.title}
+            eyebrow={view.eyebrow}
+            icon={level === 0 ? <span className="menu__mark"><Warehouse size={18} aria-hidden="true" /></span> : undefined}
+            items={view.items}
+            index={index}
+            active={isTop}
+            onIndexChange={setIndex}
+            onPick={i => pick(level, i, view.items[i])}
+            onBack={level > 0 ? back : undefined}
+            onClose={level === 0 ? close : () => goToLevel(level - 1)}
+            closeLabel={level === 0 ? 'Fechar garagem' : 'Fechar este menu'}
+            notice={view.notice}
+            empty={view.empty}
+            loading={view.loading}
+          />
+        );
+      })}
+    </div>
   );
 };
 
