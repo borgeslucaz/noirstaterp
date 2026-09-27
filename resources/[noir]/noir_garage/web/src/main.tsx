@@ -6,16 +6,11 @@ import GarageApp from './app/GarageApp.tsx'
 import GarageDev from './components/DebugButton.tsx';
 
 import './index.css'
-import '@mantine/core/styles.css';
-
-import { MantineProvider } from '@mantine/core';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <MantineProvider defaultColorScheme='dark'>
-        <GarageApp/>
-        <GarageDev/>
-    </MantineProvider>
+    <GarageApp/>
+    <GarageDev/>
   </StrictMode>,
 )
 

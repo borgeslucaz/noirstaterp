@@ -5,9 +5,11 @@ Garagens e pátio da Noir State. Substitui o `qbx_garages`.
 - Servidor: lógica do `qbx_garages` 1.1.4 com os nossos patches (motor
   desligado, porta destrancada, modelo validado pela lista do `qbx_core`, cópia
   da chave e troca de fechadura pelo `mri_Qcarkeys`).
-- Interface: a do [rhd_garage](https://github.com/RHD-FiveM/rhd_garage) 1.0.0
-  (React + Mantine), em pt-br, com prévia 3D, apelido, histórico e
-  transferência entre garagens.
+- Interface: menu na lateral direita, no estilo do `lib.registerMenu` do ox_lib
+  (setas, Enter e Backspace), com os tokens e a fonte do `docs/DESIGN_v3.md`.
+  Prévia 3D, apelido, histórico, transferência entre garagens, cópia de chave e
+  troca de fechadura. A câmera da prévia vem do
+  [rhd_garage](https://github.com/RHD-FiveM/rhd_garage) 1.0.0.
 - O cliente só manda o id do carro. Garagem, guichê, dono, preço e modelo são
   conferidos no servidor.
 
@@ -33,7 +35,8 @@ npm ci
 npm run build
 ```
 
-`npm run dev` abre a tela no navegador com dados falsos (botão "Abrir garagem").
+`npm run dev` abre a tela no navegador com dados falsos (botões "Abrir garagem"
+e "Abrir pátio", no canto inferior esquerdo).
 
 ## Para outros resources
 
@@ -44,5 +47,5 @@ npm run build
 ## Licença
 
 Derivado do `qbx_garages` (GPL-3.0, ver `LICENSE-qbx_garages`), então o
-resource segue a GPL-3.0. A interface e a câmera vêm do `rhd_garage` (MIT, ver
+resource segue a GPL-3.0. A câmera da prévia vem do `rhd_garage` (MIT, ver
 `LICENSE-rhd_garage`).
