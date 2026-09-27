@@ -905,15 +905,7 @@ local function registerCommands()
 		end
 	})
 
-	lib.addKeybind({
-		name = 'hotbar',
-		description = locale('disable_hotbar'),
-		defaultKey = client.keys[3],
-		onPressed = function()
-			if EnableWeaponWheel or not invHotkeys or IsNuiFocused() or lib.progressActive() then return end
-			SendNUIMessage({ action = 'toggleHotbar' })
-		end
-	})
+	-- Sem atalho da hotbar: ela nao aparece mais (o F1 ficou com o celular). As teclas 1-5 seguem usando os slots.
 
 	for i = 1, 5 do
 		lib.addKeybind({
