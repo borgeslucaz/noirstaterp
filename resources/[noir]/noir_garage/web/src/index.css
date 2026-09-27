@@ -81,6 +81,38 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Rajdhani";
+  src: url("./assets/fonts/Rajdhani-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Rajdhani";
+  src: url("./assets/fonts/Rajdhani-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Rajdhani";
+  src: url("./assets/fonts/Rajdhani-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Rajdhani";
+  src: url("./assets/fonts/Rajdhani-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --font-ui: "Poppins", Inter, "Segoe UI", Arial, sans-serif;
 
@@ -962,8 +994,8 @@ select.field option {
 
 html[data-garage-theme="street"] {
   --font-display: "Big Shoulders Display", "Barlow", sans-serif;
-  /* Secundaria: Barlow, grotesca levemente condensada, combina com o titulo condensado. */
-  --font-ui: "Barlow", "Poppins", Arial, sans-serif;
+  /* Secundaria em teste: Rajdhani (antes Barlow, que continua empacotada para comparar). */
+  --font-ui: "Rajdhani", "Barlow", Arial, sans-serif;
 }
 
 /* A Barlow desenha menor que a Poppins: um degrau a mais nos textos pequenos. */
