@@ -74,7 +74,8 @@ export interface EditorBlip {
 
 export interface EditorPoint {
     coords?: Vec4;
-    spawn?: Vec4;
+    /** Vagas de saida, tentadas em ordem (a primeira livre recebe o veiculo). */
+    spawns?: Vec4[];
     dropPoint?: Vec3;
     blip?: EditorBlip;
     /** Atendente no balcao (PED local). */

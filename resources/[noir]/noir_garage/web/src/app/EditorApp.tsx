@@ -68,7 +68,11 @@ const newGarage = (): EditorGarage => ({
 });
 
 const pointSummary = (point: EditorPoint) =>
-  [`Balcão ${point.coords ? '✓' : '—'}`, `Saída ${point.spawn ? '✓' : '—'}`, `Guardar ${point.dropPoint ? '✓' : 'na saída'}`].join(' · ');
+  [
+    `Balcão ${point.coords ? '✓' : '—'}`,
+    point.spawns?.length ? `${point.spawns.length} vaga(s)` : 'Sem vaga',
+    `Guardar ${point.dropPoint ? '✓' : 'na vaga 1'}`,
+  ].join(' · ');
 
 const EditorApp: React.FC = () => {
   const [visible, setVisible] = useState(false);
@@ -204,7 +208,8 @@ const EditorApp: React.FC = () => {
     });
   };
 
-  const capture = async (index: number, kind: 'coords' | 'spawn' | 'dropPoint') => {
+  /** Marca no jogo; `slot` e a vaga (indice em spawns) quando kind e 'spawn'. */
+  const capture = async (index: number, kind: 'coords' | 'spawn' | 'dropPoint', slot = 0) => {
     if (!draft) return;
     const result = await fetchNui<Vec4 | false>('editor:capture', { kind, points: draft.accessPoints }, {
       data: { x: 215.3 + Math.random() * 10, y: -810.1 + Math.random() * 10, z: 30.73, w: Math.round(Math.random() * 360) },
@@ -213,7 +218,11 @@ const EditorApp: React.FC = () => {
     if (!result) return;
     updatePoint(index, point => {
       if (kind === 'dropPoint') point.dropPoint = { x: result.x, y: result.y, z: result.z };
-      else point[kind] = result;
+      else if (kind === 'spawn') {
+        const spawns = [...(point.spawns ?? [])];
+        spawns[slot] = result;
+        point.spawns = spawns;
+      } else point.coords = result;
     });
   };
 
@@ -486,19 +495,38 @@ const EditorApp: React.FC = () => {
             value: point.coords ? <Check size={16} aria-label="Marcado" /> : undefined,
             onSelect: () => capture(i, 'coords'),
           },
-          {
-            key: 'spawn',
-            label: 'Saída do veículo',
+          ...(point.spawns ?? []).map((spot, n) => ({
+            key: `spawn-${n}`,
+            label: `Vaga ${n + 1}`,
             icon: <Navigation size={18} aria-hidden="true" />,
-            description: fmt(point.spawn) ?? 'Não marcada: usa o balcão',
-            value: point.spawn ? <Check size={16} aria-label="Marcado" /> : undefined,
-            onSelect: () => capture(i, 'spawn'),
+            description: fmt(spot),
+            value: <Check size={16} aria-label="Marcada" />,
+            activeDescription: n === 0 ? 'Tentada primeiro. Enter marca de novo.' : `Tentada se as ${n} de cima estiverem ocupadas.`,
+            onSelect: () => capture(i, 'spawn', n),
+          })),
+          {
+            key: 'spawnAdd',
+            label: point.spawns?.length ? 'Adicionar vaga' : 'Marcar vaga de saída',
+            icon: <Plus size={18} aria-hidden="true" />,
+            description: point.spawns?.length ? undefined : 'Sem vaga, o carro sai no balcão',
+            activeDescription: point.spawns?.length ? 'Dentro do carro, a vaga pega a posição e a direção dele.' : undefined,
+            disabled: (point.spawns?.length ?? 0) >= 10,
+            onSelect: () => capture(i, 'spawn', point.spawns?.length ?? 0),
           },
+          ...(point.spawns?.length ? [{
+            key: 'spawnRemove',
+            label: 'Remover última vaga',
+            icon: <Trash2 size={18} aria-hidden="true" />,
+            onSelect: () => updatePoint(i, p => {
+              const spawns = (p.spawns ?? []).slice(0, -1);
+              p.spawns = spawns.length ? spawns : undefined;
+            }),
+          }] : []),
           {
             key: 'dropPoint',
             label: 'Ponto de guardar',
             icon: <ArrowLeftRight size={18} aria-hidden="true" />,
-            description: fmt(point.dropPoint) ?? 'Não marcado: guarda na saída',
+            description: fmt(point.dropPoint) ?? 'Não marcado: guarda na vaga 1',
             value: point.dropPoint ? <Check size={16} aria-label="Marcado" /> : undefined,
             onSelect: () => capture(i, 'dropPoint'),
           },
@@ -506,9 +534,9 @@ const EditorApp: React.FC = () => {
         if (point.dropPoint) {
           items.push({
             key: 'clearDrop',
-            label: 'Guardar na saída',
+            label: 'Guardar na vaga 1',
             icon: <Eye size={18} aria-hidden="true" />,
-            activeDescription: 'Apaga o ponto de guardar; usa a saída.',
+            activeDescription: 'Apaga o ponto de guardar; usa a vaga 1.',
             onSelect: () => updatePoint(i, p => { delete p.dropPoint; }),
           });
         }

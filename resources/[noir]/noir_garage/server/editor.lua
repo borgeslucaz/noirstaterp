@@ -5,6 +5,7 @@
 local logger = require '@qbx_core.modules.logger'
 
 local MAX_ACCESS_POINTS = 10
+local MAX_SPAWNS = 10
 local MAX_GROUPS = 20
 
 GaragesReady = false
@@ -53,7 +54,11 @@ local function serialize(garage)
     for i, point in ipairs(garage.accessPoints) do
         local p = {
             coords = vecToTable(point.coords),
-            spawn = vecToTable(point.spawn),
+            spawns = (function()
+                local list = {}
+                for n, spot in ipairs(point.spawns or { point.spawn }) do list[n] = vecToTable(spot) end
+                return list[1] and list or nil
+            end)(),
             dropPoint = vecToTable(point.dropPoint),
             blip = point.blip and { name = point.blip.name, sprite = point.blip.sprite, color = point.blip.color } or nil,
             ped = point.ped and {
@@ -93,13 +98,19 @@ local function deserialize(data)
     for i, p in ipairs(data.accessPoints) do
         local point = {
             coords = tableToVec(p.coords),
-            spawn = tableToVec(p.spawn),
+            spawns = p.spawns and (function()
+                local list = {}
+                for n, spot in ipairs(p.spawns) do list[n] = tableToVec(spot) end
+                return list
+            end)() or nil,
             dropPoint = p.dropPoint and vec3(p.dropPoint.x, p.dropPoint.y, p.dropPoint.z) or nil,
             blip = p.blip,
             ped = p.ped,
             interaction = p.interaction,
         }
         for _, key in ipairs(POINT_NUMBERS) do point[key] = p[key] end
+        -- `spawn` continua sendo a vaga 1 para quem le so ela (previa, ponto de guardar padrao).
+        point.spawn = point.spawns and point.spawns[1] or nil
         points[i] = point
     end
 
@@ -231,9 +242,17 @@ local function validate(input)
         if not coords then return nil, ('Ponto %d: marque o balcão.'):format(i) end
         local point = { coords = coords }
 
-        if p.spawn ~= nil then
-            point.spawn = validPosition(p.spawn, true)
-            if not point.spawn then return nil, ('Ponto %d: saída inválida.'):format(i) end
+        -- Vagas de saida, tentadas em ordem; `spawn` (uma so) e o formato antigo e vira a vaga 1.
+        local spawns = p.spawns
+        if spawns == nil and p.spawn ~= nil then spawns = { p.spawn } end
+        if spawns ~= nil then
+            if type(spawns) ~= 'table' or #spawns > MAX_SPAWNS then return nil, ('Ponto %d: vagas inválidas.'):format(i) end
+            local list = {}
+            for n, spot in ipairs(spawns) do
+                list[n] = validPosition(spot, true)
+                if not list[n] then return nil, ('Ponto %d: vaga %d inválida.'):format(i, n) end
+            end
+            point.spawns = list[1] and list or nil
         end
         if p.dropPoint ~= nil then
             point.dropPoint = validPosition(p.dropPoint, false)

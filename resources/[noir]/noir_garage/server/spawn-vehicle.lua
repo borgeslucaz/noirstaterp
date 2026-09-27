@@ -25,13 +25,17 @@ local function spawnVehicle(source, vehicleId, garageName, accessPointIndex)
 
     local isDepot = garage.type == GarageType.DEPOT
 
-    local spawnCoords = accessPoint.spawn or accessPoint.coords
-    if Config.distanceCheck then
-        local nearbyVehicle = lib.getClosestVehicle(spawnCoords.xyz, Config.distanceCheck, false)
-        if nearbyVehicle then
-            exports.qbx_core:Notify(source, locale('error.no_space'), 'error')
-            return
+    -- Vagas em ordem: a primeira sem carro por perto recebe o veiculo.
+    local spawnCoords
+    for _, spot in ipairs(accessPoint.spawns or { accessPoint.spawn or accessPoint.coords }) do
+        if not Config.distanceCheck or not lib.getClosestVehicle(spot.xyz, Config.distanceCheck, false) then
+            spawnCoords = spot
+            break
         end
+    end
+    if not spawnCoords then
+        exports.qbx_core:Notify(source, locale('error.no_space'), 'error')
+        return
     end
 
     local filter = GetPlayerVehicleFilter(source, garageName)

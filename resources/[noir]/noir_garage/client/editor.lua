@@ -48,8 +48,8 @@ local function drawDraftPoints(points)
         if p.coords then
             DrawMarker(1, p.coords.x, p.coords.y, p.coords.z - 1.0, 0, 0, 0, 0, 0, 0, 1.0, 1.0, 0.6, 255, 255, 255, 120, false, false, 2, false, nil, nil, false)
         end
-        if p.spawn then
-            DrawMarker(36, p.spawn.x, p.spawn.y, p.spawn.z + 0.5, 0, 0, 0, 0, 0, 0, 1.2, 1.2, 1.2, 111, 143, 174, 180, false, true, 2, false, nil, nil, false)
+        for _, spot in ipairs(p.spawns or {}) do
+            DrawMarker(36, spot.x, spot.y, spot.z + 0.5, 0, 0, 0, 0, 0, 0, 1.2, 1.2, 1.2, 111, 143, 174, 180, false, true, 2, false, nil, nil, false)
         end
         if p.dropPoint then
             DrawMarker(1, p.dropPoint.x, p.dropPoint.y, p.dropPoint.z - 1.0, 0, 0, 0, 0, 0, 0, 3.0, 3.0, 0.5, 242, 0, 48, 90, false, false, 2, false, nil, nil, false)
@@ -59,7 +59,7 @@ end
 
 local labels = {
     coords = 'balcão',
-    spawn = 'saída do veículo',
+    spawn = 'vaga',
     dropPoint = 'ponto de guardar',
 }
 

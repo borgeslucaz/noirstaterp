@@ -142,7 +142,7 @@ export const debugEditorGarages: EditorGarage[] = [
         stored: 4,
         accessPoints: [{
             coords: { x: 275.58, y: -344.74, z: 45.17, w: 70 },
-            spawn: { x: 271.26, y: -342.32, z: 44.7, w: 159.97 },
+            spawns: [{ x: 271.26, y: -342.32, z: 44.7, w: 159.97 }],
             blip: { name: 'Public Parking', sprite: 357, color: 3 },
         }],
     },
@@ -156,7 +156,11 @@ export const debugEditorGarages: EditorGarage[] = [
         stored: 0,
         accessPoints: [{
             coords: { x: 454.6, y: -1017.4, z: 28.4, w: 90 },
-            spawn: { x: 438.4, y: -1018.3, z: 27.7, w: 90 },
+            spawns: [
+                { x: 438.4, y: -1018.3, z: 27.7, w: 90 },
+                { x: 438.4, y: -1022.1, z: 27.7, w: 90 },
+                { x: 438.4, y: -1025.9, z: 27.7, w: 90 },
+            ],
             dropPoint: { x: 434.1, y: -1016.5, z: 28.6 },
             ped: { model: 's_m_y_cop_01', scenario: 'WORLD_HUMAN_CLIPBOARD' },
             interaction: 'target',
@@ -181,7 +185,7 @@ export const debugEditorGarages: EditorGarage[] = [
         stored: 0,
         accessPoints: [{
             coords: { x: 400.45, y: -1630.87, z: 29.29, w: 228.88 },
-            spawn: { x: 407.2, y: -1645.58, z: 29.31, w: 228.28 },
+            spawns: [{ x: 407.2, y: -1645.58, z: 29.31, w: 228.28 }],
             blip: { name: 'Pátio', sprite: 68, color: 3 },
         }],
     },
