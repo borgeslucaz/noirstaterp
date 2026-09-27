@@ -95,7 +95,56 @@ local function setLogs(vehicleId, logs)
     ]], { vehicleId, json.encode(logs) })
 end
 
+---Garagens editaveis no jogo (/garagem). Cada linha guarda a garagem inteira em JSON.
+local function ensureLocationsSchema()
+    MySQL.query.await([[
+        CREATE TABLE IF NOT EXISTS `noir_garage_locations` (
+            `name` VARCHAR(50) NOT NULL,
+            `data` LONGTEXT NOT NULL,
+            `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`name`)
+        )
+    ]])
+end
+
+---@return {name: string, data: string}[]
+local function getLocations()
+    return MySQL.query.await('SELECT name, data FROM noir_garage_locations') or {}
+end
+
+---@param name string
+---@param data string JSON
+local function saveLocation(name, data)
+    MySQL.prepare.await([[
+        INSERT INTO noir_garage_locations (name, data) VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE data = VALUES(data)
+    ]], { name, data })
+end
+
+---@param name string
+local function deleteLocation(name)
+    MySQL.prepare.await('DELETE FROM noir_garage_locations WHERE name = ?', { name })
+end
+
+---Carros guardados por garagem (estado GARAGED).
+---@return table<string, integer>
+local function countGaragedByGarage()
+    local rows = MySQL.query.await('SELECT garage, COUNT(*) AS total FROM player_vehicles WHERE state = ? GROUP BY garage', {
+        VehicleState.GARAGED,
+    }) or {}
+    local counts = {}
+    for i = 1, #rows do
+        if rows[i].garage then counts[rows[i].garage] = rows[i].total end
+    end
+    return counts
+end
+
 return {
+    ensureLocationsSchema = ensureLocationsSchema,
+    getLocations = getLocations,
+    saveLocation = saveLocation,
+    deleteLocation = deleteLocation,
+    countGaragedByGarage = countGaragedByGarage,
     ensureSchema = ensureSchema,
     moveOutVehiclesIntoGarages = moveOutVehiclesIntoGarages,
     setVehicleGarage = setVehicleGarage,

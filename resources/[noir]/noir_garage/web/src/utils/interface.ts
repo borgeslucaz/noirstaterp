@@ -60,3 +60,48 @@ export interface LogProps {
 }
 
 export const formatMoney = (value: number) => value.toLocaleString('pt-BR');
+
+// ── Editor de garagens (/garagem) ─────────────────────────────────────────
+
+export interface Vec3 { x: number; y: number; z: number }
+export interface Vec4 extends Vec3 { w: number }
+
+export interface EditorBlip {
+    name?: string;
+    sprite: number;
+    color: number;
+}
+
+export interface EditorPoint {
+    coords?: Vec4;
+    spawn?: Vec4;
+    dropPoint?: Vec3;
+    blip?: EditorBlip;
+    /** Raios que a tela nao edita; voltam ao servidor como vieram. */
+    useRadius?: number;
+    dropUseRadius?: number;
+    drawRadius?: number;
+    dropDrawRadius?: number;
+}
+
+export type EditorVehicleType = 'car' | 'air' | 'sea';
+
+export interface EditorGarage {
+    /** Identificador; vazio numa garagem nova (o servidor gera ao salvar). */
+    name?: string;
+    label: string;
+    vehicleType: EditorVehicleType;
+    depot: boolean;
+    shared: boolean;
+    groups?: Record<string, number>;
+    accessPoints: EditorPoint[];
+    /** Carros guardados nela (so leitura). */
+    stored?: number;
+}
+
+export interface EditorResult {
+    ok: boolean;
+    error?: string;
+    name?: string;
+    list?: EditorGarage[];
+}

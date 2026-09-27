@@ -21,6 +21,7 @@ client_scripts {
     'client/cam.lua',
     'client/preview.lua',
     'client/main.lua',
+    'client/editor.lua',
 }
 
 server_scripts {
@@ -29,6 +30,7 @@ server_scripts {
     'server/main.lua',
     'server/spawn-vehicle.lua',
     'server/services.lua',
+    'server/editor.lua',
 }
 
 files {

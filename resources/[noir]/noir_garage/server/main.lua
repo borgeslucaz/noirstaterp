@@ -24,6 +24,8 @@ Storage = require 'server.storage'
 Garages = Config.garages
 
 lib.callback.register('noir_garage:server:getGarages', function()
+    -- As garagens vem do banco (server/editor.lua); o cliente que entra durante o start espera a carga.
+    while not GaragesReady do Wait(100) end
     return Garages
 end)
 
@@ -506,6 +508,7 @@ end)
 AddEventHandler('onResourceStart', function(resource)
     if resource ~= cache.resource then return end
     Storage.ensureSchema()
+    LoadGarageLocations()
     if Config.autoRespawn then
         Storage.moveOutVehiclesIntoGarages()
     end

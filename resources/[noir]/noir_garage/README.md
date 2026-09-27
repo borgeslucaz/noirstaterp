@@ -19,10 +19,24 @@ Garagens e pátio da Noir State. Substitui o `qbx_garages`.
 - `ensure [noir]` no `server.cfg`, depois de `[qbx]` e do `mri_Qcarkeys`.
 - A tabela `noir_garage_vehicles` (apelido e histórico) é criada no start.
 
+## Editor no jogo
+
+`/garagem` abre o editor (ACE `noir.garageadmin`, dada ao `group.admin` no
+`permissions.cfg`). Cria, edita e apaga garagens: nome, tipo de veículo, pátio,
+compartilhada, grupos e os pontos de acesso (balcão, saída, ponto de guardar e
+blip). "Marcar" esconde o editor: ande até o lugar e aperte E (Backspace cancela).
+
+- As garagens ficam na tabela `noir_garage_locations`. No primeiro start ela é
+  preenchida com as garagens de `config/server.lua`; daí em diante o config só
+  serve de semente.
+- Salvar e apagar valem na hora para todos (zonas e blips são recriados).
+- Garagem com carros guardados não pode ser apagada.
+
 ## Configuração
 
-- `config/server.lua`: garagens (`garages`), preços da chave e da fechadura,
-  transferência, apelido e distâncias.
+- `config/server.lua`: garagens iniciais (`garages`, só no primeiro start),
+  preços da chave e da fechadura, transferência, apelido, distâncias e a ACE do
+  editor (`adminAce`).
 - `config/client.lua`: motor ligado ao sair e marcadores.
 
 ## Interface

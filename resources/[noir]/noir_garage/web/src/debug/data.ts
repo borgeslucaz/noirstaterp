@@ -1,4 +1,4 @@
-import { GarageDataProps, VehicleProps } from "../utils/interface";
+import { EditorGarage, GarageDataProps, VehicleProps } from "../utils/interface";
 
 // Dados falsos para abrir a tela no navegador (npm run dev).
 
@@ -129,5 +129,48 @@ export const depotVehicles: VehicleProps[] = [
         canTransfer: false,
         notice: 'Seu veículo foi apreendido pela polícia',
         vehicle_status: { engine: 78, body: 23, fuel: 56 },
+    },
+];
+
+export const debugEditorGarages: EditorGarage[] = [
+    {
+        name: 'motelgarage',
+        label: 'Motel Parking',
+        vehicleType: 'car',
+        depot: false,
+        shared: false,
+        stored: 4,
+        accessPoints: [{
+            coords: { x: 275.58, y: -344.74, z: 45.17, w: 70 },
+            spawn: { x: 271.26, y: -342.32, z: 44.7, w: 159.97 },
+            blip: { name: 'Public Parking', sprite: 357, color: 3 },
+        }],
+    },
+    {
+        name: 'policegarage',
+        label: 'Garagem da Polícia',
+        vehicleType: 'car',
+        depot: false,
+        shared: true,
+        groups: { police: 0 },
+        stored: 0,
+        accessPoints: [{
+            coords: { x: 454.6, y: -1017.4, z: 28.4, w: 90 },
+            spawn: { x: 438.4, y: -1018.3, z: 27.7, w: 90 },
+            dropPoint: { x: 434.1, y: -1016.5, z: 28.6 },
+        }],
+    },
+    {
+        name: 'impoundlot',
+        label: 'Pátio de Los Santos',
+        vehicleType: 'car',
+        depot: true,
+        shared: false,
+        stored: 0,
+        accessPoints: [{
+            coords: { x: 400.45, y: -1630.87, z: 29.29, w: 228.88 },
+            spawn: { x: 407.2, y: -1645.58, z: 29.31, w: 228.28 },
+            blip: { name: 'Pátio', sprite: 68, color: 3 },
+        }],
     },
 ];

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { isEnvBrowser } from "./utils/misc.ts";
 
 import GarageApp from './app/GarageApp.tsx'
+import EditorApp from './app/EditorApp.tsx'
 import GarageDev from './components/DebugButton.tsx';
 
 import './index.css'
@@ -10,6 +11,7 @@ import './index.css'
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <GarageApp/>
+    <EditorApp/>
     <GarageDev/>
   </StrictMode>,
 )

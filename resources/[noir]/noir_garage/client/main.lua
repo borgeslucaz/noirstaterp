@@ -169,18 +169,41 @@ local function checkCanAccess(garage)
     return true
 end
 
+-- Zonas e blips de cada garagem, para o editor (/garagem) trocar ou apagar uma garagem sem restart.
+---@type table<string, {zones: table[], blips: integer[], removed: boolean}>
+local garageHandles = {}
+
+---@param name string
+local function removeGarage(name)
+    local handles = garageHandles[name]
+    if not handles then return end
+    handles.removed = true
+    for i = 1, #handles.zones do handles.zones[i]:remove() end
+    for i = 1, #handles.blips do RemoveBlip(handles.blips[i]) end
+    garageHandles[name] = nil
+    lib.hideTextUI()
+end
+
 ---@param garageName string
 ---@param garage GarageConfig
 ---@param accessPoint AccessPoint
 ---@param accessPointIndex integer
 local function createZones(garageName, garage, accessPoint, accessPointIndex)
+    local handles = garageHandles[garageName]
     CreateThread(function()
+        if handles.removed then return end
         accessPoint.dropPoint = accessPoint.dropPoint or accessPoint.spawn
         local drawRadius = accessPoint.drawRadius or 60
         local dropDrawRadius = accessPoint.dropDrawRadius or 60
         local useRadius = accessPoint.useRadius or 1
         local dropUseRadius = accessPoint.dropUseRadius or 1.5
         local dropZone, coordsZone
+        handles.zones[#handles.zones + 1] = {
+            remove = function()
+                if dropZone then dropZone:remove() dropZone = nil end
+                if coordsZone then coordsZone:remove() coordsZone = nil end
+            end,
+        }
         local function createDropZone()
             if dropZone then return end
             dropZone = lib.zones.sphere({
@@ -232,7 +255,7 @@ local function createZones(garageName, garage, accessPoint, accessPointIndex)
             })
         end
 
-        lib.zones.sphere({
+        handles.zones[#handles.zones + 1] = lib.zones.sphere({
             coords = accessPoint.coords,
             radius = drawRadius,
             onEnter = function()
@@ -251,7 +274,7 @@ local function createZones(garageName, garage, accessPoint, accessPointIndex)
         })
 
         if accessPoint.dropPoint and garage.type ~= GarageType.DEPOT then
-            lib.zones.sphere({
+            handles.zones[#handles.zones + 1] = lib.zones.sphere({
                 coords = accessPoint.dropPoint,
                 radius = dropDrawRadius,
                 onEnter = function()
@@ -274,6 +297,7 @@ end
 
 ---@param garageInfo GarageConfig
 ---@param accessPoint AccessPoint
+---@return integer blip
 local function createBlips(garageInfo, accessPoint)
     local blip = AddBlipForCoord(accessPoint.coords.x, accessPoint.coords.y, accessPoint.coords.z)
     SetBlipSprite(blip, accessPoint.blip.sprite or 357)
@@ -284,15 +308,19 @@ local function createBlips(garageInfo, accessPoint)
     BeginTextCommandSetBlipName('STRING')
     AddTextComponentSubstringPlayerName(accessPoint.blip.name or garageInfo.label)
     EndTextCommandSetBlipName(blip)
+    return blip
 end
 
 local function createGarage(name, garage)
+    removeGarage(name)
+    local handles = { zones = {}, blips = {}, removed = false }
+    garageHandles[name] = handles
     local accessPoints = garage.accessPoints
     for i = 1, #accessPoints do
         local accessPoint = accessPoints[i]
 
         if accessPoint.blip then
-            createBlips(garage, accessPoint)
+            handles.blips[#handles.blips + 1] = createBlips(garage, accessPoint)
         end
 
         createZones(name, garage, accessPoint, i)
@@ -308,6 +336,10 @@ end
 
 RegisterNetEvent('noir_garage:client:garageRegistered', function(name, garage)
     createGarage(name, garage)
+end)
+
+RegisterNetEvent('noir_garage:client:garageRemoved', function(name)
+    removeGarage(name)
 end)
 
 CreateThread(function()

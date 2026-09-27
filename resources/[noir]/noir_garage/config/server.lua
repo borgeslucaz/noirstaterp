@@ -23,6 +23,7 @@ return {
         enabled = true, -- Mandar um carro guardado para outra garagem do mesmo tipo
         price = 0,
     },
+    adminAce = 'noir.garageadmin', -- ACE do editor de garagens no jogo (/garagem); dada ao group.admin no permissions.cfg
     logsLimit = 50, -- Quantas entradas do historico do carro sao guardadas
     calculateImpoundFee = require 'server.default-calculate-impound-fee',
     logging = {
