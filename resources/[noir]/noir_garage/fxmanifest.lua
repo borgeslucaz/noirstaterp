@@ -3,8 +3,8 @@ game 'gta5'
 
 name 'noir_garage'
 author 'Noir State'
-description 'Garagens da Noir State: logica do qbx_garages com a interface do rhd_garage'
-version '1.0.0'
+description 'Noir garagem system'
+version '1.1.0'
 
 ox_lib 'locale'
 
