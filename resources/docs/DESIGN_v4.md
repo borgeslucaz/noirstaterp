@@ -232,7 +232,8 @@ Não use para gestão densa (tabelas, históricos longos, permissões em massa):
 
 - A **coluna 1** (raiz) fica colada na borda direita, **de cima a baixo**.
 - Cada submenu abre uma **coluna nova à esquerda** da anterior; as de trás continuam visíveis (estilo `lib.registerMenu` do ox_lib, espalhado em colunas).
-- **No máximo três colunas.** Se precisar de uma quarta, o nível mais fundo vira janela central (digitar/confirmar) ou a coluna anterior absorve a lista.
+- **No máximo três colunas** em menus de jogador. Se precisar de uma quarta, o nível mais fundo vira janela central (digitar/confirmar) ou a coluna anterior absorve a lista.
+- **Editor de admin pode ter quatro** (ex.: garagens → garagem → ponto → vagas): ~1 520 px em 1920; admin usa em resolução de desktop.
 - Só a lista rola, dentro da coluna (`min-height: 0; overflow-y: auto`), com `padding-bottom: 64px` para as teclas não cobrirem o último item.
 
 ### ML.3 Anatomia da coluna
@@ -309,6 +310,8 @@ O mesmo menu lateral serve para editar dados (ex.: `/garagem`):
 - Campos na própria linha; alternâncias pelo valor à direita; listas de escolha como submenu com seções (a dica de uso fica na linha da seção, não repetida em cada item).
 - **Rascunho**: nada vale até "Salvar". Trocar de objeto ou fechar com alterações pendentes pede "Descartar alterações?" **uma vez** (guarde o estado "alterado" numa ref).
 - **Marcar posição**: a interface some, o jogador anda até o lugar, `E` marca, `Backspace` cancela; o que já foi marcado fica desenhado no chão.
+- **Posicionar entidade** (atendente, vaga de carro): a interface some e uma entidade de teste translúcida e sem colisão segue o chão para onde a câmera mira; roda do mouse gira (Shift = mais rápido), `Enter` confirma, `Backspace` cancela. Não use o `object_gizmo`: no Enhanced ele não pega o clique.
+- **Item de lista com mais de uma ação** (reposicionar ou remover uma vaga): Enter abre uma janela central com as duas ações lado a lado; Esc fecha sem mudar nada.
 - A interface monta o rascunho; o servidor valida tudo o que chega.
 
 ### ML.8 Antipadrões
@@ -317,12 +320,12 @@ O mesmo menu lateral serve para editar dados (ex.: `/garagem`):
 - Descrição de ativo ou resumo que mudam de altura (menu pulando).
 - Repetir no topo do submenu o nome da coluna ao lado.
 - Rodapé com faixa de fundo atrás de um botão de fechar.
-- Quarta coluna.
+- Quarta coluna em menu de jogador.
 - Formulário longo dentro da coluna: digitação vai para a janela central.
 
 ### ML.9 Checklist
 
-- [ ] colunas de altura total na borda direita; submenu abre à esquerda; no máximo três;
+- [ ] colunas de altura total na borda direita; submenu abre à esquerda; no máximo três (quatro em editor de admin);
 - [ ] X em todas as colunas; sem rodapé; teclas no canto inferior direito;
 - [ ] itens com alturas fixas onde há descrição de ativo; resumo com altura fixa;
 - [ ] sem setas; lado direito só com informação; cadeado em travado;

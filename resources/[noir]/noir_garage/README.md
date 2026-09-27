@@ -34,6 +34,9 @@ guardar, blip, atendente e interação). "Marcar" esconde o editor: ande até o 
 - Cada ponto tem até 10 vagas de saída, tentadas em ordem: o carro sai na
   primeira sem veículo por perto (`distanceCheck`); só com todas ocupadas vem o
   aviso de falta de espaço. Sem ponto de guardar marcado, guarda na vaga 1.
+  No editor, as vagas ficam numa coluna própria: "Adicionar vaga" e
+  "Reposicionar" usam um carro de teste que segue a mira (o modelo do carro em
+  que o admin está, ou um Sultan a pé); Enter numa vaga abre Remover/Reposicionar.
 - Cada ponto pode ter um atendente (PED local, com modelo e animação) e abrir
   por "Aperte E" (marcador no chão) ou por ox_target (no atendente ou numa esfera
   no balcão), pelo target do `bgrz_core`. Guardar o carro continua no E. O

@@ -7,6 +7,7 @@ import {
 
 import Menu, { MenuItem, MenuNotice } from '../components/Menu';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Modal from '../components/Modal';
 import { fetchNui } from '../utils/fetchNui';
 import { useNuiEvent } from '../hooks/useNuiEvent';
 import { isEnvBrowser } from '../utils/misc';
@@ -14,7 +15,7 @@ import {
   EditorGarage, EditorGroupOption, EditorGroupOptions, EditorPoint, EditorResult, EditorVehicleType, Vec3, Vec4,
 } from '../utils/interface';
 
-type Page = { id: 'root' } | { id: 'garage' } | { id: 'groups' } | { id: 'point'; index: number };
+type Page = { id: 'root' } | { id: 'garage' } | { id: 'groups' } | { id: 'point'; index: number } | { id: 'spawns'; index: number };
 
 interface StackEntry {
   page: Page;
@@ -23,7 +24,8 @@ interface StackEntry {
 
 type Confirm =
   | { kind: 'delete' }
-  | { kind: 'discard'; then: () => void };
+  | { kind: 'discard'; then: () => void }
+  | { kind: 'spawn'; point: number; slot: number };
 
 const ROOT: StackEntry[] = [{ page: { id: 'root' }, index: 1 }];
 
@@ -99,17 +101,21 @@ const EditorApp: React.FC = () => {
     hidden?: boolean;
     garages?: EditorGarage[];
     groups?: EditorGroupOptions;
-    gizmo?: { index: number; result: Vec4 | false };
+    placement?: { kind: 'ped' | 'vehicle'; index: number; slot?: number; result: Vec4 | false };
   }) => {
-    if (data.gizmo) {
-      const { index, result } = data.gizmo;
-      if (result) {
-        updatePoint(index, p => {
+    if (data.placement?.result) {
+      const { kind, index, slot, result } = data.placement;
+      updatePoint(index, p => {
+        if (kind === 'ped') {
           if (!p.ped) return;
           p.ped.position = result;
           delete p.ped.rotation;
-        });
-      }
+        } else {
+          const spawns = [...(p.spawns ?? [])];
+          spawns[slot ?? spawns.length] = result;
+          p.spawns = spawns;
+        }
+      });
     }
     if (data.hidden !== undefined) {
       setHidden(data.hidden);
@@ -208,8 +214,8 @@ const EditorApp: React.FC = () => {
     });
   };
 
-  /** Marca no jogo; `slot` e a vaga (indice em spawns) quando kind e 'spawn'. */
-  const capture = async (index: number, kind: 'coords' | 'spawn' | 'dropPoint', slot = 0) => {
+  /** Marca no jogo com E (balcao e ponto de guardar); as vagas usam o modo de posicionar. */
+  const capture = async (index: number, kind: 'coords' | 'dropPoint') => {
     if (!draft) return;
     const result = await fetchNui<Vec4 | false>('editor:capture', { kind, points: draft.accessPoints }, {
       data: { x: 215.3 + Math.random() * 10, y: -810.1 + Math.random() * 10, z: 30.73, w: Math.round(Math.random() * 360) },
@@ -218,27 +224,36 @@ const EditorApp: React.FC = () => {
     if (!result) return;
     updatePoint(index, point => {
       if (kind === 'dropPoint') point.dropPoint = { x: result.x, y: result.y, z: result.z };
-      else if (kind === 'spawn') {
-        const spawns = [...(point.spawns ?? [])];
-        spawns[slot] = result;
-        point.spawns = spawns;
-      } else point.coords = result;
+      else point.coords = result;
     });
   };
 
-  /** Posicionar no jogo (mira + roda do mouse); a tela some e o resultado volta pela mensagem 'editor' (gizmo). */
+  /** Resultado simulado do modo de posicionar, no preview do navegador. */
+  const mockPlacement = (placement: { kind: 'ped' | 'vehicle'; index: number; slot?: number }, start?: Vec4) => {
+    const result = start
+      ? { ...start, x: start.x + 1.2, w: (start.w + 30) % 360 }
+      : { x: 215.3 + Math.random() * 10, y: -810.1 + Math.random() * 10, z: 30.7, w: 90 };
+    window.dispatchEvent(new MessageEvent('message', {
+      data: { action: 'editor', data: { hidden: false, placement: { ...placement, result } } },
+    }));
+  };
+
+  /** Posicionar o atendente no jogo (mira + roda do mouse); o resultado volta pela mensagem 'editor'. */
   const placePed = async (index: number) => {
     const point = draft?.accessPoints[index];
     if (!point?.ped) return;
     const start = point.ped.position ?? point.coords;
-    const started = await fetchNui<boolean>('editor:placePed', { index, model: point.ped.model, position: start }, {
-      data: true,
-      delay: 100,
-    });
-    if (started && isEnvBrowser()) {
-      const result = start ? { ...start, x: start.x + 1.2, w: (start.w + 30) % 360 } : { x: 215.3, y: -810.1, z: 30.7, w: 90 };
-      window.dispatchEvent(new MessageEvent('message', { data: { action: 'editor', data: { hidden: false, gizmo: { index, result } } } }));
-    }
+    const started = await fetchNui<boolean>('editor:placePed', { index, model: point.ped.model, position: start }, { data: true, delay: 100 });
+    if (started && isEnvBrowser()) mockPlacement({ kind: 'ped', index }, start);
+  };
+
+  /** Posicionar uma vaga com um carro de teste; slot = vaga existente ou a proxima. */
+  const placeSpawn = async (index: number, slot: number) => {
+    const point = draft?.accessPoints[index];
+    if (!point) return;
+    const start = point.spawns?.[slot];
+    const started = await fetchNui<boolean>('editor:placeVehicle', { index, slot, position: start }, { data: true, delay: 100 });
+    if (started && isEnvBrowser()) mockPlacement({ kind: 'vehicle', index, slot }, start);
   };
 
   const save = async () => {
@@ -480,6 +495,30 @@ const EditorApp: React.FC = () => {
           }),
         });
       }
+    } else if (page.id === 'spawns') {
+      const i = page.index;
+      const spawns = draft.accessPoints[i]?.spawns ?? [];
+      title = 'Vagas';
+      eyebrow = `Ponto ${i + 1}`;
+      items = spawns.map((spot, n) => ({
+        key: `spawn-${n}`,
+        label: `Vaga ${n + 1}`,
+        icon: <Navigation size={18} aria-hidden="true" />,
+        description: fmt(spot),
+        value: n === 0 ? '1ª' : undefined,
+        onSelect: () => setConfirm({ kind: 'spawn', point: i, slot: n }),
+      }));
+      items.push({
+        key: 'spawnAdd',
+        label: 'Adicionar vaga',
+        icon: <Plus size={18} aria-hidden="true" />,
+        activeDescription: 'Um carro de teste segue a mira; Enter confirma.',
+        disabled: spawns.length >= 10,
+        onSelect: () => placeSpawn(i, spawns.length),
+      });
+      if (spawns.length === 0) {
+        items.unshift({ key: 'noSpawn', label: 'Nenhuma vaga', description: 'Sem vaga, o carro sai no balcão.' });
+      }
     } else if (page.id === 'point') {
       const i = page.index;
       const point = draft.accessPoints[i];
@@ -495,33 +534,15 @@ const EditorApp: React.FC = () => {
             value: point.coords ? <Check size={16} aria-label="Marcado" /> : undefined,
             onSelect: () => capture(i, 'coords'),
           },
-          ...(point.spawns ?? []).map((spot, n) => ({
-            key: `spawn-${n}`,
-            label: `Vaga ${n + 1}`,
-            icon: <Navigation size={18} aria-hidden="true" />,
-            description: fmt(spot),
-            value: <Check size={16} aria-label="Marcada" />,
-            activeDescription: n === 0 ? 'Tentada primeiro. Enter marca de novo.' : `Tentada se as ${n} de cima estiverem ocupadas.`,
-            onSelect: () => capture(i, 'spawn', n),
-          })),
           {
-            key: 'spawnAdd',
-            label: point.spawns?.length ? 'Adicionar vaga' : 'Marcar vaga de saída',
-            icon: <Plus size={18} aria-hidden="true" />,
-            description: point.spawns?.length ? undefined : 'Sem vaga, o carro sai no balcão',
-            activeDescription: point.spawns?.length ? 'Dentro do carro, a vaga pega a posição e a direção dele.' : undefined,
-            disabled: (point.spawns?.length ?? 0) >= 10,
-            onSelect: () => capture(i, 'spawn', point.spawns?.length ?? 0),
+            key: 'spawns',
+            label: 'Vagas de saída',
+            icon: <Navigation size={18} aria-hidden="true" />,
+            description: point.spawns?.length ? 'Tentadas em ordem' : 'Sem vaga: o carro sai no balcão',
+            value: point.spawns?.length ? `${point.spawns.length}` : undefined,
+            submenu: true,
+            onSelect: () => push({ id: 'spawns', index: i }),
           },
-          ...(point.spawns?.length ? [{
-            key: 'spawnRemove',
-            label: 'Remover última vaga',
-            icon: <Trash2 size={18} aria-hidden="true" />,
-            onSelect: () => updatePoint(i, p => {
-              const spawns = (p.spawns ?? []).slice(0, -1);
-              p.spawns = spawns.length ? spawns : undefined;
-            }),
-          }] : []),
           {
             key: 'dropPoint',
             label: 'Ponto de guardar',
@@ -725,6 +746,45 @@ const EditorApp: React.FC = () => {
         <ConfirmDialog title="Apagar garagem" confirmLabel="Apagar" danger onConfirm={remove} onClose={() => setConfirm(null)}>
           <p><strong>{draft.label}</strong> some do mapa para todos na hora. Não dá para desfazer.</p>
         </ConfirmDialog>
+      )}
+      {confirm?.kind === 'spawn' && draft?.accessPoints[confirm.point]?.spawns?.[confirm.slot] && (
+        <Modal
+          title={`Vaga ${confirm.slot + 1}`}
+          onClose={() => setConfirm(null)}
+          footer={(
+            <>
+              <button
+                type="button"
+                className="button button--danger"
+                onClick={() => {
+                  const { point, slot } = confirm;
+                  setConfirm(null);
+                  updatePoint(point, p => {
+                    const spawns = (p.spawns ?? []).filter((_, n) => n !== slot);
+                    p.spawns = spawns.length ? spawns : undefined;
+                  });
+                }}
+              >
+                Remover
+              </button>
+              <button
+                type="button"
+                className="button button--success"
+                data-autofocus
+                onClick={() => {
+                  const { point, slot } = confirm;
+                  setConfirm(null);
+                  placeSpawn(point, slot);
+                }}
+              >
+                Reposicionar
+              </button>
+            </>
+          )}
+        >
+          <p>{fmt(draft.accessPoints[confirm.point].spawns![confirm.slot])}</p>
+          <p>Reposicionar abre o carro de teste na mira. Remover tira a vaga da lista; as de baixo sobem.</p>
+        </Modal>
       )}
       {confirm?.kind === 'discard' && (
         <ConfirmDialog
