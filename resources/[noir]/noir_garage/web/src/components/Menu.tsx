@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { ChevronRight, LoaderCircle, TriangleAlert, X } from "lucide-react";
+import { ChevronRight, LoaderCircle, TriangleAlert } from "lucide-react";
 
 export type MenuTone = 'danger';
 
@@ -142,13 +142,8 @@ const Menu: React.FC<{
     <section className="menu" data-active={active} aria-label={title}>
       <header className="menu__header">
         {icon}
-        <div className="menu__titles">
-          {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-          <h1 className="menu__title" title={title}>{title}</h1>
-        </div>
-        <button type="button" className="icon-button icon-button--small" aria-label={closeLabel} title={closeLabel} onClick={onClose}>
-          <X size={18} aria-hidden="true" />
-        </button>
+        <h1 className="menu__title" title={title}>{title}</h1>
+        {eyebrow && <p className="eyebrow menu__eyebrow" title={eyebrow}>{eyebrow}</p>}
       </header>
 
       {notice && (
@@ -245,6 +240,10 @@ const Menu: React.FC<{
           );
         })}
       </div>
+
+      <footer className="menu__footer">
+        <button type="button" className="button button--block" onClick={onClose}>{closeLabel}</button>
+      </footer>
     </section>
   );
 };
