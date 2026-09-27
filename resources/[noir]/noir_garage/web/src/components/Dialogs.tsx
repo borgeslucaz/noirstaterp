@@ -212,7 +212,7 @@ export const LockDialog: React.FC<{
       footer={(
         <>
           <button type="button" className="button" data-autofocus onClick={onClose} disabled={busy}>Cancelar</button>
-          <button type="button" className="button button--primary" onClick={confirm} disabled={busy} aria-busy={busy}>
+          <button type="button" className="button button--success" onClick={confirm} disabled={busy} aria-busy={busy}>
             {busy && <Spinner />}
             Confirmar
           </button>

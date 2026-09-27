@@ -737,6 +737,17 @@ button[aria-disabled="true"] {
   background: rgba(255, 255, 255, 0.78);
 }
 
+.button--success {
+  border-color: var(--noir-success);
+  background: var(--noir-success);
+  color: var(--noir-on-light);
+}
+
+.button--success:not(:disabled):hover {
+  border-color: #5ee868;
+  background: #5ee868;
+}
+
 .button--ghost {
   border-color: transparent;
   background: transparent;
