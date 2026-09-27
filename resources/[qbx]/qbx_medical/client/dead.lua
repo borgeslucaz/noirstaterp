@@ -107,7 +107,7 @@ local function logDeath(victim, attacker, weapon)
     local playerId = NetworkGetPlayerIndexFromPed(victim)
     local playerName = (' %s (%d)'):format(GetPlayerName(playerId), GetPlayerServerId(playerId)) or locale('info.self_death')
     local killerId = NetworkGetPlayerIndexFromPed(attacker)
-    local killerName = ('%s (%d)'):format(GetPlayerName(killerId), GetPlayerServerId(killerId)) or locale('info.self_death')
+    local killerName = killerId ~= -1 and ('%s (%d)'):format(GetPlayerName(killerId), GetPlayerServerId(killerId)) or locale('info.self_death')
     local weaponLabel = WEAPONS[weapon]?.label or 'Unknown'
     local weaponName = WEAPONS[weapon]?.name or 'Unknown'
     local message = locale('logs.death_log_message', killerName, playerName, weaponLabel, weaponName)
@@ -115,21 +115,23 @@ local function logDeath(victim, attacker, weapon)
     lib.callback.await('qbx_medical:server:log', false, 'logDeath', message)
 end
 
----when player is killed by another player, set last stand mode, or if already in last stand mode, set player to dead mode.
----@param event string
----@param data table
-AddEventHandler('gameEventTriggered', function(event, data)
-    if event ~= 'CEventNetworkEntityDamage' then return end
-    if not plyState.isLoggedIn then return end
-    local victim, attacker, victimDied, weapon = data[1], data[2], data[4], data[7]
-    if not IsEntityAPed(victim) or not victimDied or NetworkGetPlayerIndexFromPed(victim) ~= cache.playerId or not IsEntityDead(cache.ped) then return end
-    if DeathState == sharedConfig.deathState.ALIVE then
-        StartLastStand(attacker, weapon)
-    elseif DeathState == sharedConfig.deathState.LAST_STAND then
-        EndLastStand()
-        logDeath(victim, attacker, weapon)
-        DeathTime = config.deathTime
-        OnDeath(attacker, weapon)
+---when player dies, set last stand mode, or if already in last stand mode, set player to dead mode.
+---Polls the ped instead of listening to `gameEventTriggered`: on GTA V Enhanced that event never
+---fires for the local player, so deaths went unhandled and the ped stayed in native death.
+CreateThread(function()
+    while true do
+        if plyState.isLoggedIn and IsEntityDead(cache.ped) then
+            local attacker, weapon = GetPedSourceOfDeath(cache.ped), GetPedCauseOfDeath(cache.ped)
+            if DeathState == sharedConfig.deathState.ALIVE then
+                StartLastStand(attacker, weapon)
+            elseif DeathState == sharedConfig.deathState.LAST_STAND then
+                EndLastStand()
+                logDeath(cache.ped, attacker, weapon)
+                DeathTime = config.deathTime
+                OnDeath(attacker, weapon)
+            end
+        end
+        Wait(250)
     end
 end)
 
