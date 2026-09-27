@@ -37,7 +37,7 @@ export interface MenuNotice {
   text: string;
 }
 
-const meterTone = (value: number) => value <= 35 ? 'danger' : value <= 60 ? 'warning' : undefined;
+const meterTone = (value: number) => value <= 35 ? 'danger' : value <= 60 ? 'warning' : 'success';
 
 /**
  * Uma coluna do menu. So a coluna `active` (a mais a esquerda) responde ao teclado; as de tras

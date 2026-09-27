@@ -589,6 +589,7 @@ button[aria-disabled="true"] {
 
 .menu-item[data-meter="warning"] { --meter-color: var(--noir-warning); }
 .menu-item[data-meter="danger"] { --meter-color: var(--noir-danger-hover); }
+.menu-item[data-meter="success"] { --meter-color: var(--noir-success); }
 
 .menu-item--input {
   grid-template-columns: 20px minmax(0, 1fr);
