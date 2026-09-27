@@ -335,7 +335,7 @@ const App: React.FC = () => {
 
       items.push({
         key: 'preview',
-        label: previewing ? 'Parar a prévia' : 'Ver na cena',
+        label: previewing ? 'Parar de visualizar' : 'Visualizar',
         icon: previewing ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />,
         activeDescription: previewing
           ? 'Botão direito gira, a roda do mouse aproxima.'
