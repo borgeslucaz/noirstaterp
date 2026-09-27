@@ -18,7 +18,8 @@ client_scripts {
     'client/main.lua',
     'client/qbox_bridge.lua',
     'client/target.lua',
-    'client/phone.lua'
+    'client/phone.lua',
+    'client/medical.lua'
 }
 
 server_scripts {
@@ -29,6 +30,7 @@ server_scripts {
     'server/phone_notifications.lua',
     'server/dispatch.lua',
     'server/banking.lua',
+    'server/medical.lua',
     'server/qbox_bridge.lua',
     'server/main.lua'
 }

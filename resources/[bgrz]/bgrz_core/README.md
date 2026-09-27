@@ -100,6 +100,36 @@ local count, err = exports.bgrz_core:CountOnDutyJob('police')
 
 Retorna a quantidade de jogadores em serviço no job informado ou `nil` com `invalid_job`, `provider_unavailable` ou `operation_failed`.
 
+## Dinheiro (server)
+
+```lua
+local balance = exports.bgrz_core:GetMoney(source, 'bank')   -- 0 se o personagem não está carregado
+local ok = exports.bgrz_core:RemoveMoney(source, 'cash', amount, 'reason')
+local ok = exports.bgrz_core:AddMoney(source, 'cash', amount, 'reason')
+```
+
+## Médico (server)
+
+```lua
+local downed = exports.bgrz_core:IsPlayerDowned(source)   -- caído (last stand) ou morto
+local ok, err = exports.bgrz_core:RevivePlayer(source)
+```
+
+O provider é `qbx_medical` (`BGRZConfig.Providers.medical`). `IsPlayerDowned` lê o state bag
+`isDead` que ele replica. `RevivePlayer` devolve `false` com `invalid_source` ou `provider_unavailable`.
+
+```lua
+-- client
+local info = exports.bgrz_core:GetDownedInfo()      -- { state = 'laststand'|'dead', seconds } ou nil
+local accepted = exports.bgrz_core:RequestRespawn()  -- só morto e com respawn liberado
+AddEventHandler('bgrz_core:client:playerRespawned', function() end)
+```
+
+`RequestRespawn` substitui o "segure E" do `qbx_medical` para quem prende o teclado numa NUI:
+o próprio loop de respawn dele executa no segundo seguinte, sem correr junto com o automático.
+`bgrz_core:client:playerRespawned` sai quando o respawn no hospital é aceito — o jogador ainda
+fica com `isDead` até levantar da cama.
+
 ## Dispatch (server)
 
 ```lua

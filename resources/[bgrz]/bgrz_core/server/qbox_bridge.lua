@@ -91,6 +91,17 @@ function BGRZ.RemoveMoney(source, account, amount, reason)
 end
 
 ---@param source number
+---@param account 'cash'|'bank'
+---@return number balance 0 quando o personagem não está carregado
+function BGRZ.GetMoney(source, account)
+    local called, amount = pcall(function()
+        return exports.qbx_core:GetMoney(source, account or 'cash')
+    end)
+    if not called or type(amount) ~= 'number' or amount ~= amount then return 0 end
+    return amount
+end
+
+---@param source number
 ---@param key string
 function BGRZ.GetMetadata(source, key)
     return exports.qbx_core:GetMetadata(source, key)
@@ -211,6 +222,7 @@ exports('HasGroupAccess', BGRZ.HasGroupAccess)
 exports('HasJob', BGRZ.HasJob)
 exports('AddMoney', BGRZ.AddMoney)
 exports('RemoveMoney', BGRZ.RemoveMoney)
+exports('GetMoney', BGRZ.GetMoney)
 exports('GetMetadata', BGRZ.GetMetadata)
 exports('SetMetadata', BGRZ.SetMetadata)
 exports('GetJobReputation', BGRZ.GetJobReputation)

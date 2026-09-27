@@ -9,6 +9,7 @@ local defaults = {
     dispatchFallback = 'qbx_police',
     banking = 'Renewed-Banking',
     gangs = 'noir_gangs',
+    medical = 'qbx_medical',
 }
 
 ---@param capability string
