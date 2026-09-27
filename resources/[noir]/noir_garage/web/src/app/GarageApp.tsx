@@ -344,7 +344,7 @@ const App: React.FC = () => {
         label: previewing ? 'Parar a prévia' : 'Ver na cena',
         icon: previewing ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />,
         activeDescription: previewing
-          ? 'Arraste com o botão direito para girar e use a roda do mouse para o zoom.'
+          ? 'Botão direito gira, a roda do mouse aproxima.'
           : 'Mostra o veículo no ponto de retirada.',
         busy: busy === 'preview',
         onSelect: togglePreview,

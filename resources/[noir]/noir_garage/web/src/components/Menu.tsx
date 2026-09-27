@@ -9,7 +9,7 @@ export interface MenuItem {
   label: string;
   icon?: React.ReactNode;
   description?: React.ReactNode;
-  /** Descricao que so aparece com o item ativo (como no ox_lib). */
+  /** Descricao de uma linha que so aparece com o item ativo. O item ja reserva a altura dela. */
   activeDescription?: React.ReactNode;
   value?: React.ReactNode;
   /** Abre outra coluna a esquerda (Seta para a esquerda tambem abre). */
@@ -164,7 +164,7 @@ const Menu: React.FC<{
         ) : items.map((item, i) => {
           const isCurrent = i === index;
           const kind = item.input ? 'input' : item.onSelect ? 'action' : 'info';
-          const description = isCurrent && active && item.activeDescription ? item.activeDescription : item.description;
+          const description = item.description;
           const content = (
             <>
               <span className="menu-item__icon">{item.icon}</span>
@@ -187,6 +187,9 @@ const Menu: React.FC<{
                     ? <span className="menu-item__description">{description}</span>
                     : <span className="menu-item__meta">{description}</span>
                 )}
+                {item.activeDescription && !item.input && (
+                  <span className="menu-item__reveal" aria-hidden={!(isCurrent && active)}>{item.activeDescription}</span>
+                )}
                 {item.progress !== undefined && (
                   <span className="menu-item__progress" aria-hidden="true">
                     <span style={{ width: `${Math.max(0, Math.min(100, item.progress))}%` }} />
@@ -206,6 +209,7 @@ const Menu: React.FC<{
             'data-index': i,
             'data-active': isCurrent,
             'data-kind': kind,
+            'data-reveal': item.activeDescription ? true : undefined,
             'data-tone': item.tone,
             'data-meter': item.progress !== undefined ? meterTone(item.progress) : undefined,
             className: `menu-item${item.input ? ' menu-item--input' : ''}`,

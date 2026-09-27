@@ -412,7 +412,7 @@ button[aria-disabled="true"] {
 
 .menu-item {
   width: 100%;
-  min-height: 44px;
+  min-height: 58px;
   display: grid;
   grid-template-columns: 20px minmax(0, 1fr) auto;
   align-items: center;
@@ -498,6 +498,33 @@ button[aria-disabled="true"] {
   font-size: 11px;
   color: var(--noir-text-muted);
   white-space: nowrap;
+}
+
+.menu-item[data-reveal] {
+  height: 58px;
+}
+
+/* A descricao entra sem mudar a altura do item: so o titulo sobe para dar lugar a ela. */
+.menu-item__reveal {
+  display: block;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--noir-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    max-height var(--duration-control) var(--ease-soft),
+    margin-top var(--duration-control) var(--ease-soft),
+    opacity var(--duration-control) var(--ease-soft);
+}
+
+.menu[data-active="true"] .menu-item[data-active="true"] .menu-item__reveal {
+  max-height: 16px;
+  margin-top: 3px;
+  opacity: 1;
 }
 
 .menu-item__value {
@@ -623,8 +650,12 @@ button[aria-disabled="true"] {
 
 @media (max-height: 760px) {
   .menu-item {
-    min-height: 40px;
+    min-height: 54px;
     padding-block: 6px;
+  }
+
+  .menu-item[data-reveal] {
+    height: 54px;
   }
 
   .menu__header {
