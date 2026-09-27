@@ -36,6 +36,40 @@ function BGRZ.HasJob(source, jobName, requireDuty)
     return true
 end
 
+---Todos os jobs configurados no Qbox, ordenados por label, com a escada de cargos.
+---@return { name: string, label: string, grades: table<integer, string> }[]
+function BGRZ.GetJobList()
+    local list = {}
+    for name, job in pairs(exports.qbx_core:GetJobs() or {}) do
+        local grades = {}
+        for rawLevel, grade in pairs(job.grades or {}) do
+            local level = tonumber(rawLevel)
+            if level then grades[level] = grade.name or tostring(level) end
+        end
+        list[#list + 1] = { name = name, label = job.label or name, grades = grades }
+    end
+    table.sort(list, function(a, b) return a.label < b.label end)
+    return list
+end
+
+---Acesso por grupo: o job primario (Qbox) ou a gang (provider de gangs, nao o PlayerData, que
+---nao e mais sincronizado) precisa estar em `groups` com cargo igual ou acima do minimo.
+---@param source number
+---@param groups table<string, integer> nome -> cargo minimo
+---@return boolean
+function BGRZ.HasGroupAccess(source, groups)
+    if type(groups) ~= 'table' then return false end
+    local job = BGRZ.GetJob(source)
+    if job and job.name and groups[job.name] and job.grade >= groups[job.name] then return true end
+
+    local citizenId = BGRZ.GetCitizenId(source)
+    if not citizenId then return false end
+    for gangName, grade in pairs(BGRZ.GetCharacterGangs(citizenId)) do
+        if groups[gangName] and grade >= groups[gangName] then return true end
+    end
+    return false
+end
+
 ---@param source number
 ---@param account 'cash'|'bank'
 ---@param amount number
@@ -172,6 +206,8 @@ end
 exports('GetVehicleClass', BGRZ.GetVehicleClass)
 exports('GetCitizenId', BGRZ.GetCitizenId)
 exports('GetJob', BGRZ.GetJob)
+exports('GetJobList', BGRZ.GetJobList)
+exports('HasGroupAccess', BGRZ.HasGroupAccess)
 exports('HasJob', BGRZ.HasJob)
 exports('AddMoney', BGRZ.AddMoney)
 exports('RemoveMoney', BGRZ.RemoveMoney)
