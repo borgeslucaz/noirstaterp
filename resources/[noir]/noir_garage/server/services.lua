@@ -9,7 +9,7 @@
 local function getOwnedVehicleAtGarage(source, vehicleId, garageName, accessPointIndex)
     local garage, _, player = GetGarageAtAccessPoint(source, garageName, accessPointIndex)
     if not garage or not player then return end
-    if type(vehicleId) ~= 'number' then return end
+    if not IsInteger(vehicleId) then return end
 
     local playerVehicle = exports.qbx_vehicles:GetPlayerVehicle(vehicleId)
     if not playerVehicle or playerVehicle.citizenid ~= player.PlayerData.citizenid then

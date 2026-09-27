@@ -2,9 +2,10 @@ local logger = require '@qbx_core.modules.logger'
 
 ---@param vehicleId integer
 ---@param modelName string
+---@return boolean saved
 local function setVehicleStateToOut(vehicleId, vehicle, modelName)
     local depotPrice = Config.calculateImpoundFee(vehicleId, modelName) or 0
-    exports.qbx_vehicles:SaveVehicle(vehicle, {
+    return exports.qbx_vehicles:SaveVehicle(vehicle, {
         state = VehicleState.OUT,
         depotPrice = depotPrice
     })
@@ -20,7 +21,7 @@ local spawning = {} ---@type table<integer, true>
 local function spawnVehicle(source, vehicleId, garageName, accessPointIndex)
     local garage, accessPoint, player = GetGarageAtAccessPoint(source, garageName, accessPointIndex)
     if not garage or not accessPoint or not player then return end
-    if type(vehicleId) ~= 'number' then return end
+    if not IsInteger(vehicleId) then return end
 
     local isDepot = garage.type == GarageType.DEPOT
 
@@ -35,7 +36,7 @@ local function spawnVehicle(source, vehicleId, garageName, accessPointIndex)
 
     local filter = GetPlayerVehicleFilter(source, garageName)
     local playerVehicle = exports.qbx_vehicles:GetPlayerVehicle(vehicleId, filter)
-    if not playerVehicle then
+    if not playerVehicle or type(playerVehicle.props) ~= 'table' then
         exports.qbx_core:Notify(source, locale('error.not_owned'), 'error')
         return
     end
@@ -46,8 +47,10 @@ local function spawnVehicle(source, vehicleId, garageName, accessPointIndex)
         return
     end
 
-    if isDepot and FindPlateOnServer(playerVehicle.props.plate) then -- If depot, check if vehicle is not already spawned on the map
-        return exports.qbx_core:Notify(source, locale('error.not_impound'), 'error')
+    -- Carro que ja esta no mundo nao sai de novo, nem do patio nem da garagem (guardado no banco com
+    -- uma copia na rua seria carro duplicado).
+    if FindPlateOnServer(playerVehicle.props.plate) then
+        return exports.qbx_core:Notify(source, locale('menu.still_on_street'), 'error')
     end
 
     -- `props` is the persisted modifications JSON and can contain a stale or
@@ -69,20 +72,41 @@ local function spawnVehicle(source, vehicleId, garageName, accessPointIndex)
         return
     end
 
-    local paid = 0
+    local paid, account = 0, nil
     if isDepot and playerVehicle.state == VehicleState.OUT then
         OverrideFreeDepotPriceForOutVehicle(playerVehicle)
-        paid = playerVehicle.depotPrice or 0
-        if not ChargePlayer(player, paid, 'paid-depot') then
+        paid = tonumber(playerVehicle.depotPrice) or 0
+        if paid ~= paid or paid < 0 or paid > 100000000 then return end
+        account = ChargePlayer(player, paid, 'paid-depot')
+        if not account then
             exports.qbx_core:Notify(source, locale('error.not_enough'), 'error')
             return
         end
     end
 
+    local function refund()
+        if paid > 0 and account then player.Functions.AddMoney(account, paid, 'paid-depot-refund') end
+    end
+
     playerVehicle.props.lockState = 1 -- Modify the veh props lock state here to avoid conflicts with the vehicleConfig.noLock system.
 
     local warpPed = Config.warpInVehicle and GetPlayerPed(source)
-    local netId, veh = qbx.spawnVehicle({ spawnSource = spawnCoords, model = model, props = playerVehicle.props, warp = warpPed })
+    local spawned, netId, veh = pcall(qbx.spawnVehicle, { spawnSource = spawnCoords, model = model, props = playerVehicle.props, warp = warpPed })
+    if not spawned or not netId or not veh or veh == 0 or not DoesEntityExist(veh) then
+        if not spawned then lib.print.error(netId) end
+        refund()
+        return
+    end
+
+    -- Estado OUT gravado antes de entregar o carro: se o banco falhar, o carro some e o dinheiro volta.
+    Entity(veh).state:set('vehicleid', vehicleId, false)
+    local saved, result = pcall(setVehicleStateToOut, vehicleId, veh, playerVehicle.modelName)
+    if not saved or not result then
+        if not saved then lib.print.error(result) end
+        exports.qbx_core:DeleteVehicle(veh)
+        refund()
+        return
+    end
 
     if Config.doorsLocked then
         if GetResourceState('qbx_vehiclekeys') == 'started' then
@@ -94,8 +118,6 @@ local function spawnVehicle(source, vehicleId, garageName, accessPointIndex)
 
     TriggerClientEvent('vehiclekeys:client:SetOwner', source, playerVehicle.props.plate)
 
-    Entity(veh).state:set('vehicleid', vehicleId, false)
-    setVehicleStateToOut(vehicleId, veh, playerVehicle.modelName)
     AddVehicleLog(vehicleId, paid > 0
         and locale('logs.taken_out_depot', garage.label, lib.math.groupdigits(paid))
         or locale('logs.taken_out', garage.label))
@@ -105,7 +127,7 @@ end
 
 -- Uma retirada por carro de cada vez: dois pedidos juntos nao podem criar o mesmo carro duas vezes.
 lib.callback.register('noir_garage:server:spawnVehicle', function(source, vehicleId, garageName, accessPointIndex)
-    if type(vehicleId) ~= 'number' or spawning[vehicleId] then return end
+    if not IsInteger(vehicleId) or spawning[vehicleId] then return end
     spawning[vehicleId] = true
     local ok, netId = pcall(spawnVehicle, source, vehicleId, garageName, accessPointIndex)
     spawning[vehicleId] = nil
