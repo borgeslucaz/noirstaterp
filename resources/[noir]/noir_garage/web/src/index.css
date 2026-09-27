@@ -916,9 +916,9 @@ select.field option {
   }
 }
 
-/* ── Tema "rua" (teste de interface) ─────────────────────────────────────
-   Titulo e rotulos condensados, em caixa alta; item ativo em branco com texto escuro;
-   teclas em pilulas no rodape. Liga so com :root (botao do preview). */
+/* ── Visual do menu (DESIGN_v4) ──────────────────────────────────────────
+   Titulo e rotulos condensados em caixa alta; item ativo em branco com texto escuro; teclas em
+   pilulas no canto inferior direito. Sobrepoe a base acima (tokens e estados do DESIGN_v3). */
 
 :root {
   /* Titulo e itens: Saira Condensed. */
