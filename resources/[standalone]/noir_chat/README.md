@@ -28,6 +28,9 @@ The manifest declares `provide 'chat'` so resources using `exports.chat` or a
 `Config.ToggleChatKey` defaults to `false`, so no visibility key mapping is
 registered. Set it explicitly to a mapper key such as `'F10'` if desired.
 
+`Config.AllowPlayerMessages` defaults to `false`: the `T` bar only runs `/commands`. Free
+text and unknown commands are silently dropped server-side.
+
 `Config.MaxMessageLength` limits player-submitted chat messages to 500
 characters by default.
 

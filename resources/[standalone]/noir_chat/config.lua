@@ -6,3 +6,7 @@ Config.ToggleChatKey = false
 
 -- Reject oversized player chat messages before they reach server hooks/events.
 Config.MaxMessageLength = 500
+
+-- false: a barra do T so executa comandos (/algo). Texto livre e comando inexistente nao
+-- viram mensagem: sao descartados em silencio.
+Config.AllowPlayerMessages = false
