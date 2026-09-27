@@ -262,7 +262,7 @@ O rádio está habilitado, com volume padrão 60; chamadas usam volume padrão 8
 - `Renewed-Weathersync`: sincronização de clima e horário.
 - `vehiclehandler`: suporte a comportamento de veículos.
 - `qbx_vehiclekeys`: chaves e travas de veículos.
-- `qbx_garages`, `qbx_vehicles`, `qbx_vehicleshop`, `qbx_vehiclesales`: persistência, garagem, loja e venda de veículos.
+- `noir_garage` (em `[noir]`), `qbx_vehicles`, `qbx_vehicleshop`, `qbx_vehiclesales`: persistência, garagem, loja e venda de veículos.
 - `qbx_customs`, `qbx_carwash`: customização e lavagem.
 
 O inventário possui loot aleatório em veículos e lixeiras, notificações de item/arma, props para drops e integração por target. Policiais dos empregos `police`, `bcso` e `sasp` têm integração com arsenal/evidências; a retirada de evidências requer grade mínima 2.

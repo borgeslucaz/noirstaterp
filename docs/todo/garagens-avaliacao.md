@@ -1,18 +1,29 @@
 # Garagens: avaliação e pendências
 
-- **Status:** decidido ficar no `qbx_garages` (2026-09-23). O que acrescentar
-  fica para depois.
+- **Status (2026-09-27):** o `qbx_garages` foi substituído pelo
+  `resources/[noir]/noir_garage`: a lógica de servidor do `qbx_garages` 1.1.4
+  com os nossos patches, mais a interface React do `rhd_garage` 1.0.0 (prévia
+  3D, apelido, histórico e transferência entre garagens), com o servidor
+  conferindo dono, distância e preço. Os nomes das garagens são os mesmos, então
+  os carros já guardados continuam aparecendo. Apelido e histórico ficam na
+  tabela `noir_garage_vehicles`.
+  - UI: fonte em `web/src`, build com `npm ci && npm run build` dentro de
+    `web/` (o `web/build` vai no git).
+  - Exports mantidos: `GetGarages`, `RegisterGarage`, `SetVehicleGarage`,
+    `SetVehicleDepotPrice`. Evento: `noir_garage:server:vehicleSpawned`.
+- **Status anterior:** decidido ficar no `qbx_garages` (2026-09-23).
 - **Não fazer:** estacionamento físico (carro visível parado na vaga).
 
 ## Scripts avaliados
 
 | Script | Versão / commit | Onde o carro nasce | Veredito |
 |---|---|---|---|
-| `qbx_garages` (atual) | 1.1.4 + 2 patches nossos | servidor | manter |
-| [rhd_garage](https://github.com/RHD-FiveM/rhd_garage) | 1.0.0 / `ff511ea` | cliente | descartado |
+| `qbx_garages` | 1.1.4 + patches nossos | servidor | base do servidor do `noir_garage` |
+| [rhd_garage](https://github.com/RHD-FiveM/rhd_garage) | 1.0.0 / `ff511ea` | cliente | só a interface, no `noir_garage` |
 | [drs_garages](https://github.com/DrSnyder86/drs_garages) | 2.8.0-drs.2 / `7807ef5` | servidor | descartado pelo custo |
 | [mGarage](https://github.com/Mono-94/mGarage) | 2.0.7 / `50162cb` | servidor | descartado |
 | [snowy_garages](https://github.com/SSnowly/snowy_garages) | 1.0.0 / `74e99ec` | cliente | descartado |
+| [rhd_garage (fork MRI)](https://github.com/mri-Qbox-Brasil/rhd_garage) | 1.4.1 / `9646db2` | servidor, com modelo do cliente | descartado |
 
 ### rhd_garage
 - Interface NUI em React, com prévia 3D, apelido e histórico do carro, e
@@ -22,6 +33,22 @@
   dono no servidor: dá para apagar ou alterar o carro de outra pessoa.
 - Bugs: `#vehicles < 0` ignora os pontos de saída, e `addVehicleLogs` é chamado
   sem a placa. O `web/build` não vem no repositório.
+
+### rhd_garage (fork da MRI Qbox Brasil)
+- Versão antiga do rhd (1.4.1), não a de React. Menus do ox_lib em pt-br,
+  criador de garagens no jogo, pátio da polícia, loja de carro de emprego,
+  menu radial e transferência de carro entre jogadores.
+- O servidor confia no cliente:
+  - `rhd_garage:server:spawnVehicle` cria o modelo, na posição e com as
+    modificações que o cliente mandar;
+  - `saveGarageZone` deixa qualquer jogador reescrever as garagens (sem
+    checagem de admin);
+  - `buyVehicle` usa o preço do cliente, e `removeMoney` desconta o valor e a
+    conta que o cliente pedir;
+  - `swapGarage` e `updateState` mudam qualquer placa sem conferir o dono;
+  - `policeImpound.impoundveh` apreende qualquer carro, sem conferir emprego;
+  - a transferência entre jogadores usa `WHERE citizenid = ? AND plate = ? OR
+    fakeplate = ?`, que deixa passar o carro alheio pelo `fakeplate`.
 
 ### drs_garages
 - Fork do `lunar_garage` 2.0.3 (GPL-3), com cerca de 26,8 mil linhas de Lua.
@@ -63,12 +90,9 @@
 
 ## Brechas conhecidas (deixadas como estão)
 
-- **`qbx_garages` `spawnVehicle`**
-  (`resources/[qbx]/qbx_garages/server/spawn-vehicle.lua`) não confere
-  `groups` nem `canAccess`. Hoje nenhuma garagem é `shared`, então só vale o
-  próprio carro. Se alguma garagem virar `shared = true`, qualquer jogador
-  perto do ponto de acesso tira os carros dela. Corrigir antes de usar
-  `shared`.
+- ~~`qbx_garages` `spawnVehicle` não confere `groups` nem `canAccess`~~:
+  resolvido no `noir_garage`. Todo callback passa por `GetGarageAtAccessPoint`,
+  que confere grupo, `canAccess` e a distância até o guichê.
 - **`qbx_police`** (sobe pelo `ensure [qbx]`):
   - `police:server:Impound` não confere emprego e aceita preço livre ou
     apreensão permanente de qualquer placa;
@@ -77,7 +101,14 @@
 
 ## Ideias para acrescentar
 
-**Sem tocar no `qbx_garages`** (resource nosso, via exports e `bgrz_core`):
+**Feito no `noir_garage` (2026-09-27):**
+- Transferência entre garagens (`Config.transfer.price`, hoje 0).
+- Histórico do carro (retirar, guardar, pátio, apelido, transferência,
+  chave e fechadura).
+- Checagem de grupo no `spawnVehicle`.
+- Apelido do carro.
+
+**Pendentes:**
 1. **Frota de empresa ou gang** (`noir_fleet`):
    - tabela própria, menu e ponto de retirada próprios;
    - carro nasce no servidor por `bgrz_core:SpawnVehicle`, com chave por
@@ -85,20 +116,14 @@
    - cargo mínimo por carro;
    - compra pelo chefe com `RemoveOrgMoney`, com devolução se a criação falhar;
    - carro sumido volta à sede no restart.
-2. **Transferência paga entre garagens**, pela export `SetVehicleGarage`.
-3. **Histórico do carro**, pelo evento `qbx_garages:server:vehicleSpawned` e
-   pelos ganchos do `qbx_vehicles`.
-4. **Apreensão completa:** motivo, prazo mínimo e quem apreendeu. O preço
-   continua no `depotprice`.
-
-**Exigem patch pequeno no `qbx_garages`:**
-5. Checagem de grupo no `spawnVehicle`.
-6. Apelido do carro no menu da garagem.
-7. Estacionamento pago por hora.
+2. **Apreensão completa:** motivo, prazo mínimo e quem apreendeu. O preço
+   continua no `depotprice`. O pátio do `noir_garage` só mostra o carro
+   apreendido (estado 2); a retirada fica com a polícia.
+3. Estacionamento pago por hora.
 
 **Já existe, não precisa fazer:**
 - Última posição após restart: `qbx:vehiclePersistenceType "full"`, hoje em
   `semi`.
-- Carro apagado com `/dv` vai para o depósito: o `qbx_garages` já mostra no
+- Carro apagado com `/dv` vai para o depósito: o `noir_garage` já mostra no
   depósito o carro "fora" que não existe no mundo.
 - Localizar o carro: o `sd-phone` resolve pelo `GetGarages`.

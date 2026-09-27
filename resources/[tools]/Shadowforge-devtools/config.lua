@@ -117,7 +117,7 @@ Config.PlayerTools = {
 -- ───────────────────────────────────────────────
 Config.SafeResources = {
     -- 'my_test_resource',
-    -- 'qbx_garages',
+    -- 'noir_garage',
 }
 
 -- ───────────────────────────────────────────────

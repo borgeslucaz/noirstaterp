@@ -92,7 +92,7 @@ local function garage_name(property_name)
 end
 
 local function garage_counts(identifier)
-    if GetResourceState("qbx_garages") ~= "started" then
+    if GetResourceState("noir_garage") ~= "started" then
         return {}
     end
     local success, rows = pcall(function()
@@ -139,7 +139,7 @@ local function normalized_property(property, access, counts)
     local garage = property.garage and decode_array(property.garage) or nil
     local garage_configured = garage and valid_coords(garage)
     local garage_enabled = garage_configured
-        and GetResourceState("qbx_garages") == "started"
+        and GetResourceState("noir_garage") == "started"
     return {
         id = ("qbx_properties:%s"):format(property.id),
         providerId = tostring(property.id),

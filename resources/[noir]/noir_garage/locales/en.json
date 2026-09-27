@@ -1,0 +1,43 @@
+{
+    "error": {
+        "no_space": "Another vehicle is taking the spot.",
+        "no_access": "You don't have access to this garage",
+        "no_vehicles": "You currently don't have any vehicles here...",
+        "not_impound": "You don't have any impounded vehicles",
+        "not_owned": "You don't own this vehicle",
+        "not_correct_type": "You can't store this type of vehicle here",
+        "not_enough": "Not enough money",
+        "vehicle_occupied": "You can't store this vehicle as it is not empty",
+        "in_vehicle": "You're already in a vehicle...",
+        "spawn_failed": "Something went wrong spawning the vehicle",
+        "spawn_in_progress": "Please wait for your vehicle to be delivered...",
+        "key_copy_unavailable": "The key copy is not available right now",
+        "invalid_model": "This vehicle has an invalid model. Contact the staff.",
+        "invalid_name": "The nickname must be between 1 and %s characters",
+        "transfer_invalid": "The vehicle can't be transferred to that garage"
+    },
+    "success": {
+        "vehicle_parked": "Vehicle Stored",
+        "key_copy": "You received a copy of the key (%s)",
+        "lock_changed": "Lock changed. New key (%s) delivered",
+        "transferred": "Vehicle transferred to %s"
+    },
+    "menu": {
+        "veh_impounded": "Your vehicle has been impounded by the police",
+        "still_on_street": "Your vehicle is still on the street"
+    },
+    "info": {
+        "car_e": "E - Open Garage",
+        "park_e": "E - Park Vehicle",
+        "impound_e": "E - Open Impound Lot"
+    },
+    "logs": {
+        "stored": "Stored at %s",
+        "taken_out": "Taken out of %s",
+        "taken_out_depot": "Taken out of %s for $%s",
+        "renamed": "Nickname changed to \"%s\"",
+        "transferred": "Transferred from %s to %s",
+        "key_copy": "Key copy made ($%s)",
+        "lock_changed": "Lock changed ($%s)"
+    }
+}

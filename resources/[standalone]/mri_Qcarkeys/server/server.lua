@@ -321,7 +321,7 @@ lib.callback.register('mm_carkeys:server:getvehiclekeys', function(source)
     return VehicleList[citizenid] or {}
 end)
 
----source vazio = TriggerEvent de outro resource no servidor (ex.: qbx_garages ao soltar o carro).
+---source vazio = TriggerEvent de outro resource no servidor (ex.: noir_garage ao soltar o carro).
 ---Jogador precisa estar perto e ter a chave. Sem chave, so trancar carro de NPC (assalto que falhou,
 ---LockNPCVehicle). Destrancar sem chave e pelo lockpick (evento proprio) ou pelo assalto (setHotwired).
 local function SetLockStateFromEvent(src, vehNetId, state)

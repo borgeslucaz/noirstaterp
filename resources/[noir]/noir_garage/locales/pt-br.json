@@ -1,0 +1,43 @@
+{
+    "error": {
+        "no_space": "Outro veículo já ocupou o espaço.",
+        "no_access": "Você não tem acesso a esta garagem",
+        "no_vehicles": "Você atualmente não tem veículos neste local...",
+        "not_impound": "Você não possui nenhum veículo apreendido",
+        "not_owned": "Você não é o dono deste veiculo",
+        "not_correct_type": "Você não pode guardar este tipo de veículo aqui",
+        "not_enough": "Dinheiro insuficiente",
+        "vehicle_occupied": "Você não pode guardar este veículo pois ele não está vazio",
+        "in_vehicle": "Você já está em um veículo...",
+        "spawn_failed": "Algo deu errado ao entregar o veículo",
+        "spawn_in_progress": "Por favor, aguarde enquanto seu veículo é entregue...",
+        "key_copy_unavailable": "Não foi possível fazer a cópia da chave agora",
+        "invalid_model": "Este veículo possui um modelo inválido. Contate a administração.",
+        "invalid_name": "O apelido precisa ter entre 1 e %s caracteres",
+        "transfer_invalid": "Não foi possível transferir o veículo para essa garagem"
+    },
+    "success": {
+        "vehicle_parked": "Você estacionou seu veículo",
+        "key_copy": "Você recebeu uma cópia da chave (%s)",
+        "lock_changed": "Fechadura trocada. Nova chave (%s) entregue",
+        "transferred": "Veículo transferido para %s"
+    },
+    "menu": {
+        "veh_impounded": "Seu veículo foi apreendido pela polícia",
+        "still_on_street": "Seu veículo ainda está na rua"
+    },
+    "info": {
+        "car_e": "E - Abrir Garagem",
+        "park_e": "E - Guardar Veículo",
+        "impound_e": "E - Abrir Pátio"
+    },
+    "logs": {
+        "stored": "Guardado em %s",
+        "taken_out": "Retirado de %s",
+        "taken_out_depot": "Retirado de %s por $%s",
+        "renamed": "Apelido alterado para \"%s\"",
+        "transferred": "Transferido de %s para %s",
+        "key_copy": "Cópia da chave feita ($%s)",
+        "lock_changed": "Fechadura trocada ($%s)"
+    }
+}

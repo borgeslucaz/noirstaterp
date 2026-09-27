@@ -38,7 +38,7 @@ Depois valide pelo console/txAdmin quais resources estão `started`. Nunca deixe
 | OX | `ox_inventory`, `ox_target`, `ox_fuel`, `ox_doorlock` | Inventário, interações, combustível e portas. |
 | Voz | `pma-voice`, `mm_radio`, `mana_audio` | Voz de proximidade, rádio e áudio. |
 | Interface e aparência | `noir_hud`, `noir_chat`, `noir_pausemenu`, `illenium-appearance`, `scully_emotemenu`, `loadscreen` | HUD, chat, pause, aparência, emotes e carregamento. |
-| Economia/mundo | `Renewed-Banking`, `Renewed-Weathersync`, `vehiclehandler`, `qbx_vehiclekeys`, `qbx_garages`, `qbx_vehicles`, `qbx_vehicleshop`, `qbx_vehiclesales`, `qbx_customs`, `qbx_carwash` | Banco, clima, veículos, chaves, garagens, loja e customização. |
+| Economia/mundo | `Renewed-Banking`, `Renewed-Weathersync`, `vehiclehandler`, `qbx_vehiclekeys`, `noir_garage`, `qbx_vehicles`, `qbx_vehicleshop`, `qbx_vehiclesales`, `qbx_customs`, `qbx_carwash` | Banco, clima, veículos, chaves, garagens, loja e customização. |
 
 Os resources acima existem no repositório. A palavra “ativa” nesta tabela é intenção arquitetural; a confirmação final continua sendo o `server.cfg`.
 
@@ -181,6 +181,7 @@ Os assets são compatíveis com a organização Enhanced do projeto, que usa dir
 | Grupo | Conteúdo principal |
 |---|---|
 | `[bgrz]` | Core Noir, multichar, domínio ilegal, gangues, burnerphone, house robbery e shells. |
+| `[noir]` | `noir_garage` (garagens e pátio). Precisa de `ensure [noir]` no `server.cfg`. |
 | `[hud]` | `noir_hud` e a alternativa concorrente `minimal-hud_enhanced`. |
 | `[qbx]` | Core, empregos, veículos, polícia, médico, crimes e utilitários Qbox. |
 | `[ox]` | Lib, banco, inventário, target, combustível e portas. |
