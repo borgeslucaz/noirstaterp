@@ -119,6 +119,14 @@ RegisterNUICallback('editor:gizmoPed', function(data, cb)
 
     SendNUIMessage({ action = 'editor', data = { hidden = true } })
     SetNuiFocus(false, false)
+    -- Soltar o foco da NUI desliga o cursor do jogo no frame seguinte: se o gizmo abrir antes disso,
+    -- o EnterCursorMode dele e desfeito e o cursor nao aparece.
+    Wait(250)
+    lib.notify({
+        description = 'G: cursor · W: mover · R: girar · Alt: chão · Enter: confirmar',
+        type = 'inform',
+        duration = 8000,
+    })
 
     local ped = CreatePed(4, model, start.x, start.y, start.z - 1.0, start.w or 0.0, false, false)
     SetModelAsNoLongerNeeded(model)
