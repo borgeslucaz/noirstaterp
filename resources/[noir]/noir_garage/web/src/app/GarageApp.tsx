@@ -272,7 +272,12 @@ const App: React.FC = () => {
               <span className="status" data-tone={status.tone}>{status.label}</span>
             </>
           ),
-          value: favorites[v.id] ? <Star className="favorite" size={14} fill="currentColor" aria-label="Favorito" /> : undefined,
+          value: (
+            <>
+              {favorites[v.id] && <Star className="favorite" size={14} fill="currentColor" aria-label="Favorito" />}
+              {locked && <Lock className="menu-item__lock" size={16} aria-label="Indisponível" />}
+            </>
+          ),
           submenu: !locked,
           onSelect: locked ? undefined : () => openVehicle(v.id),
         });

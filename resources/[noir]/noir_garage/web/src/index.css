@@ -622,6 +622,10 @@ button[aria-disabled="true"] {
   opacity: 0.45;
 }
 
+.menu-item__lock {
+  color: var(--noir-text-faint);
+}
+
 .menu-item__value .favorite {
   color: var(--noir-warning);
 }
