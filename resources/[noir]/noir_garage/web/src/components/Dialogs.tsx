@@ -60,7 +60,7 @@ export const RenameDialog: React.FC<{
       footer={(
         <>
           <button type="button" className="button" onClick={onClose} disabled={saving}>Cancelar</button>
-          <button type="button" className="button button--primary" onClick={save} disabled={invalid || saving} aria-busy={saving}>
+          <button type="button" className="button button--success" onClick={save} disabled={invalid || saving} aria-busy={saving}>
             {saving && <Spinner />}
             Salvar apelido
           </button>
