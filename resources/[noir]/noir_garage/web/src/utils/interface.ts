@@ -79,7 +79,8 @@ export interface EditorPoint {
     blip?: EditorBlip;
     /** Atendente no balcao (PED local). */
     /** rotation: giro em graus (multiplos de 45) sobre a direcao marcada no balcao. */
-    ped?: { model: string; scenario?: string; rotation?: number };
+    /** position: posicao propria (gizmo); sem ela, o atendente fica no balcao. */
+    ped?: { model: string; scenario?: string; rotation?: number; position?: Vec4 };
     /** Como abre o balcao a pe: 'key' (marcador + E, padrao) ou 'target' (ox_target). */
     interaction?: 'key' | 'target';
     /** Raios que a tela nao edita; voltam ao servidor como vieram. */

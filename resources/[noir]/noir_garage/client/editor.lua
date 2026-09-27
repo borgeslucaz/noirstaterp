@@ -94,6 +94,57 @@ RegisterNUICallback('editor:capture', function(data, cb)
     cb(result)
 end)
 
+---Posiciona o atendente com o object_gizmo: cria um PED de teste onde ele estaria, abre o gizmo e
+---devolve posicao e direcao ao apertar Enter. O modelo e conferido antes (no Enhanced, modelo
+---inexistente derruba o cliente).
+RegisterNUICallback('editor:gizmoPed', function(data, cb)
+    if not editorOpen or type(data) ~= 'table' or type(data.model) ~= 'string' then return cb(false) end
+    if GetResourceState('object_gizmo') ~= 'started' then
+        lib.notify({ description = 'object_gizmo não está rodando.', type = 'error' })
+        return cb(false)
+    end
+
+    local model = joaat(data.model)
+    if not IsModelInCdimage(model) or not IsModelAPed(model) then
+        lib.notify({ description = ('Modelo inexistente: %s'):format(data.model), type = 'error' })
+        return cb(false)
+    end
+    if not pcall(lib.requestModel, model, 5000) then return cb(false) end
+
+    local start = type(data.position) == 'table' and data.position or nil
+    if not start then
+        local c = GetEntityCoords(cache.ped) + GetEntityForwardVector(cache.ped) * 1.5
+        start = { x = c.x, y = c.y, z = c.z, w = (GetEntityHeading(cache.ped) + 180.0) % 360 }
+    end
+
+    SendNUIMessage({ action = 'editor', data = { hidden = true } })
+    SetNuiFocus(false, false)
+
+    local ped = CreatePed(4, model, start.x, start.y, start.z - 1.0, start.w or 0.0, false, false)
+    SetModelAsNoLongerNeeded(model)
+    local result = false
+    if ped ~= 0 then
+        SetEntityInvincible(ped, true)
+        SetBlockingOfNonTemporaryEvents(ped, true)
+        FreezeEntityPosition(ped, true)
+        local ok, gizmo = pcall(exports.object_gizmo.useGizmo, exports.object_gizmo, ped)
+        if ok and gizmo and DoesEntityExist(ped) then
+            local c = GetEntityCoords(ped)
+            result = { x = c.x, y = c.y, z = c.z, w = GetEntityHeading(ped) }
+        end
+        if DoesEntityExist(ped) then
+            SetEntityAsMissionEntity(ped, true, true)
+            DeleteEntity(ped)
+        end
+    end
+
+    if editorOpen then
+        SendNUIMessage({ action = 'editor', data = { hidden = false } })
+        SetNuiFocus(true, true)
+    end
+    cb(result)
+end)
+
 AddEventHandler('onResourceStop', function(resource)
     if resource ~= cache.resource or not editorOpen then return end
     SetNuiFocus(false, false)

@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
   ArrowLeftRight, Car, Check, Eye, MapPin, Navigation, Palette, Plus, Save, Search, Shapes, Tag, Trash2,
   Users, Warehouse, Share2, CircleParking, Map as MapIcon, Briefcase, Skull, Square, SquareCheck, TriangleAlert,
-  Crosshair, Keyboard, PersonStanding, Shirt, Clapperboard, RotateCw,
+  Crosshair, Keyboard, PersonStanding, Shirt, Clapperboard, RotateCw, Move3d, LocateFixed,
 } from 'lucide-react';
 
 import Menu, { MenuItem, MenuNotice } from '../components/Menu';
@@ -198,6 +198,23 @@ const EditorApp: React.FC = () => {
     updatePoint(index, point => {
       if (kind === 'dropPoint') point.dropPoint = { x: result.x, y: result.y, z: result.z };
       else point[kind] = result;
+    });
+  };
+
+  /** Gizmo do object_gizmo no jogo; a tela some enquanto isso. */
+  const placePed = async (index: number) => {
+    const point = draft?.accessPoints[index];
+    if (!point?.ped) return;
+    const start = point.ped.position ?? point.coords;
+    const result = await fetchNui<Vec4 | false>('editor:gizmoPed', { model: point.ped.model, position: start }, {
+      data: start ? { ...start, x: start.x + 1.2, w: (start.w + 30) % 360 } : { x: 215.3, y: -810.1, z: 30.7, w: 90 },
+      delay: 400,
+    });
+    if (!result) return;
+    updatePoint(index, p => {
+      if (!p.ped) return;
+      p.ped.position = result;
+      delete p.ped.rotation;
     });
   };
 
@@ -516,11 +533,25 @@ const EditorApp: React.FC = () => {
               },
             },
             {
+              key: 'pedGizmo',
+              label: 'Posicionar com gizmo',
+              icon: <Move3d size={18} aria-hidden="true" />,
+              description: ped.position ? `Posição própria: ${fmt(ped.position)}` : 'No balcão',
+              onSelect: () => placePed(i),
+            },
+            ...(ped.position ? [{
+              key: 'pedReset',
+              label: 'Atendente no balcão',
+              icon: <LocateFixed size={18} aria-hidden="true" />,
+              activeDescription: 'Volta o atendente para o ponto do balcão.',
+              onSelect: () => updatePoint(i, p => { if (p.ped) delete p.ped.position; }),
+            }] : []),
+            {
               key: 'pedRotation',
               label: 'Girar atendente',
               icon: <RotateCw size={18} aria-hidden="true" />,
               value: ped.rotation ? `+${ped.rotation}°` : 'Como marcado',
-              activeDescription: 'Enter gira 45°; +180° fica de frente para você.',
+              activeDescription: 'Enter gira 45° (+180° = de frente).',
               onSelect: () => updatePoint(i, p => {
                 if (p.ped) p.ped.rotation = ((p.ped.rotation ?? 0) + 45) % 360 || undefined;
               }),
