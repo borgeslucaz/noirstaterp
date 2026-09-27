@@ -19,12 +19,8 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
+// Fora do jogo nao ha a cena do GTA atras da tela: no navegador vai a mesma foto do noir_multichar.
+// O vite dev serve web/dev/; o build nao referencia o arquivo, entao ele nao vai para o jogo.
 if (isEnvBrowser()) {
-  const root = document.getElementById('root');
-
-  // https://i.imgur.com/iPTAdYV.png - Night time img
-  root!.style.backgroundImage = 'url("https://i.imgur.com/3pzRj9n.png")';
-  root!.style.backgroundSize = 'cover';
-  root!.style.backgroundRepeat = 'no-repeat';
-  root!.style.backgroundPosition = 'center';
+  document.documentElement.style.setProperty('background', '#000 url(/dev/sinner.png) center/cover no-repeat', 'important');
 }
