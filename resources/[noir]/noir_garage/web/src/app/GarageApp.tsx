@@ -295,6 +295,7 @@ const App: React.FC = () => {
       }
     } else if (page.id === 'vehicle') {
       const status = vehicleStatus(vehicle, garage.isDepot);
+      const favorite = !!favorites[vehicle.id];
       title = 'Veículo';
       eyebrow = undefined;
       summary = (
@@ -308,6 +309,16 @@ const App: React.FC = () => {
               <span className="status" data-tone={status.tone}>{status.label}</span>
             </span>
           </span>
+          <button
+            type="button"
+            className="icon-button menu__favorite"
+            aria-pressed={favorite}
+            aria-label={favorite ? 'Tirar dos favoritos' : 'Favoritar'}
+            title={favorite ? 'Tirar dos favoritos' : 'Favoritar (aparece no topo da lista)'}
+            onClick={() => toggleFavorite(vehicle.id)}
+          >
+            <Star size={22} fill={favorite ? 'currentColor' : 'none'} aria-hidden="true" />
+          </button>
         </>
       );
       if (!pageNotice && vehicle.notice) pageNotice = { tone: vehicle.state === 2 ? 'danger' : 'warning', text: vehicle.notice };
@@ -400,14 +411,6 @@ const App: React.FC = () => {
         });
       }
 
-      const favorite = !!favorites[vehicle.id];
-      items.push({
-        key: 'favorite',
-        label: favorite ? 'Tirar dos favoritos' : 'Favoritar',
-        icon: <Star size={18} fill={favorite ? 'currentColor' : 'none'} aria-hidden="true" />,
-        activeDescription: 'Favoritos aparecem no topo da lista.',
-        onSelect: () => toggleFavorite(vehicle.id),
-      });
     } else if (page.id === 'history') {
       title = 'Histórico';
       eyebrow = undefined;
@@ -439,7 +442,11 @@ const App: React.FC = () => {
       {stack.map((entry, level) => {
         const isTop = level === stack.length - 1;
         const view = describe(entry.page, isTop);
-        const index = Math.min(entry.index, Math.max(0, view.items.length - 1));
+        // Na garagem com um carro aberto, o destaque segue o carro (a lista reordena ao favoritar).
+        const openIndex = level === 0 && !isTop && selectedId !== null
+          ? view.items.findIndex(item => item.key === `vehicle-${selectedId}`)
+          : -1;
+        const index = openIndex >= 0 ? openIndex : Math.min(entry.index, Math.max(0, view.items.length - 1));
         return (
           <Menu
             key={`${level}-${entry.page.id}`}

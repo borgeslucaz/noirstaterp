@@ -449,8 +449,13 @@ button[aria-disabled="true"] {
 
 .menu__summary-text {
   min-width: 0;
+  flex: 1;
   display: grid;
   gap: 2px;
+}
+
+.menu__favorite[aria-pressed="true"] {
+  color: var(--noir-warning);
 }
 
 .menu__summary-name {
