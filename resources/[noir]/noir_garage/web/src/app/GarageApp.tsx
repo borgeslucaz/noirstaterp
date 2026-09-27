@@ -431,7 +431,7 @@ const App: React.FC = () => {
       });
     } else if (page.id === 'rename') {
       title = 'Mudar apelido';
-      eyebrow = vehicle.modelLabel;
+      eyebrow = undefined;
       items = [
         {
           key: 'input',
@@ -457,7 +457,7 @@ const App: React.FC = () => {
       ];
     } else if (page.id === 'transfer') {
       title = 'Transferir de garagem';
-      eyebrow = vehicle.name;
+      eyebrow = undefined;
       loading = targets === null ? 'Carregando garagens…' : null;
       empty = 'Nenhuma outra garagem aceita este veículo.';
       items = (targets ?? []).map(target => ({
@@ -485,7 +485,7 @@ const App: React.FC = () => {
       ];
     } else if (page.id === 'lock' && garage.keys) {
       title = 'Trocar fechadura';
-      eyebrow = vehicle.name;
+      eyebrow = undefined;
       pageNotice = pageNotice ?? {
         tone: 'danger',
         text: 'Todas as chaves deste veículo deixam de funcionar, inclusive as cópias com outras pessoas. Você recebe uma chave nova.',
@@ -504,7 +504,7 @@ const App: React.FC = () => {
       ];
     } else if (page.id === 'history') {
       title = 'Histórico';
-      eyebrow = vehicle.name;
+      eyebrow = undefined;
       loading = logs === null ? 'Carregando histórico…' : null;
       empty = 'Nenhum registro ainda.';
       items = (logs ?? []).map((log, i) => ({
@@ -514,7 +514,7 @@ const App: React.FC = () => {
       }));
     } else if (page.id === 'stats' && stats) {
       title = 'Desempenho';
-      eyebrow = vehicle.name;
+      eyebrow = undefined;
       const rows: [keyof VehicleStatsProps, string][] = [
         ['speed', 'Velocidade'],
         ['acceleration', 'Aceleração'],
