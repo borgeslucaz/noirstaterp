@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
   ArrowLeftRight, Car, Check, Eye, MapPin, Navigation, Palette, Plus, Save, Search, Shapes, Tag, Trash2,
   Users, Warehouse, Share2, CircleParking, Map as MapIcon, Briefcase, Skull, Square, SquareCheck, TriangleAlert,
+  Crosshair, Keyboard, PersonStanding, Shirt, Clapperboard,
 } from 'lucide-react';
 
 import Menu, { MenuItem, MenuNotice } from '../components/Menu';
@@ -45,6 +46,16 @@ const gradeLabel = (option: EditorGroupOption, level: number) => {
   const grade = option.grades.find(g => g.level === level);
   return `${grade?.name ?? `Cargo ${level}`} ou acima`;
 };
+
+/** Animacoes do atendente (as mesmas que o servidor aceita). */
+const SCENARIOS: { value?: string; label: string }[] = [
+  { value: undefined, label: 'Parado' },
+  { value: 'WORLD_HUMAN_CLIPBOARD', label: 'Prancheta' },
+  { value: 'WORLD_HUMAN_GUARD_STAND', label: 'Braços cruzados' },
+  { value: 'WORLD_HUMAN_STAND_MOBILE', label: 'Celular' },
+  { value: 'WORLD_HUMAN_SMOKING', label: 'Fumando' },
+];
+const DEFAULT_PED = 's_m_y_valet_01';
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
 
@@ -469,6 +480,53 @@ const EditorApp: React.FC = () => {
             activeDescription: 'Apaga o ponto de guardar; usa a saída.',
             onSelect: () => updatePoint(i, p => { delete p.dropPoint; }),
           });
+        }
+        const target = point.interaction === 'target';
+        items.push({
+          key: 'interaction',
+          label: 'Interação no balcão',
+          icon: target ? <Crosshair size={18} aria-hidden="true" /> : <Keyboard size={18} aria-hidden="true" />,
+          value: target ? 'ox_target' : 'Aperte E',
+          activeDescription: target ? 'Olho do target no atendente ou no ponto.' : 'Marcador no chão e a tecla E.',
+          onSelect: () => updatePoint(i, p => { p.interaction = p.interaction === 'target' ? 'key' : 'target'; }),
+        });
+        items.push({
+          key: 'ped',
+          label: 'Atendente (PED)',
+          icon: <PersonStanding size={18} aria-hidden="true" />,
+          value: point.ped ? 'Sim' : 'Não',
+          activeDescription: 'Um PED parado no balcão.',
+          onSelect: () => updatePoint(i, p => { p.ped = p.ped ? undefined : { model: DEFAULT_PED }; }),
+        });
+        if (point.ped) {
+          const ped = point.ped;
+          const scenarioIndex = Math.max(0, SCENARIOS.findIndex(sc => sc.value === ped.scenario));
+          items.push(
+            {
+              key: 'pedModel',
+              label: 'Modelo do PED',
+              icon: <Shirt size={18} aria-hidden="true" />,
+              input: {
+                value: ped.model,
+                maxLength: 40,
+                placeholder: DEFAULT_PED,
+                onChange: value => updatePoint(i, p => {
+                  if (p.ped) p.ped.model = value.replace(/[^\w]/g, '').toLowerCase();
+                }),
+              },
+            },
+            {
+              key: 'pedScenario',
+              label: 'Animação',
+              icon: <Clapperboard size={18} aria-hidden="true" />,
+              value: SCENARIOS[scenarioIndex].label,
+              activeDescription: 'Enter troca a animação.',
+              onSelect: () => updatePoint(i, p => {
+                if (!p.ped) return;
+                p.ped.scenario = SCENARIOS[(scenarioIndex + 1) % SCENARIOS.length].value;
+              }),
+            },
+          );
         }
         items.push({
           key: 'blip',

@@ -29,7 +29,9 @@
     "info": {
         "car_e": "E - Open Garage",
         "park_e": "E - Park Vehicle",
-        "impound_e": "E - Open Impound Lot"
+        "impound_e": "E - Open Impound Lot",
+        "target_garage": "Open garage",
+        "target_impound": "Open impound"
     },
     "logs": {
         "stored": "Stored at %s",

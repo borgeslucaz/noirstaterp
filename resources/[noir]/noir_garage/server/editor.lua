@@ -37,6 +37,15 @@ end
 
 local POINT_NUMBERS = { 'useRadius', 'dropUseRadius', 'drawRadius', 'dropDrawRadius' }
 
+-- Animacoes do atendente: so estas (cenarios do jogo base). Vazio = parado.
+local PED_SCENARIOS = {
+    WORLD_HUMAN_CLIPBOARD = true,
+    WORLD_HUMAN_GUARD_STAND = true,
+    WORLD_HUMAN_STAND_MOBILE = true,
+    WORLD_HUMAN_SMOKING = true,
+}
+local INTERACTIONS = { key = true, target = true }
+
 ---Garagem -> tabela so com dados (o que vai para o JSON e para a tela do editor).
 ---@param garage GarageConfig
 local function serialize(garage)
@@ -47,6 +56,8 @@ local function serialize(garage)
             spawn = vecToTable(point.spawn),
             dropPoint = vecToTable(point.dropPoint),
             blip = point.blip and { name = point.blip.name, sprite = point.blip.sprite, color = point.blip.color } or nil,
+            ped = point.ped and { model = point.ped.model, scenario = point.ped.scenario } or nil,
+            interaction = point.interaction,
         }
         for _, key in ipairs(POINT_NUMBERS) do p[key] = point[key] end
         points[i] = p
@@ -80,6 +91,8 @@ local function deserialize(data)
             spawn = tableToVec(p.spawn),
             dropPoint = p.dropPoint and vec3(p.dropPoint.x, p.dropPoint.y, p.dropPoint.z) or nil,
             blip = p.blip,
+            ped = p.ped,
+            interaction = p.interaction,
         }
         for _, key in ipairs(POINT_NUMBERS) do point[key] = p[key] end
         points[i] = point
@@ -232,6 +245,22 @@ local function validate(input)
             if not validInteger(sprite, 1, 999) then return nil, ('Ponto %d: ícone do blip inválido.'):format(i) end
             if not validInteger(color, 0, 85) then return nil, ('Ponto %d: cor do blip inválida.'):format(i) end
             point.blip = { name = name, sprite = sprite, color = color }
+        end
+
+        if p.ped ~= nil then
+            local ped = p.ped
+            if type(ped) ~= 'table' or type(ped.model) ~= 'string' or not ped.model:match('^[%w_]+$') or #ped.model > 40 then
+                return nil, ('Ponto %d: modelo do atendente inválido.'):format(i)
+            end
+            if ped.scenario ~= nil and not PED_SCENARIOS[ped.scenario] then
+                return nil, ('Ponto %d: animação do atendente inválida.'):format(i)
+            end
+            point.ped = { model = ped.model:lower(), scenario = ped.scenario }
+        end
+        if p.interaction ~= nil then
+            if not INTERACTIONS[p.interaction] then return nil, ('Ponto %d: interação inválida.'):format(i) end
+            -- 'key' e o padrao: so grava o target.
+            point.interaction = p.interaction == 'target' and 'target' or nil
         end
 
         -- Raios que a tela nao edita (o hangar usa maiores) passam adiante se forem validos.

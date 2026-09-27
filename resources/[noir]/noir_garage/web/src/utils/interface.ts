@@ -77,6 +77,10 @@ export interface EditorPoint {
     spawn?: Vec4;
     dropPoint?: Vec3;
     blip?: EditorBlip;
+    /** Atendente no balcao (PED local). */
+    ped?: { model: string; scenario?: string };
+    /** Como abre o balcao a pe: 'key' (marcador + E, padrao) ou 'target' (ox_target). */
+    interaction?: 'key' | 'target';
     /** Raios que a tela nao edita; voltam ao servidor como vieram. */
     useRadius?: number;
     dropUseRadius?: number;

@@ -158,6 +158,8 @@ export const debugEditorGarages: EditorGarage[] = [
             coords: { x: 454.6, y: -1017.4, z: 28.4, w: 90 },
             spawn: { x: 438.4, y: -1018.3, z: 27.7, w: 90 },
             dropPoint: { x: 434.1, y: -1016.5, z: 28.6 },
+            ped: { model: 's_m_y_cop_01', scenario: 'WORLD_HUMAN_CLIPBOARD' },
+            interaction: 'target',
         }],
     },
     {

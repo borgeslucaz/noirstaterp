@@ -23,14 +23,19 @@ Garagens e pátio da Noir State. Substitui o `qbx_garages`.
 
 `/garagem` abre o editor (ACE `noir.garageadmin`, dada ao `group.admin` no
 `permissions.cfg`). Cria, edita e apaga garagens: nome, tipo de veículo, pátio,
-compartilhada, grupos e os pontos de acesso (balcão, saída, ponto de guardar e
-blip). "Marcar" esconde o editor: ande até o lugar e aperte E (Backspace cancela).
+compartilhada, grupos e os pontos de acesso (balcão, saída, ponto de guardar,
+blip, atendente e interação). "Marcar" esconde o editor: ande até o lugar e aperte E (Backspace cancela).
 
 - As garagens ficam na tabela `noir_garage_locations`. No primeiro start ela é
   preenchida com as garagens de `config/server.lua`; daí em diante o config só
   serve de semente.
 - Salvar e apagar valem na hora para todos (zonas e blips são recriados).
 - Garagem com carros guardados não pode ser apagada.
+- Cada ponto pode ter um atendente (PED local, com modelo e animação) e abrir
+  por "Aperte E" (marcador no chão) ou por ox_target (no atendente ou numa esfera
+  no balcão), pelo target do `bgrz_core`. Guardar o carro continua no E. O
+  modelo do PED é conferido no cliente antes de criar: modelo inexistente não
+  cria nada (no Enhanced, derrubaria o jogo).
 
 ## Configuração
 

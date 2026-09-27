@@ -29,7 +29,9 @@
     "info": {
         "car_e": "E - Abrir Garagem",
         "park_e": "E - Guardar Veículo",
-        "impound_e": "E - Abrir Pátio"
+        "impound_e": "E - Abrir Pátio",
+        "target_garage": "Abrir garagem",
+        "target_impound": "Abrir pátio"
     },
     "logs": {
         "stored": "Guardado em %s",

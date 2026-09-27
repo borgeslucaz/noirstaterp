@@ -181,6 +181,59 @@ local function removeGarage(name)
     lib.hideTextUI()
 end
 
+---Atendente do balcao: PED local, parado, criado so quando o jogador chega perto. No Enhanced um
+---modelo que nao existe derruba o cliente, entao o modelo e conferido antes de qualquer request.
+---@param accessPoint AccessPoint
+---@param onSpawn? fun(ped: integer)
+---@return { remove: fun() }
+local function createAttendant(accessPoint, onSpawn)
+    local ped, token = nil, 0
+    local attendant = {}
+
+    function attendant.spawn()
+        local cfg = accessPoint.ped
+        if ped or not cfg or type(cfg.model) ~= 'string' then return end
+        token = token + 1
+        local myToken = token
+        CreateThread(function()
+            local model = joaat(cfg.model)
+            if not IsModelInCdimage(model) or not IsModelAPed(model) then
+                lib.print.warn(('noir_garage: modelo de atendente inexistente: %s'):format(cfg.model))
+                return
+            end
+            if not pcall(lib.requestModel, model, 5000) or myToken ~= token then return end
+            local c = accessPoint.coords
+            local created = CreatePed(4, model, c.x, c.y, c.z - 1.0, c.w, false, false)
+            SetModelAsNoLongerNeeded(model)
+            if created == 0 then return end
+            if myToken ~= token then
+                DeleteEntity(created)
+                return
+            end
+            ped = created
+            SetEntityInvincible(ped, true)
+            FreezeEntityPosition(ped, true)
+            SetBlockingOfNonTemporaryEvents(ped, true)
+            SetPedCanRagdoll(ped, false)
+            if cfg.scenario then TaskStartScenarioInPlace(ped, cfg.scenario, 0, true) end
+            if onSpawn then onSpawn(ped) end
+        end)
+    end
+
+    function attendant.remove()
+        token = token + 1
+        if not ped then return end
+        exports.bgrz_core:RemoveLocalEntityTarget(ped)
+        if DoesEntityExist(ped) then
+            SetEntityAsMissionEntity(ped, true, true)
+            DeleteEntity(ped)
+        end
+        ped = nil
+    end
+
+    return attendant
+end
+
 ---@param garageName string
 ---@param garage GarageConfig
 ---@param accessPoint AccessPoint
@@ -192,13 +245,47 @@ local function createZones(garageName, garage, accessPoint, accessPointIndex)
         accessPoint.dropPoint = accessPoint.dropPoint or accessPoint.spawn
         local drawRadius = accessPoint.drawRadius or 60
         local dropDrawRadius = accessPoint.dropDrawRadius or 60
-        local useRadius = accessPoint.useRadius or 1
+        -- Com atendente, o jogador para ao lado dele (nao em cima): o raio do balcao cresce um pouco.
+        local useRadius = accessPoint.useRadius or (accessPoint.ped and 1.6 or 1)
         local dropUseRadius = accessPoint.dropUseRadius or 1.5
+        -- ox_target: a pe, o balcao abre pelo alvo (no atendente ou numa esfera); guardar continua no E.
+        local useTarget = accessPoint.interaction == 'target'
+        local targetZone = ('%s_%d'):format(garageName, accessPointIndex)
         local dropZone, coordsZone
+
+        local function openFromTarget()
+            if current or cache.vehicle or not checkCanAccess(garage) then return end
+            openGarageMenu(garageName, garage, accessPointIndex)
+        end
+        local targetOptions = {
+            {
+                name = 'open',
+                icon = garage.type == GarageType.DEPOT and 'fa-solid fa-car-burst' or 'fa-solid fa-warehouse',
+                label = garage.type == GarageType.DEPOT and locale('info.target_impound') or locale('info.target_garage'),
+                distance = 2.5,
+                canInteract = function() return not cache.vehicle and not current end,
+                onSelect = openFromTarget,
+            },
+        }
+
+        local attendant = createAttendant(accessPoint, useTarget and function(ped)
+            exports.bgrz_core:AddLocalEntityTarget(ped, targetOptions)
+        end or nil)
+        if useTarget and not accessPoint.ped then
+            exports.bgrz_core:AddSphereZoneTarget({
+                name = targetZone,
+                coords = accessPoint.coords.xyz,
+                radius = math.max(useRadius, 1.0),
+                options = targetOptions,
+            })
+        end
+
         handles.zones[#handles.zones + 1] = {
             remove = function()
                 if dropZone then dropZone:remove() dropZone = nil end
                 if coordsZone then coordsZone:remove() coordsZone = nil end
+                attendant.remove()
+                if useTarget and not accessPoint.ped then exports.bgrz_core:RemoveZoneTarget(targetZone) end
             end,
         }
         local function createDropZone()
@@ -231,6 +318,7 @@ local function createZones(garageName, garage, accessPoint, accessPointIndex)
                 radius = useRadius,
                 onEnter = function()
                     if accessPoint.dropPoint and cache.vehicle then return end
+                    if useTarget and not cache.vehicle then return end
                     lib.showTextUI((garage.type == GarageType.DEPOT and locale('info.impound_e')) or (cache.vehicle and locale('info.park_e')) or locale('info.car_e'))
                 end,
                 onExit = function()
@@ -238,6 +326,7 @@ local function createZones(garageName, garage, accessPoint, accessPointIndex)
                 end,
                 inside = function()
                     if accessPoint.dropPoint and cache.vehicle then return end
+                    if useTarget and not cache.vehicle then return end
                     if current then return end
                     if IsControlJustReleased(0, 38) then
                         if not checkCanAccess(garage) then return end
@@ -257,14 +346,18 @@ local function createZones(garageName, garage, accessPoint, accessPointIndex)
             radius = drawRadius,
             onEnter = function()
                 createCoordsZone()
+                attendant.spawn()
             end,
             onExit = function()
                 if coordsZone then
                     coordsZone:remove()
                     coordsZone = nil
                 end
+                attendant.remove()
             end,
             inside = function()
+                -- O atendente ou o alvo ja mostram onde e o balcao: o marcador so fica no modo E sem PED.
+                if accessPoint.ped or useTarget then return end
                 config.drawGarageMarker(accessPoint.coords.xyz, useRadius)
             end,
             debug = config.debugPoly,
