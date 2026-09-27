@@ -580,8 +580,7 @@ button[aria-disabled="true"] {
 }
 
 .menu-item--input .field {
-  min-height: 34px;
-  margin-top: 4px;
+  min-height: 36px;
 }
 
 .menu__notice {

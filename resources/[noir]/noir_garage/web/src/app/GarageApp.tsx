@@ -293,6 +293,7 @@ const App: React.FC = () => {
       items = [{
         key: 'search',
         label: 'Buscar',
+        hideLabel: true,
         icon: <Search size={18} aria-hidden="true" />,
         input: { value: search, placeholder: 'Nome, modelo ou placa', onChange: setSearch },
       }];

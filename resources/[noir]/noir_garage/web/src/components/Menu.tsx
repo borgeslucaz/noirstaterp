@@ -7,6 +7,8 @@ export type MenuTone = 'danger';
 export interface MenuItem {
   key: string;
   label: string;
+  /** Rotulo so para leitor de tela (a busca mostra apenas o campo). */
+  hideLabel?: boolean;
   icon?: React.ReactNode;
   description?: React.ReactNode;
   /** Descricao de uma linha que so aparece com o item ativo. O item ja reserva a altura dela. */
@@ -169,7 +171,7 @@ const Menu: React.FC<{
             <>
               <span className="menu-item__icon">{item.icon}</span>
               <span className="menu-item__body">
-                <span className="menu-item__label">{item.label}</span>
+                <span className={item.hideLabel ? 'sr-only' : 'menu-item__label'}>{item.label}</span>
                 {item.input ? (
                   <input
                     className="field"
