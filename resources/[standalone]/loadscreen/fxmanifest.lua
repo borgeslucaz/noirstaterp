@@ -15,6 +15,5 @@ files {
     'ui/dist/assets/*.css',
     'ui/dist/assets/*.js',
     'ui/dist/*.svg',
-    'ui/images/*.png',
     'ui/song/*.mp3',
 }
