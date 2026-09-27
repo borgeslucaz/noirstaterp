@@ -260,6 +260,8 @@ const App: React.FC = () => {
 
       for (const v of list) {
         const status = vehicleStatus(v, garage.isDepot);
+        // Na rua (sem poder retirar daqui) ou apreendido: so informa, nao abre o menu do carro.
+        const locked = !v.canTakeOut && (v.state === 0 || v.state === 2);
         items.push({
           key: `vehicle-${v.id}`,
           label: v.name,
@@ -271,8 +273,8 @@ const App: React.FC = () => {
             </>
           ),
           value: favorites[v.id] ? <Star className="favorite" size={14} fill="currentColor" aria-label="Favorito" /> : undefined,
-          submenu: true,
-          onSelect: () => openVehicle(v.id),
+          submenu: !locked,
+          onSelect: locked ? undefined : () => openVehicle(v.id),
         });
       }
 
