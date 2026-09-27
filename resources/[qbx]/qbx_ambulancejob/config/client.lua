@@ -6,6 +6,7 @@ return {
     checkInHealTime = 20, -- Time in seconds that it takes to be healed from the check-in system
     laststandTimer = 300, -- Time in seconds that the laststand timer lasts
     aiHealTimer = 20, -- How long it will take to be healed after checking in, in seconds
+    showDownedText = false, -- Textos de caido/morto na tela; desligado porque o noir_handledeath desenha a tela de morte
 
     ---@alias Grade integer job grade
     ---@alias VehicleName string as appears in QBCore shared config

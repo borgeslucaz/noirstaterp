@@ -32,7 +32,7 @@ end
 
 ---@param ped number
 local function handleDead(ped)
-    if not IsInHospitalBed then
+    if not IsInHospitalBed and config.showDownedText then
         displayRespawnText()
     end
 
@@ -71,7 +71,7 @@ CreateThread(function()
         if isDead or inLaststand then
             if isDead then
                 handleDead(cache.ped)
-            elseif inLaststand then
+            elseif inLaststand and config.showDownedText then
                 handleLastStand()
             end
 

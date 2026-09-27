@@ -53,7 +53,10 @@ end
 
 exports('KillPlayer', OnDeath)
 
+local respawnRequested = false
+
 local function respawn()
+    respawnRequested = false
     local success = lib.callback.await('qbx_medical:server:respawn')
     if not success then return end
     if QBX.PlayerData.metadata.ishandcuffed then
@@ -61,12 +64,26 @@ local function respawn()
     end
     TriggerEvent('police:client:DeEscort')
     plyState.invBusy = false
+    TriggerEvent('qbx_medical:client:onPlayerRespawned')
 end
+
+---Pede o respawn no hospital por fora da tecla E (tela de morte em NUI prende o teclado).
+---O loop de CheckForRespawn executa no proximo segundo, entao nao corre junto com o automatico.
+---@return boolean accepted
+exports('RequestRespawn', function()
+    if DeathState ~= sharedConfig.deathState.DEAD or not allowRespawn then return false end
+    respawnRequested = true
+    return true
+end)
 
 ---Allow player to respawn
 function CheckForRespawn()
     RespawnHoldTime = 5
     while DeathState == sharedConfig.deathState.DEAD do
+        if respawnRequested and allowRespawn then
+            respawn()
+            return
+        end
         if IsControlPressed(0, 38) and RespawnHoldTime <= 1 and allowRespawn then
             respawn()
             return
