@@ -153,7 +153,7 @@ export const TransferDialog: React.FC<{
       footer={(
         <>
           <button type="button" className="button" onClick={onClose} disabled={saving}>Cancelar</button>
-          <button type="button" className="button button--primary" onClick={transfer} disabled={!selected || saving} aria-busy={saving}>
+          <button type="button" className="button button--success" onClick={transfer} disabled={!selected || saving} aria-busy={saving}>
             {saving && <Spinner />}
             {price > 0 ? `Transferir por $${formatMoney(price)}` : 'Transferir veículo'}
           </button>
