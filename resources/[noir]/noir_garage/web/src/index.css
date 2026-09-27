@@ -913,7 +913,7 @@ select.field option {
 }
 
 /* ── Tema "rua" (teste de interface) ─────────────────────────────────────
-   Titulo e rotulos condensados, em italico e caixa alta; item ativo em branco com texto escuro;
+   Titulo e rotulos condensados, em caixa alta; item ativo em branco com texto escuro;
    teclas em pilulas no rodape. Liga so com html[data-garage-theme="street"] (botao do preview). */
 
 .menu__keys {
@@ -957,7 +957,6 @@ html[data-garage-theme="street"] .menu__title {
   font-family: var(--font-display);
   font-size: 38px;
   font-weight: 800;
-  font-style: italic;
   line-height: 1;
   letter-spacing: 0.01em;
   text-transform: uppercase;
@@ -1003,7 +1002,6 @@ html[data-garage-theme="street"] .menu-item__label {
   font-family: var(--font-display);
   font-size: 19px;
   font-weight: 800;
-  font-style: italic;
   line-height: 1.15;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -1054,12 +1052,6 @@ html[data-garage-theme="street"] .menu[data-active="false"] .menu-item[data-acti
   box-shadow: none;
 }
 
-/* O italico passa da caixa do texto: sem folga, a ultima letra corta no overflow. */
-html[data-garage-theme="street"] .menu__title,
-html[data-garage-theme="street"] .menu__summary-name,
-html[data-garage-theme="street"] .menu-item__label {
-  padding-right: 0.2em;
-}
 
 html[data-garage-theme="street"] .menu-item[aria-disabled="true"] {
   opacity: 0.5;
@@ -1079,7 +1071,6 @@ html[data-garage-theme="street"] .menu__summary-name {
   font-family: var(--font-display);
   font-size: 24px;
   font-weight: 800;
-  font-style: italic;
   line-height: 1.05;
   text-transform: uppercase;
 }
@@ -1114,7 +1105,6 @@ html[data-garage-theme="street"] .menu__key {
   font-family: var(--font-display);
   font-size: 15px;
   font-weight: 800;
-  font-style: italic;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: #fff;
@@ -1135,7 +1125,6 @@ html[data-garage-theme="street"] .menu__key-sep {
   font-family: var(--font-display);
   font-size: 15px;
   font-weight: 800;
-  font-style: italic;
   color: rgba(255, 255, 255, 0.7);
 }
 
@@ -1143,7 +1132,6 @@ html[data-garage-theme="street"] .modal__title {
   font-family: var(--font-display);
   font-size: 26px;
   font-weight: 800;
-  font-style: italic;
   text-transform: uppercase;
 }
 
@@ -1152,7 +1140,6 @@ html[data-garage-theme="street"] .button {
   font-family: var(--font-display);
   font-size: 16px;
   font-weight: 800;
-  font-style: italic;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
