@@ -94,46 +94,83 @@ RegisterNUICallback('editor:capture', function(data, cb)
     cb(result)
 end)
 
----Posiciona o atendente com o object_gizmo. Segue o padrao do noir_guncraft, onde o cursor funciona:
----o gizmo roda numa thread propria, fora do callback da NUI (que responde na hora), e o resultado volta
----para a tela por mensagem. O modelo e conferido antes (no Enhanced, modelo inexistente derruba o cliente).
-local function gizmoLog(fmt, ...)
-    print(('[noir_garage:gizmo] ' .. fmt):format(...))
+---Posiciona o atendente sem gizmo: no Enhanced o object_gizmo desenha as alcas mas nao pega o clique
+---(os comandos +gizmoSelect/+gizmoRotation nao surtem efeito). O PED de teste segue o chao para onde a
+---camera mira, a roda do mouse gira (Shift = mais rapido), Enter confirma e Backspace cancela.
+local function placeLog(fmt, ...)
+    print(('[noir_garage:posicionar] ' .. fmt):format(...))
 end
 
 ---@param index integer ponto do rascunho (so ecoado de volta para a tela)
 ---@param model integer
 ---@param start table
-local function runPedGizmo(index, model, start)
+local function runPedPlacement(index, model, start)
     SendNUIMessage({ action = 'editor', data = { hidden = true } })
     SetNuiFocus(false, false)
     Wait(250)
-    gizmoLog('antes do gizmo: nuiFocused=%s keepInput=%s', tostring(IsNuiFocused()), tostring(IsNuiFocusKeepingInput()))
-    lib.notify({
-        description = 'G: cursor · W: mover · R: girar · Alt: chão · Enter: confirmar',
-        type = 'inform',
-        duration = 8000,
-    })
 
     local ped = CreatePed(4, model, start.x, start.y, start.z - 1.0, start.w or 0.0, false, false)
     SetModelAsNoLongerNeeded(model)
     local result = false
-    if ped ~= 0 then
+
+    if ped == 0 then
+        placeLog('CreatePed falhou')
+    else
         SetEntityInvincible(ped, true)
         SetBlockingOfNonTemporaryEvents(ped, true)
+        SetEntityCollision(ped, false, false)
         FreezeEntityPosition(ped, true)
-        local ok, gizmo = pcall(function() return exports.object_gizmo:useGizmo(ped) end)
-        gizmoLog('gizmo terminou: ok=%s retorno=%s', tostring(ok), ok and 'sim' or tostring(gizmo))
-        if ok and gizmo and DoesEntityExist(ped) then
-            local c = GetEntityCoords(ped)
-            result = { x = c.x, y = c.y, z = c.z, w = GetEntityHeading(ped) }
+        SetEntityAlpha(ped, 200, false)
+
+        local position = vec3(start.x, start.y, start.z)
+        local heading = start.w or 0.0
+        local placing = true
+
+        -- Mira em thread propria: o raycast do ox_lib espera um frame, e o laco abaixo precisa ler
+        -- as teclas em todo frame para nao perder o Enter nem a roda do mouse.
+        CreateThread(function()
+            while placing do
+                local hit, _, coords = lib.raycast.fromCamera(1 | 16, 4, 25.0)
+                if hit and placing then position = vec3(coords.x, coords.y, coords.z + 1.0) end
+            end
+        end)
+
+        lib.showTextUI('[Mira] mover  \n[Roda do mouse] girar (Shift: rápido)  \n[Enter] confirmar  \n[Backspace] cancelar')
+        while placing do
+            DisableControlAction(0, 14, true)  -- roda: arma seguinte
+            DisableControlAction(0, 15, true)  -- roda: arma anterior
+            DisableControlAction(0, 16, true)
+            DisableControlAction(0, 17, true)
+            DisableControlAction(0, 24, true)  -- ataque
+            DisableControlAction(0, 25, true)  -- mirar
+            DisableControlAction(0, 177, true) -- Backspace nao abre o menu de pausa
+            DisablePlayerFiring(cache.playerId, true)
+
+            local step = IsControlPressed(0, 21) and 15.0 or 5.0 -- Shift
+            if IsDisabledControlJustPressed(0, 14) or IsDisabledControlJustPressed(0, 16) then
+                heading = (heading - step) % 360
+            elseif IsDisabledControlJustPressed(0, 15) or IsDisabledControlJustPressed(0, 17) then
+                heading = (heading + step) % 360
+            end
+
+            SetEntityCoordsNoOffset(ped, position.x, position.y, position.z, false, false, false)
+            SetEntityHeading(ped, heading)
+
+            if IsControlJustPressed(0, 191) or IsControlJustPressed(0, 201) then -- Enter
+                result = { x = position.x, y = position.y, z = position.z, w = heading }
+                placing = false
+            elseif IsDisabledControlJustReleased(0, 177) then -- Backspace
+                placing = false
+            end
+            Wait(0)
         end
+        lib.hideTextUI()
+        placeLog('fim: %s', result and ('%.2f, %.2f, %.2f / %.0f°'):format(result.x, result.y, result.z, result.w) or 'cancelado')
+
         if DoesEntityExist(ped) then
             SetEntityAsMissionEntity(ped, true, true)
             DeleteEntity(ped)
         end
-    else
-        gizmoLog('CreatePed falhou')
     end
 
     if editorOpen then
@@ -142,13 +179,8 @@ local function runPedGizmo(index, model, start)
     end
 end
 
-RegisterNUICallback('editor:gizmoPed', function(data, cb)
+RegisterNUICallback('editor:placePed', function(data, cb)
     if not editorOpen or type(data) ~= 'table' or type(data.model) ~= 'string' then return cb(false) end
-    if GetResourceState('object_gizmo') ~= 'started' then
-        lib.notify({ description = 'object_gizmo não está rodando.', type = 'error' })
-        return cb(false)
-    end
-
     local model = joaat(data.model)
     if not IsModelInCdimage(model) or not IsModelAPed(model) then
         lib.notify({ description = ('Modelo inexistente: %s'):format(data.model), type = 'error' })
@@ -163,7 +195,7 @@ RegisterNUICallback('editor:gizmoPed', function(data, cb)
     end
 
     cb(true)
-    CreateThread(function() runPedGizmo(data.index, model, start) end)
+    CreateThread(function() runPedPlacement(data.index, model, start) end)
 end)
 
 AddEventHandler('onResourceStop', function(resource)

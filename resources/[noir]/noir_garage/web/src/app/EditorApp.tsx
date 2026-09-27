@@ -217,12 +217,12 @@ const EditorApp: React.FC = () => {
     });
   };
 
-  /** Gizmo do object_gizmo no jogo; a tela some e o resultado volta pela mensagem 'editor' (gizmo). */
+  /** Posicionar no jogo (mira + roda do mouse); a tela some e o resultado volta pela mensagem 'editor' (gizmo). */
   const placePed = async (index: number) => {
     const point = draft?.accessPoints[index];
     if (!point?.ped) return;
     const start = point.ped.position ?? point.coords;
-    const started = await fetchNui<boolean>('editor:gizmoPed', { index, model: point.ped.model, position: start }, {
+    const started = await fetchNui<boolean>('editor:placePed', { index, model: point.ped.model, position: start }, {
       data: true,
       delay: 100,
     });
@@ -548,7 +548,7 @@ const EditorApp: React.FC = () => {
             },
             {
               key: 'pedGizmo',
-              label: 'Posicionar com gizmo',
+              label: 'Posicionar atendente',
               icon: <Move3d size={18} aria-hidden="true" />,
               description: ped.position ? `Posição própria: ${fmt(ped.position)}` : 'No balcão',
               onSelect: () => placePed(i),
