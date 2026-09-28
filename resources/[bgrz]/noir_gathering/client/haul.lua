@@ -171,9 +171,9 @@ local function markerThread()
     CreateThread(function()
         while run do
             local sleep = 500
-            if Config.marker.enabled then
-                local point = run.phase == 'LOAD' and run.route.haul.stack or run.route.haul.dropoff
-                local target = toVector(point)
+            -- Só na pilha. No destino não há seta: o ponto de entrega é achado pelo alvo.
+            if Config.marker.enabled and run.phase == 'LOAD' then
+                local target = toVector(run.route.haul.stack)
                 if #(GetEntityCoords(cache.ped) - target) <= Config.marker.distance then
                     sleep = 0
                     DrawMarker(2, target.x, target.y, target.z + 1.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
