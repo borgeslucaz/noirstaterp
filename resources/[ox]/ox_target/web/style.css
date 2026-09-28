@@ -1,23 +1,23 @@
-/* Visual Noir State (resources/docs/DESIGN_v4.md): opcoes presas ao alvo, scroll navega, E escolhe. */
+/* Visual Noir State: opcoes presas ao alvo, scroll navega, E escolhe. Fonte Inter (escolha dele para o target, fora da tipografia do DESIGN_v4). */
 
 @font-face {
-  font-family: "Saira Condensed";
-  src: url("fonts/SairaCondensed-500.woff2") format("woff2");
-  font-weight: 500;
+  font-family: "Inter";
+  src: url("fonts/Inter-600.woff2") format("woff2");
+  font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: "Saira Condensed";
-  src: url("fonts/SairaCondensed-700.woff2") format("woff2");
+  font-family: "Inter";
+  src: url("fonts/Inter-700.woff2") format("woff2");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 
 :root {
-  --font-display: "Saira Condensed", Arial, sans-serif;
+  --font-ui: "Inter", Arial, sans-serif;
 
   --noir-text-strong: rgba(255, 255, 255, 0.96);
   --noir-text: rgba(255, 255, 255, 0.76);
@@ -29,9 +29,9 @@
   --radius: 2px;
   --duration-fast: 140ms;
 
-  --eye-size: 36px;
-  --row-height: 40px;
-  --key-tuck: 22px;
+  --eye-size: 28px;
+  --row-height: 32px;
+  --key-tuck: 16px;
 }
 
 html,
@@ -66,7 +66,7 @@ p {
   box-sizing: border-box;
   width: var(--eye-size);
   height: var(--eye-size);
-  padding: 7px;
+  padding: 5px;
   background: rgba(12, 14, 18, 0.72);
   border: 1px solid var(--noir-border);
   border-radius: var(--radius);
@@ -85,7 +85,7 @@ p {
   left: 50%;
   display: none;
   align-items: flex-start;
-  gap: 10px;
+  gap: 8px;
   transform: translate(calc(var(--eye-size) / -2), calc(var(--row-height) / -2));
 }
 
@@ -109,7 +109,7 @@ p {
   background: var(--noir-select);
   border-radius: var(--radius);
   color: var(--noir-select-text);
-  font: 700 17px var(--font-display);
+  font: 700 13px var(--font-ui);
   transition: transform var(--duration-fast) ease;
 }
 
@@ -117,25 +117,23 @@ p {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 6px;
+  gap: 5px;
 }
 
 .option-container {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 9px;
   box-sizing: border-box;
   height: var(--row-height);
-  max-width: 360px;
-  padding: 0 18px 0 14px;
+  max-width: 320px;
+  padding: 0 14px 0 11px;
   background: var(--surface-active);
   border: 1px solid var(--noir-border);
   border-radius: var(--radius);
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
   color: var(--noir-text);
   /* Inativas recuadas para baixo da coluna do E; a ativa e empurrada para frente, ao lado dele. */
   transform: translateX(calc(var(--key-tuck) * -1));
@@ -173,8 +171,9 @@ p {
   padding: 5px 10px 5px 6px;
   background: rgba(0, 0, 0, 0.72);
   border-radius: var(--radius);
-  font: 700 14px var(--font-display);
+  font: 700 12px var(--font-ui);
   letter-spacing: 0.03em;
+  text-transform: uppercase;
   color: #fff;
 }
 
@@ -183,13 +182,13 @@ p {
   background: var(--noir-select);
   border-radius: var(--radius);
   color: var(--noir-select-text);
-  font: 700 11px/1.4 var(--font-display);
+  font: 700 10px/1.5 var(--font-ui);
 }
 
 .option-icon {
   flex: none;
-  width: 18px;
-  font-size: 15px;
+  width: 14px;
+  font-size: 12px;
   text-align: center;
   color: rgba(255, 255, 255, 0.82);
   transition: color var(--duration-fast) ease;
