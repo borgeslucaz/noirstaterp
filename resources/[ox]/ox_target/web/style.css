@@ -22,7 +22,7 @@
   --noir-text-strong: rgba(255, 255, 255, 0.96);
   --noir-text: rgba(255, 255, 255, 0.76);
   --noir-border: rgba(255, 255, 255, 0.11);
-  --target-dot: #3d9bff;
+  --target-dot: #f2f2f2;
   --noir-select: #f2f2f2;
   --noir-select-text: #111113;
 
@@ -54,7 +54,7 @@ p {
   margin: 0;
 }
 
-/* Mira no centro: bolinha azul enquanto o ALT esta segurado; some quando ha alvo (a tecla E assume). */
+/* Mira no centro: bolinha branca enquanto o ALT esta segurado; some quando ha alvo (a tecla E assume). */
 #eye {
   position: absolute;
   top: 50%;
