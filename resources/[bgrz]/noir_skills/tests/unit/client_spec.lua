@@ -124,9 +124,8 @@ T.equal(api('GetXp', 'inexistente'), 0, 'habilidade desconhecida responde zero')
 T.falsy(api('HasLevel', second, 'dois'), 'nível que não é número é falso')
 T.truthy(api('GetAll')[second] ~= nil, 'GetAll traz o estado calculado')
 
--- Teclado e fechamento pela NUI -----------------------------------------------------------------
-T.truthy(keyMappings[Config.Command], 'o painel tem tecla padrão')
-T.equal(keyMappings[Config.Command].key, Config.Hotkey, 'a tecla é a do config')
+-- Sem tecla e fechamento pela NUI ---------------------------------------------------------------
+T.falsy(keyMappings[Config.Command], 'o painel não tem tecla: abre pelo radial')
 
 open()
 local cb = assert(nuiCallbacks['close'], 'callback de fechar não registrado')

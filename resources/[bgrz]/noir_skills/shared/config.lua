@@ -3,10 +3,8 @@ Config = {}
 -- Ace dos comandos de admin (`/addskillxp`, `/setskilllevel`, `/resetskill`).
 Config.AdminAce = 'noir.skills'
 
--- Comando e tecla do painel. A tecla é só o padrão: o jogador troca em Configurações →
--- Atalhos de Teclado, e a escolha dele manda.
+-- Comando do painel. Sem tecla: o painel abre pelo radial (Cidadão → Habilidades).
 Config.Command = 'skills'
-Config.Hotkey = 'J'
 
 -- Aviso de "subiu de nível" na tela do jogador.
 Config.NotifyLevelUp = true

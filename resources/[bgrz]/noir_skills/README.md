@@ -1,7 +1,7 @@
 # noir_skills
 
 Habilidades de personagem: XP por atividade, níveis com curva configurável e um painel
-(tecla `J`) que mostra o progresso.
+(radial, Cidadão → Habilidades, ou `/skills`) que mostra o progresso.
 
 Fork do [evolent_skills](https://github.com/evolent-labs/evolent_skills) (GPLv3, ver
 [LICENSE](LICENSE)), reescrito para este servidor: adaptador de quatro frameworks fora,

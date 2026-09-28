@@ -127,8 +127,6 @@ RegisterCommand(Config.Command, function()
     Open()
 end, false)
 
-RegisterKeyMapping(Config.Command, 'Abrir habilidades', 'keyboard', Config.Hotkey)
-
 RegisterNUICallback('close', function(_, cb)
     setVisible(false)
     cb(1)

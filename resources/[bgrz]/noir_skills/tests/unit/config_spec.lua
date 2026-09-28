@@ -139,7 +139,6 @@ T.truthy(sql:find('PRIMARY KEY (`citizenid`, `skill`)', 1, true),
 -- Config --------------------------------------------------------------------------------------
 T.truthy(type(Config.AdminAce) == 'string' and Config.AdminAce ~= '', 'os comandos precisam de um ace')
 T.truthy(type(Config.Command) == 'string' and Config.Command ~= '', 'o painel precisa de um comando')
-T.truthy(type(Config.Hotkey) == 'string' and Config.Hotkey ~= '', 'e de uma tecla padrão')
 
 -- Ícone desconhecido não quebra a UI, mas quase sempre é erro de digitação no config.
 local iconSource = read('web/src/lib/Icon.svelte')
