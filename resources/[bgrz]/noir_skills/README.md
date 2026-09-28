@@ -85,6 +85,7 @@ calcula com a mesma curva (`shared/xp.lua` é shared por isso). Pode chamar dent
 exports.noir_skills:GetLevel('arrombamento')
 exports.noir_skills:HasLevel('arrombamento', 5)
 exports.noir_skills:GetAll()
+exports.noir_skills:Open()   -- abre o painel (usado pelo radial, em Cidadão → Habilidades)
 ```
 
 Eventos para quem quer reagir:

@@ -112,10 +112,19 @@ end)
 -- ---------------------------------------------------------------------------
 -- Painel
 -- ---------------------------------------------------------------------------
+-- Chamado por outra interface (radial): quem chama acabou de soltar o foco da NUI dela,
+-- então aqui não se checa IsNuiFocused — só o pause menu.
+local function Open()
+    if visible or IsPauseMenuActive() then return end
+    setVisible(true)
+end
+
+exports('Open', Open)
+
 RegisterCommand(Config.Command, function()
     if visible then return setVisible(false) end
-    if IsPauseMenuActive() or IsNuiFocused() then return end
-    setVisible(true)
+    if IsNuiFocused() then return end
+    Open()
 end, false)
 
 RegisterKeyMapping(Config.Command, 'Abrir habilidades', 'keyboard', Config.Hotkey)
