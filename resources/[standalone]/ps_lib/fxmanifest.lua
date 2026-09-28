@@ -9,6 +9,15 @@ version '1.0.0'
 description 'Project Sloth Library'
 author 'Project Sloth'
 
+-- O bridge escolhe framework/inventario/target por GetResourceState no load (bridge/client.lua).
+-- Sem a dependencia, um restart do ox_target joga o ps_lib para antes dele na ordem de start
+-- e o cliente sobe sem ps.boxTarget (crafter.lua:151).
+dependencies {
+    'qbx_core',
+    'ox_inventory',
+    'ox_target',
+}
+
 client_scripts {
     '@qbx_core/modules/playerdata.lua',
     'startFirst/client/**.lua',
