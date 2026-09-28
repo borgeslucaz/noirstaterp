@@ -223,7 +223,10 @@ local function spawnTargetNPC()
         print(('[%s] Modelo do lojista inexistente: %s'):format(resourceName, cfg.model))
         return
     end
-    if not pcall(lib.requestModel, model, 5000) then return end
+    if not pcall(lib.requestModel, model, 5000) then
+        print(('[%s] Modelo do lojista nao carregou: %s'):format(resourceName, cfg.model))
+        return
+    end
 
     local ped = CreatePed(4, model, cfg.coords.x, cfg.coords.y, cfg.coords.z - 1.0, cfg.coords.w, false, false)
     SetModelAsNoLongerNeeded(model)

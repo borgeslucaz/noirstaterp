@@ -6,7 +6,10 @@ description 'NPC interaction showcase for envi-interact'
 version '0.1.0'
 
 
-shared_script 'config.lua'
+shared_scripts {
+    '@ox_lib/init.lua',
+    'config.lua'
+}
 client_script 'client/main.lua'
 
 dependencies {
