@@ -90,7 +90,7 @@ const TextUI: React.FC = () => {
                   }}
                 />
               )} */}
-              <div className={classes.buttonIndicator}>{data.key}</div>
+              {data.key && <div className={classes.buttonIndicator}>{data.key}</div>}
               <ReactMarkdown components={MarkdownComponents} remarkPlugins={[remarkGfm]}>
                 {data.text}
               </ReactMarkdown>

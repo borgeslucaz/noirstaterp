@@ -6,7 +6,7 @@ export type TextUiPosition = 'right-center' | 'left-center' | 'top-center' | 'bo
 
 export interface TextUiProps {
   text: string;
-  key: string;
+  key?: string;
   position?: TextUiPosition;
   icon?: IconProp;
   iconColor?: string;
