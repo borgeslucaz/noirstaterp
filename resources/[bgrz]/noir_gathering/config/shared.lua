@@ -4,7 +4,10 @@ return {
     debug = false,
 
     ---Raio do alvo do ox_target no ponto de início e nos pontos de coleta.
-    targetRadius = 1.0,
+    ---O ponto é gravado na altura do corpo do admin (~1 m do chão) e o ox_target só
+    ---mostra a opção quando a MIRA acerta algo dentro da esfera: abaixo de ~1.5 o chão
+    ---fica fora e aparece só a bolinha, sem opção. 2.0 é o padrão do ox_target.
+    targetRadius = 2.0,
 
     ---Marcador sobre o ponto atual do turno.
     marker = { enabled = true, distance = 30.0 },
