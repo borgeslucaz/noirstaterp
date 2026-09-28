@@ -1,37 +1,26 @@
 import React, { useMemo } from 'react';
 
-const colorChannelMixer = (colorChannelA: number, colorChannelB: number, amountToMix: number) => {
-  let channelA = colorChannelA * amountToMix;
-  let channelB = colorChannelB * (1 - amountToMix);
-  return channelA + channelB;
-};
-
-const colorMixer = (rgbA: number[], rgbB: number[], amountToMix: number) => {
-  let r = colorChannelMixer(rgbA[0], rgbB[0], amountToMix);
-  let g = colorChannelMixer(rgbA[1], rgbB[1], amountToMix);
-  let b = colorChannelMixer(rgbA[2], rgbB[2], amountToMix);
-  return `rgb(${r}, ${g}, ${b})`;
-};
-
-const COLORS = {
-  // Colors used - https://materialui.co/flatuicolors
-  primaryColor: [231, 76, 60], // Red (Pomegranate)
-  secondColor: [61, 220, 132], // Verde do tema
-  accentColor: [211, 84, 0], // Orange (Oragne)
-};
+// Cores do DESIGN_v4 (§3.1): durabilidade e "mais e melhor" (perigo ate 35%, alerta ate 60%,
+// sucesso acima); peso e "mais e pior", entao fica neutro e so avisa perto de encher.
+const DANGER = '#d51a1a';
+const WARNING = '#d7a84b';
+const SUCCESS = '#39df45';
+const NEUTRAL = 'rgba(255, 255, 255, 0.82)';
 
 const WeightBar: React.FC<{ percent: number; durability?: boolean }> = ({ percent, durability }) => {
   const color = useMemo(
     () =>
       durability
-        ? percent < 50
-          ? colorMixer(COLORS.accentColor, COLORS.primaryColor, percent / 100)
-          : colorMixer(COLORS.secondColor, COLORS.accentColor, percent / 100)
-        : percent <= 60
-          ? `rgb(${COLORS.secondColor.join(', ')})`
-          : percent <= 85
-            ? colorMixer(COLORS.accentColor, COLORS.secondColor, (percent - 60) / 25)
-            : colorMixer(COLORS.primaryColor, COLORS.accentColor, (percent - 85) / 15),
+        ? percent <= 35
+          ? DANGER
+          : percent <= 60
+            ? WARNING
+            : SUCCESS
+        : percent <= 80
+          ? NEUTRAL
+          : percent <= 95
+            ? WARNING
+            : DANGER,
     [durability, percent]
   );
 
