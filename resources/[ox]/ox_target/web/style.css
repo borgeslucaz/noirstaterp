@@ -109,6 +109,7 @@ p {
   border-radius: var(--radius);
   color: var(--noir-select-text);
   font: 700 17px var(--font-display);
+  transition: transform var(--duration-fast) ease;
 }
 
 #options-wrapper {
@@ -201,6 +202,7 @@ p {
 
 @media (prefers-reduced-motion: reduce) {
   #eyeSvg,
+  #target-key,
   .option-container,
   .option-icon {
     transition: none;

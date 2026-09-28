@@ -4,6 +4,7 @@ const optionsWrapper = document.getElementById("options-wrapper");
 const group = document.getElementById("target-group");
 const body = document.body;
 const eye = document.getElementById("eyeSvg");
+const key = document.getElementById("target-key");
 
 // Opcao destacada: o scroll move, o E (ou clique) confirma. Sem cursor.
 let items = [];
@@ -14,6 +15,8 @@ function setActive(index) {
 
   active = (index + items.length) % items.length;
   items.forEach((el, i) => el.classList.toggle("is-active", i === active));
+  // A tecla E desce ate a opcao ativa; a lista fica parada.
+  key.style.transform = `translateY(${items[active].offsetTop}px)`;
 }
 
 function clearOptions() {
