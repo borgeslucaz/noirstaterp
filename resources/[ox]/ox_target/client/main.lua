@@ -24,6 +24,8 @@ local GetModelDimensions = GetModelDimensions
 local GetOffsetFromEntityInWorldCoords = GetOffsetFromEntityInWorldCoords
 local GetScreenCoordFromWorldCoord = GetScreenCoordFromWorldCoord
 local DoesEntityExist = DoesEntityExist
+local GetPedBoneCoords = GetPedBoneCoords
+local CHEST_BONE = 24818 -- SKEL_Spine3: em ped o centro do modelo fica na cintura
 local currentTarget = {}
 local currentMenu
 local menuChanged
@@ -140,7 +142,7 @@ local function startTargeting()
     local hit, entityHit, endCoords, distance, lastEntity, entityType, entityModel, hasTarget, zonesChanged
     local zones = {}
     -- Ponto na tela onde as opcoes ficam: centro do modelo, centro da zona ou o ponto mirado.
-    local anchorEntity, anchorOffset, anchorCoords
+    local anchorEntity, anchorOffset, anchorCoords, anchorIsPed
 
     CreateThread(function()
         local dict, texture = utils.getTexture()
@@ -185,7 +187,8 @@ local function startTargeting()
                 local anchor = anchorCoords
 
                 if anchorEntity and DoesEntityExist(anchorEntity) then
-                    anchor = GetOffsetFromEntityInWorldCoords(anchorEntity, anchorOffset.x, anchorOffset.y, anchorOffset.z)
+                    anchor = anchorIsPed and GetPedBoneCoords(anchorEntity, CHEST_BONE, 0.0, 0.0, 0.0)
+                        or GetOffsetFromEntityInWorldCoords(anchorEntity, anchorOffset.x, anchorOffset.y, anchorOffset.z)
                 end
 
                 if anchor then
@@ -348,7 +351,7 @@ local function startTargeting()
 
         -- Ancora: a entidade se ela tem opcao visivel, senao a zona, senao o ponto mirado (globais).
         if entityVisible and entityHit > 0 and anchorOffset then
-            anchorEntity, anchorCoords = entityHit, nil
+            anchorEntity, anchorCoords, anchorIsPed = entityHit, nil, entityType == 1
         else
             anchorEntity = nil
             anchorCoords = anchorZone and anchorZone.coords or endCoords
