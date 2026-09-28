@@ -6,7 +6,7 @@ export const debugProgressbar = () => {
     {
       action: 'progress',
       data: {
-        label: 'Using Lockpick',
+        label: 'Usando lockpick',
         duration: 8000,
       },
     },
@@ -19,7 +19,7 @@ export const debugCircleProgressbar = () => {
       action: 'circleProgress',
       data: {
         duration: 8000,
-        label: 'Using Armour',
+        label: 'Vestindo colete',
       },
     },
   ]);

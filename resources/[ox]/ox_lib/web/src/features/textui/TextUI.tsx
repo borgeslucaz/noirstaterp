@@ -1,4 +1,4 @@
-import { Box, createStyles, Group } from '@mantine/core';
+import { Box, createStyles } from '@mantine/core';
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -7,18 +7,14 @@ import { useNuiEvent } from '../../hooks/useNuiEvent';
 import ScaleFade from '../../transitions/ScaleFade';
 import type { TextUiPosition, TextUiProps } from '../../typings';
 
-const useStyles = createStyles((theme, params: { position?: TextUiPosition }) => ({
+const useStyles = createStyles((theme, params: { position?: TextUiPosition; hasKey: boolean }) => ({
   wrapper: {
     height: '100%',
     width: '100%',
     position: 'absolute',
     display: 'flex',
     alignItems:
-      params.position === 'top-center'
-        ? 'flex-start'
-        : params.position === 'bottom-center'
-        ? 'flex-end'
-        : 'center',
+      params.position === 'top-center' ? 'flex-start' : params.position === 'bottom-center' ? 'flex-end' : 'center',
     justifyContent:
       params.position === 'right-center'
         ? 'flex-end'
@@ -26,33 +22,41 @@ const useStyles = createStyles((theme, params: { position?: TextUiPosition }) =>
         ? 'center'
         : 'flex-start',
   },
+  // Pílula de tecla do DESIGN_v4 (§7): tecla branca, texto em display caixa alta.
   container: {
-    fontSize: 16,
-    padding: 8,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    maxWidth: 420,
+    padding: params.hasKey ? '6px 12px 6px 6px' : '6px 12px',
     margin: 0,
-    backgroundColor: 'var(--noir-panel)',
-    color: 'var(--noir-text-strong)',
-    fontFamily: 'Albert Sans',
     borderRadius: 'var(--noir-radius)',
-    border: '1px solid var(--noir-panel-border)',
-    fontWeight: 500,
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    color: '#fff',
+    fontFamily: 'var(--font-display)',
+    fontSize: 16,
+    fontWeight: 700,
+    lineHeight: 1.2,
+    letterSpacing: '0.03em',
+    textTransform: 'uppercase',
     marginLeft: params.position === 'left-center' ? 16 : 0,
     marginRight: params.position === 'right-center' ? 16 : 0,
     marginTop: params.position === 'top-center' ? 16 : 0,
     marginBottom: params.position === 'bottom-center' ? 16 : 0,
+    '& p': { margin: 0 },
   },
   buttonIndicator: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    minWidth: 26,
+    flex: '0 0 auto',
+    padding: '2px 7px',
     borderRadius: 'var(--noir-radius)',
-    padding: '2px 8px',
-    border: `1px solid var(--noir-border)`,
-    backgroundColor: 'var(--noir-panel)',
-    color: 'var(--noir-text-strong)',
-    boxShadow: '0 1px 4px rgba(0, 0, 0, 0.50)',
-    fontWeight: 800,
-    fontSize: 16,
+    backgroundColor: 'var(--noir-selected)',
+    color: 'var(--noir-on-light)',
+    fontFamily: 'var(--font-ui)',
+    fontSize: 13,
+    fontWeight: 700,
+    lineHeight: 1.4,
+    textAlign: 'center',
   },
 }));
 
@@ -63,7 +67,7 @@ const TextUI: React.FC = () => {
     position: 'left-center',
   });
   const [visible, setVisible] = React.useState(false);
-  const { classes } = useStyles({ position: data.position });
+  const { classes } = useStyles({ position: data.position, hasKey: !!data.key });
 
   useNuiEvent<TextUiProps>('textUi', (data) => {
     setData({ ...data, position: data.position || 'left-center' });
@@ -77,8 +81,7 @@ const TextUI: React.FC = () => {
       <Box className={classes.wrapper}>
         <ScaleFade visible={visible}>
           <Box style={data.style} className={classes.container}>
-            <Group spacing={12}>
-              {/* {data.icon && (
+            {/* {data.icon && (
                 <LibIcon
                   icon={data.icon}
                   fixedWidth
@@ -90,11 +93,10 @@ const TextUI: React.FC = () => {
                   }}
                 />
               )} */}
-              {data.key && <div className={classes.buttonIndicator}>{data.key}</div>}
-              <ReactMarkdown components={MarkdownComponents} remarkPlugins={[remarkGfm]}>
-                {data.text}
-              </ReactMarkdown>
-            </Group>
+            {data.key && <div className={classes.buttonIndicator}>{data.key}</div>}
+            <ReactMarkdown components={MarkdownComponents} remarkPlugins={[remarkGfm]}>
+              {data.text}
+            </ReactMarkdown>
           </Box>
         </ScaleFade>
       </Box>

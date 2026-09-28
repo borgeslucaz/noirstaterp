@@ -12,11 +12,7 @@ interface Props {
 
 const useStyles = createStyles((theme) => ({
   eyeIcon: {
-    color: 'var(--noir-text)',
-  },
-  InputField: {
-    color: 'var(--noir-text)',
-    backgroundColor: 'var(--noir-panel)',
+    color: 'var(--noir-text-muted)',
   },
 }));
 
@@ -37,17 +33,6 @@ const InputField: React.FC<Props> = (props) => {
           maxLength={props.row.max}
           disabled={props.row.disabled}
           withAsterisk={props.row.required}
-          styles={{
-            input: {
-              color: 'var(--noir-text)',
-              backgroundColor: 'var(--noir-panel)',
-              borderRadius: 'var(--noir-radius)',
-              borderColor: 'var(--noir-border)',
-              ':focus': {
-                borderColor: 'var(--noir-border-hover)',
-              },
-            },
-          }}
         />
       ) : (
         <PasswordInput
@@ -61,20 +46,6 @@ const InputField: React.FC<Props> = (props) => {
           maxLength={props.row.max}
           disabled={props.row.disabled}
           withAsterisk={props.row.required}
-          styles={{
-            input: {
-              color: 'var(--noir-text)',
-              backgroundColor: 'var(--noir-panel)',
-              borderRadius: 'var(--noir-radius)',
-              borderColor: 'var(--noir-border)',
-              ':focus-within': {
-                borderColor: 'var(--noir-border-hover)',
-              },
-            },
-            icon: {
-              color: 'var(--noir-text)',
-            },
-          }}
           visibilityToggleIcon={({ reveal, size }) => (
             <LibIcon
               icon={reveal ? 'eye-slash' : 'eye'}

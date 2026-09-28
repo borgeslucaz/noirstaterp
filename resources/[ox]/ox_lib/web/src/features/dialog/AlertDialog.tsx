@@ -1,22 +1,17 @@
-import { Button, createStyles, Group, Modal, Stack } from '@mantine/core';
+import { Modal } from '@mantine/core';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import LibIcon from '../../components/LibIcon';
 import MarkdownComponents from '../../config/MarkdownComponents';
 import { useNuiEvent } from '../../hooks/useNuiEvent';
 import { useLocales } from '../../providers/LocaleProvider';
 import type { AlertProps } from '../../typings';
 import { fetchNui } from '../../utils/fetchNui';
-
-const useStyles = createStyles(() => ({
-  contentStack: {
-    color: 'var(--noir-text)',
-  },
-}));
+import { dialogModalProps, dialogSizes } from './modalStyles';
 
 const AlertDialog: React.FC = () => {
   const { locale } = useLocales();
-  const { classes } = useStyles();
   const [opened, setOpened] = useState(false);
   const [dialogData, setDialogData] = useState<AlertProps>({
     header: '',
@@ -38,91 +33,45 @@ const AlertDialog: React.FC = () => {
   });
 
   return (
-    <>
-      <Modal
-        styles={{
-          root: {
-            fontFamily: 'Albert Sans',
-          },
-          modal: {
-            backgroundColor: 'var(--noir-panel)',
-            color: 'var(--noir-text-strong)',
-            borderRadius: 'var(--noir-radius)',
-            border: '1px solid var(--noir-panel-border)',
-          },
-          header: {
-            fontSize: 20,
-            fontWeight: 500,
-          },
-        }}
-        opened={opened}
-        centered={dialogData.centered}
-        size={dialogData.size || 'md'}
-        overflow={dialogData.overflow ? 'inside' : 'outside'}
-        closeOnClickOutside={false}
-        onClose={() => {
-          setOpened(false);
-          closeAlert('cancel');
-        }}
-        withCloseButton={false}
-        overlayOpacity={0.5}
-        exitTransitionDuration={150}
-        transition="fade"
-        title={<ReactMarkdown components={MarkdownComponents}>{dialogData.header}</ReactMarkdown>}
-      >
-        <Stack className={classes.contentStack}>
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              ...MarkdownComponents,
-              img: ({ ...props }) => <img style={{ maxWidth: '100%', maxHeight: '100%' }} {...props} />,
-            }}
-          >
-            {dialogData.content}
-          </ReactMarkdown>
-          <Group position="right" spacing={10}>
-            {dialogData.cancel && (
-              <Button
-                variant="default"
-                onClick={() => closeAlert('cancel')}
-                mr={3}
-                styles={{
-                  root: {
-                    transition: 'all 200ms ease-in-out',
-                    backgroundColor: 'transparent',
-                    ':hover': { backgroundColor: 'transparent' },
-                    fontWeight: 400,
-                    fontSize: 14,
-                  },
-                  label: {
-                    transition: 'all 200ms ease-in-out',
-                    color: 'var(--noir-text)',
-                    ':hover': { color: 'var(--noir-white)' },
-                  },
-                }}
-              >
-                {dialogData.labels?.cancel || locale.ui.cancel}
-              </Button>
-            )}
-            <Button
-              styles={{
-                root: {
-                  transition: 'all 200ms ease-in-out',
-                  backgroundColor: 'rgba(255, 113, 0, 0.75)',
-                  ':hover': { backgroundColor: 'rgba(255, 113, 0, 1)', borderColor: 'var(--noir-border-hover)' },
-                  borderRadius: 'var(--noir-radius)',
-                },
-                label: { color: 'var(--noir-text-strong)' },
-              }}
-              variant={dialogData.cancel ? 'light' : 'default'}
-              onClick={() => closeAlert('confirm')}
-            >
-              {dialogData.labels?.confirm || locale.ui.confirm}
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-    </>
+    <Modal
+      {...dialogModalProps}
+      opened={opened}
+      size={dialogSizes[dialogData.size || 'md']}
+      overflow={dialogData.overflow ? 'inside' : 'outside'}
+      onClose={() => closeAlert('cancel')}
+    >
+      <header className="dialog__header">
+        <div className="dialog__title">
+          <ReactMarkdown components={MarkdownComponents}>{dialogData.header}</ReactMarkdown>
+        </div>
+        {dialogData.cancel && (
+          <button type="button" className="dialog__close" aria-label="Fechar" onClick={() => closeAlert('cancel')}>
+            <LibIcon icon="xmark" fixedWidth />
+          </button>
+        )}
+      </header>
+      <div className="dialog__body">
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
+          {dialogData.content}
+        </ReactMarkdown>
+      </div>
+      {/* Confirmação: foco inicial em Cancelar, um Enter sem querer não executa. */}
+      <div className="dialog__footer" data-single={dialogData.cancel ? undefined : ''}>
+        {dialogData.cancel && (
+          <button type="button" className="dialog-button" data-autofocus onClick={() => closeAlert('cancel')}>
+            {dialogData.labels?.cancel || locale.ui.cancel}
+          </button>
+        )}
+        <button
+          type="button"
+          className="dialog-button dialog-button--confirm"
+          data-autofocus={dialogData.cancel ? undefined : true}
+          onClick={() => closeAlert('confirm')}
+        >
+          {dialogData.labels?.confirm || locale.ui.confirm}
+        </button>
+      </div>
+    </Modal>
   );
 };
 

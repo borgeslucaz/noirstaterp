@@ -12,6 +12,9 @@ import { debugRadial } from './debug/radial';
 import LibIcon from '../../components/LibIcon';
 import type { NotificationProps, TextUiProps } from '../../typings';
 
+// O StrictMode monta duas vezes: o preset só dispara uma.
+let presetFired = false;
+
 const Dev: React.FC = () => {
   const [opened, setOpened] = useState(false);
   const [notificationPosition, setNotificationPosition] = useState<NonNullable<NotificationProps['position']>>(
@@ -19,11 +22,24 @@ const Dev: React.FC = () => {
   );
   const [textUiPosition, setTextUiPosition] = useState<NonNullable<TextUiProps['position']>>('left-center');
 
-  // ?preset=context|menu abre o cenário direto (print sem clicar na gaveta).
+  // ?preset=<nome> abre o cenário direto (print sem clicar na gaveta).
   useEffect(() => {
+    if (presetFired) return;
+    presetFired = true;
     const preset = new URLSearchParams(window.location.search).get('preset');
-    if (preset === 'context') debugContext();
-    else if (preset === 'menu') debugMenu();
+    const presets: Record<string, () => void> = {
+      context: debugContext,
+      menu: debugMenu,
+      input: debugInput,
+      alert: debugAlert,
+      notify: () => debugCustomNotification(),
+      progress: debugProgressbar,
+      circle: debugCircleProgressbar,
+      textui: () => debugTextUI(),
+      radial: debugRadial,
+      skillcheck: debugSkillCheck,
+    };
+    if (preset && presets[preset]) presets[preset]();
   }, []);
 
   return (

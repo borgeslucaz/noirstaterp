@@ -6,8 +6,8 @@ export const debugTextUI = (position: TextUiProps['position'] = 'left-center') =
     {
       action: 'textUi',
       data: {
-        text: 'Access locker inventory ',
-        key: 'Q',
+        text: 'Abrir armário',
+        key: 'E',
         position,
         icon: 'door-open',
       },

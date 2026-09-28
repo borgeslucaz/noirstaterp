@@ -37,20 +37,6 @@ const DateField: React.FC<Props> = (props) => {
           icon={props.row.icon && <LibIcon fixedWidth icon={props.row.icon} />}
           minDate={props.row.min ? new Date(props.row.min) : undefined}
           maxDate={props.row.max ? new Date(props.row.max) : undefined}
-          styles={{
-            input: {
-              color: 'var(--noir-text)',
-              backgroundColor: 'var(--noir-panel)',
-              borderRadius: 'var(--noir-radius)',
-              borderColor: 'var(--noir-border)',
-              ':focus-within': {
-                borderColor: 'var(--noir-border-hover)',
-              },
-            },
-            icon: {
-              color: 'var(--noir-text)',
-            },
-          }}
         />
       )}
       {props.row.type === 'date-range' && (
@@ -78,20 +64,6 @@ const DateField: React.FC<Props> = (props) => {
           icon={props.row.icon && <LibIcon fixedWidth icon={props.row.icon} />}
           minDate={props.row.min ? new Date(props.row.min) : undefined}
           maxDate={props.row.max ? new Date(props.row.max) : undefined}
-          styles={{
-            input: {
-              color: 'var(--noir-text)',
-              backgroundColor: 'var(--noir-panel)',
-              borderRadius: 'var(--noir-radius)',
-              borderColor: 'var(--noir-border)',
-              ':focus-within': {
-                borderColor: 'var(--noir-border-hover)',
-              },
-            },
-            icon: {
-              color: 'var(--noir-text)',
-            },
-          }}
         />
       )}
     </>

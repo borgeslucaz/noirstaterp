@@ -6,16 +6,11 @@ export const debugAlert = () => {
     {
       action: 'sendAlert',
       data: {
-        header: 'Hello there',
-        content: 'General kenobi  \n Markdown works',
+        header: 'Vender veículo',
+        content:
+          '**Karin Kuruma** placa 12ABC345\n\nO veículo sai da sua garagem e não pode ser recuperado depois.\n\nValor: **$18.500**',
         centered: true,
-        size: 'lg',
-        overflow: true,
         cancel: true,
-        // labels: {
-        //   confirm: 'Ok',
-        //   cancel: 'Not ok',
-        // },
       },
     },
   ]);

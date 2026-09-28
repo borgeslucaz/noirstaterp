@@ -6,40 +6,39 @@ export const debugCustomNotification = (position: NotificationProps['position'] 
     {
       action: 'notify',
       data: {
-        title: 'Success',
-        description: 'Notification description',
+        title: 'Veículo guardado',
+        description: 'O Karin Kuruma está na garagem da Legion Square.',
         type: 'success',
-        id: 'pogchamp',
         duration: 20000,
         position,
-        style: {
-          '.description': {
-            color: 'red',
-          },
-        },
       },
     },
-  ]);
-  debugData<NotificationProps>([
     {
       action: 'notify',
       data: {
-        title: 'Error',
-        description: 'Notification description',
+        title: 'Sem dinheiro',
+        description: 'Você precisa de **$5.000** na conta.',
         type: 'error',
+        duration: 20000,
         position,
       },
     },
-  ]);
-  debugData<NotificationProps>([
     {
       action: 'notify',
       data: {
-        title: 'Custom icon success',
-        description: 'Notification description',
-        type: 'success',
+        title: 'Combustível baixo',
+        type: 'warning',
+        duration: 20000,
+        position,
+      },
+    },
+    {
+      action: 'notify',
+      data: {
+        description: 'Só descrição, sem título, com ícone próprio e sem contagem.',
         icon: 'microchip',
         showDuration: false,
+        duration: 20000,
         position,
       },
     },

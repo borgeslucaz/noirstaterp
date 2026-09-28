@@ -34,20 +34,6 @@ const SelectField: React.FC<Props> = (props) => {
           clearable={props.row.clearable}
           searchable={props.row.searchable}
           icon={props.row.icon && <LibIcon icon={props.row.icon} fixedWidth />}
-          styles={{
-            input: {
-              color: 'var(--noir-text)',
-              backgroundColor: 'var(--noir-panel)',
-              borderRadius: 'var(--noir-radius)',
-              borderColor: 'var(--noir-border)',
-              ':focus-within': {
-                borderColor: 'var(--noir-border-hover)',
-              },
-            },
-            icon: {
-              color: 'var(--noir-text)',
-            },
-          }}
         />
       ) : (
         <>
@@ -67,20 +53,6 @@ const SelectField: React.FC<Props> = (props) => {
               searchable={props.row.searchable}
               maxSelectedValues={props.row.maxSelectedValues}
               icon={props.row.icon && <LibIcon icon={props.row.icon} fixedWidth />}
-              styles={{
-                root: {
-                  color: 'var(--noir-text)',
-                  backgroundColor: 'var(--noir-panel)',
-                  borderRadius: 'var(--noir-radius)',
-                  borderColor: 'var(--noir-border)',
-                  ':focus-within': {
-                    borderColor: 'var(--noir-border-hover)',
-                  },
-                },
-                icon: {
-                  color: 'var(--noir-text)',
-                },
-              }}
             />
           )}
         </>

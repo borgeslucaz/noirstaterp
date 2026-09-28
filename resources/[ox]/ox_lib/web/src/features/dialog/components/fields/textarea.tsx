@@ -24,20 +24,6 @@ const TextareaField: React.FC<Props> = (props) => {
       autosize={props.row.autosize}
       minRows={props.row.min}
       maxRows={props.row.max}
-      styles={{
-        input: {
-          color: 'var(--noir-text)',
-          backgroundColor: 'var(--noir-panel)',
-          borderRadius: 'var(--noir-radius)',
-          borderColor: 'var(--noir-border)',
-          ':focus-within': {
-            borderColor: 'var(--noir-border-hover)',
-          },
-        },
-        icon: {
-          color: 'var(--noir-text)',
-        },
-      }}
     />
   );
 };

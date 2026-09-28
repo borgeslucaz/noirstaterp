@@ -1,4 +1,4 @@
-import { Box, Center, createStyles, Group, keyframes, RingProgress, Stack, Text, ThemeIcon } from '@mantine/core';
+import { Box, keyframes } from '@mantine/core';
 import React, { useState } from 'react';
 import { toast, Toaster } from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
@@ -8,37 +8,7 @@ import MarkdownComponents from '../../config/MarkdownComponents';
 import { useNuiEvent } from '../../hooks/useNuiEvent';
 import type { NotificationProps } from '../../typings';
 
-const useStyles = createStyles((theme) => ({
-  container: {
-    width: 300,
-    height: 'fit-content',
-    backgroundColor: 'var(--noir-panel)',
-    color: 'var(--noir-text-strong)',
-    padding: 8,
-    borderRadius: 'var(--noir-radius)',
-    border: '1px solid var(--noir-panel-border)',
-    fontFamily: 'Albert Sans',
-  },
-  title: {
-    fontWeight: 600,
-    lineHeight: 'normal',
-    fontSize: 16,
-  },
-  description: {
-    fontSize: 14,
-    color: 'var(--noir-text)',
-    fontFamily: 'Albert Sans',
-    lineHeight: 'normal',
-    fontWeight: 500,
-  },
-  descriptionOnly: {
-    fontSize: 14,
-    color: 'var(--noir-text)',
-    fontFamily: 'Albert Sans',
-    lineHeight: 'normal',
-    fontWeight: 500,
-  },
-}));
+import './notifications.css';
 
 const createAnimation = (from: string, to: string, visible: boolean) =>
   keyframes({
@@ -75,13 +45,12 @@ const getAnimation = (visible: boolean, position: string) => {
   return `${createAnimation(animation.from, animation.to, visible)} ${animationOptions}`;
 };
 
-const durationCircle = keyframes({
-  '0%': { strokeDasharray: `0, ${15.1 * 2 * Math.PI}` },
-  '100%': { strokeDasharray: `${15.1 * 2 * Math.PI}, 0` },
+const durationBar = keyframes({
+  from: { transform: 'scaleX(1)' },
+  to: { transform: 'scaleX(0)' },
 });
 
 const Notifications: React.FC = () => {
-  const { classes } = useStyles();
   const [toastKey, setToastKey] = useState(0);
 
   useNuiEvent<NotificationProps>('notify', (data) => {
@@ -92,7 +61,11 @@ const Notifications: React.FC = () => {
 
     let iconColor: string;
     const position =
-      data.position === 'top' ? 'top-center' : data.position === 'bottom' ? 'bottom-center' : data.position || 'top-center';
+      data.position === 'top'
+        ? 'top-center'
+        : data.position === 'bottom'
+        ? 'bottom-center'
+        : data.position || 'top-center';
 
     data.showDuration = data.showDuration !== undefined ? data.showDuration : true;
 
@@ -118,7 +91,7 @@ const Notifications: React.FC = () => {
     if (!data.iconColor) {
       switch (data.type) {
         case 'error':
-          iconColor = 'var(--noir-danger)';
+          iconColor = 'var(--noir-danger-hover)';
           break;
         case 'success':
           iconColor = 'var(--noir-success)';
@@ -141,65 +114,30 @@ const Notifications: React.FC = () => {
             animation: getAnimation(t.visible, position),
             ...data.style,
           }}
-          className={`${classes.container}`}
+          className="notify"
+          style={{ '--notify-color': iconColor } as React.CSSProperties}
+          data-align={data.alignIcon === 'top' ? 'top' : undefined}
         >
-          <Group noWrap spacing={12}>
-            {data.icon && (
-              <>
-                {data.showDuration ? (
-                  <RingProgress
-                    key={toastKey}
-                    size={38}
-                    thickness={2}
-                    sections={[{ value: 100, color: iconColor }]}
-                    style={{ alignSelf: !data.alignIcon || data.alignIcon === 'center' ? 'center' : 'start' }}
-                    styles={{
-                      root: {
-                        '> svg > circle:nth-of-type(2)': {
-                          animation: `${durationCircle} linear forwards reverse`,
-                          animationDuration: `${duration}ms`,
-                        },
-                        margin: -3,
-                      },
-                    }}
-                    label={
-                      <Center>
-                        <ThemeIcon
-                          color={iconColor}
-                          radius="xl"
-                          size={32}
-                          variant={tinycolor(iconColor).getAlpha() < 0 ? undefined : 'light'}
-                        >
-                          <LibIcon icon={data.icon} fixedWidth color={iconColor} animation={data.iconAnimation} />
-                        </ThemeIcon>
-                      </Center>
-                    }
-                  />
-                ) : (
-                  <ThemeIcon
-                    color={iconColor}
-                    radius="xl"
-                    size={32}
-                    variant={tinycolor(iconColor).getAlpha() < 0 ? undefined : 'light'}
-                    style={{ alignSelf: !data.alignIcon || data.alignIcon === 'center' ? 'center' : 'start' }}
-                  >
-                    <LibIcon icon={data.icon} fixedWidth color={iconColor} animation={data.iconAnimation} />
-                  </ThemeIcon>
-                )}
-              </>
+          {data.icon && (
+            <span className="notify__icon">
+              <LibIcon icon={data.icon} fixedWidth animation={data.iconAnimation} />
+            </span>
+          )}
+          <div className="notify__text">
+            {data.title && <div className="notify__title">{data.title}</div>}
+            {data.description && (
+              <ReactMarkdown components={MarkdownComponents} className="notify__description description">
+                {data.description}
+              </ReactMarkdown>
             )}
-            <Stack spacing={0}>
-              {data.title && <Text className={classes.title}>{data.title}</Text>}
-              {data.description && (
-                <ReactMarkdown
-                  components={MarkdownComponents}
-                  className={`${!data.title ? classes.descriptionOnly : classes.description} description`}
-                >
-                  {data.description}
-                </ReactMarkdown>
-              )}
-            </Stack>
-          </Group>
+          </div>
+          {data.showDuration && (
+            <Box
+              key={toastKey}
+              className="notify__duration"
+              sx={{ animation: `${durationBar} ${duration}ms linear forwards` }}
+            />
+          )}
         </Box>
       ),
       {

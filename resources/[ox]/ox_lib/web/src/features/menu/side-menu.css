@@ -2,54 +2,6 @@
    (resources/docs/DESIGN_v4.md, Menu Lateral). Diferente da garagem, a coluna nao vai de cima a
    baixo: fica centralizada na borda direita e a altura acompanha a quantidade de opcoes. */
 
-@font-face {
-  font-family: 'Saira Condensed';
-  src: url('../../assets/fonts/SairaCondensed-500.woff2') format('woff2');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Saira Condensed';
-  src: url('../../assets/fonts/SairaCondensed-700.woff2') format('woff2');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Rajdhani';
-  src: url('../../assets/fonts/Rajdhani-400.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Rajdhani';
-  src: url('../../assets/fonts/Rajdhani-500.woff2') format('woff2');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Rajdhani';
-  src: url('../../assets/fonts/Rajdhani-600.woff2') format('woff2');
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Rajdhani';
-  src: url('../../assets/fonts/Rajdhani-700.woff2') format('woff2');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
 .side-menu,
 .side-menu-keys,
 .side-menu-card {

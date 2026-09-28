@@ -18,7 +18,7 @@ const SliderField: React.FC<Props> = (props) => {
 
   return (
     <Box>
-      <Text sx={{ fontSize: 14, fontWeight: 500 }}>{props.row.label}</Text>
+      <Text sx={{ marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--noir-text-strong)' }}>{props.row.label}</Text>
       <Slider
         mb={10}
         value={controller.field.value}
@@ -35,24 +35,6 @@ const SliderField: React.FC<Props> = (props) => {
           { value: props.row.min || 0, label: props.row.min || 0 },
           { value: props.row.max || 100, label: props.row.max || 100 },
         ]}
-        styles={{
-          thumb: {
-            backgroundColor: 'var(--noir-info)',
-          },
-          bar: {
-            backgroundColor: 'var(--noir-info)',
-          },
-          mark: {
-            border: 'none',
-            backgroundColor: 'transparent',
-          },
-          track: {
-            ':before': {
-              backgroundColor: 'var(--noir-panel)',
-              border: '1px solid var(--noir-border)',
-            },
-          },
-        }}
       />
     </Box>
   );

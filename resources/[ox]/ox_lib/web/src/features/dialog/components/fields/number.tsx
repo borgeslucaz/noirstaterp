@@ -35,20 +35,6 @@ const NumberField: React.FC<Props> = (props) => {
       disabled={props.row.disabled}
       icon={props.row.icon && <LibIcon icon={props.row.icon} fixedWidth />}
       withAsterisk={props.row.required}
-      styles={{
-        input: {
-          color: 'var(--noir-text)',
-          backgroundColor: 'var(--noir-panel)',
-          borderRadius: 'var(--noir-radius)',
-          borderColor: 'var(--noir-border)',
-          ':focus-within': {
-            borderColor: 'var(--noir-border-hover)',
-          },
-        },
-        icon: {
-          color: 'var(--noir-text)',
-        },
-      }}
     />
   );
 };
