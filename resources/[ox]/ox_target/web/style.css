@@ -54,7 +54,7 @@ p {
   margin: 0;
 }
 
-/* Mira no centro: bolinha azul enquanto o ALT esta segurado; some quando ha alvo (a tecla E assume). */
+/* Mira no centro: anel azul enquanto o ALT esta segurado; some quando ha alvo (a tecla E assume). */
 #eye {
   position: absolute;
   top: 50%;
@@ -64,11 +64,13 @@ p {
 
 #eyeSvg {
   display: block;
-  width: 8px;
-  height: 8px;
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--target-dot);
   border-radius: 50%;
-  background: var(--target-dot);
-  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.55), 0 0 8px rgba(61, 155, 255, 0.7);
+  /* contorno escuro dos dois lados do anel, para ler em fundo claro */
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(0, 0, 0, 0.5);
   transition: opacity var(--duration-fast) ease;
 }
 
