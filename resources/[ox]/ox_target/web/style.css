@@ -31,6 +31,7 @@
 
   --eye-size: 36px;
   --row-height: 40px;
+  --key-tuck: 22px;
 }
 
 html,
@@ -136,13 +137,17 @@ p {
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--noir-text);
+  /* Inativas recuadas para baixo da coluna do E; a ativa e empurrada para frente, ao lado dele. */
+  transform: translateX(calc(var(--key-tuck) * -1));
   transition:
+    transform var(--duration-fast) ease,
     background-color var(--duration-fast) ease,
     border-color var(--duration-fast) ease,
     color var(--duration-fast) ease;
 }
 
 .option-container.is-active {
+  transform: none;
   background: var(--noir-select);
   border-color: var(--noir-select);
   color: var(--noir-select-text);
