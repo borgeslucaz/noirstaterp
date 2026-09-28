@@ -13,6 +13,7 @@
 
   --noir-text-strong: rgba(255, 255, 255, 0.96);
   --noir-text: rgba(255, 255, 255, 0.76);
+  --noir-border: rgba(255, 255, 255, 0.11);
   --noir-select: #f2f2f2;
   --noir-select-text: #111113;
 
@@ -20,7 +21,7 @@
   --radius: 2px;
   --duration-fast: 140ms;
 
-  --eye-size: 30px;
+  --eye-size: 36px;
   --row-height: 40px;
 }
 
@@ -43,49 +44,59 @@ p {
   margin: 0;
 }
 
-/* Olho no centro: apagado sem alvo, branco da selecao com alvo. */
+/* Olho no centro, desenhado como tecla: escura sem alvo, branca com alvo.
+   O proprio SVG e a caixa, porque e nele que o ox poe a classe eye-hover. */
 #eye {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: var(--eye-size);
-  height: var(--eye-size);
   transform: translate(-50%, -50%);
 }
 
 #eyeSvg {
   display: block;
-  width: 100%;
-  height: 100%;
-  fill: rgba(255, 255, 255, 0.45);
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
-  transition: fill var(--duration-fast) ease;
+  box-sizing: border-box;
+  width: var(--eye-size);
+  height: var(--eye-size);
+  padding: 7px;
+  background: rgba(12, 14, 18, 0.72);
+  border: 1px solid var(--noir-border);
+  border-radius: var(--radius);
+  fill: rgba(255, 255, 255, 0.55);
+  transition:
+    background-color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease,
+    fill var(--duration-fast) ease;
 }
 
 #eyeSvg.eye-hover {
-  fill: var(--noir-select);
+  background: var(--noir-select);
+  border-color: var(--noir-select);
+  fill: var(--noir-select-text);
 }
 
-/* Lista ao lado do olho: a primeira linha fica alinhada com ele. */
+/* Opcoes em cards soltos ao lado do olho; o primeiro fica alinhado a ele. */
 #options-wrapper {
   position: absolute;
   top: calc(50% - var(--row-height) / 2);
   left: calc(50% + var(--eye-size) / 2 + 12px);
-  min-width: 220px;
-  max-width: 360px;
-  background: var(--surface-active);
-}
-
-#options-wrapper:empty {
-  display: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
 }
 
 .option-container {
   display: flex;
   align-items: center;
   gap: 12px;
+  box-sizing: border-box;
   height: var(--row-height);
-  padding: 0 20px 0 16px;
+  max-width: 360px;
+  padding: 0 18px 0 14px;
+  background: var(--surface-active);
+  border: 1px solid var(--noir-border);
+  border-radius: var(--radius);
   font-family: var(--font-display);
   font-size: 18px;
   font-weight: 500;
@@ -95,11 +106,13 @@ p {
   cursor: pointer;
   transition:
     background-color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease,
     color var(--duration-fast) ease;
 }
 
 .option-container:hover {
-  background-color: var(--noir-select);
+  background: var(--noir-select);
+  border-color: var(--noir-select);
   color: var(--noir-select-text);
 }
 
