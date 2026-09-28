@@ -350,7 +350,11 @@ local function startTargeting()
         end
 
         -- Ancora: a entidade se ela tem opcao visivel, senao a zona, senao o ponto mirado (globais).
-        if entityVisible and entityHit > 0 and anchorOffset then
+        -- Zona montada em volta de um NPC (comum em script de terceiro) tem o centro no chao: se a
+        -- mira esta numa entidade dentro da zona, a ancora vai para ela.
+        local entityInZone = anchorZone and entityHit > 0 and anchorZone:contains(GetEntityCoords(entityHit))
+
+        if (entityVisible or entityInZone) and entityHit > 0 and anchorOffset then
             anchorEntity, anchorCoords, anchorIsPed = entityHit, nil, entityType == 1
         else
             anchorEntity = nil
