@@ -1,10 +1,15 @@
 NoirIllegal.Config = {
     Version = '0.1.0',
+    -- Categorias de reputação. Fora `street`, que é a rua em geral, cada uma é um produto do
+    -- noir_gangs (`product`): é por ele que o painel da gang sabe qual progresso mostrar. O id
+    -- `drug` fica no singular porque já tem linha gravada com ele; o produto é `drugs`.
     Categories = {
-        street = true,
-        drug = true,
-        weapons = true,
-        boosting = true,
+        street = { label = 'Rua' },
+        drug = { label = 'Drogas', product = 'drugs' },
+        weapons = { label = 'Armas', product = 'weapons' },
+        items = { label = 'Itens', product = 'items' },
+        ammo = { label = 'Munições', product = 'ammo' },
+        attachments = { label = 'Acessórios de arma', product = 'attachments' },
     },
     Heat = {
         max = 100.0,

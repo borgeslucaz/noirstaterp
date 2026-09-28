@@ -31,7 +31,14 @@ list. The transaction UUID must remain stable across retries.
 
 ## Progressão da gang
 
-O nível da gang é a reputação `drug` da organização (faixas em `shared/levels.lua`). Cada faixa
+É aqui, e só aqui, que mora a reputação da gang. O `noir_gangs` não guarda número próprio: o
+painel dele lê `GetOrganizationProgress`.
+
+As categorias (`Config.Categories`) são `street` e uma por produto do `noir_gangs` — `drug`
+(produto `drugs`), `weapons`, `items`, `ammo`, `attachments`. O campo `product` de cada uma é o
+que liga as duas pontas; é por ele que o painel mostra o progresso do que a gang opera.
+
+O contato das drogas usa a reputação `drug` da organização (faixas em `shared/levels.lua`). Cada faixa
 abre um contato — `contact_meth` no nível 2, `contact_coke` no nível 4 — por unlock automático de
 organização (`shared/unlocks.lua`). Unlock de gang é avaliado com a reputação e os unlocks da
 gang, nunca com os de quem fez a ação; revogado por admin não volta sozinho.
@@ -53,6 +60,11 @@ de servidor, e um adaptador em `server/adapters/` registra em nome do core — q
 | outpost assaltado | `noir_outposts:server:robberyCompleted` | `outpost_robbery` + `outpost_robbed` (gang dona) |
 | bairro perdido | `noir_territories:server:ownerChanged` | `territory_lost` (gang anterior) |
 | bairro segurado | laço a cada `Config.Territories.checkSeconds` | `territory_held`, uma vez por bairro por dia |
+| rota de coleta concluída | `noir_gathering:server:routeCompleted` | `gathering_delivery` (prêmio variável) |
+
+`gathering_delivery` é a única atividade de **prêmio variável** (`variable`): a categoria e o
+valor vêm no pedido, porque são configurados por rota pelo admin, e a atividade só guarda o teto
+por entrega. Acima do teto, o pedido é recusado inteiro.
 
 O adaptador confere `GetInvokingResource()` antes de aceitar o evento: qualquer resource pode dar
 `TriggerEvent` com o mesmo nome.
@@ -64,6 +76,16 @@ online. Ela é registrada por `RecordOrganizationActivity(organizationId, activi
 transactionId, options)`, só mexe na reputação da organização, pode ter delta negativo (o total
 fica preso em zero) e não aceita heat, cooldown nem requisitos. O retorno decrescente, se houver,
 é por organização. A validação do start recusa qualquer outra combinação.
+
+## Leitura para outros resources
+
+| Export | Devolve |
+|---|---|
+| `GetOrganizationProgress(organizationId)` | por categoria: rótulo, produto, reputação, nível, piso do nível e próximo limiar |
+| `GetOrganizationLevel(source, category)` | nível da gang de quem está ali (0 sem gang) |
+| `GetOrganizationReputation(source, category)` | reputação da gang de quem está ali |
+| `HasUnlock(source, key)` | se tem o unlock, pelo escopo dele |
+| `GetCatalog()` | categorias com nível máximo, unlocks de gang e teto do prêmio da coleta |
 
 ## Database
 

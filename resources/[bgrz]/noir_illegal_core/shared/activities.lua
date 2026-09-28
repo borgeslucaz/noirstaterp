@@ -107,4 +107,25 @@ NoirIllegal.Activities = {
         organization = { drug = -15 },
         metadata = { allow = { 'zone', 'newOwner' } },
     },
+    -- Rota de coleta concluída (noir_gathering). O quanto vale e em que categoria é da rota,
+    -- configurada pelo admin em jogo; aqui fica só o teto por entrega. O retorno decrescente
+    -- por jogador segura quem tenta repetir a rota mais curta sem parar.
+    gathering_delivery = {
+        enabled = true,
+        callers = { 'noir_illegal_core' },
+        cooldownSeconds = 0,
+        idempotencyTtlSeconds = 2592000,
+        personal = {},
+        variable = { organization = 100 },
+        heat = 0,
+        diminishingReturns = {
+            windowSeconds = 3600,
+            softCap = 6,
+            floorMultiplier = 0.25,
+            curve = 'linear',
+            key = 'player:activity',
+        },
+        requirements = { organization = true },
+        metadata = { allow = { 'routeId', 'route' } },
+    },
 }

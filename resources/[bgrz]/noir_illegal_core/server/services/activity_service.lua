@@ -9,6 +9,28 @@ local function callerAllowed(caller, activity)
     return false
 end
 
+---Atividade com prêmio variável (`variable`): o valor não mora aqui, vem no pedido. É o caso da
+---rota de coleta, cujo prêmio o admin define por rota no noir_gathering. O que fica aqui é o
+---teto por categoria — quem produz o fato escolhe dentro dele, nunca acima.
+---@return table? activity cópia com `organization` preenchido pelo pedido
+local function withVariableReward(activity, reward)
+    if type(reward) ~= 'table' then return nil end
+    local organization, count = {}, 0
+    for category, amount in pairs(reward) do
+        count = count + 1
+        local cap = activity.variable.organization
+        if count > 4 or not NoirIllegal.Validators.category(category)
+            or not NoirIllegal.Validators.number(amount, 0, cap) then
+            return nil
+        end
+        if amount > 0 then organization[category] = NoirIllegal.Validators.round(amount, 4) end
+    end
+    if not next(organization) then return nil end
+    local copy = NoirIllegal.Validators.copy(activity)
+    copy.organization = organization
+    return copy
+end
+
 local function prepareRequest(source, activityKey, transactionId, options, caller)
     local activity = NoirIllegal.Activities[activityKey]
     if not activity then return nil, NoirIllegal.error('INVALID_ACTIVITY') end
@@ -24,6 +46,10 @@ local function prepareRequest(source, activityKey, transactionId, options, calle
     options = options or {}
     if type(options) ~= 'table' then
         return nil, NoirIllegal.error('INVALID_ARGUMENT', { field = 'options' })
+    end
+    if activity.variable then
+        activity = withVariableReward(activity, options.reward)
+        if not activity then return nil, NoirIllegal.error('INVALID_ARGUMENT', { field = 'reward' }) end
     end
     local occurredAt = NoirIllegal.Validators.occurredAt(options.occurredAt)
     if not occurredAt then
@@ -618,6 +644,12 @@ function Service.validateConfiguration()
             assert(NoirIllegal.Validators.category(category), ('Unknown category %s'):format(category))
             assert(NoirIllegal.Validators.number(
                 delta, minimumDelta, NoirIllegal.Config.Limits.maxActivityDelta), 'Invalid organization delta')
+        end
+        if activity.variable then
+            assert(activity.subject == nil and next(activity.organization or {}) == nil,
+                ('Variable activity %s takes its organization reward from the request'):format(activityKey))
+            assert(NoirIllegal.Validators.number(activity.variable.organization, 1,
+                NoirIllegal.Config.Limits.maxActivityDelta), ('Variable activity %s needs a cap'):format(activityKey))
         end
         assert(NoirIllegal.Validators.number(
             activity.cooldownSeconds or 0, 0), 'Invalid cooldown')

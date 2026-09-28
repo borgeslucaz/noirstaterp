@@ -50,6 +50,7 @@ server_scripts {
     'server/adapters/drugselling.lua',
     'server/adapters/outposts.lua',
     'server/adapters/territories.lua',
+    'server/adapters/gathering.lua',
     'server/commands.lua',
     'server/init.lua',
 }

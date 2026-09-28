@@ -14,7 +14,7 @@ function V.uuid(value)
 end
 
 function V.category(category)
-    return V.string(category, 1, 64) and NoirIllegal.Config.Categories[category] == true
+    return V.string(category, 1, 64) and NoirIllegal.Config.Categories[category] ~= nil
 end
 
 function V.number(value, minimum, maximum)

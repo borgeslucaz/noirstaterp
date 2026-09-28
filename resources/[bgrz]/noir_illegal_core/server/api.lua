@@ -155,6 +155,72 @@ exports('GetOrganizationReputation', function(source, category)
     end)
 end)
 
+---Progresso da gang em todas as categorias, pelo id da organização (o nome da gang). É o que
+---o painel do noir_gangs mostra: ele não guarda reputação própria, lê daqui.
+---@return boolean ok
+---@return table|table progress [{ category, label, product, reputation, level, levelFloor, nextLevelAt }]
+exports('GetOrganizationProgress', function(organizationId)
+    return safe('GetOrganizationProgress', function()
+        if not NoirIllegal.Validators.string(organizationId, 1, 64) then
+            return false, NoirIllegal.error('INVALID_ARGUMENT', { field = 'organizationId' })
+        end
+        local reputations = NoirIllegal.Services.Profile.organizationReputations(organizationId)
+        local progress = {}
+        for category, definition in pairs(NoirIllegal.Config.Categories) do
+            local reputation = reputations[category] or 0
+            local level = NoirIllegal.Services.Level.get(category, reputation)
+            local floor, nextAt = 0, nil
+            for _, row in ipairs(NoirIllegal.Levels[category]) do
+                if row.level == level then floor = row.minReputation end
+                if row.level == level + 1 then nextAt = row.minReputation end
+            end
+            progress[#progress + 1] = {
+                category = category, label = definition.label or category, product = definition.product,
+                reputation = reputation, level = level, levelFloor = floor, nextLevelAt = nextAt,
+            }
+        end
+        table.sort(progress, function(a, b) return a.category < b.category end)
+        return true, progress
+    end)
+end)
+
+---Nível da gang de quem está ali, numa categoria. Jogador sem gang responde nível 0.
+exports('GetOrganizationLevel', function(source, category)
+    return safe('GetOrganizationLevel', function()
+        if not NoirIllegal.Validators.category(category) then
+            return false, NoirIllegal.error('INVALID_ARGUMENT', { field = 'category' })
+        end
+        if not NoirIllegal.Bridges.Qbox.getIdentity(source) then
+            return false, NoirIllegal.error('INVALID_SOURCE')
+        end
+        local organization = NoirIllegal.Bridges.Gangs.getOrganization(source)
+        if not organization then return true, 0 end
+        local reputations = NoirIllegal.Services.Profile.organizationReputations(organization.id)
+        return true, NoirIllegal.Services.Level.get(category, reputations[category] or 0)
+    end)
+end)
+
+---O que um editor de outro resource precisa para oferecer escolhas válidas: categorias, o
+---nível mais alto de cada uma, os unlocks de gang e o teto do prêmio da coleta.
+exports('GetCatalog', function()
+    return safe('GetCatalog', function()
+        local categories, unlocks = {}, {}
+        for category, definition in pairs(NoirIllegal.Config.Categories) do
+            local thresholds = NoirIllegal.Levels[category]
+            categories[#categories + 1] = { id = category, label = definition.label or category,
+                maxLevel = thresholds[#thresholds].level }
+        end
+        table.sort(categories, function(a, b) return a.label < b.label end)
+        for key, definition in pairs(NoirIllegal.Unlocks) do
+            if definition.scope == 'organization' then unlocks[#unlocks + 1] = key end
+        end
+        table.sort(unlocks)
+        local gathering = NoirIllegal.Activities.gathering_delivery
+        return true, { categories = categories, unlocks = unlocks,
+            gatheringRewardCap = gathering and gathering.enabled and gathering.variable.organization or 0 }
+    end)
+end)
+
 exports('GrantUnlock', function(subject, unlockKey, reason, metadata)
     return safe('GrantUnlock', function()
         local actor = privileged('grantUnlock')

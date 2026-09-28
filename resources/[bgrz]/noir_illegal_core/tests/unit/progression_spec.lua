@@ -19,6 +19,8 @@ dofile('shared/activities.lua')
 dofile('shared/permissions.lua')
 dofile('server/validators.lua')
 dofile('server/services/level_service.lua')
+dofile('server/services/heat_service.lua')
+dofile('server/services/cooldown_service.lua')
 dofile('server/services/eligibility_service.lua')
 dofile('server/services/unlock_service.lua')
 dofile('server/services/idempotency_service.lua')
@@ -204,6 +206,39 @@ assert(grantedKeys['organization:contact_meth'], 'gang gets its own meth contact
 assert(grantedKeys['organization:contact_coke'], 'then coke, from the gang unlocks')
 assert(grantedKeys['player:dealer_contact'], 'player unlock still evaluated')
 
+-- Prêmio variável: a rota de coleta ------------------------------------------------------
+-- O valor vem no pedido (o admin configurou a rota); o teto vem da atividade.
+
+NoirIllegal.Repositories.Profile = { ensure = function() end, lock = function() end }
+NoirIllegal.Repositories.Heat = { ensure = function() end, get = function() return nil end, set = function() end }
+NoirIllegal.Repositories.Cooldown = { get = function() return nil end, set = function() end }
+local playerGang = { id = 'lostmc', label = 'The Lost MC' }
+NoirIllegal.Bridges = {
+    Qbox = { getIdentity = function(source) return { source = source, citizenId = 'CID' .. source } end },
+    Gangs = { getOrganization = function() return playerGang and V.copy(playerGang) or nil end },
+}
+
+reset()
+local cap = NoirIllegal.Activities.gathering_delivery.variable.organization
+ok, outcome = Activity.record(1, 'gathering_delivery', V.randomUuid(), { reward = { weapons = 40 } }, CORE)
+assert(ok, 'gathering reward within cap is accepted: ' .. tostring(outcome and outcome.code))
+equal(db.reputation['organization:lostmc'].weapons, 40, 'the route decides the category and amount')
+
+ok, outcome = Activity.record(1, 'gathering_delivery', V.randomUuid(), { reward = { weapons = cap + 1 } }, CORE)
+equal(ok, false, 'above the cap is refused')
+equal(outcome.code, 'INVALID_ARGUMENT', 'as an invalid argument, not trimmed')
+equal(db.reputation['organization:lostmc'].weapons, 40, 'and pays nothing')
+
+ok = Activity.record(1, 'gathering_delivery', V.randomUuid(), { reward = { boosting = 10 } }, CORE)
+equal(ok, false, 'unknown category is refused')
+ok = Activity.record(1, 'gathering_delivery', V.randomUuid(), {}, CORE)
+equal(ok, false, 'no reward, no record')
+
+playerGang = nil
+ok, outcome = Activity.record(1, 'gathering_delivery', V.randomUuid(), { reward = { weapons = 10 } }, CORE)
+equal(ok, false, 'player without gang gets no gang reputation')
+playerGang = { id = 'lostmc', label = 'The Lost MC' }
+
 -- Validação de config ------------------------------------------------------------------
 
 local function withUnlock(key, definition, callback)
@@ -242,6 +277,13 @@ withActivity('bad_diminishing', {
     diminishingReturns = { windowSeconds = 60, softCap = 1, floorMultiplier = 0.5,
         curve = 'linear', key = 'player:activity' },
 }, 'organization activity diminishes per organization')
+
+withActivity('bad_variable', {
+    enabled = true, callers = { CORE }, organization = { drug = 1 }, variable = { organization = 10 },
+}, 'variable activity cannot also fix the organization reward')
+withActivity('bad_variable_cap', {
+    enabled = true, callers = { CORE }, variable = { organization = 0 },
+}, 'variable activity needs a positive cap')
 
 Activity.validateConfiguration()
 
