@@ -1,9 +1,17 @@
-/* Visual Noir State (resources/docs/DESIGN_v4.md). So aparencia: a logica e a do ox_target. */
+/* Visual Noir State (resources/docs/DESIGN_v4.md): opcoes presas ao alvo, scroll navega, E escolhe. */
 
 @font-face {
   font-family: "Saira Condensed";
   src: url("fonts/SairaCondensed-500.woff2") format("woff2");
   font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Saira Condensed";
+  src: url("fonts/SairaCondensed-700.woff2") format("woff2");
+  font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
@@ -44,8 +52,7 @@ p {
   margin: 0;
 }
 
-/* Olho no centro, desenhado como tecla: escura sem alvo, branca com alvo.
-   O proprio SVG e a caixa, porque e nele que o ox poe a classe eye-hover. */
+/* Olho no centro: mira enquanto o ALT esta segurado; some quando ha alvo (a tecla E assume). */
 #eye {
   position: absolute;
   top: 50%;
@@ -63,23 +70,48 @@ p {
   border: 1px solid var(--noir-border);
   border-radius: var(--radius);
   fill: rgba(255, 255, 255, 0.55);
-  transition:
-    background-color var(--duration-fast) ease,
-    border-color var(--duration-fast) ease,
-    fill var(--duration-fast) ease;
+  transition: opacity var(--duration-fast) ease;
 }
 
-#eyeSvg.eye-hover {
-  background: var(--noir-select);
-  border-color: var(--noir-select);
-  fill: var(--noir-select-text);
+.has-target #eyeSvg {
+  opacity: 0;
 }
 
-/* Opcoes em cards soltos ao lado do olho; o primeiro fica alinhado a ele. */
-#options-wrapper {
+/* Grupo preso ao alvo: a tecla E fica sobre o ponto, as opcoes a direita. */
+#target-group {
   position: absolute;
-  top: calc(50% - var(--row-height) / 2);
-  left: calc(50% + var(--eye-size) / 2 + 12px);
+  top: 50%;
+  left: 50%;
+  display: none;
+  align-items: flex-start;
+  gap: 10px;
+  transform: translate(calc(var(--eye-size) / -2), calc(var(--row-height) / -2));
+}
+
+.has-target #target-group {
+  display: flex;
+}
+
+#target-group.is-offscreen {
+  visibility: hidden;
+}
+
+#target-key {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--eye-size);
+  height: var(--eye-size);
+  margin-top: calc((var(--row-height) - var(--eye-size)) / 2);
+  background: var(--noir-select);
+  border-radius: var(--radius);
+  color: var(--noir-select-text);
+  font: 700 17px var(--font-display);
+}
+
+#options-wrapper {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -102,18 +134,50 @@ p {
   font-weight: 500;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: var(--noir-text-strong);
-  cursor: pointer;
+  color: var(--noir-text);
   transition:
     background-color var(--duration-fast) ease,
     border-color var(--duration-fast) ease,
     color var(--duration-fast) ease;
 }
 
-.option-container:hover {
+.option-container.is-active {
   background: var(--noir-select);
   border-color: var(--noir-select);
   color: var(--noir-select-text);
+}
+
+/* Teclas do contexto, canto inferior direito (DESIGN_v4 7). */
+#keys {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  display: none;
+  gap: 8px;
+}
+
+.has-target #keys {
+  display: flex;
+}
+
+.key {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 6px;
+  background: rgba(0, 0, 0, 0.72);
+  border-radius: var(--radius);
+  font: 700 14px var(--font-display);
+  letter-spacing: 0.03em;
+  color: #fff;
+}
+
+.key kbd {
+  padding: 1px 6px;
+  background: var(--noir-select);
+  border-radius: var(--radius);
+  color: var(--noir-select-text);
+  font: 700 11px/1.4 var(--font-display);
 }
 
 .option-icon {
@@ -125,7 +189,7 @@ p {
   transition: color var(--duration-fast) ease;
 }
 
-.option-container:hover .option-icon {
+.option-container.is-active .option-icon {
   color: var(--noir-select-text);
 }
 

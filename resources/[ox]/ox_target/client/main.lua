@@ -22,6 +22,8 @@ local DisableControlAction = DisableControlAction
 local DisablePlayerFiring = DisablePlayerFiring
 local GetModelDimensions = GetModelDimensions
 local GetOffsetFromEntityInWorldCoords = GetOffsetFromEntityInWorldCoords
+local GetScreenCoordFromWorldCoord = GetScreenCoordFromWorldCoord
+local DoesEntityExist = DoesEntityExist
 local currentTarget = {}
 local currentMenu
 local menuChanged
@@ -33,6 +35,12 @@ local toggleHotkey = GetConvarInt('ox_target:toggleHotkey', 0) == 1
 local mouseButton = GetConvarInt('ox_target:leftClick', 1) == 1 and 24 or 25
 local debug = GetConvarInt('ox_target:debug', 0) == 1
 local vec0 = vec3(0, 0, 0)
+
+-- Noir: com alvo, o scroll navega e o E (ou o clique) escolhe, sem cursor.
+local SELECT_KEY = 38        -- E / INPUT_PICKUP
+local SCROLL_UP = 15         -- INPUT_WEAPON_WHEEL_PREV (241 = roda fora do contexto a pe)
+local SCROLL_DOWN = 14       -- INPUT_WEAPON_WHEEL_NEXT (242)
+local WHEEL_CONTROLS = { 14, 15, 16, 17, 99, 100, 115, 116, 241, 242, 261, 262 }
 
 ---@param option OxTargetOption
 ---@param distance number
@@ -131,10 +139,13 @@ local function startTargeting()
     local flag = 511
     local hit, entityHit, endCoords, distance, lastEntity, entityType, entityModel, hasTarget, zonesChanged
     local zones = {}
+    -- Ponto na tela onde as opcoes ficam: centro do modelo, centro da zona ou o ponto mirado.
+    local anchorEntity, anchorOffset, anchorCoords
 
     CreateThread(function()
         local dict, texture = utils.getTexture()
         local lastCoords
+        local lastSx, lastSy, lastVisible
 
         while state.isActive() do
             lastCoords = endCoords == vec0 and lastCoords or endCoords or vec0
@@ -153,15 +164,47 @@ local function startTargeting()
             DisableControlAction(0, 141, true)
             DisableControlAction(0, 142, true)
 
-            if state.isNuiFocused() then
-                DisableControlAction(0, 1, true)
-                DisableControlAction(0, 2, true)
+            if hasTarget then
+                DisableControlAction(0, 24, true)
+                DisableControlAction(0, SELECT_KEY, true)
 
-                if not hasTarget or options and IsDisabledControlJustPressed(0, 25) then
-                    state.setNuiFocus(false, false)
+                for i = 1, #WHEEL_CONTROLS do
+                    DisableControlAction(0, WHEEL_CONTROLS[i], true)
                 end
-            elseif hasTarget and IsDisabledControlJustPressed(0, mouseButton) then
-                state.setNuiFocus(true, true)
+
+                if IsDisabledControlJustPressed(0, SCROLL_UP) or IsDisabledControlJustPressed(0, 241) then
+                    SendNuiMessage('{"event": "scroll", "dir": -1}')
+                elseif IsDisabledControlJustPressed(0, SCROLL_DOWN) or IsDisabledControlJustPressed(0, 242) then
+                    SendNuiMessage('{"event": "scroll", "dir": 1}')
+                end
+
+                if IsDisabledControlJustPressed(0, SELECT_KEY) or IsDisabledControlJustPressed(0, mouseButton) then
+                    SendNuiMessage('{"event": "confirm"}')
+                end
+
+                local anchor = anchorCoords
+
+                if anchorEntity and DoesEntityExist(anchorEntity) then
+                    anchor = GetOffsetFromEntityInWorldCoords(anchorEntity, anchorOffset.x, anchorOffset.y, anchorOffset.z)
+                end
+
+                if anchor then
+                    local visible, sx, sy = GetScreenCoordFromWorldCoord(anchor.x, anchor.y, anchor.z)
+
+                    if visible then
+                        sx, sy = math.floor(sx * 10000 + 0.5) / 10000, math.floor(sy * 10000 + 0.5) / 10000
+                    end
+
+                    -- So manda quando mexe de verdade, para nao inundar a NUI a cada frame.
+                    if visible ~= lastVisible or visible and (math.abs(sx - lastSx) > 0.0005 or math.abs(sy - lastSy) > 0.0005) then
+                        lastVisible, lastSx, lastSy = visible, sx, sy
+                        SendNuiMessage(visible
+                            and ('{"event": "position", "visible": true, "x": %s, "y": %s}'):format(sx, sy)
+                            or '{"event": "position", "visible": false}')
+                    end
+                end
+            else
+                lastVisible = nil
             end
 
             Wait(0)
@@ -225,6 +268,11 @@ local function startTargeting()
             if entityHit > 0 then
                 local success, result = pcall(GetEntityModel, entityHit)
                 entityModel = success and result
+
+                if entityModel then
+                    local min, max = GetModelDimensions(entityModel)
+                    anchorOffset = (min + max) / 2
+                end
             end
         end
 
@@ -248,6 +296,8 @@ local function startTargeting()
         currentTarget.distance = distance
         local hidden = 0
         local totalOptions = 0
+        local entityVisible = false
+        local anchorZone
 
         for k, v in pairs(options) do
             local optionCount = #v
@@ -263,7 +313,11 @@ local function startTargeting()
                     newOptions = true
                 end
 
-                if hide then hidden += 1 end
+                if hide then
+                    hidden += 1
+                elseif k ~= '__global' then
+                    entityVisible = true
+                end
             end
         end
 
@@ -284,8 +338,20 @@ local function startTargeting()
                     newOptions = true
                 end
 
-                if hide then hidden += 1 end
+                if hide then
+                    hidden += 1
+                elseif not anchorZone then
+                    anchorZone = nearbyZones[i]
+                end
             end
+        end
+
+        -- Ancora: a entidade se ela tem opcao visivel, senao a zona, senao o ponto mirado (globais).
+        if entityVisible and entityHit > 0 and anchorOffset then
+            anchorEntity, anchorCoords = entityHit, nil
+        else
+            anchorEntity = nil
+            anchorCoords = anchorZone and anchorZone.coords or endCoords
         end
 
         if newOptions then
@@ -450,7 +516,8 @@ RegisterNUICallback('select', function(data, cb)
         if option.menuName == 'home' then return end
     end
 
-    if not option?.openMenu and IsNuiFocused() then
+    -- Sem cursor: escolheu uma acao (nao submenu), fecha o target ate o proximo ALT.
+    if not option?.openMenu then
         state.setActive(false)
     end
 end)
