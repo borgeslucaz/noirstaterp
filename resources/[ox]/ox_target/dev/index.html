@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pt-BR" style="background: url(/dev/sinner.png) center / cover no-repeat !important">
+  <head>
+    <meta charset="utf-8" />
+    <title>ox_target — preview</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" />
+    <link rel="stylesheet" href="/web/style.css" />
+    <style>
+      /* O body da NUI comeca invisivel; o painel de preview fica sempre visivel. */
+      #dev { position: fixed; left: 16px; bottom: 16px; display: flex; flex-wrap: wrap; gap: 8px; max-width: 60vw; visibility: visible !important; z-index: 10; }
+      #dev button { padding: 8px 12px; border: 1px solid rgba(255,255,255,.11); border-radius: 2px; background: rgba(12,14,18,.88); color: #fff; font: 500 14px "Saira Condensed", Arial, sans-serif; text-transform: uppercase; letter-spacing: .03em; cursor: pointer; }
+      #dev button.is-on { background: #f2f2f2; color: #111113; }
+      #dev-hint { position: fixed; left: 16px; bottom: 64px; color: rgba(255,255,255,.8); font: 500 14px Arial, sans-serif; text-shadow: 0 1px 2px #000; visibility: visible !important; }
+      #dev-toast { position: fixed; top: 24px; left: 50%; transform: translateX(-50%); padding: 10px 16px; background: #39df45; color: #111113; border-radius: 2px; font: 600 15px Arial, sans-serif; visibility: hidden; }
+      #dev-toast.show { visibility: visible !important; }
+    </style>
+  </head>
+  <body>
+    <div id="dev-hint">Roda do mouse: navegar · E ou clique na cena: escolher</div>
+    <div id="dev"></div>
+    <div id="dev-toast"></div>
+    <script type="module" src="/dev/preview.js"></script>
+  </body>
+</html>
