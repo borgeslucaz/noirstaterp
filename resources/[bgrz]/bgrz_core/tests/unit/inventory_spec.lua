@@ -103,4 +103,70 @@ label, labelErr = BGRZ.GetItemLabel('weed_brick')
 T.equal(label, 'weed_brick', 'exceção do provider não sobe')
 T.equal(labelErr, 'unknown_item', 'exceção vira código tratado')
 
+-- ---------------------------------------------------------------------------
+-- GetItemList
+-- ---------------------------------------------------------------------------
+provider.Items = function(_, item)
+    if item then return nil end
+    return { water = { label = 'Agua' }, bread = { label = 'Pao' }, rock = {} }
+end
+local list = BGRZ.GetItemList()
+T.equal(#list, 3, 'GetItemList devolve todos os itens')
+T.equal(list[1].name, 'water', 'GetItemList ordena por rótulo')
+T.equal(list[3].label, 'rock', 'item sem label usa o nome')
+
+state = 'stopped'
+local noList, listErr = BGRZ.GetItemList()
+T.equal(noList, nil, 'GetItemList sem provider')
+T.equal(listErr, 'provider_unavailable', 'GetItemList sem provider sinaliza')
+state = 'started'
+
+-- ---------------------------------------------------------------------------
+-- Durabilidade
+-- ---------------------------------------------------------------------------
+local slots = {
+    { slot = 3, metadata = { durability = 4 } },
+    { slot = 5, metadata = { durability = 1893456000 } },
+    { slot = 7, metadata = {} },
+}
+local durabilitySet = {}
+provider.Search = function(_, holder, search, item)
+    if item ~= 'pickaxe' then return false end
+    return slots
+end
+provider.SetDurability = function(_, holder, slot, value)
+    durabilitySet[#durabilitySet + 1] = { holder, slot, value }
+end
+
+T.equal(BGRZ.HasItemDurability(12, 'pickaxe', 4), true, 'slot com durabilidade exata serve')
+local has, hasErr = BGRZ.HasItemDurability(12, 'shovel', 1)
+T.equal(has, false, 'sem o item')
+T.equal(hasErr, 'not_enough_items', 'sem o item sinaliza')
+
+local used, usedErr, remaining = BGRZ.ConsumeItemDurability(12, 'pickaxe', 10)
+T.equal(used, true, 'pula slot gasto e o de validade, usa o sem metadata')
+T.equal(usedErr, nil, 'consumo sem erro')
+T.equal(remaining, 90, 'slot sem durability conta como 100')
+T.equal(durabilitySet[1][2], 7, 'gasta o slot certo')
+T.equal(durabilitySet[1][3], 90, 'grava o que sobrou')
+
+slots = { { slot = 3, metadata = { durability = 4 } } }
+local low, lowErr = BGRZ.ConsumeItemDurability(12, 'pickaxe', 10)
+T.equal(low, false, 'durabilidade insuficiente recusa')
+T.equal(lowErr, 'low_durability', 'durabilidade insuficiente sinaliza')
+T.equal(#durabilitySet, 1, 'recusa não grava nada')
+
+local free = BGRZ.ConsumeItemDurability(12, 'pickaxe', 0)
+T.equal(free, true, 'custo zero só confere posse')
+T.equal(#durabilitySet, 1, 'custo zero não grava')
+
+local bad, badErr = BGRZ.ConsumeItemDurability(12, 'pickaxe', 101)
+T.equal(bad, false, 'custo fora da escala recusado')
+T.equal(badErr, 'invalid_amount', 'custo fora da escala sinaliza')
+
+provider.Search = function() error('provider exploded') end
+local boom, boomErr = BGRZ.HasItemDurability(12, 'pickaxe', 1)
+T.equal(boom, false, 'exceção do provider não sobe')
+T.equal(boomErr, 'provider_unavailable', 'exceção vira código tratado')
+
 print('inventory_spec: ok')

@@ -146,6 +146,115 @@ function BGRZ.GetItemLabel(item)
     return data.label
 end
 
+---Catálogo de itens como `{ name, label }`, ordenado por rótulo, para menus de
+---admin escolherem item sem conhecer o provider.
+---@return { name: string, label: string }[]? items
+---@return string? errorCode
+function BGRZ.GetItemList()
+    local provider = BGRZ.Provider.name('inventory')
+    if not BGRZ.Provider.isAvailable('inventory') then return nil, 'provider_unavailable' end
+
+    local called, data = pcall(function()
+        return exports[provider]:Items()
+    end)
+    if not called or type(data) ~= 'table' then return nil, 'provider_unavailable' end
+
+    local list = {}
+    for name, item in pairs(data) do
+        if type(name) == 'string' then
+            local label = type(item) == 'table' and type(item.label) == 'string' and item.label or name
+            list[#list + 1] = { name = name, label = label }
+        end
+    end
+    table.sort(list, function(a, b)
+        if a.label == b.label then return a.name < b.name end
+        return a.label < b.label
+    end)
+    return list
+end
+
+-- Durabilidade de ferramenta ------------------------------------------------------------
+--
+-- A escala é a do ox_inventory: 0 a 100. Acima de 100 o provider guarda um instante de
+-- validade (item com `degrade`), que não é "desgaste por uso"; esses slots são ignorados
+-- em vez de terem um timestamp subtraído. Slot sem `durability` conta como novo (100),
+-- que é como o provider trata o item recém-criado.
+
+local FULL_DURABILITY = 100
+
+local function validateDurabilityArguments(holder, item, cost)
+    if not validateHolder(holder) then return false, 'invalid_holder' end
+    if type(item) ~= 'string' or #item == 0 or #item > 64 then return false, 'invalid_item' end
+    if not isFinite(cost) or cost < 0 or cost > FULL_DURABILITY then return false, 'invalid_amount' end
+    return true
+end
+
+---Primeiro slot do item com durabilidade suficiente para `cost`.
+local function findDurableSlot(provider, holder, item, cost)
+    local called, slots = pcall(function()
+        return exports[provider]:Search(holder, 'slots', item)
+    end)
+    if not called then return nil, nil, 'provider_unavailable' end
+    if type(slots) ~= 'table' or #slots == 0 then return nil, nil, 'not_enough_items' end
+
+    for index = 1, #slots do
+        local slot = slots[index]
+        local metadata = type(slot) == 'table' and slot.metadata or nil
+        local durability = type(metadata) == 'table' and metadata.durability or nil
+        if durability == nil then durability = FULL_DURABILITY end
+        if isFinite(durability) and durability <= FULL_DURABILITY and durability >= cost
+            and type(slot.slot) == 'number' then
+            return slot.slot, durability
+        end
+    end
+    return nil, nil, 'low_durability'
+end
+
+---O holder tem o item com pelo menos `cost` de durabilidade?
+---@param holder number|string
+---@param item string
+---@param cost number 0 a 100; 0 só exige posse
+---@return boolean ok
+---@return string? errorCode `not_enough_items` | `low_durability` | validação | provider
+function BGRZ.HasItemDurability(holder, item, cost)
+    local valid, validationError = validateDurabilityArguments(holder, item, cost)
+    if not valid then return false, validationError end
+    local provider = BGRZ.Provider.name('inventory')
+    if not BGRZ.Provider.isAvailable('inventory') then return false, 'provider_unavailable' end
+
+    local slot, _, err = findDurableSlot(provider, holder, item, cost)
+    if not slot then return false, err end
+    return true
+end
+
+---Gasta `cost` de durabilidade do primeiro slot do item que aguenta o gasto.
+---@param holder number|string
+---@param item string
+---@param cost number 0 a 100; 0 só confere posse e não mexe no slot
+---@return boolean ok
+---@return string? errorCode
+---@return number? remaining durabilidade que sobrou no slot usado
+function BGRZ.ConsumeItemDurability(holder, item, cost)
+    local valid, validationError = validateDurabilityArguments(holder, item, cost)
+    if not valid then return false, validationError end
+    local provider = BGRZ.Provider.name('inventory')
+    if not BGRZ.Provider.isAvailable('inventory') then return false, 'provider_unavailable' end
+
+    local slot, durability, err = findDurableSlot(provider, holder, item, cost)
+    if not slot then return false, err end
+    if cost == 0 then return true, nil, durability end
+
+    local remaining = durability - cost
+    local called = pcall(function()
+        exports[provider]:SetDurability(holder, slot, remaining)
+    end)
+    if not called then return false, 'provider_unavailable' end
+    return true, nil, remaining
+end
+
+exports('GetItemList', BGRZ.GetItemList)
+exports('HasItemDurability', BGRZ.HasItemDurability)
+exports('ConsumeItemDurability', BGRZ.ConsumeItemDurability)
 exports('GetItemLabel', BGRZ.GetItemLabel)
 exports('AddItem', BGRZ.AddItem)
 exports('RemoveItem', BGRZ.RemoveItem)

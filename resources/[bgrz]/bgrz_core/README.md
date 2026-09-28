@@ -45,6 +45,14 @@ local canCarry, err = exports.bgrz_core:CanCarryItem(holder, item, amount, metad
 
 `holder` aceita source inteiro positivo ou ID não vazio de inventário. Quantidades são inteiros entre 1 e `BGRZConfig.Limits.maxItemAmount`. A allowlist de itens continua obrigatória no resource consumidor.
 
+```lua
+local list, err = exports.bgrz_core:GetItemList()                          -- { { name, label } }, ordenado por label
+local ok, err = exports.bgrz_core:HasItemDurability(holder, item, cost)
+local ok, err, remaining = exports.bgrz_core:ConsumeItemDurability(holder, item, cost)
+```
+
+Durabilidade de ferramenta na escala 0–100 do provider. `cost = 0` só exige posse. Slot sem `durability` conta como 100; slot acima de 100 é item com `degrade` (o provider guarda ali um instante de validade) e é ignorado. Erros: `not_enough_items`, `low_durability`, `invalid_amount`, `provider_unavailable`.
+
 ## Target (client)
 
 ```lua
