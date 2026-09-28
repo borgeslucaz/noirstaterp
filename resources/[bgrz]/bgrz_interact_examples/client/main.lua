@@ -188,7 +188,62 @@ local function spawnNPC(npc)
     spawnedNPCs[#spawnedNPCs + 1] = ped
 end
 
+-- Lojista pelo ox_target (bridge do bgrz_core): varias opcoes, submenu com "voltar" e uma so a noite.
+local targetPed
+
+local function targetOptions()
+    local function done(message) notify(message, 'success') end
+    return {
+        { name = 'catalog', icon = 'fa-solid fa-cart-shopping', label = 'Ver catalogo de produtos', distance = 2.5,
+            onSelect = function() done('Catalogo aberto (demonstrativo).') end },
+        { name = 'market', icon = 'fa-solid fa-briefcase', label = 'Operacoes do mercado', distance = 2.5, openMenu = 'bgrz_market' },
+        { name = 'stock', icon = 'fa-solid fa-boxes-stacked', label = 'Verificar estoque', distance = 2.5, menuName = 'bgrz_market',
+            onSelect = function() done('Estoque: 42 itens (demonstrativo).') end },
+        { name = 'restock', icon = 'fa-solid fa-truck-ramp-box', label = 'Pedir reposicao', distance = 2.5, menuName = 'bgrz_market',
+            onSelect = function() done('Reposicao pedida (demonstrativo).') end },
+        { name = 'register', icon = 'fa-solid fa-cash-register', label = 'Fechar o caixa', distance = 2.5, menuName = 'bgrz_market',
+            onSelect = function() done('Caixa fechado (demonstrativo).') end },
+        { name = 'talk', icon = 'fa-solid fa-comments', label = 'Conversar', distance = 2.5,
+            onSelect = function() notify('O lojista comenta sobre o movimento do dia.') end },
+        { name = 'job', icon = 'fa-solid fa-id-badge', label = 'Pedir emprego', distance = 2.5,
+            onSelect = function() notify('Sem vagas no momento (demonstrativo).', 'error') end },
+        { name = 'night', icon = 'fa-solid fa-moon', label = 'Comprar no balcao noturno', distance = 2.5,
+            canInteract = function() local h = GetClockHours(); return h >= 20 or h < 6 end,
+            onSelect = function() done('So aparece entre 20h e 6h.') end },
+    }
+end
+
+local function spawnTargetNPC()
+    local cfg = Config.TargetNPC
+    if not cfg or cfg.enabled == false then return end
+
+    -- No Enhanced um modelo inexistente derruba o cliente: confere antes do request.
+    local model = joaat(cfg.model)
+    if not IsModelInCdimage(model) or not IsModelAPed(model) then
+        print(('[%s] Modelo do lojista inexistente: %s'):format(resourceName, cfg.model))
+        return
+    end
+    if not pcall(lib.requestModel, model, 5000) then return end
+
+    local ped = CreatePed(4, model, cfg.coords.x, cfg.coords.y, cfg.coords.z - 1.0, cfg.coords.w, false, false)
+    SetModelAsNoLongerNeeded(model)
+    if ped == 0 then return end
+
+    SetEntityInvincible(ped, true)
+    FreezeEntityPosition(ped, true)
+    SetBlockingOfNonTemporaryEvents(ped, true)
+    SetPedCanRagdoll(ped, false)
+    if cfg.scenario then TaskStartScenarioInPlace(ped, cfg.scenario, 0, true) end
+
+    local ok, err = exports.bgrz_core:AddLocalEntityTarget(ped, targetOptions())
+    if not ok then print(('[%s] Target do lojista falhou: %s'):format(resourceName, tostring(err))) end
+
+    targetPed = ped
+    spawnedNPCs[#spawnedNPCs + 1] = ped
+end
+
 CreateThread(function()
+    spawnTargetNPC()
     while GetResourceState('envi-interact') ~= 'started' do Wait(250) end
     for _, npc in ipairs(Config.NPCs) do spawnNPC(npc) end
     if Config.ShowBlip then
@@ -211,6 +266,8 @@ AddEventHandler('onResourceStop', function(stoppedResource)
     if GetResourceState('envi-interact') == 'started' then
         exports['envi-interact']:CloseEverything()
     end
+    -- O target sai antes do ped (DESIGN_v4 11).
+    if targetPed then exports.bgrz_core:RemoveLocalEntityTarget(targetPed) end
     for _, ped in ipairs(spawnedNPCs) do
         if DoesEntityExist(ped) then DeleteEntity(ped) end
     end

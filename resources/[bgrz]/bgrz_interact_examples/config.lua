@@ -19,3 +19,12 @@ Config.NPCs = {
     { id = 'instructor', title = 'Instrutor de Direcao', model = 'a_m_m_business_01', coords = vector4(223.16, -803.32, 30.64, 337.0), scenario = 'WORLD_HUMAN_CLIPBOARD', greeting = 'GENERIC_HI', speech = 'Vamos testar uma pequena prova teorica de multipla escolha.', example = 'quiz' },
     { id = 'mysterious', title = 'Desconhecido', model = 'a_m_m_og_boss_01', coords = vector4(225.73, -801.97, 30.61, 337.0), scenario = 'WORLD_HUMAN_SMOKING', greeting = 'GENERIC_CURSE_MED', speech = 'Este exemplo mostra respostas condicionais e mudanca de humor local.', example = 'relationship' }
 }
+
+-- NPC do ox_target (via bgrz_core), na mesma fileira: testa varias opcoes, submenu e opcao condicional.
+Config.TargetNPC = {
+    enabled = true,
+    title = 'Lojista',
+    model = 'mp_m_shopkeep_01',
+    coords = vector4(228.30, -800.62, 30.58, 337.0),
+    scenario = 'WORLD_HUMAN_STAND_IMPATIENT',
+}

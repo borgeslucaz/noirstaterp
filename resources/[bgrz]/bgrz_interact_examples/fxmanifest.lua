@@ -11,5 +11,6 @@ client_script 'client/main.lua'
 
 dependencies {
     'ox_lib',
-    'envi-interact'
+    'envi-interact',
+    'bgrz_core'
 }
