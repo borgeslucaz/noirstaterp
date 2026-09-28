@@ -90,6 +90,41 @@ if not IsDuplicityVersion() then
         end
     end)
 
+    -- /hudmapa: alignment diagnostic. Red = rect Lua reports (drawn by the game),
+    -- cyan = rect the NUI places the bars against, plus the numbers on screen and in F8.
+    local debugMinimap = false
+    RegisterCommand("hudmapa", function()
+        debugMinimap = not debugMinimap
+        local map = utility.calculateMinimapSizeAndPosition(true)
+        print(("[noir_hud] res=%dx%d aspect=%.4f safezone=%.4f | map left=%.1f top=%.1f w=%.1f h=%.1f"):format(
+            map.screenWidth, map.screenHeight, GetAspectRatio(false), GetSafeZoneSize(), map.left, map.top, map.width, map.height))
+        interface:message("debug::minimap", {
+            enabled = debugMinimap,
+            aspect = GetAspectRatio(false),
+            safezone = GetSafeZoneSize(),
+        })
+        if not debugMinimap then return end
+
+        CreateThread(function()
+            while debugMinimap do
+                local m = utility.calculateMinimapSizeAndPosition()
+                local x, y = m.left / m.screenWidth, m.top / m.screenHeight
+                local w, h = m.width / m.screenWidth, m.height / m.screenHeight
+                local tx, ty = 2 / m.screenWidth, 2 / m.screenHeight
+                DrawRect(x + w / 2, y, w, ty, 255, 40, 40, 230)
+                DrawRect(x + w / 2, y + h, w, ty, 255, 40, 40, 230)
+                DrawRect(x, y + h / 2, tx, h, 255, 40, 40, 230)
+                DrawRect(x + w, y + h / 2, tx, h, 255, 40, 40, 230)
+                Wait(0)
+            end
+        end)
+    end, false)
+
+    interface:on("debug::viewport", function(data, cb)
+        print(("[noir_hud] NUI viewport=%sx%s dpr=%s"):format(data.width, data.height, data.dpr))
+        cb(true)
+    end)
+
     interface:on("APP_LOADED", function(_, cb)
         local data = {
             config = config,
@@ -100,6 +135,13 @@ if not IsDuplicityVersion() then
 
         CreateThread(utility.setupMinimap)
         toggleMap(config.minimapAlways)
+
+        -- The interface hides itself on load and only reappears on the login event,
+        -- which does not fire again after a resource restart mid-session.
+        local ok, loggedIn = pcall(function() return exports.bgrz_core:IsLoggedIn() end)
+        if ok and loggedIn and not IsPauseMenuActive() then
+            interface:toggle(true)
+        end
     end)
 
     return
@@ -109,18 +151,9 @@ local sv_utils = lib.require("modules.utility.server.main")
 
 CreateThread(function()
     if not sv_utils.isInterfaceCompiled() then
-        print("^1UI not compiled, either compile the UI or download a compiled version here: ^0https://github.com/ThatMadCap/minimal-hud/releases/latest")
+        print("^1UI not compiled: run ^0npm install && npm run build^1 inside noir_hud/web^0")
     end
 
     assert(GetResourceState('ox_lib') == 'started', 'ox_lib is not started. Please ensure ox_lib is installed and started before noir_hud.')
     assert(lib.checkDependency('ox_lib', '3.27.0', true), 'Upgrade ox_lib to 3.27.0 or higher')
-
-    local repName = 'minimal-hud'
-    local resName = GetCurrentResourceName()
-    if resName == repName then
-        local repo = ('thatmadcap/%s'):format(resName)
-        lib.versionCheck(repo)
-    else
-        lib.print.info(('Skipping resource version check (resource renamed to "%s").'):format(resName))
-    end
 end)

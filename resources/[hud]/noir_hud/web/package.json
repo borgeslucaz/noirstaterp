@@ -1,8 +1,8 @@
 {
   "name": "noir_hud",
-  "author": "MadCap",
+  "author": "Noir State",
   "private": true,
-  "version": "3.42.8",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

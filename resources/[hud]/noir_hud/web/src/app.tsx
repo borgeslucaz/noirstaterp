@@ -10,6 +10,10 @@ import { fetchNui } from "./utils/fetchNui";
 import { isDevPreview } from "./utils/misc";
 import { useCompassLocationStore, useCompassAlwaysStore } from "./states/compass-location";
 import { useSkewedStyleStore, useSkewAmountStore } from "@/states/skewed-style";
+import { useHudThemeStore } from "@/states/hud-theme";
+import PainelPlayerStatus from "./components/theme-painel/player-status";
+import PainelCarHud from "./components/theme-painel/car-hud";
+import DebugMinimap from "./components/debug-minimap";
 
 const DevPreview = import.meta.env.DEV ? lazy(() => import("./components/dev-preview")) : null;
 
@@ -20,6 +24,7 @@ export function App() {
   const [compassAlways, setCompassAlways] = useCompassAlwaysStore();
   const [skewedStyle, setSkewedStyle] = useSkewedStyleStore();
   const [skewAmount, setSkewAmount] = useSkewAmountStore();
+  const [theme, setTheme] = useHudThemeStore();
 
   useNuiEvent("state::visibility::app::set", (state) => {
     const newState = state === "toggle" ? !visible : state;
@@ -41,6 +46,7 @@ export function App() {
         setCompassAlways(config.compassAlways);
         setSkewedStyle(config.useSkewedStyle);
         setSkewAmount(config.skewAmount);
+        setTheme(config.theme === "classic" ? "classic" : "painel");
       })
       .catch((err) => {
         console.error(err);
@@ -58,10 +64,16 @@ export function App() {
   return (
     <>
       {isDevPreview() && DevPreview && <Suspense fallback={null}><DevPreview /></Suspense>}
-      <PlayerStatus />
-      <CarHud />
+      <DebugMinimap />
+      {theme === "painel" ? <>
+        <PainelPlayerStatus />
+        <PainelCarHud />
+      </> : <>
+        <PlayerStatus />
+        <CarHud />
+      </>}
 
-      {compassLocation !== "hidden" && (
+      {theme === "classic" && compassLocation !== "hidden" && (
         <>
           <Compass />
         </>

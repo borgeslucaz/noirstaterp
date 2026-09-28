@@ -32,6 +32,21 @@ utility.convertEngineHealthToPercentage = function(value)
     return percentage
 end
 
+-- On screens wider than 16:9 the game keeps its HUD inside a centred 16:9 area.
+-- This offset (in aligned units) pushes the map out to the real screen edge.
+---@return number
+utility.getUltrawideOffset = function()
+    local resolutionX, resolutionY = GetActiveScreenResolution()
+    local defaultAspectRatio = 1920 / 1080
+    local aspectRatio = resolutionX / resolutionY
+
+    if aspectRatio > defaultAspectRatio then
+        return ((defaultAspectRatio - aspectRatio) / 3.6) - 0.008
+    end
+
+    return 0
+end
+
 ---@return {width: number, height: number, left: number, top: number}
 utility.calculateMinimapSizeAndPosition = function(force)
     local resX, resY = GetActiveScreenResolution()
@@ -43,7 +58,11 @@ utility.calculateMinimapSizeAndPosition = function(force)
     local aspectRatio = GetAspectRatio(false)
 
     SetScriptGfxAlign(string.byte("L"), string.byte("B"))
-    local minimapRawX, minimapRawY = GetScriptGfxPosition(0.000, 0.002 + -0.229888)
+    -- Same ultrawide offset positionMinimap applies, so the NUI follows the map to the edge.
+    -- Component offsets are in 16:9-area widths, GetScriptGfxPosition in full-screen widths
+    -- (measured at 3024x1296: the map moved 375px, the unconverted anchor 491px).
+    local toScreenWidths = (1920 / 1080) / math.max(resX / resY, 1920 / 1080)
+    local minimapRawX, minimapRawY = GetScriptGfxPosition(utility.getUltrawideOffset() * toScreenWidths, 0.002 + -0.229888)
     minimap.width = resX / (3.48 * aspectRatio)
     minimap.height = resY / 5.55
     ResetScriptGfxAlign()
@@ -65,6 +84,9 @@ utility.calculateMinimapSizeAndPosition = function(force)
         left = minimap.webLeft,
         height = minimap.webHeight,
         width = minimap.webWidth,
+        -- Values above are in game pixels; the NUI rescales them to its own viewport.
+        screenWidth = resX,
+        screenHeight = resY,
     }
     cachedResolutionX = resX
     cachedResolutionY = resY
@@ -114,20 +136,23 @@ utility.preventBigmapFromStayingActive = function()
     end
 end
 
-utility.setupMinimap = function()
-    lib.print.debug("(utility:setupMinimap) Setting up minimap.")
-    local defaultAspectRatio = 1920 / 1080
-    local resolutionX, resolutionY = GetActiveScreenResolution()
-    local aspectRatio = resolutionX / resolutionY
-    local minimapOffset = 0
-    -- Matches the approved 1920x1080 web preview: +28px right, -14.01px up.
+-- Positions the minimap for the current resolution. Runs again whenever the
+-- resolution changes, since the offset depends on the aspect ratio.
+utility.positionMinimap = function()
+    local minimapOffset = utility.getUltrawideOffset()
+    -- Matches the approved 1920x1080 web preview: +28px right, -38.01px up (measured in game).
     -- Normalized offsets keep the same relative placement at other resolutions.
     local previewOffsetX = 28 / 1920
     local previewOffsetY = -38.01 / 1080
 
-    if aspectRatio > defaultAspectRatio then
-        minimapOffset = ((defaultAspectRatio - aspectRatio) / 3.6) - 0.008
-    end
+    SetMinimapComponentPosition("minimap", "L", "B", previewOffsetX + minimapOffset, -0.047 + previewOffsetY, 0.1638, 0.183)
+    SetMinimapComponentPosition("minimap_mask", "L", "B", previewOffsetX + minimapOffset, previewOffsetY, 0.128, 0.20)
+    SetMinimapComponentPosition("minimap_blur", "L", "B", -0.01 + previewOffsetX + minimapOffset, 0.025 + previewOffsetY, 0.262, 0.300)
+    utility.invalidateMinimapCache()
+end
+
+utility.setupMinimap = function()
+    lib.print.debug("(utility:setupMinimap) Setting up minimap.")
 
     RequestStreamedTextureDict("squaremap", false)
 
@@ -140,16 +165,29 @@ utility.setupMinimap = function()
     -- GTA V Enhanced no longer exposes radarmask1g in the graphics dictionary.
     -- Replacing it logs "Could not find original texture" on every resource start.
 
-    SetMinimapComponentPosition("minimap", "L", "B", previewOffsetX + minimapOffset, -0.047 + previewOffsetY, 0.1638, 0.183)
-    SetMinimapComponentPosition("minimap_mask", "L", "B", previewOffsetX + minimapOffset, previewOffsetY, 0.128, 0.20)
-    SetMinimapComponentPosition("minimap_blur", "L", "B", -0.01 + previewOffsetX + minimapOffset, 0.025 + previewOffsetY, 0.262, 0.300)
-    utility.invalidateMinimapCache()
+    utility.positionMinimap()
 
     SetBlipAlpha(GetNorthRadarBlip(), 0)
     SetBigmapActive(true, false)
     SetMinimapClipType(0)
     CreateThread(utility.preventBigmapFromStayingActive)
 
+    if utility.watchingResolution then return end
+    utility.watchingResolution = true
+
+    local lastX, lastY = GetActiveScreenResolution()
+    while true do
+        Wait(1000)
+        local resX, resY = GetActiveScreenResolution()
+        if resX ~= lastX or resY ~= lastY then
+            lastX, lastY = resX, resY
+            lib.print.debug(("(utility:setupMinimap) Resolution changed to %dx%d, repositioning minimap."):format(resX, resY))
+            utility.positionMinimap()
+            -- Same bigmap toggle as the first setup, so the radar applies the new layout.
+            SetBigmapActive(true, false)
+            CreateThread(utility.preventBigmapFromStayingActive)
+        end
+    end
 end
 
 -- Removes the default health and armor bars from the HUD

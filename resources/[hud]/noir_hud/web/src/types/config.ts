@@ -5,4 +5,5 @@ export interface ConfigInterface {
   compassAlways: boolean;
   useSkewedStyle: boolean;
   skewAmount: number;
+  theme?: "classic" | "painel";
 }

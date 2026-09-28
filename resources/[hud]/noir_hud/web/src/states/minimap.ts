@@ -6,6 +6,8 @@ export interface MinimapStateInterface {
   height: number;
   left: number;
   top: number;
+  screenWidth?: number;
+  screenHeight?: number;
 }
 
 const mockMinimapState: MinimapStateInterface = {
@@ -25,3 +27,14 @@ const minimapState = atom<MinimapStateInterface>(isDevPreview() ? {
 export const useMinimapState = () => useAtomValue(minimapState);
 export const useSetMinimapState = () => useSetAtom(minimapState);
 export const useMinimapStateStore = () => useAtom(minimapState);
+
+// Lua sends game pixels; the NUI viewport can differ (Windows scaling, windowed mode).
+export const toViewport = (map: MinimapStateInterface) => {
+  const sx = map.screenWidth ? window.innerWidth / map.screenWidth : 1;
+  const sy = map.screenHeight ? window.innerHeight / map.screenHeight : 1;
+  return { left: map.left * sx, top: map.top * sy, width: map.width * sx, height: map.height * sy };
+};
+
+// The drawn map sits 28px right and 38px above the anchor Lua reports (1080p reference,
+// measured in game; matches previewOffsetX/Y in utility.positionMinimap).
+export const DRAWN_MAP_OFFSET = { left: `${28 / 10.8}vh`, top: `${38.01 / 10.8}vh` };

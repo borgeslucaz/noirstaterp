@@ -14,6 +14,8 @@ return {
     compassAlways = false, -- Always show compass (true) or only in vehicles (false).
     compassLocation = "hidden", -- Compass position: "top", "bottom", "hidden".
 
-    useSkewedStyle = true, -- Enable skewed style for HUD (true/false).
+    theme = "painel", -- HUD theme: "painel" (default) or "classic".
+
+    useSkewedStyle = false, -- Enable skewed style for HUD (true/false).
     skewAmount = 10, -- Amount of skew to apply (recommended 10-20).
 }

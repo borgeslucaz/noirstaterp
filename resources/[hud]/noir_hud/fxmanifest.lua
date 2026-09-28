@@ -3,11 +3,10 @@ game("gta5")
 this_is_a_map("yes")
 
 name("noir_hud")
-author("MadCap <discord:https://discord.gg/dTNWpmPGyc>")
--- author("vipex <discord:vipex.v>")
-version("3.0.0")
-description ("Noir HUD for FiveM")
-repository("https://github.com/ThatMadCap/minimal-hud")
+author("Noir State")
+version("1.0.0")
+description("Noir HUD - status, veiculo e minimapa (temas Painel e Classico)")
+-- Baseado no minimal-hud (vipexv / MadCap), licenca em LICENSE.
 
 shared_scripts({
     "@ox_lib/init.lua",
