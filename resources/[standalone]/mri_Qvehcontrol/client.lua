@@ -18,7 +18,9 @@ Citizen.CreateThread(function()
             if LeaveRunning then
                 if IsControlPressed(2, 75) and not IsEntityDead(playerPed) then
                     Citizen.Wait(150)
-                    if IsPedInAnyVehicle(playerPed, false) and IsControlPressed(2, 75) and not IsEntityDead(playerPed) then
+                    -- Só mantém ligado o que já estava ligado: ligar aqui furava a chave do mri_Qcarkeys.
+                    if IsPedInAnyVehicle(playerPed, false) and IsControlPressed(2, 75) and not IsEntityDead(playerPed)
+                        and GetIsVehicleEngineRunning(vehicle) then
                         SetVehicleEngineOn(vehicle, true, true, false)
                         TaskLeaveVehicle(playerPed, vehicle, 0)
                         
@@ -162,16 +164,9 @@ function openVehControl()
 				break
 			end
 			
-			local fuel = 100
-			if exports['cdn-fuel'] then
-				local f = exports['cdn-fuel']:GetFuel(veh)
-				if type(f) == "number" then fuel = f end
-			else
-				if exports['mri_Qfuel'] then
-					local f = exports['mri_Qfuel']:GetFuel(veh)
-					if type(f) == "number" then fuel = f end
-				end
-			end
+			-- ox_fuel mantém o nível nativo em dia; exports['cdn-fuel'] é sempre truthy e
+			-- a chamada num resource inexistente derrubava esta thread (painel não fechava mais).
+			local fuel = GetVehicleFuelLevel(veh)
 			
 			local engineTemp = GetVehicleEngineTemperature(veh)
 			local coords = GetEntityCoords(veh)
@@ -315,20 +310,10 @@ RegisterNUICallback('setLivery', function(data, cb)
 	if cb then cb('ok') end
 end)
 RegisterNUICallback('toggleLock', function(data, cb)
-	local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
-	if vehicle ~= 0 then
-		local lockStatus = GetVehicleDoorLockStatus(vehicle)
-		if lockStatus == 1 or lockStatus == 0 then
-			SetVehicleDoorsLocked(vehicle, 2)
-			SendNUIMessage({ type = "showToast", text = "Veículo trancado", toastType = "success" })
-		else
-			SetVehicleDoorsLocked(vehicle, 1)
-			SendNUIMessage({ type = "showToast", text = "Veículo destrancado", toastType = "success" })
-		end
-	end
+	-- Tranca pelo mri_Qcarkeys, que confere a chave; trancar direto deixava qualquer ocupante destrancar.
+	ExecuteCommand('togglelocks')
 	if cb then cb('ok') end
 end)
-
 
 function EngineControl()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)

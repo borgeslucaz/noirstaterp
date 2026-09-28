@@ -2,7 +2,8 @@
 UseCommands = true
 
 -- Disable ped moving seat from pass to driver unintentionally [true/false]
-DisableSeatShuffle = true
+-- Desligado: o qbx_noshuff já faz isso; os dois juntos brigam pelo banco.
+DisableSeatShuffle = false
 
 -- Keep vehicle running when exit driver with long F key [ ture/false ]
 LeaveRunning = true
