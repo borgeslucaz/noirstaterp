@@ -4,7 +4,7 @@ game 'gta5'
 name 'noir_gathering'
 author 'Noir State'
 description 'Rotas de coleta criadas em jogo (fork do mri_Qfarm)'
-version '1.0.0'
+version '1.1.0'
 
 ox_lib 'locale'
 
@@ -28,17 +28,21 @@ files {
     'shared/rules.lua',
     'client/integrations.lua',
     'client/collect.lua',
+    'client/carry.lua',
+    'client/haul.lua',
+    'client/npc.lua',
+    'client/placement.lua',
     'client/creator.lua',
     'locales/*.json',
 }
 
--- `qbx_core` e `ox_inventory` são providers do bgrz_core e não aparecem aqui (§6.2).
--- `ox_target` é a exceção do §2.5 e está declarado porque é chamado direto.
+-- `qbx_core`, `ox_inventory` e `ox_target` são providers do bgrz_core e não aparecem
+-- aqui (§6.2). `noir_illegal_core` e `noir_gangs` são opcionais: consultados na hora, e
+-- sem eles a rota com requisito não abre e o olheiro não avisa ninguém.
 dependencies {
     '/onesync',
     'ox_lib',
     'oxmysql',
     'bgrz_core',
-    'ox_target',
     'noir_lib',
 }

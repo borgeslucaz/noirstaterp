@@ -4,6 +4,7 @@ local Config = require 'config.server'
 local Storage = require 'server.storage'
 local Routes = require 'server.routes'
 local Sessions = require 'server.sessions'
+local Hauls = require 'server.hauls'
 local Security = require 'server.security'
 local Integrations = require 'server.integrations'
 
@@ -20,12 +21,15 @@ end
 lib.callback.register('noir_gathering:server:adminData', function(source)
     local refused = adminGuard(source)
     if refused then return refused end
+    local progression = Integrations.progressionCatalog()
     return {
         ok = true,
         routes = Routes.list(),
         items = Integrations.itemList(),
         jobs = Integrations.jobList(),
         gangs = Integrations.gangList(),
+        -- Nil com o noir_illegal_core fora do ar: o criador esconde requisito e reputação.
+        progression = progression,
     }
 end)
 
@@ -56,6 +60,8 @@ lib.addCommand(Config.adminCommand, { help = locale('command_help') }, function(
 end)
 
 Sessions.register()
+Hauls.register()
+Sessions.busyElsewhere = Hauls.isActive
 
 MySQL.ready(function()
     local ok, err = pcall(function()

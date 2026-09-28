@@ -1,10 +1,12 @@
----Boot do client: lê as rotas públicas do GlobalState, desenha os alvos de início e os
----pontos de rota sem início, e abre o menu da rota.
+---Boot do client: lê as rotas públicas do GlobalState, desenha o início de cada rota (NPC
+---ou alvo no chão) e os pontos de rota sem início, e abre o menu da rota.
 
 local Config = require 'config.shared'
 local Rules = require 'shared.rules'
 local Integrations = require 'client.integrations'
 local Collect = require 'client.collect'
+local Haul = require 'client.haul'
+local Npc = require 'client.npc'
 local Creator = require 'client.creator'
 
 local STATE_KEY = 'noir_gathering:routes'
@@ -15,6 +17,11 @@ local zones = {}
 local function clearZones()
     for index = 1, #zones do Integrations.removeZone(zones[index]) end
     zones = {}
+    Npc.clear()
+end
+
+local function isBusy()
+    return Collect.isBusy() or Haul.isActive()
 end
 
 local function addZone(data)
@@ -36,7 +43,7 @@ local function openRouteMenu(route)
                 description = item.tool and locale('menu_requires_tool') or nil,
                 icon = Config.itemImage:format(itemName),
                 image = Config.itemImage:format(itemName),
-                disabled = Collect.isBusy(),
+                disabled = isBusy(),
                 onSelect = function() Collect.startShift(route, itemName) end,
             }
         end
@@ -55,6 +62,42 @@ local function openRouteMenu(route)
     lib.showContext('noir_gathering:route')
 end
 
+local function openHaulMenu(route)
+    local options = {}
+    if Haul.isActive() then
+        options[1] = { title = locale('menu_haul_stop'), icon = 'fa-solid fa-ban', onSelect = Haul.stop }
+    else
+        options[1] = {
+            title = locale('menu_haul_start'),
+            description = locale('menu_haul_start_desc', route.haul.count),
+            icon = 'fa-solid fa-truck-ramp-box',
+            disabled = isBusy(),
+            onSelect = function() Haul.start(route) end,
+        }
+    end
+    lib.registerContext({ id = 'noir_gathering:haul', title = route.name, options = options })
+    lib.showContext('noir_gathering:haul')
+end
+
+---Início da rota: no NPC, se a rota tem um, ou numa esfera no ponto.
+local function addStart(route)
+    local haul = route.mode == 'haul'
+    local options = { {
+        name = 'noir_gathering:start:open',
+        icon = haul and 'fa-solid fa-truck-ramp-box' or 'fa-solid fa-briefcase',
+        label = locale('target_open', route.name),
+        onSelect = function()
+            if haul then openHaulMenu(route) else openRouteMenu(route) end
+        end,
+    } }
+    local key = ('noir_gathering:start:%d'):format(route.id)
+    if route.npc then
+        Npc.add(key, route.start, route.npc, options)
+    else
+        addZone({ name = key, coords = toVector(route.start), radius = Config.targetRadius, options = options })
+    end
+end
+
 ---@param routes table[]?
 local function rebuild(routes)
     clearZones()
@@ -62,18 +105,8 @@ local function rebuild(routes)
 
     for _, route in ipairs(routes or GlobalState[STATE_KEY] or {}) do
         if Rules.isPublic(route.groups) or Integrations.hasGroup(route.groups) then
-            if route.mode == 'shift' and route.start then
-                addZone({
-                    name = ('noir_gathering:start:%d'):format(route.id),
-                    coords = toVector(route.start),
-                    radius = Config.targetRadius,
-                    options = { {
-                        name = 'noir_gathering:start:open',
-                        icon = 'fa-solid fa-briefcase',
-                        label = locale('target_open', route.name),
-                        onSelect = function() openRouteMenu(route) end,
-                    } },
-                })
+            if (route.mode == 'shift' or route.mode == 'haul') and route.start then
+                addStart(route)
             elseif route.mode == 'free' then
                 for itemName, item in pairs(route.items) do
                     for index, point in ipairs(item.points) do
@@ -85,7 +118,7 @@ local function rebuild(routes)
                                 name = 'noir_gathering:free:collect',
                                 icon = 'fa-solid fa-hand',
                                 label = locale('target_collect', item.label),
-                                canInteract = function() return not Collect.isBusy() end,
+                                canInteract = function() return not isBusy() end,
                                 onSelect = function() Collect.free(route, itemName, index) end,
                             } },
                         })
@@ -107,12 +140,23 @@ AddEventHandler('bgrz_core:client:jobUpdated', function() rebuild() end)
 AddEventHandler('bgrz_core:client:gangUpdated', function() rebuild() end)
 AddEventHandler('bgrz_core:client:playerUnloaded', function()
     Collect.reset()
+    Haul.reset()
     clearZones()
 end)
 
 RegisterNetEvent('noir_gathering:client:sessionEnded', function(reason)
     if source ~= 65535 then return end
     Collect.ended(reason)
+end)
+
+RegisterNetEvent('noir_gathering:client:haulEnded', function(reason)
+    if source ~= 65535 then return end
+    Haul.ended(reason)
+end)
+
+RegisterNetEvent('noir_gathering:client:scout', function(area, radius)
+    if source ~= 65535 or type(area) ~= 'table' or type(radius) ~= 'number' then return end
+    Haul.scout(area, radius)
 end)
 
 RegisterNetEvent('noir_gathering:client:openCreator', function()
@@ -124,12 +168,17 @@ lib.addKeybind({
     name = 'noir_gathering_stop',
     description = locale('key_stop'),
     defaultKey = Config.stopKey,
-    onReleased = Collect.stop,
+    onReleased = function()
+        if Haul.isActive() then return Haul.stop() end
+        Collect.stop()
+    end,
 })
 
 AddEventHandler('onResourceStop', function(resource)
     if resource ~= GetCurrentResourceName() then return end
     Collect.reset()
+    Haul.reset()
+    Npc.clear()
     Creator.reset()
 end)
 

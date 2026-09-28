@@ -29,6 +29,7 @@ local ERRORS = {
     expired = 'error_generic',
     route_changed = 'error_route_changed',
     provider_unavailable = 'error_generic',
+    locked = 'error_locked',
 }
 
 local function notifyError(code, item)

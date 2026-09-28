@@ -4,7 +4,7 @@
 
 local Rules = {}
 
-local MODES = { shift = true, free = true }
+local MODES = { shift = true, free = true, haul = true }
 
 ---@param value any
 ---@return boolean
@@ -51,6 +51,20 @@ function Rules.normalizeCoords(value)
     if not Rules.isFinite(x) or not Rules.isFinite(y) or not Rules.isFinite(z) then return nil end
     if math.abs(x) > 20000 or math.abs(y) > 20000 or math.abs(z) > 5000 then return nil end
     return { x = round(x), y = round(y), z = round(z) }
+end
+
+---Posição com direção: a do NPC, do veículo, da pilha e do ponto de entrega.
+---@param value any
+---@return { x: number, y: number, z: number, w: number }?
+function Rules.normalizePlacement(value)
+    local coords = Rules.normalizeCoords(value)
+    if not coords then return nil end
+    local w = value.w
+    if w == nil and type(value) == 'table' then w = value[4] end
+    if w == nil then w = 0 end
+    if not Rules.isFinite(w) then return nil end
+    coords.w = round(w % 360)
+    return coords
 end
 
 local function count(map)
@@ -162,15 +176,124 @@ local function normalizeItem(input, limits, isKnownItem)
     return item
 end
 
+local function acceptAny() return true end
+
+---O que o servidor conhece e a rota pode citar. Função sozinha é o catálogo de itens;
+---o que faltar aceita qualquer nome — é o caso do boot, que não pode derrubar uma rota
+---porque um item ou um desbloqueio saiu depois.
+---@param catalog table|function|nil
+local function catalogOf(catalog)
+    if type(catalog) == 'function' then catalog = { item = catalog } end
+    catalog = catalog or {}
+    return {
+        item = catalog.item or acceptAny,
+        category = catalog.category or acceptAny,
+        unlock = catalog.unlock or acceptAny,
+        prop = catalog.prop or acceptAny,
+        reputationCap = catalog.reputationCap,
+    }
+end
+
+---@param value any
+---@param range { min: number, max: number, default: number }
+---@return number?
+local function normalizeRadius(value, range)
+    if value == nil then return range.default end
+    if not Rules.isFinite(value) or value < range.min or value > range.max then return nil end
+    return math.floor(value + 0.5)
+end
+
+---Desbloqueio ou nível de reputação que a GANG de quem vai jogar precisa ter.
+local function normalizeRequirement(input, known)
+    if input == nil then return nil end
+    if type(input) ~= 'table' then return nil, 'invalid_requirement' end
+    local requirement = {}
+    if input.unlock ~= nil and input.unlock ~= '' then
+        if not Rules.isName(input.unlock) or not known.unlock(input.unlock) then return nil, 'invalid_requirement' end
+        requirement.unlock = input.unlock
+    end
+    if input.category ~= nil and input.category ~= '' then
+        if not Rules.isName(input.category) or not known.category(input.category)
+            or not intBetween(input.level, 1, 20) then
+            return nil, 'invalid_requirement'
+        end
+        requirement.category, requirement.level = input.category, input.level
+    end
+    if next(requirement) == nil then return nil end
+    return requirement
+end
+
+---Rota de carga: pilha de caixas, quantas caixas, ponto de entrega e o que ela paga.
+local function normalizeHaul(input, limits, known)
+    if type(input) ~= 'table' then input = {} end
+    local haul = {}
+
+    if input.stack ~= nil then
+        haul.stack = Rules.normalizePlacement(input.stack)
+        if not haul.stack then return nil, 'invalid_stack' end
+    end
+    haul.prop = input.prop == nil and limits.haul.defaultProp or input.prop
+    if not Rules.isName(haul.prop) or not known.prop(haul.prop) then return nil, 'invalid_stack' end
+
+    haul.count = input.count == nil and 1 or input.count
+    if not intBetween(haul.count, 1, limits.haul.boxes) then return nil, 'invalid_count' end
+
+    if input.dropoff ~= nil then
+        haul.dropoff = Rules.normalizePlacement(input.dropoff)
+        if not haul.dropoff then return nil, 'invalid_dropoff' end
+    end
+
+    haul.cooldown = input.cooldown == nil and 0 or input.cooldown
+    if not intBetween(haul.cooldown, 0, limits.haul.cooldownMinutes) then return nil, 'invalid_cooldown' end
+
+    haul.rewards = {}
+    if input.rewards ~= nil then
+        if type(input.rewards) ~= 'table' or count(input.rewards) > limits.haul.rewardItems then
+            return nil, 'invalid_rewards'
+        end
+        for name, range in pairs(input.rewards) do
+            if not Rules.isName(name) or not known.item(name) then return nil, 'invalid_rewards' end
+            local amount = normalizeRange(range, limits.amount)
+            if not amount or amount.max < 1 then return nil, 'invalid_rewards' end
+            haul.rewards[name] = amount
+        end
+    end
+
+    if input.category ~= nil and input.category ~= '' then
+        if not Rules.isName(input.category) or not known.category(input.category) then
+            return nil, 'invalid_category'
+        end
+        haul.category = input.category
+    end
+
+    haul.reputation = input.reputation == nil and 0 or input.reputation
+    local cap = known.reputationCap or limits.haul.reputation
+    if not Rules.isFinite(haul.reputation) or haul.reputation < 0 or haul.reputation > cap then
+        return nil, 'invalid_reputation'
+    end
+    if haul.reputation > 0 and not haul.category then return nil, 'invalid_reputation' end
+
+    local scout = type(input.scout) == 'table' and input.scout or {}
+    local chance = scout.chance == nil and 0 or normalizeChance(scout.chance)
+    local radius = normalizeRadius(scout.radius, limits.alertRadius)
+    if not chance or not radius then return nil, 'invalid_scout' end
+    haul.scout = { enabled = scout.enabled == true, chance = chance, radius = radius }
+    if haul.scout.enabled and not haul.category then return nil, 'invalid_scout' end
+
+    return haul
+end
+
 ---Valida e normaliza a rota que o admin mandou. Tudo que não está no formato vira
 ---recusa com código, e não "melhor esforço": o que é salvo é exatamente o que roda.
 ---@param input any
 ---@param limits table `config.shared.limits`
----@param isKnownItem fun(name: string): boolean
+---@param catalog table|fun(name: string): boolean catálogo (ver `catalogOf`) ou só o de itens
 ---@return table? route
 ---@return string? errorCode
-function Rules.normalizeRoute(input, limits, isKnownItem)
+function Rules.normalizeRoute(input, limits, catalog)
     if type(input) ~= 'table' then return nil, 'invalid_route' end
+    local known = catalogOf(catalog)
+    local isKnownItem = known.item
 
     local route = {}
 
@@ -183,8 +306,17 @@ function Rules.normalizeRoute(input, limits, isKnownItem)
     route.afk = route.mode == 'free' and input.afk == true
 
     if input.start ~= nil then
-        route.start = Rules.normalizeCoords(input.start)
+        route.start = Rules.normalizePlacement(input.start)
         if not route.start then return nil, 'invalid_start' end
+    end
+
+    if input.npc ~= nil then
+        local npc = input.npc
+        if type(npc) ~= 'table' or not Rules.isName(npc.model) then return nil, 'invalid_npc' end
+        if npc.scenario ~= nil and npc.scenario ~= '' and not Rules.isName(npc.scenario) then
+            return nil, 'invalid_npc'
+        end
+        route.npc = { model = npc.model:lower(), scenario = npc.scenario ~= '' and npc.scenario or nil }
     end
 
     route.groups = {}
@@ -202,11 +334,28 @@ function Rules.normalizeRoute(input, limits, isKnownItem)
         if not Rules.isName(input.vehicle, 32) then return nil, 'invalid_vehicle' end
         route.vehicle = input.vehicle:lower()
     end
+    -- Na rota de carga, com posição, a rota entrega o veículo ali; sem, o jogador traz um
+    -- do model. Turno e coleta livre só conferem que ele veio de veículo.
+    if input.vehicleSpawn ~= nil and route.vehicle and route.mode == 'haul' then
+        route.vehicleSpawn = Rules.normalizePlacement(input.vehicleSpawn)
+        if not route.vehicleSpawn then return nil, 'invalid_vehicle' end
+    end
+
+    local requirement, requirementErr = normalizeRequirement(input.requirement, known)
+    if requirementErr then return nil, requirementErr end
+    route.requirement = requirement
 
     local police = type(input.police) == 'table' and input.police or {}
     local chance = police.chance == nil and 0 or normalizeChance(police.chance)
-    if not chance then return nil, 'invalid_police' end
-    route.police = { enabled = police.enabled == true, chance = chance }
+    local radius = normalizeRadius(police.radius, limits.alertRadius)
+    if not chance or not radius then return nil, 'invalid_police' end
+    route.police = { enabled = police.enabled == true, chance = chance, radius = radius }
+
+    if route.mode == 'haul' then
+        local haul, haulErr = normalizeHaul(input.haul, limits, known)
+        if not haul then return nil, haulErr end
+        route.haul = haul
+    end
 
     route.items = {}
     if input.items ~= nil then
@@ -228,6 +377,11 @@ end
 ---@param route table
 ---@return boolean
 function Rules.isPlayable(route)
+    if route.mode == 'haul' then
+        local haul = route.haul
+        return route.start ~= nil and route.vehicle ~= nil and haul ~= nil
+            and haul.stack ~= nil and haul.dropoff ~= nil
+    end
     if route.mode == 'shift' and not route.start then return false end
     for _, item in pairs(route.items) do
         if #item.points > 0 then return true end
@@ -256,15 +410,23 @@ function Rules.publicView(id, route)
     local groups = {}
     for group, grade in pairs(route.groups) do groups[group] = grade end
 
+    local haul = nil
+    if route.haul then
+        haul = { stack = route.haul.stack, prop = route.haul.prop, count = route.haul.count,
+            dropoff = route.haul.dropoff }
+    end
+
     return {
         id = id,
         name = route.name,
         mode = route.mode,
         afk = route.afk,
         start = route.start,
+        npc = route.npc,
         groups = groups,
         vehicle = route.vehicle,
-        items = items,
+        items = route.mode == 'haul' and {} or items,
+        haul = haul,
     }
 end
 
@@ -321,6 +483,19 @@ function Rules.chance(percent, rng)
     if not Rules.isFinite(percent) or percent <= 0 then return false end
     if percent >= 100 then return true end
     return rng() * 100 < percent
+end
+
+---Centro do alerta: um ponto sorteado dentro de 60% do raio, para o círculo cobrir o
+---lugar sem apontar para ele.
+---@param coords { x: number, y: number, z: number }
+---@param radius number
+---@param rng? fun(): number
+---@return { x: number, y: number, z: number }
+function Rules.blurCoords(coords, radius, rng)
+    rng = rng or math.random
+    local angle = rng() * 2 * math.pi
+    local distance = math.sqrt(rng()) * radius * 0.6
+    return { x = coords.x + math.cos(angle) * distance, y = coords.y + math.sin(angle) * distance, z = coords.z }
 end
 
 ---Chance de alerta de uma coleta: a do item, se tiver; senão a da rota, se ligada.

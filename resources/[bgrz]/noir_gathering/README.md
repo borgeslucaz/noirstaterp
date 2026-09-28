@@ -16,10 +16,43 @@ Teclas) encerra.
 independente. Com **AFK**, a coleta se repete no mesmo ponto até o jogador apertar `F7`,
 sair de perto ou algo falhar.
 
+**Carga.** O jogador fala com o NPC do início e recebe o veículo da rota numa vaga
+definida pelo admin (ou traz um do model exigido). Vai até a pilha de caixas, pega uma
+caixa de cada vez e guarda no veículo, que pode ser van, avião ou barco, até completar a
+carga. Com a carga completa, a polícia pode ser alertada e o olheiro pode avisar as gangs
+rivais. Ele leva o veículo até o destino, tira as caixas uma a uma e deixa no ponto de
+entrega. Com a última caixa, recebe os itens da rota e a gang ganha reputação no
+`noir_illegal_core`. Sem espaço no inventário, o pagamento fica pendente no ponto de entrega.
+Uma rota tem uma carga por vez, com intervalo configurável entre uma saída e a próxima.
+`F7` desiste, depois de confirmar.
+
 Por item da rota: quantidade mínima e máxima, tempo de coleta, ferramenta com desgaste,
 stress, ordem aleatória, rota sem fim, animação, itens extras e chance de alerta policial
 própria. Por rota: nome, modo, ponto de início, grupos com acesso (job ou gang, com cargo
-mínimo), veículo exigido e alerta policial.
+mínimo), veículo exigido, NPC no início, requisito da gang e alerta policial (chance e raio
+da área).
+
+Por rota de carga: pilha (modelo da lista em `config/shared.lua` e posição pela mira),
+quantidade de caixas, vaga do veículo, ponto de entrega, itens de recompensa, reputação
+da gang (categoria e valor, até o teto da atividade `gathering_delivery` do core), olheiro
+(chance e raio) e intervalo.
+
+## Requisito da gang
+
+A rota pode exigir um **desbloqueio** de gang do `noir_illegal_core` (`HasUnlock`), um
+**nível mínimo** numa categoria (`GetOrganizationLevel`), ou os dois. O que vale é o da
+gang de quem vai jogar. Sem o core no ar, rota com requisito não abre.
+
+## Alertas
+
+**Polícia.** O alerta mostra uma área do raio configurado, com o centro sorteado dentro
+de 60% do raio: o círculo cobre o lugar sem apontar para ele. No turno e na coleta livre,
+o alerta sai da coleta. Na carga, sai da pilha quando a carga fica completa.
+
+**Olheiro.** Na carga, quando ela fica completa, quem está online numa gang **diferente**
+da de quem carregou e que opera o **produto** da categoria da rota (`HasGangProduct` do
+`noir_gangs`) recebe uma mensagem no celular e uma área marcada no mapa por
+`haul.scoutBlipSeconds`.
 
 ## Admin
 
@@ -42,7 +75,7 @@ jogadores; o menu avisa.
 | rota sem início não entregava item | entrega |
 | extras conferiam o peso do item principal | cada extra confere o próprio |
 | recompensa, alerta e extras publicados para todos os clientes | só a visão pública (pontos, tempo, animação) vai para o client |
-| `qb-core`, `ps-dispatch`, job `police` fixo, PolyZone, emote menu | `bgrz_core` para tudo; `ox_target` direto (§2.5); dispatch pelo `SendDispatch` |
+| `qb-core`, `ps-dispatch`, job `police` fixo, PolyZone, emote menu | `bgrz_core` para tudo, inclusive o alvo; dispatch pelo `SendDispatch` |
 | `print` a cada coleta | silencioso; `debug = true` em `config/shared.lua` |
 
 Saíram também: modo sem ox_target (marker/PolyZone), integração com `mri_Qbox`, animação
@@ -56,6 +89,11 @@ por comando de emote e o "tipo" do alerta do ps-dispatch.
 | `config/server.lua` | ACE, comando, distâncias, tempo mínimo, TTL, dispatch (não vai ao client) |
 | `shared/rules.lua` | validação da rota, visão pública, próximo ponto — puro e testado |
 | `server/sessions.lua` | turno e coleta, com estados `ACTIVE` → `COLLECTING` → `PROCESSING` |
+| `server/hauls.lua` | carga, com fases `LOAD` → `UNLOAD` → `PAY`, trava por rota e veículo |
+| `client/haul.lua` | pilha, veículo, destino e olheiro do lado do jogador |
+| `client/carry.lua` | caixa na mão (prop e animação conferidas antes de usar) |
+| `client/npc.lua` | NPC do início, criado perto e apagado longe |
+| `client/placement.lua` | posicionar pela mira (NPC, veículo, pilha, entrega), como no noir_garage |
 | `server/routes.lua` | registro, persistência e publicação em `GlobalState['noir_gathering:routes']` |
 | `server/storage.lua` | SQL da tabela `noir_gathering_routes` |
 | `client/collect.lua` | turno, coleta e AFK do lado do jogador |
@@ -64,16 +102,26 @@ por comando de emote e o "tipo" do alerta do ps-dispatch.
 
 ## Dependências
 
-`bgrz_core` (inventário, durabilidade, grupos, stress, notificação, dispatch), `ox_target`
-(exceção do §2.5), `noir_lib` (teclas visíveis ao marcar pontos), `ox_lib`, `oxmysql`.
+`bgrz_core` (inventário, durabilidade, grupos, stress, notificação, dispatch, alvo, spawn
+e chave do veículo, celular), `noir_lib` (teclas visíveis ao marcar pontos), `ox_lib`,
+`oxmysql`.
+
+Opcionais, consultados na hora: `noir_illegal_core` (requisito, catálogo de categorias e
+reputação por entrega, pelo evento `noir_gathering:server:routeCompleted`) e `noir_gangs`
+(produto das gangs, para o olheiro).
 
 A ferramenta não pode ser item com `degrade`: nesses o ox_inventory guarda um instante
 de validade no lugar da durabilidade, e o bridge ignora o slot.
 
 ## Veículo exigido
 
-A rota não entrega veículo: o jogador traz o dele. Conferido no servidor: o jogador está
-a pé e existe um veículo do model da rota a até `distance.vehicle` metros (60 m).
+No turno e na coleta livre, a rota não entrega veículo: o jogador traz o dele. Conferido no
+servidor: o jogador está a pé e existe um veículo do model da rota a até `distance.vehicle`
+metros (60 m).
+
+Na carga, com vaga definida, a rota entrega o veículo com a chave, e o apaga ao fim quando
+ninguém está dentro. Sem vaga, o primeiro veículo do model em que o jogador guardar uma
+caixa vira o da carga, e nenhum outro serve depois. O veículo do jogador nunca é apagado.
 
 ## Testes
 

@@ -51,14 +51,13 @@ for _, path in ipairs(manifest.files) do
     T.falsy(path:match('^server/'), path .. ' manda lógica de servidor para o cliente')
 end
 
--- Dependências (§6.2 e §2.5) ------------------------------------------------------------
+-- Dependências (§6.2) -------------------------------------------------------------------
 
-local forbidden = { qbx_core = true, ox_inventory = true, qbx_vehiclekeys = true, ['qb-core'] = true }
+local forbidden = { qbx_core = true, ox_inventory = true, ox_target = true, qbx_vehiclekeys = true, ['qb-core'] = true }
 for _, dependency in ipairs(manifest.dependencies) do
     T.falsy(forbidden[dependency], dependency .. ' é provider do bridge e não pode ser dependência daqui')
 end
 T.truthy(listed(manifest.dependencies, 'bgrz_core'), 'bgrz_core precisa estar declarado')
-T.truthy(listed(manifest.dependencies, 'ox_target'), 'ox_target é chamado direto e precisa estar declarado')
 T.truthy(listed(manifest.dependencies, 'noir_lib'), 'noir_lib é chamado e precisa estar declarado')
 
 -- Contato com outros resources só em integrations.lua ------------------------------------

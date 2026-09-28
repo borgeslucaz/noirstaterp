@@ -67,6 +67,7 @@ end
 local function canUseRoute(source, route)
     return Rules.isPublic(route.groups) or Integrations.hasGroupAccess(source, route.groups)
 end
+Sessions.canUseRoute = canUseRoute
 
 ---@param source integer
 ---@param routeId integer
@@ -79,9 +80,10 @@ local function startShift(source, routeId, itemName)
     if not route or route.mode ~= 'shift' or not route.start or #item.points == 0 then
         return fail('invalid_route')
     end
-    if sessions[source] then return fail('already_active') end
+    if sessions[source] or Sessions.busyElsewhere(source) then return fail('already_active') end
     if not Integrations.isLoaded(source) then return fail('not_loaded') end
     if not canUseRoute(source, route) then return fail('not_allowed') end
+    if not Integrations.meetsRequirement(source, route.requirement) then return fail('locked') end
 
     local coords = Security.pedCoords(source)
     if not coords or #(coords - Security.toVector(route.start)) > Config.distance.start then
@@ -121,10 +123,13 @@ local function beginCollect(source, routeId, itemName, pointIndex)
         end
     elseif route.mode ~= 'free' then
         return fail('no_shift')
+    elseif Sessions.busyElsewhere(source) then
+        return fail('already_active')
     end
 
     if not Integrations.isLoaded(source) then return fail('not_loaded') end
     if not canUseRoute(source, route) then return fail('not_allowed') end
+    if not session and not Integrations.meetsRequirement(source, route.requirement) then return fail('locked') end
 
     local coords, ped = Security.pedCoords(source)
     if not coords or #(coords - Security.toVector(point)) > Config.distance.point then return fail('too_far') end
@@ -220,7 +225,8 @@ local function finishCollect(source)
     if item.stress then Integrations.addStress(source, Rules.roll(item.stress), SharedConfig.limits.stress) end
 
     if Rules.chance(Rules.alertChance(route, item)) then
-        Integrations.dispatch(coords, locale('dispatch_title'), locale('dispatch_message'))
+        Integrations.dispatch(Rules.blurCoords(coords, route.police.radius), locale('dispatch_title'),
+            locale('dispatch_message'), route.police.radius)
         debugPrint(source, 'alerta policial', route.name)
     end
 
@@ -253,6 +259,17 @@ end
 local function stopShift(source)
     sessions[source] = nil
     return { ok = true }
+end
+
+---Rota de carga aberta, respondida pelo módulo dela (`main.lua` liga os dois).
+---@type fun(source: integer): boolean
+Sessions.busyElsewhere = function() return false end
+
+---Turno ou coleta aberta: quem está numa não abre rota de carga, e vice-versa.
+---@param source integer
+---@return boolean
+function Sessions.isActive(source)
+    return sessions[source] ~= nil
 end
 
 ---@param source integer

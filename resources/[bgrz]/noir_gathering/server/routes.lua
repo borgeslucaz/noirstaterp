@@ -77,6 +77,26 @@ local function changed(id)
     for index = 1, #changeListeners do changeListeners[index](id) end
 end
 
+---O que uma rota pode citar ao ser salva: itens do inventário, props da lista, e as
+---categorias e desbloqueios do noir_illegal_core. Com o core fora do ar, rota que cita
+---categoria ou desbloqueio não salva — não dá para conferir.
+---@param knownItems table<string, boolean>
+---@return table
+function Routes.catalog(knownItems)
+    local progression = Integrations.progressionCatalog()
+    local categories, unlocks, props = {}, {}, {}
+    for _, category in ipairs(progression and progression.categories or {}) do categories[category.id] = true end
+    for _, unlock in ipairs(progression and progression.unlocks or {}) do unlocks[unlock] = true end
+    for _, prop in ipairs(SharedConfig.haul.stackProps) do props[prop.model] = true end
+    return {
+        item = function(name) return knownItems[name] == true end,
+        category = function(id) return categories[id] == true end,
+        unlock = function(key) return unlocks[key] == true end,
+        prop = function(model) return props[model] == true end,
+        reputationCap = progression and progression.gatheringRewardCap or 0,
+    }
+end
+
 ---Cria (`id` nil) ou substitui uma rota. O que o admin mandou é revalidado inteiro,
 ---inclusive se cada item existe no inventário.
 ---@param id integer?
@@ -90,7 +110,7 @@ function Routes.save(id, input)
     for _, item in ipairs(Integrations.itemList()) do known[item.name] = true end
     if next(known) == nil then return nil, 'provider_unavailable' end
 
-    local route, err = Rules.normalizeRoute(input, SharedConfig.limits, function(name) return known[name] == true end)
+    local route, err = Rules.normalizeRoute(input, SharedConfig.limits, Routes.catalog(known))
     if not route then return nil, err end
 
     local data = json.encode(route)

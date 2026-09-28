@@ -208,7 +208,7 @@ exports('GetCatalog', function()
         for category, definition in pairs(NoirIllegal.Config.Categories) do
             local thresholds = NoirIllegal.Levels[category]
             categories[#categories + 1] = { id = category, label = definition.label or category,
-                maxLevel = thresholds[#thresholds].level }
+                product = definition.product, maxLevel = thresholds[#thresholds].level }
         end
         table.sort(categories, function(a, b) return a.label < b.label end)
         for key, definition in pairs(NoirIllegal.Unlocks) do

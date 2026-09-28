@@ -41,11 +41,12 @@ lib.callback = { register = function(name, fn) handlers[name:gsub('^noir_gatheri
 -- Ponte e rotas falsas ------------------------------------------------------------------
 
 local given, toolUses, dispatched, stress = {}, {}, 0, 0
-local hasTool, canCarry, groupOk = true, true, true
+local hasTool, canCarry, groupOk, requirementOk = true, true, true, true
 local Integrations = {
     coreReady = function() return true end,
     isLoaded = function() return true end,
     hasGroupAccess = function() return groupOk end,
+    meetsRequirement = function(_, requirement) return requirement == nil or requirementOk end,
     hasTool = function() return hasTool, hasTool and nil or 'not_enough_items' end,
     useTool = function(_, name, cost) toolUses[#toolUses + 1] = { name, cost }; return hasTool end,
     canCarry = function() return canCarry end,
@@ -70,7 +71,7 @@ Sessions.register()
 local function point(x) return { x = x, y = 0, z = 0 } end
 
 routeTable[1] = {
-    name = 'Laranjal', mode = 'shift', start = point(0), groups = {}, police = { enabled = true, chance = 100 },
+    name = 'Laranjal', mode = 'shift', start = point(0), groups = {}, police = { enabled = true, chance = 100, radius = 150 },
     items = {
         orange = {
             min = 2, max = 2, time = 5000, random = false, unlimited = false,
@@ -80,7 +81,7 @@ routeTable[1] = {
     },
 }
 routeTable[2] = {
-    name = 'Mato', mode = 'free', afk = true, groups = { farmer = 0 }, police = { enabled = false, chance = 0 },
+    name = 'Mato', mode = 'free', afk = true, groups = { farmer = 0 }, police = { enabled = false, chance = 0, radius = 150 },
     items = { leaf = { min = 1, max = 1, time = 2000, random = false, unlimited = false, extras = {}, points = { point(50) } } },
 }
 
@@ -169,7 +170,7 @@ T.equal(call('beginCollect', 1, 1, 'orange', 1).error, 'no_shift', 'depois do fi
 -- Veículo exigido ----------------------------------------------------------------------
 
 routeTable[3] = {
-    name = 'Entrega', mode = 'free', groups = {}, vehicle = 'burrito3', police = { enabled = false, chance = 0 },
+    name = 'Entrega', mode = 'free', groups = {}, vehicle = 'burrito3', police = { enabled = false, chance = 0, radius = 150 },
     items = { box = { min = 1, max = 1, time = 2000, random = false, unlimited = false, extras = {}, points = { point(100) } } },
 }
 move(2, 100)
@@ -181,6 +182,24 @@ T.equal(call('beginCollect', 2, 3, 'box', 1).error, 'wrong_vehicle', 'model cert
 vehicleCoords[901] = vector3(110, 0, 0)
 T.truthy(call('beginCollect', 2, 3, 'box', 1).ok, 'model certo por perto serve, mesmo com hash com sinal')
 call('cancelCollect', 2)
+
+-- Requisito da gang ---------------------------------------------------------------------
+
+routeTable[4] = {
+    name = 'Porto', mode = 'shift', start = point(0), groups = {}, requirement = { unlock = 'contact_meth' },
+    police = { enabled = false, chance = 0, radius = 150 },
+    items = { crate = { min = 1, max = 1, time = 2000, random = false, unlimited = false, extras = {}, points = { point(10) } } },
+}
+move(2, 0)
+requirementOk = false
+T.equal(call('startShift', 2, 4, 'crate').error, 'locked', 'gang sem o desbloqueio não abre o turno')
+requirementOk = true
+T.truthy(call('startShift', 2, 4, 'crate').ok, 'com o desbloqueio, abre')
+call('stopShift', 2)
+
+Sessions.busyElsewhere = function(source) return source == 2 end
+T.equal(call('startShift', 2, 4, 'crate').error, 'already_active', 'quem está numa carga não abre turno')
+Sessions.busyElsewhere = function() return false end
 
 -- Rota sem início -----------------------------------------------------------------------
 

@@ -4,11 +4,12 @@
 local Config = require 'config.shared'
 local Rules = require 'shared.rules'
 local Integrations = require 'client.integrations'
+local Placement = require 'client.placement'
 
 local Creator = {}
 
 ---Dados do servidor: rotas completas, catálogo de itens e grupos.
----@type { routes: { id: integer, route: table }[], items: table[], labels: table<string, string>, groups: table[] }?
+---@type { routes: { id: integer, route: table }[], items: table[], labels: table<string, string>, groups: table[], progression: table? }?
 local data = nil
 
 ---@type integer[]
@@ -16,7 +17,7 @@ local debugBlips = {}
 
 local limits = Config.limits
 
-local openMain, openRoute, openItems, openItem, openExtras, openPoints
+local openMain, openRoute, openItems, openItem, openExtras, openPoints, openHaul, openRewards
 
 -- Utilidades ----------------------------------------------------------------------------
 
@@ -131,7 +132,8 @@ local function fetch()
         groups[#groups + 1] = { value = gang.name, label = locale('admin_group_gang', gang.label) }
     end
 
-    data = { routes = result.routes, items = result.items, labels = labels, groups = groups }
+    data = { routes = result.routes, items = result.items, labels = labels, groups = groups,
+        progression = result.progression }
     return true
 end
 
@@ -153,9 +155,48 @@ local function newRoute(name)
         mode = 'shift',
         afk = false,
         groups = {},
-        police = { enabled = false, chance = 0 },
+        police = { enabled = false, chance = 0, radius = limits.alertRadius.default },
         items = {},
     }
+end
+
+local function newHaul()
+    return {
+        prop = limits.haul.defaultProp,
+        count = 5,
+        cooldown = 0,
+        rewards = {},
+        reputation = 0,
+        scout = { enabled = false, chance = 0, radius = limits.alertRadius.default },
+    }
+end
+
+local MODE_ORDER = { shift = 'free', free = 'haul', haul = 'shift' }
+local MODE_LABEL = { shift = 'admin_mode_shift', free = 'admin_mode_free', haul = 'admin_mode_haul' }
+
+local function categoryLabel(id)
+    for _, category in ipairs(data.progression and data.progression.categories or {}) do
+        if category.id == id then return category.label end
+    end
+    return id
+end
+
+local function categoryOptions()
+    local options = {}
+    for _, category in ipairs(data.progression and data.progression.categories or {}) do
+        options[#options + 1] = { value = category.id, label = category.label }
+    end
+    return options
+end
+
+local function requirementSummary(requirement)
+    if not requirement then return locale('admin_requirement_none') end
+    local parts = {}
+    if requirement.unlock then parts[#parts + 1] = requirement.unlock end
+    if requirement.category then
+        parts[#parts + 1] = locale('admin_requirement_level', categoryLabel(requirement.category), requirement.level)
+    end
+    return table.concat(parts, ' + ')
 end
 
 local function newItem()
@@ -474,6 +515,201 @@ function openItems(draft)
         'noir_gathering:admin:route')
 end
 
+-- Carga ---------------------------------------------------------------------------------
+
+function openRewards(draft)
+    local haul = draft.route.haul
+    local count = 0
+    for _ in pairs(haul.rewards) do count = count + 1 end
+
+    local options = { {
+        title = locale('admin_reward_add'),
+        icon = 'fa-solid fa-plus',
+        disabled = count >= limits.haul.rewardItems,
+        onSelect = function()
+            local input = lib.inputDialog(locale('admin_reward_add'), {
+                { type = 'select', label = locale('admin_item'), options = itemOptions(), searchable = true, required = true },
+            })
+            if input and input[1] then
+                local range = rangeDialog(itemLabel(input[1]), nil, limits.amount)
+                if range then haul.rewards[input[1]] = range end
+            end
+            openRewards(draft)
+        end,
+    } }
+    for name, range in pairs(haul.rewards) do
+        options[#options + 1] = {
+            title = itemLabel(name),
+            description = locale('admin_range', range.min, range.max),
+            icon = Config.itemImage:format(name),
+            onSelect = function()
+                local choice = lib.alertDialog({
+                    header = itemLabel(name),
+                    content = locale('admin_extra_edit_desc'),
+                    centered = true,
+                    cancel = true,
+                    labels = { confirm = locale('admin_edit'), cancel = locale('admin_delete') },
+                })
+                if choice == 'confirm' then
+                    local newRange = rangeDialog(itemLabel(name), range, limits.amount)
+                    if newRange then haul.rewards[name] = newRange end
+                elseif choice == 'cancel' then
+                    haul.rewards[name] = nil
+                end
+                openRewards(draft)
+            end,
+        }
+    end
+    showMenu('noir_gathering:admin:rewards', locale('admin_rewards'), options, 'noir_gathering:admin:haul')
+end
+
+local function stackPropOptions()
+    local options = {}
+    for _, prop in ipairs(Config.haul.stackProps) do options[#options + 1] = { value = prop.model, label = prop.label } end
+    return options
+end
+
+local function stackPropLabel(model)
+    for _, prop in ipairs(Config.haul.stackProps) do
+        if prop.model == model then return prop.label end
+    end
+    return model
+end
+
+---Marca um lugar da carga (pilha ou entrega): posicionar pela mira ou teleportar até ele.
+local function placeOrTeleport(title, current, place)
+    local choice = current and lib.alertDialog({
+        header = title,
+        content = locale('admin_place_choice'),
+        centered = true,
+        cancel = true,
+        labels = { confirm = locale('admin_place_here'), cancel = locale('admin_teleport') },
+    }) or 'confirm'
+    if choice == 'confirm' then
+        local placed = place()
+        if placed then notifyUpdated() end
+        return placed
+    elseif choice == 'cancel' then
+        teleport(current)
+    end
+end
+
+function openHaul(draft)
+    local route = draft.route
+    route.haul = route.haul or newHaul()
+    local haul = route.haul
+    local reopen = function() openHaul(draft) end
+    local progression = data.progression
+    local cap = progression and progression.gatheringRewardCap or 0
+    local rewardCount = 0
+    for _ in pairs(haul.rewards) do rewardCount = rewardCount + 1 end
+
+    local options = {
+        {
+            title = locale('admin_haul_stack'),
+            description = haul.stack and stackPropLabel(haul.prop) or locale('admin_haul_stack_missing'),
+            icon = 'fa-solid fa-boxes-stacked',
+            onSelect = function()
+                local input = lib.inputDialog(locale('admin_haul_stack'), {
+                    { type = 'select', label = locale('admin_haul_prop'), options = stackPropOptions(), default = haul.prop, required = true },
+                })
+                if not input then return reopen() end
+                local placed = placeOrTeleport(locale('admin_haul_stack'), haul.stack, function()
+                    return Placement.run('object', input[1], haul.stack)
+                end)
+                if placed then haul.stack, haul.prop = placed, input[1] end
+                reopen()
+            end,
+        },
+        {
+            title = locale('admin_haul_count'),
+            description = locale('admin_haul_count_desc', haul.count),
+            icon = 'fa-solid fa-hashtag',
+            onSelect = function()
+                local input = lib.inputDialog(locale('admin_haul_count'), {
+                    { type = 'number', label = locale('admin_haul_count'), default = haul.count, min = 1, max = limits.haul.boxes, required = true },
+                })
+                if input then haul.count = math.floor(input[1]) end
+                reopen()
+            end,
+        },
+        {
+            title = locale('admin_haul_dropoff'),
+            description = haul.dropoff and locale('admin_haul_dropoff_set') or locale('admin_haul_dropoff_missing'),
+            icon = 'fa-solid fa-flag-checkered',
+            onSelect = function()
+                local placed = placeOrTeleport(locale('admin_haul_dropoff'), haul.dropoff, function()
+                    return Placement.run('object', Config.haul.carry.prop, haul.dropoff)
+                end)
+                if placed then haul.dropoff = placed end
+                reopen()
+            end,
+        },
+        {
+            title = locale('admin_rewards'),
+            description = locale('admin_rewards_desc', rewardCount),
+            icon = 'fa-solid fa-gift',
+            arrow = true,
+            onSelect = function() openRewards(draft) end,
+        },
+    }
+
+    if progression then
+        options[#options + 1] = {
+            title = locale('admin_haul_reputation'),
+            description = haul.category and locale('admin_haul_reputation_desc', haul.reputation, categoryLabel(haul.category))
+                or locale('admin_haul_reputation_none'),
+            icon = 'fa-solid fa-star',
+            onSelect = function()
+                local input = lib.inputDialog(locale('admin_haul_reputation'), {
+                    { type = 'select', label = locale('admin_haul_category'), description = locale('admin_haul_category_desc'), options = categoryOptions(), clearable = true, default = haul.category },
+                    { type = 'number', label = locale('admin_haul_reputation_amount'), description = locale('admin_haul_reputation_cap', cap), default = haul.reputation, min = 0, max = cap, precision = 1 },
+                })
+                if input then
+                    haul.category = input[1]
+                    haul.reputation = input[1] and (input[2] or 0) or 0
+                    if not haul.category then haul.scout.enabled = false end
+                end
+                reopen()
+            end,
+        }
+        options[#options + 1] = {
+            title = locale('admin_scout'),
+            description = haul.scout.enabled and locale('admin_scout_summary', haul.scout.chance, haul.scout.radius)
+                or locale('admin_scout_off'),
+            icon = 'fa-solid fa-binoculars',
+            disabled = not haul.category,
+            onSelect = function()
+                local input = lib.inputDialog(locale('admin_scout'), {
+                    { type = 'checkbox', label = locale('admin_scout_enabled'), checked = haul.scout.enabled },
+                    { type = 'number', label = locale('admin_chance_label'), default = haul.scout.chance, min = 0, max = 100 },
+                    { type = 'number', label = locale('admin_radius'), description = locale('admin_scout_radius_desc'), default = haul.scout.radius, min = limits.alertRadius.min, max = limits.alertRadius.max },
+                })
+                if input then
+                    haul.scout = { enabled = input[1] == true, chance = input[2] or 0,
+                        radius = math.floor(input[3] or limits.alertRadius.default) }
+                end
+                reopen()
+            end,
+        }
+    end
+
+    options[#options + 1] = {
+        title = locale('admin_haul_cooldown'),
+        description = locale('admin_haul_cooldown_desc', haul.cooldown),
+        icon = 'fa-solid fa-hourglass-half',
+        onSelect = function()
+            local input = lib.inputDialog(locale('admin_haul_cooldown'), {
+                { type = 'number', label = locale('admin_haul_cooldown_minutes'), default = haul.cooldown, min = 0, max = limits.haul.cooldownMinutes },
+            })
+            if input then haul.cooldown = math.floor(input[1] or 0) end
+            reopen()
+        end,
+    }
+
+    showMenu('noir_gathering:admin:haul', locale('admin_haul_title', route.name), options, 'noir_gathering:admin:route')
+end
+
 -- Rota ----------------------------------------------------------------------------------
 
 local function groupsSummary(groups)
@@ -517,11 +753,12 @@ function openRoute(draft)
         },
         {
             title = locale('admin_mode'),
-            description = route.mode == 'shift' and locale('admin_mode_shift') or locale('admin_mode_free'),
+            description = locale(MODE_LABEL[route.mode]),
             icon = 'fa-solid fa-route',
             onSelect = function()
-                route.mode = route.mode == 'shift' and 'free' or 'shift'
-                if route.mode == 'shift' then route.afk = false end
+                route.mode = MODE_ORDER[route.mode]
+                if route.mode ~= 'free' then route.afk = false end
+                if route.mode == 'haul' then route.haul = route.haul or newHaul() end
                 reopen()
             end,
         },
@@ -549,9 +786,38 @@ function openRoute(draft)
                 }) or 'confirm'
                 if choice == 'confirm' then
                     local captured = capturePoints(true)
-                    if captured[1] then route.start = captured[1]; notifyUpdated() end
+                    if captured[1] then
+                        route.start = captured[1]
+                        route.start.w = GetEntityHeading(cache.ped)
+                        notifyUpdated()
+                    end
                 elseif choice == 'cancel' then
                     teleport(route.start)
+                end
+                reopen()
+            end,
+        }
+        options[#options + 1] = {
+            title = locale('admin_npc'),
+            description = route.npc and route.npc.model or locale('admin_npc_none'),
+            icon = 'fa-solid fa-user-tie',
+            onSelect = function()
+                local input = lib.inputDialog(locale('admin_npc'), {
+                    { type = 'input', label = locale('admin_npc_model'), description = locale('admin_npc_desc'), default = route.npc and route.npc.model },
+                    { type = 'input', label = locale('admin_npc_scenario'), description = locale('admin_npc_scenario_desc'), default = route.npc and route.npc.scenario },
+                })
+                if not input then return reopen() end
+                local model = input[1] and input[1]:lower() or ''
+                if model == '' then
+                    route.npc = nil
+                    return reopen()
+                end
+                -- Posicionar o NPC define o início da rota: é nele que o jogador fala.
+                local placed = Placement.run('ped', model, route.start)
+                if placed then
+                    route.start = placed
+                    route.npc = { model = model, scenario = input[2] ~= '' and input[2] or nil }
+                    notifyUpdated()
                 end
                 reopen()
             end,
@@ -587,7 +853,7 @@ function openRoute(draft)
             if input then
                 local model = input[1] and input[1]:lower() or ''
                 if model == '' then
-                    route.vehicle = nil
+                    route.vehicle, route.vehicleSpawn = nil, nil
                 elseif not IsModelInCdimage(joaat(model)) or not IsModelAVehicle(joaat(model)) then
                     Integrations.notify(locale('admin_vehicle_invalid'), 'error')
                 else
@@ -597,26 +863,89 @@ function openRoute(draft)
             reopen()
         end,
     }
+    if route.mode == 'haul' and route.vehicle then
+        options[#options + 1] = {
+            title = locale('admin_vehicle_spawn'),
+            description = route.vehicleSpawn and locale('admin_vehicle_spawn_set') or locale('admin_vehicle_spawn_none'),
+            icon = 'fa-solid fa-square-parking',
+            onSelect = function()
+                local choice = lib.alertDialog({
+                    header = locale('admin_vehicle_spawn'),
+                    content = locale('admin_vehicle_spawn_choice'),
+                    centered = true,
+                    cancel = true,
+                    labels = { confirm = locale('admin_vehicle_spawn_place'), cancel = locale('admin_vehicle_spawn_clear') },
+                })
+                if choice == 'confirm' then
+                    local placed = Placement.run('vehicle', route.vehicle, route.vehicleSpawn)
+                    if placed then route.vehicleSpawn = placed; notifyUpdated() end
+                elseif choice == 'cancel' then
+                    route.vehicleSpawn = nil
+                end
+                reopen()
+            end,
+        }
+    end
+    if data.progression then
+        options[#options + 1] = {
+            title = locale('admin_requirement'),
+            description = requirementSummary(route.requirement),
+            icon = 'fa-solid fa-lock',
+            onSelect = function()
+                local unlocks = {}
+                for _, key in ipairs(data.progression.unlocks) do unlocks[#unlocks + 1] = { value = key, label = key } end
+                local current = route.requirement or {}
+                local input = lib.inputDialog(locale('admin_requirement'), {
+                    { type = 'select', label = locale('admin_requirement_unlock'), description = locale('admin_requirement_unlock_desc'), options = unlocks, clearable = true, default = current.unlock },
+                    { type = 'select', label = locale('admin_requirement_category'), description = locale('admin_requirement_category_desc'), options = categoryOptions(), clearable = true, default = current.category },
+                    { type = 'number', label = locale('admin_requirement_min_level'), default = current.level or 1, min = 1, max = 20 },
+                })
+                if input then
+                    local requirement = {}
+                    if input[1] then requirement.unlock = input[1] end
+                    if input[2] then requirement.category, requirement.level = input[2], math.floor(input[3] or 1) end
+                    route.requirement = next(requirement) and requirement or nil
+                end
+                reopen()
+            end,
+        }
+    end
     options[#options + 1] = {
         title = locale('admin_police'),
-        description = route.police.enabled and locale('admin_chance', route.police.chance) or locale('admin_police_off'),
+        description = route.police.enabled
+            and locale('admin_police_summary', route.police.chance, route.police.radius or limits.alertRadius.default)
+            or locale('admin_police_off'),
         icon = 'fa-solid fa-handcuffs',
         onSelect = function()
             local input = lib.inputDialog(locale('admin_police'), {
                 { type = 'checkbox', label = locale('admin_police_enabled'), checked = route.police.enabled },
                 { type = 'number', label = locale('admin_chance_label'), default = route.police.chance, min = 0, max = 100 },
+                { type = 'number', label = locale('admin_radius'), description = locale('admin_radius_desc'), default = route.police.radius or limits.alertRadius.default, min = limits.alertRadius.min, max = limits.alertRadius.max },
             })
-            if input then route.police = { enabled = input[1] == true, chance = input[2] or 0 } end
+            if input then
+                route.police = { enabled = input[1] == true, chance = input[2] or 0,
+                    radius = math.floor(input[3] or limits.alertRadius.default) }
+            end
             reopen()
         end,
     }
-    options[#options + 1] = {
-        title = locale('admin_items'),
-        description = locale('admin_items_desc'),
-        icon = 'fa-solid fa-boxes-stacked',
-        arrow = true,
-        onSelect = function() openItems(draft) end,
-    }
+    if route.mode == 'haul' then
+        options[#options + 1] = {
+            title = locale('admin_haul'),
+            description = locale('admin_haul_desc'),
+            icon = 'fa-solid fa-truck-ramp-box',
+            arrow = true,
+            onSelect = function() openHaul(draft) end,
+        }
+    else
+        options[#options + 1] = {
+            title = locale('admin_items'),
+            description = locale('admin_items_desc'),
+            icon = 'fa-solid fa-boxes-stacked',
+            arrow = true,
+            onSelect = function() openItems(draft) end,
+        }
+    end
     options[#options + 1] = {
         title = locale('admin_export'),
         description = locale('admin_export_desc'),
@@ -704,8 +1033,9 @@ function openMain()
         for _ in pairs(entry.route.items) do itemCount = itemCount + 1 end
         options[#options + 1] = {
             title = entry.route.name,
-            description = locale('admin_route_summary',
-                entry.route.mode == 'shift' and locale('admin_mode_shift') or locale('admin_mode_free'), itemCount),
+            description = entry.route.mode == 'haul'
+                and locale('admin_route_summary_haul', entry.route.haul and entry.route.haul.count or 0)
+                or locale('admin_route_summary', locale(MODE_LABEL[entry.route.mode]), itemCount),
             icon = 'fa-solid fa-route',
             arrow = true,
             onSelect = function() openRoute({ id = entry.id, route = deepCopy(entry.route) }) end,

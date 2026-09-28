@@ -119,4 +119,93 @@ T.truthy(Rules.chance(100), 'chance cem sempre')
 T.truthy(Rules.chance(30, function() return 0.29 end), 'rolagem abaixo da chance dispara')
 T.falsy(Rules.chance(30, function() return 0.30 end), 'rolagem igual à chance não dispara')
 
+-- Rota de carga -------------------------------------------------------------------------
+
+local catalog = {
+    item = isKnown,
+    category = function(id) return id == 'drug' or id == 'weapons' end,
+    unlock = function(key) return key == 'contact_meth' end,
+    prop = function(model) return model == 'prop_boxpile_07d' end,
+    reputationCap = 100,
+}
+
+local function haulRoute()
+    return {
+        name = 'Porto',
+        mode = 'haul',
+        start = { x = 0, y = 0, z = 0, w = 370 },
+        npc = { model = 'S_M_M_DockWork_01' },
+        vehicle = 'burrito3',
+        vehicleSpawn = { x = 5, y = 0, z = 0, w = 90 },
+        requirement = { unlock = 'contact_meth', category = 'drug', level = 2 },
+        police = { enabled = true, chance = 40, radius = 200 },
+        haul = {
+            stack = { x = 10, y = 0, z = 0, w = 0 },
+            prop = 'prop_boxpile_07d',
+            count = 5,
+            dropoff = { x = 500, y = 0, z = 0, w = 0 },
+            rewards = { orange = { min = 2, max = 4 } },
+            category = 'drug',
+            reputation = 25,
+            cooldown = 10,
+            scout = { enabled = true, chance = 50, radius = 300 },
+        },
+    }
+end
+
+local haulOk, haulErr = Rules.normalizeRoute(haulRoute(), Config.limits, catalog)
+T.truthy(haulOk, 'rota de carga válida aceita: ' .. tostring(haulErr))
+T.equal(haulOk.start.w, 10, 'direção normalizada em 0..360')
+T.equal(haulOk.npc.model, 's_m_m_dockwork_01', 'model do NPC em minúsculas')
+T.equal(haulOk.vehicleSpawn.w, 90, 'vaga do veículo guarda a direção')
+T.equal(haulOk.requirement.level, 2, 'requisito de nível guardado')
+T.equal(haulOk.police.radius, 200, 'raio do alerta guardado')
+T.truthy(Rules.isPlayable(haulOk), 'carga com início, veículo, pilha e destino é jogável')
+
+local function haulError(mutate)
+    local input = haulRoute()
+    mutate(input)
+    return select(2, Rules.normalizeRoute(input, Config.limits, catalog))
+end
+
+T.equal(haulError(function(r) r.haul.count = 0 end), 'invalid_count', 'carga sem caixa recusada')
+T.equal(haulError(function(r) r.haul.count = Config.limits.haul.boxes + 1 end), 'invalid_count', 'caixas acima do teto recusadas')
+T.equal(haulError(function(r) r.haul.prop = 'prop_que_nao_existe' end), 'invalid_stack', 'prop fora da lista recusada')
+T.equal(haulError(function(r) r.haul.reputation = 101 end), 'invalid_reputation', 'reputação acima do teto do core recusada')
+T.equal(haulError(function(r) r.haul.category = nil end), 'invalid_reputation', 'reputação sem categoria recusada')
+T.equal(haulError(function(r) r.haul.category = 'boosting' end), 'invalid_category', 'categoria que o core não tem recusada')
+T.equal(haulError(function(r) r.haul.reputation = 0; r.haul.category = nil end), 'invalid_scout',
+    'olheiro sem categoria não sabe quem avisar')
+T.equal(haulError(function(r) r.haul.rewards = { ghost = { min = 1, max = 1 } } end), 'invalid_rewards', 'item de recompensa desconhecido recusado')
+T.equal(haulError(function(r) r.requirement = { unlock = 'contact_coke' } end), 'invalid_requirement', 'desbloqueio desconhecido recusado')
+T.equal(haulError(function(r) r.requirement = { category = 'drug' } end), 'invalid_requirement', 'nível sem número recusado')
+T.equal(haulError(function(r) r.police.radius = 5 end), 'invalid_police', 'área do alerta pequena demais recusada')
+T.equal(haulError(function(r) r.npc = { model = 'bad model' } end), 'invalid_npc', 'model de NPC inválido recusado')
+
+local unfinished = haulRoute()
+unfinished.haul.dropoff = nil
+T.falsy(Rules.isPlayable(assert(Rules.normalizeRoute(unfinished, Config.limits, catalog))), 'carga sem destino salva, mas não aparece')
+local noVehicle = haulRoute()
+noVehicle.vehicle, noVehicle.vehicleSpawn = nil, nil
+T.falsy(Rules.isPlayable(assert(Rules.normalizeRoute(noVehicle, Config.limits, catalog))), 'carga sem veículo não aparece')
+
+local shiftWithSpawn = validRoute()
+shiftWithSpawn.vehicle, shiftWithSpawn.vehicleSpawn = 'burrito3', { x = 1, y = 1, z = 1 }
+T.falsy(assert(Rules.normalizeRoute(shiftWithSpawn, Config.limits, isKnown)).vehicleSpawn,
+    'só a carga entrega veículo')
+
+local view = Rules.publicView(9, haulOk)
+T.equal(view.haul.count, 5, 'o client sabe quantas caixas')
+T.truthy(view.haul.stack and view.haul.dropoff, 'e onde ficam pilha e destino')
+T.falsy(view.haul.rewards, 'recompensa não vai para o client')
+T.falsy(view.haul.reputation or view.haul.scout, 'nem reputação nem olheiro')
+T.falsy(view.requirement or view.police or view.vehicleSpawn, 'nem requisito, alerta ou vaga')
+
+local center = { x = 100, y = 100, z = 5 }
+for _, draw in ipairs({ 0, 0.25, 0.5, 0.999 }) do
+    local blurred = Rules.blurCoords(center, 200, function() return draw end)
+    local distance = math.sqrt((blurred.x - 100) ^ 2 + (blurred.y - 100) ^ 2)
+    T.truthy(distance <= 120.001, 'centro do alerta fica dentro de 60% do raio')
+end
+
 print('rules_spec: ok')
