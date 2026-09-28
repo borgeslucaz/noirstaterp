@@ -30,6 +30,9 @@ files {
     "client/modules/*.lua",
     "server/bridge.lua"
 }
-dependency "ox_lib"
+dependencies {
+    "ox_lib",
+    "rep-enginewire"
+}
 
 provide "qbx_vehiclekeys"

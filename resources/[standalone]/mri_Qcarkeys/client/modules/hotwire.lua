@@ -17,36 +17,24 @@ local function ShowHotwireText(show)
 end
 
 function Hotwire:HotwireHandler()
-    local enginewire = nil
-    if GetResourceState('rep-enginewire') == 'started' then
-        enginewire = exports["rep-enginewire"]:MiniGame()
-    end
     if self.isHotwiring then return end
     self.isHotwiring = true
-    local hotwireTime = math.random(Shared.hotwire.minTime, Shared.hotwire.maxTime)
+    local vehicle = VehicleKeys.currentVehicle
     local success = false
-    SetVehicleAlarm(VehicleKeys.currentVehicle, true)
-    SetVehicleAlarmTimeLeft(VehicleKeys.currentVehicle, hotwireTime)
+    SetVehicleAlarm(vehicle, true)
+    SetVehicleAlarmTimeLeft(vehicle, math.random(Shared.hotwire.minTime, Shared.hotwire.maxTime))
     lib.hideTextUI()
     VehicleKeys.showTextUi = false
 
-    if lib.progressBar({
-        label = Shared.hotwire.label,
-        duration = hotwireTime,
-        position = 'bottom',
-        allowCuffed = false,
-        useWhileDead = false,
-        canCancel = true,
-        disable = {
-            car = true,
-            move = true,
-            combat = true
-        },
-        anim = {
-            dict = 'anim@amb@clubhouse@tutorial@bkr_tut_ig3@',
-            clip = 'machinic_loop_mechandplayer'
-        }
-    }) and (enginewire == nil and true or enginewire) then
+    -- Minigame de fios no lugar da barra de progresso; a animação roda por baixo da NUI.
+    local dict, clip = 'anim@amb@clubhouse@tutorial@bkr_tut_ig3@', 'machinic_loop_mechandplayer'
+    lib.requestAnimDict(dict)
+    TaskPlayAnim(cache.ped, dict, clip, 8.0, -8.0, -1, 1, 0, false, false, false)
+    local wired = exports['rep-enginewire']:MiniGame()
+    StopAnimTask(cache.ped, dict, clip, 1.0)
+    RemoveAnimDict(dict)
+
+    if wired and VehicleKeys.currentVehicle == vehicle and VehicleKeys.isInDrivingSeat then
         TriggerServerEvent('hud:server:GainStress', Shared.hotwire.stressIncrease)
         local level = Utils:GetSkillLevel("hotwiring")
         if level > 8 then
