@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS noir_gathering_routes (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name VARCHAR(60) NOT NULL,
+    data LONGTEXT NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_noir_gathering_routes_name (name)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
