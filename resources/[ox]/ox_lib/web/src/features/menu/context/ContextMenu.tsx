@@ -1,11 +1,10 @@
-import { Box, createStyles, Flex, Stack, Text } from '@mantine/core';
 import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import MarkdownComponents from '../../../config/MarkdownComponents';
 import { useNuiEvent } from '../../../hooks/useNuiEvent';
-import ScaleFade from '../../../transitions/ScaleFade';
 import { ContextMenuProps } from '../../../typings';
 import { fetchNui } from '../../../utils/fetchNui';
+import KeyHints from '../KeyHints';
 import ContextButton from './components/ContextButton';
 import HeaderButton from './components/HeaderButton';
 
@@ -13,59 +12,7 @@ const openMenu = (id: string | undefined) => {
   fetchNui<ContextMenuProps>('openContext', { id: id, back: true });
 };
 
-const useStyles = createStyles(() => ({
-  container: {
-    position: 'absolute',
-    top: '50%',
-    right: '64px',
-    width: 384,
-    height: 'fit-content',
-    transform: 'translateY(-50%)',
-  },
-  header: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  titleContainer: {
-    borderRadius: 'var(--noir-radius)',
-    flex: '1 85%',
-    backgroundColor: 'transparent',
-  },
-  titleText: {
-    color: 'var(--noir-text-strong)',
-    padding: 0,
-    textAlign: 'left',
-    fontSize: 24,
-    fontWeight: 700,
-  },
-  buttonsContainer: {
-    height: 'fit-content',
-    overflowY: 'scroll',
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    borderRadius: 0,
-    maxHeight: '60vh',
-  },
-  buttonsFlexWrapper: {
-    gap: 0,
-  },
-  customGradient: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: '50%',
-    height: '100%',
-    background: 'linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 100%)',
-  },
-  divider: {
-    width: '100%',
-    height: 1,
-    backgroundColor: 'var(--noir-hairline)',
-  },
-}));
-
 const ContextMenu: React.FC = () => {
-  const { classes } = useStyles();
   const [visible, setVisible] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuProps>({
     title: '',
@@ -102,34 +49,34 @@ const ContextMenu: React.FC = () => {
     setVisible(true);
   });
 
+  if (!visible) return null;
+
+  const actions = (contextMenu.menu ? 1 : 0) + 1;
+  const options = Object.entries(contextMenu.options);
+  // Uma opção com ícone reserva a coluna para todas: títulos alinhados.
+  const iconColumn = options.some(([, option]) => !!option.icon);
+
   return (
     <>
-      {visible && <div className={classes.customGradient}></div>}
-      <Box className={classes.container}>
-        <ScaleFade visible={visible}>
-          <Flex className={classes.header}>
+      <section className="side-menu" aria-label={contextMenu.title}>
+        <header className="side-menu__header" data-actions={actions}>
+          <div className="side-menu__title">
+            <ReactMarkdown components={MarkdownComponents}>{contextMenu.title}</ReactMarkdown>
+          </div>
+          <div className="side-menu__actions">
             {contextMenu.menu && (
-              <HeaderButton icon="chevron-left" iconSize={16} handleClick={() => openMenu(contextMenu.menu)} />
+              <HeaderButton icon="arrow-left" label="Voltar" handleClick={() => openMenu(contextMenu.menu)} />
             )}
-            <Box className={classes.titleContainer}>
-              <Text className={classes.titleText}>
-                <ReactMarkdown components={MarkdownComponents}>{contextMenu.title}</ReactMarkdown>
-              </Text>
-            </Box>
-            <HeaderButton icon="xmark" canClose={contextMenu.canClose} iconSize={18} handleClick={closeContext} />
-          </Flex>
-          <Box className={classes.buttonsContainer}>
-            <Stack className={classes.buttonsFlexWrapper}>
-              {Object.entries(contextMenu.options).map((option, index) => (
-                <>
-                  <ContextButton option={option} key={`context-item-${index}`} />
-                  <div className={classes.divider}></div>
-                </>
-              ))}
-            </Stack>
-          </Box>
-        </ScaleFade>
-      </Box>
+            <HeaderButton icon="xmark" label="Fechar" canClose={contextMenu.canClose} handleClick={closeContext} />
+          </div>
+        </header>
+        <div className="side-menu__items">
+          {options.map((option, index) => (
+            <ContextButton option={option} iconColumn={iconColumn} key={`context-item-${index}`} />
+          ))}
+        </div>
+      </section>
+      <KeyHints keys={contextMenu.canClose === false ? [] : [{ key: 'Esc', label: 'Fechar' }]} />
     </>
   );
 };

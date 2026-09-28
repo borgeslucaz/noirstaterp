@@ -7,7 +7,7 @@ import { debugCustomNotification } from './debug/notification';
 import { debugCircleProgressbar, debugProgressbar } from './debug/progress';
 import { debugTextUI } from './debug/textui';
 import { debugSkillCheck } from './debug/skillcheck';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { debugRadial } from './debug/radial';
 import LibIcon from '../../components/LibIcon';
 import type { NotificationProps, TextUiProps } from '../../typings';
@@ -19,6 +19,13 @@ const Dev: React.FC = () => {
   );
   const [textUiPosition, setTextUiPosition] = useState<NonNullable<TextUiProps['position']>>('left-center');
 
+  // ?preset=context|menu abre o cenário direto (print sem clicar na gaveta).
+  useEffect(() => {
+    const preset = new URLSearchParams(window.location.search).get('preset');
+    if (preset === 'context') debugContext();
+    else if (preset === 'menu') debugMenu();
+  }, []);
+
   return (
     <>
       <Tooltip label="Developer drawer" position="bottom">
@@ -27,9 +34,9 @@ const Dev: React.FC = () => {
           radius="xl"
           variant="filled"
           color="orange"
-          sx={{ position: 'absolute', bottom: 0, right: 0, width: 50, height: 50 }}
+          sx={{ position: 'absolute', bottom: 0, left: 0, width: 50, height: 50 }}
           size="xl"
-          mr={50}
+          ml={50}
           mb={50}
         >
           <LibIcon icon="wrench" fontSize={24} />

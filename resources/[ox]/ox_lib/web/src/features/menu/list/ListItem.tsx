@@ -1,145 +1,87 @@
 import { IconProp } from '@fortawesome/fontawesome-svg-core';
-import { Box, createStyles, Group, Progress, Stack, Text } from '@mantine/core';
 import React, { forwardRef } from 'react';
 import LibIcon from '../../../components/LibIcon';
 import type { MenuItem } from '../../../typings';
 import { isIconUrl } from '../../../utils/isIconUrl';
-import CustomCheckbox from './CustomCheckbox';
+import { meterTone } from '../meter';
 
 interface Props {
   item: MenuItem;
   index: number;
   scrollIndex: number;
   checked: boolean;
+  active: boolean;
+  iconColumn: boolean;
 }
 
-const useStyles = createStyles((theme, params: { iconColor?: string }) => ({
-  buttonContainer: {
-    backgroundColor: 'transparent',
-    padding: 16,
-    height: 60,
-    scrollMargin: 8,
-    color: 'var(--noir-text)',
-    fontWeight: 600,
-    '&:focus': {
-      backgroundColor: 'black',
-      color: 'var(--noir-text-strong)',
-      outline: '1px solid var(--noir-border-hover)',
-    },
-  },
-  iconImage: {
-    maxWidth: 32,
-    color: 'var(--noir-text-dim)',
-  },
-  buttonWrapper: {
-    paddingLeft: 5,
-    paddingRight: 12,
-    height: '100%',
-  },
-  iconContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    width: 32,
-    height: 32,
-  },
-  icon: {
-    fontSize: 24,
-    color: 'var(--noir-text-dim)',
-  },
-  label: {
-    color: 'var(--noir-text)',
-    fontSize: 14,
-    verticalAlign: 'middle',
-    fontWeight: 500,
-  },
-  chevronIcon: {
-    fontSize: 14,
-    color: 'var(--noir-text-dim)',
-  },
-  scrollIndexValue: {
-    color: 'var(--noir-text-dim)',
-    textTransform: 'uppercase',
-    fontSize: 14,
-  },
-  progressStack: {
-    width: '100%',
-    marginRight: 5,
-  },
-  progressLabel: {
-    verticalAlign: 'middle',
-    marginBottom: 3,
-    fontWeight: 600,
-  },
-}));
+// Descrição do item ativo: a do valor escolhido (values com objeto) tem precedência.
+export const itemDescription = (item: MenuItem, scrollIndex: number) => {
+  const value = Array.isArray(item.values) ? item.values[scrollIndex] : undefined;
+  if (typeof value === 'object' && value.description) return value.description;
+  return item.description;
+};
 
-const ListItem = forwardRef<Array<HTMLDivElement | null>, Props>(({ item, index, scrollIndex, checked }, ref) => {
-  const { classes } = useStyles({ iconColor: item.iconColor });
+const hasAnyDescription = (item: MenuItem) =>
+  !!item.description || (Array.isArray(item.values) && item.values.some((v) => typeof v === 'object' && !!v.description));
+
+const ListItem = forwardRef<Array<HTMLDivElement | null>, Props>(({ item, index, scrollIndex, checked, active, iconColumn }, ref) => {
+  const description = itemDescription(item, scrollIndex);
+  const value = Array.isArray(item.values) ? item.values[scrollIndex] : undefined;
+  const progress = item.progress !== undefined;
+  // Altura reservada para a descrição de ativo: o menu não pula ao navegar.
+  const reveal = hasAnyDescription(item) ? (progress ? 'progress' : '') : undefined;
 
   return (
-    <Box
+    <div
       tabIndex={index}
-      className={classes.buttonContainer}
-      key={`item-${index}`}
-      ref={(element: HTMLDivElement) => {
-        if (ref)
-          // @ts-ignore i cba
-          return (ref.current = [...ref.current, element]);
+      className="side-menu-item"
+      data-active={active}
+      data-icon={iconColumn ? '' : undefined}
+      data-reveal={reveal}
+      data-meter={progress ? meterTone(item.colorScheme) : undefined}
+      ref={(element) => {
+        // @ts-ignore forwardRef de array
+        if (ref) ref.current[index] = element;
       }}
     >
-      <Group spacing={15} noWrap className={classes.buttonWrapper}>
-        {item.icon && (
-          <Box className={classes.iconContainer}>
-            {typeof item.icon === 'string' && isIconUrl(item.icon) ? (
-              <img src={item.icon} alt="Missing image" className={classes.iconImage} />
-            ) : (
-              <LibIcon
-                icon={item.icon as IconProp}
-                className={classes.icon}
-                fixedWidth
-                animation={item.iconAnimation}
-              />
-            )}
-          </Box>
-        )}
-        {Array.isArray(item.values) ? (
-          <Group position="apart" w="100%">
-            <Stack spacing={0} justify="space-between">
-              <Text className={classes.label}>{item.label}</Text>
-              <Text>
-                {typeof item.values[scrollIndex] === 'object'
-                  ? // @ts-ignore for some reason even checking the type TS still thinks it's a string
-                    item.values[scrollIndex].label
-                  : item.values[scrollIndex]}
-              </Text>
-            </Stack>
-            <Group spacing={1} position="center">
-              <LibIcon icon="chevron-left" className={classes.chevronIcon} />
-              <Text className={classes.scrollIndexValue}>
-                {scrollIndex + 1}/{item.values.length}
-              </Text>
-              <LibIcon icon="chevron-right" className={classes.chevronIcon} />
-            </Group>
-          </Group>
-        ) : item.checked !== undefined ? (
-          <Group position="apart" w="100%">
-            <Text>{item.label}</Text>
-            <CustomCheckbox checked={checked}></CustomCheckbox>
-          </Group>
-        ) : item.progress !== undefined ? (
-          <Stack className={classes.progressStack} spacing={0}>
-            <Text className={classes.progressLabel}>{item.label}</Text>
-            <Progress
-              value={item.progress}
-              size="md"
-              color={'var(--noir-info)'}
-              bg={'var(--noir-hairline-hover)'}
+      {iconColumn && (
+        <span className="side-menu-item__icon">
+          {!item.icon ? null : typeof item.icon === 'string' && isIconUrl(item.icon) ? (
+            <img src={item.icon} alt="" />
+          ) : (
+            <LibIcon
+              icon={item.icon as IconProp}
+              fixedWidth
+              style={{ color: item.iconColor }}
+              animation={item.iconAnimation}
             />
-          </Stack>
-        ) : (
-          <Text>{item.label}</Text>
+          )}
+        </span>
+      )}
+      <span className="side-menu-item__body">
+        <span className="side-menu-item__label">{item.label}</span>
+        {progress && (
+          <span className="side-menu-item__progress">
+            <span style={{ width: `${Math.max(0, Math.min(100, item.progress!))}%` }} />
+          </span>
         )}
-      </Group>
-    </Box>
+        {reveal !== undefined && <span className="side-menu-item__reveal">{description}</span>}
+      </span>
+      {Array.isArray(item.values) ? (
+        <span className="side-menu-item__value">
+          <span className="side-menu-item__value-label">{typeof value === 'object' ? value.label : value}</span>
+          <span className="side-menu-item__count">
+            {scrollIndex + 1}/{item.values.length}
+          </span>
+        </span>
+      ) : item.checked !== undefined ? (
+        <span className="side-menu-item__value">
+          <span className="side-menu-item__check" data-checked={checked}>
+            <LibIcon icon="check" />
+          </span>
+        </span>
+      ) : null}
+    </div>
   );
 });
 

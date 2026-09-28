@@ -15,11 +15,11 @@ library.add(fas, far, fab);
 if (isEnvBrowser()) {
   const root = document.getElementById('root');
 
-  // https://i.imgur.com/iPTAdYV.png - Night time img
-  root!.style.setProperty('background-image', 'url("https://i.imgur.com/3pzRj9n.png")', 'important');
-  root!.style.backgroundSize = 'cover';
-  root!.style.backgroundRepeat = 'no-repeat';
-  root!.style.backgroundPosition = 'center';
+  // Foto de cena do preview (DESIGN_v4 §10): servida só pelo vite dev, fora do build.
+  root!.style.setProperty('background-image', 'url("/dev/sinner.png")', 'important');
+  root!.style.setProperty('background-size', 'cover', 'important');
+  root!.style.setProperty('background-repeat', 'no-repeat', 'important');
+  root!.style.setProperty('background-position', 'center', 'important');
 }
 
 const root = document.getElementById('root');
