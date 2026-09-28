@@ -65,9 +65,9 @@ p {
 #eyeSvg {
   display: block;
   box-sizing: border-box;
-  width: 12px;
-  height: 12px;
-  border: 2px solid var(--target-dot);
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid var(--target-dot);
   border-radius: 50%;
   /* contorno escuro dos dois lados do anel, para ler em fundo claro */
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(0, 0, 0, 0.5);
