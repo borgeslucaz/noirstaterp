@@ -112,7 +112,7 @@ Arquivo: `shared/shared.lua`.
 | `grab.minTime` / `grab.maxTime` | ms | Sim | Faixa aleatória da duração do grab |
 | `hotwire.available` | bool | Sim | Habilita a ligação direta (textUI + tecla `H`) quando o jogador está no banco do motorista sem chave |
 | `hotwire.label` | string | Sim | Texto da progressBar da ligação direta |
-| `hotwire.chance` | number | Sim | Chance base de sucesso. É multiplicada pelo nível de `skills.name` no `noir_skills` (limitado a 8) |
+| `hotwire.chance` | number | Sim | Chance base de sucesso. No nível 1 de `skills.name`; cada nível acima soma `hotwire.chancePerLevel` (teto 100%) |
 | `hotwire.minTime` / `hotwire.maxTime` | ms | Sim | Faixa aleatória da duração da ligação direta (também é o tempo de alarme do veículo) |
 | `hotwire.stressIncrease` | number | Sim | Estresse ganho na ligação direta |
 | `BlackListedWeapon` | lista | Sim | Armas que não permitem carjacking (corpo a corpo, arremessáveis, itens) |
@@ -160,7 +160,7 @@ Com `keepKeysInVehicle = true`:
 
 ### noir_skills
 
-Ligação direta e lockpick de porta treinam a habilidade `skills.name` (`arrombamento`). Na ligação direta, a chance de sucesso é `hotwire.chance * nível` (teto 8), com o nível lido do export de cliente `GetLevel`. O XP é dado no servidor com `AddXp`: `skills.hotwireXp` na ligação direta (evento `mri_Qcarkeys:server:hotwireXp`, conferido: motorista, carro marcado `hotwired`, sem chave) e `skills.lockpickXp` no lockpick de porta que destrancou um carro trancado. Cada tipo tem cooldown de `skills.cooldown` segundos por jogador. Sem dependência declarada: o `noir_skills` depende do `bgrz_core`, que depende deste resource.
+Ligação direta e lockpick de porta treinam a habilidade `skills.name` (`arrombamento`). Na ligação direta, a chance de sucesso é `hotwire.chance + hotwire.chancePerLevel * (nível - 1)` (teto 100%), com o nível lido do export de cliente `GetLevel`. O XP é dado no servidor com `AddXp`: `skills.hotwireXp` na ligação direta (evento `mri_Qcarkeys:server:hotwireXp`, conferido: motorista, carro marcado `hotwired`, sem chave) e `skills.lockpickXp` no lockpick de porta que destrancou um carro trancado. Cada tipo tem cooldown de `skills.cooldown` segundos por jogador. Sem dependência declarada: o `noir_skills` depende do `bgrz_core`, que depende deste resource.
 
 ### rep-enginewire
 

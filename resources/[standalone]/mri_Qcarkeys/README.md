@@ -54,7 +54,7 @@ Sistema completo de gerenciamento de chaves veiculares para FiveM com chaves per
 | Opção | Padrão | Descrição |
 |---|---|---|
 | `hotwire.available` | `true` | Habilitar hotwiring. |
-| `hotwire.chance` | `0.3` | Chance base de sucesso (escalada pelo nível no noir_skills). |
+| `hotwire.chance` | `0.3` | Chance base de sucesso no nível 1; `chancePerLevel` soma por nível no noir_skills. |
 
 ### Key Grabbing (`grab`)
 
@@ -222,7 +222,7 @@ mri_Qcarkeys/
 
 - Quando `keepKeysInVehicle = true`, o veículo verifica o entity state `keysIn` antes de permitir ligar o motor. Desligar o motor consome a chave permanente e concede temporária.
 - O stacking converte todos os itens `vehiclekey` em um único `keybag` com metadata de placas.
-- A chance de hotwiring é escalada pelo nível de `arrombamento` no `noir_skills` (níveis 1-8).
+- A chance de hotwiring sobe `chancePerLevel` por nível de `arrombamento` no `noir_skills` (30% no 1, 100% no 15).
 - Carjacking tem cooldown de 5 segundos entre tentativas.
 - NPCs ocupantes fogem quando um carjacking é bem-sucedido.
 

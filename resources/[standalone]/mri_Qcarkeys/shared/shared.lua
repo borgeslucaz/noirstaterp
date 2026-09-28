@@ -62,7 +62,8 @@ Shared = {
         -- hotwire a vehicle
         available = true,
         label = "Fazendo ligação direta...",
-        chance = 0.3,
+        chance = 0.3, -- nível 1 de arrombamento
+        chancePerLevel = 0.05, -- + isto por nível: 100% no nível 15 (maxLevel do noir_skills)
         minTime = 2000,
         maxTime = 3000,
         stressIncrease = math.random(1, 3)

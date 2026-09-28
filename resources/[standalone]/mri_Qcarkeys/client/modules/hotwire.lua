@@ -36,16 +36,11 @@ function Hotwire:HotwireHandler()
 
     if wired and VehicleKeys.currentVehicle == vehicle and VehicleKeys.isInDrivingSeat then
         TriggerServerEvent('hud:server:GainStress', Shared.hotwire.stressIncrease)
-        local level = Utils:GetSkillLevel()
-        if level > 8 then
-            level = 8
-        end
+        -- Chance sobe um degrau por nível de arrombamento, até 100% no nível máximo.
+        local level = math.max(Utils:GetSkillLevel(), 1)
+        local chance = math.min(Shared.hotwire.chance + Shared.hotwire.chancePerLevel * (level - 1), 1.0)
 
-        if level ==  0 then
-            level = 1
-        end
-
-        if (math.random() <= Shared.hotwire.chance * level) then
+        if math.random() <= chance then
             -- sem chave: o carro fica ligado enquanto o motor rodar; desligou, precisa de nova ligacao
             Utils:SetHotwired(VehicleKeys.currentVehicle, true)
             -- depois do setHotwired: o servidor confere a marca antes de dar XP
@@ -58,20 +53,16 @@ function Hotwire:HotwireHandler()
         end
 
         local description
-        if level <= 1 then
-            description = 'Isso parece impossível para você!'
-        elseif level <= 2 then
+        if chance < 0.4 then
             description = 'Isso parece muito complicado para você!'
-        elseif level <= 3 then
+        elseif chance < 0.55 then
             description = 'Isso parece complicado pra você!'
-        elseif level <= 4 then
+        elseif chance < 0.7 then
             description = 'Isso parece difícil pra você!'
-        elseif level <= 5 then
+        elseif chance < 0.85 then
             description = 'Isso parece normal para você!'
-        elseif level <= 8 then
-            description = 'Erros? Mas você não erra...'
         else
-            description = 'Você é tão experiente, como errou?'
+            description = 'Erros? Mas você não erra...'
         end
 
         lib.notify({
