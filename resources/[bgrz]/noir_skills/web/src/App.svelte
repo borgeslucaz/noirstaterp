@@ -1,7 +1,8 @@
 <script lang="ts">
   import Icon from './lib/Icon.svelte';
-  import SkillCard from './lib/SkillCard.svelte';
+  import SkillRow from './lib/SkillRow.svelte';
   import { fetchNui, isBrowser, onNuiMessage } from './lib/nui';
+  import { PREVIEWS } from './preview';
   import type { Skill, SkillsPayload } from './types';
 
   let visible = $state(false);
@@ -19,176 +20,228 @@
     }),
   );
 
+  // v4 ML.6: coluna única, então Esc, Backspace e → fecham.
   $effect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (visible && (event.key === 'Escape' || event.key === 'Backspace')) close();
+      if (!visible) return;
+      if (event.key === 'Escape' || event.key === 'Backspace' || event.key === 'ArrowRight') close();
     };
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  // `npm run dev` abre com dados de exemplo; em jogo isto nunca roda. Só habilidades com
-  // XP entram na lista — o cliente já filtra as zeradas antes de mandar para cá.
-  if (isBrowser()) {
-    skills = [
-      { name: 'arrombamento', label: 'Arrombamento', icon: 'key', color: '#FFC96B', level: 15, maxLevel: 15, xp: 0, need: null, ratio: 1 },
-      { name: 'mecanica', label: 'Mecânica', icon: 'wrench', color: '#9BE8FF', level: 11, maxLevel: 20, xp: 240, need: 341, ratio: 240 / 341 },
-      { name: 'trafico', label: 'Tráfico', icon: 'leaf', color: '#C48BFF', level: 3, maxLevel: 15, xp: 44, need: 113, ratio: 44 / 113 },
-    ];
+  // `npm run dev` abre com dados de exemplo; em jogo isto nunca roda. `?preset=` escolhe o
+  // cenário direto pela URL. Só habilidades com XP chegam aqui — o cliente já filtra as zeradas.
+  const browser = isBrowser();
+  const openPreview = (name: string) => {
+    skills = PREVIEWS[name] ?? PREVIEWS.Normal;
     visible = true;
-  }
+  };
+
+  if (browser) openPreview(new URLSearchParams(location.search).get('preset') ?? 'Normal');
 </script>
 
 {#if visible}
-  <main>
-    <section class="panel">
-      <header>
-        <div class="title">
-          <p class="eyebrow">Personagem</p>
-          <h1>Habilidades</h1>
-        </div>
+  <aside class="menu" aria-labelledby="skills-title">
+    <header>
+      <h1 id="skills-title">Habilidades</h1>
+      <p class="subtitle">Personagem</p>
 
-        <button type="button" class="close" onclick={close} title="Fechar (ESC)" aria-label="Fechar">
-          <Icon name="close" size={18} />
-        </button>
-      </header>
+      <button type="button" class="close" onclick={close} aria-label="Fechar">
+        <Icon name="close" size={20} />
+      </button>
+    </header>
 
-      <div class="list">
-        {#each skills as skill (skill.name)}
-          <SkillCard {skill} />
-        {:else}
-          <div class="empty">
-            <p class="empty-title">Nenhuma habilidade treinada</p>
-            <p>Elas aparecem aqui assim que você ganhar o primeiro XP.</p>
-          </div>
-        {/each}
-      </div>
-    </section>
-  </main>
+    <ul class="list">
+      {#each skills as skill (skill.name)}
+        <SkillRow {skill} />
+      {:else}
+        <li class="empty">
+          <span class="empty-title">Nenhuma habilidade treinada</span>
+          <span>Elas aparecem aqui assim que você ganhar o primeiro XP.</span>
+        </li>
+      {/each}
+    </ul>
+  </aside>
+
+  <div class="keys">
+    <span class="key"><kbd>ESC</kbd>Fechar</span>
+  </div>
+{/if}
+
+{#if browser}
+  <div class="dev">
+    {#each Object.keys(PREVIEWS) as name (name)}
+      <button type="button" onclick={() => openPreview(name)}>{name}</button>
+    {/each}
+  </div>
 {/if}
 
 <style>
-  /* Tamanho e posição validados em jogo: painel lateral à direita, sem cobrir a cena.
-     A v3 entra na superfície, na tipografia, na forma e no movimento. */
-  main {
+  /* v4 ML.2: coluna colada na borda direita, de cima a baixo. */
+  .menu {
     position: fixed;
-    inset: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: clamp(320px, 20vw, 380px);
     display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    /* Safe zone: nada encosta na borda da tela nem no HUD. */
-    padding: clamp(24px, 4vh, 56px);
-  }
-
-  .panel {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    width: min(384px, 92vw);
-    max-height: min(80dvh, 720px);
-    min-height: 0;
+    flex-direction: column;
     overflow: hidden;
-    border: 1px solid var(--noir-border-soft);
-    border-radius: var(--radius-md);
-    background: var(--noir-canvas);
-    box-shadow: var(--shadow-window);
-    animation: panel-in var(--duration-panel) var(--ease-out);
+    background: linear-gradient(180deg, rgba(12, 14, 18, 0.94) 0%, rgba(12, 14, 18, 0.8) 100%);
+    animation: menu-in var(--duration-panel) var(--ease-out);
   }
 
   header {
+    position: relative;
+    flex: none;
+    min-height: 104px;
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 16px 16px 12px;
-    border-bottom: 1px solid var(--noir-divider);
-  }
-
-  .eyebrow {
-    font-size: 11px;
-    font-weight: 600;
-    line-height: 1.3;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--noir-text-muted);
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    padding: 18px 56px 16px 20px;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.25));
   }
 
   h1 {
-    margin-top: 2px;
-    font-size: 24px;
+    font-family: var(--font-display);
+    font-size: 34px;
     font-weight: 700;
-    line-height: 1.15;
-    letter-spacing: -0.025em;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
     color: var(--noir-text-strong);
   }
 
+  .subtitle {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--noir-text);
+  }
+
   .close {
-    flex: none;
+    position: absolute;
+    top: 14px;
+    right: 12px;
     display: grid;
     place-items: center;
     width: 40px;
     height: 40px;
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm);
+    border: 0;
+    border-radius: var(--radius);
     background: transparent;
     color: var(--noir-text-muted);
     cursor: pointer;
     transition:
       color var(--duration-control) var(--ease-soft),
-      border-color var(--duration-control) var(--ease-soft),
       background-color var(--duration-control) var(--ease-soft);
   }
 
   .close:hover {
     color: var(--noir-text-strong);
-    border-color: var(--noir-border-strong);
-    background: var(--noir-field);
+    background: rgba(255, 255, 255, 0.06);
   }
 
   .close:focus-visible {
-    outline: none;
-    color: var(--noir-text-strong);
-    border-color: var(--noir-border-strong);
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.07);
+    outline: 2px solid rgba(255, 255, 255, 0.78);
+    outline-offset: 2px;
   }
 
-  /* Só a lista rola: o painel inteiro nunca ganha barra de rolagem. */
+  /* Só a lista rola; a folga de baixo impede que as teclas cubram a última linha. */
   .list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    flex: 1;
     min-height: 0;
-    padding: 12px 16px 16px;
     overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--noir-border-strong) transparent;
-  }
-
-  .list::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  .list::-webkit-scrollbar-thumb {
-    border-radius: var(--radius-pill);
-    background: var(--noir-border-strong);
+    list-style: none;
+    padding: 4px 0 64px;
   }
 
   .empty {
-    padding: 24px 0;
-    text-align: center;
-    font-size: 13px;
-    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 16px 20px;
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.4;
     color: var(--noir-text-muted);
   }
 
   .empty-title {
-    margin-bottom: 4px;
-    font-size: 15px;
-    font-weight: 600;
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
     color: var(--noir-text-strong);
   }
 
-  @keyframes panel-in {
+  /* v4 §7: teclas visíveis no canto inferior direito. */
+  .keys {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .key {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px 5px 6px;
+    border-radius: var(--radius);
+    background: rgba(0, 0, 0, 0.72);
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #fff;
+  }
+
+  .key kbd {
+    min-width: 22px;
+    padding: 1px 5px;
+    border-radius: var(--radius);
+    background: var(--noir-selection);
+    font: 700 11px/1.4 var(--font-ui);
+    text-align: center;
+    color: var(--noir-on-light);
+  }
+
+  /* Botões de cenário: só no navegador, canto inferior esquerdo (v4 §10). */
+  .dev {
+    position: fixed;
+    left: 16px;
+    bottom: 16px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .dev button {
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    border-radius: var(--radius);
+    background: #171719;
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--noir-text-strong);
+    cursor: pointer;
+  }
+
+  @media (max-height: 760px) {
+    header {
+      min-height: 64px;
+      padding-block: 10px;
+    }
+  }
+
+  @keyframes menu-in {
     from {
       opacity: 0;
       transform: translateX(16px);

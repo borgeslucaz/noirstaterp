@@ -1,61 +1,76 @@
-/* Tokens e fundações do guia de design v3 (resources/docs/DESIGN_v3.md).
-   Poppins vem empacotada no resource: NUI não depende de CDN — sem internet no cliente,
-   a fonte remota falha em silêncio e a interface cai para uma serifa qualquer. */
+/* Tokens e fundações do guia de design v4 (resources/docs/DESIGN_v4.md, Parte 1).
+   Fontes empacotadas no resource: NUI não depende de CDN — sem internet no cliente, a fonte
+   remota falha em silêncio e a interface cai para uma serifa qualquer. */
 @font-face {
-  font-family: 'Poppins';
-  src: url('./fonts/Poppins-400.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Poppins';
-  src: url('./fonts/Poppins-500.woff2') format('woff2');
+  font-family: 'Saira Condensed';
+  src: url('./fonts/SairaCondensed-500.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Poppins';
-  src: url('./fonts/Poppins-600.woff2') format('woff2');
+  font-family: 'Saira Condensed';
+  src: url('./fonts/SairaCondensed-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Rajdhani';
+  src: url('./fonts/Rajdhani-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Rajdhani';
+  src: url('./fonts/Rajdhani-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Rajdhani';
+  src: url('./fonts/Rajdhani-600.woff2') format('woff2');
   font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Poppins';
-  src: url('./fonts/Poppins-700.woff2') format('woff2');
+  font-family: 'Rajdhani';
+  src: url('./fonts/Rajdhani-700.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 
 :root {
-  --font-ui: 'Poppins', Inter, 'Segoe UI', Arial, sans-serif;
+  --font-display: 'Saira Condensed', 'Rajdhani', Arial, sans-serif;
+  --font-ui: 'Rajdhani', Arial, sans-serif;
 
   /* Superfícies */
-  --noir-canvas: rgba(7, 7, 8, 0.94);
-  --noir-card: #141416;
   --noir-field: #101012;
 
   /* Texto */
   --noir-text-strong: rgba(255, 255, 255, 0.96);
   --noir-text: rgba(255, 255, 255, 0.76);
   --noir-text-muted: rgba(255, 255, 255, 0.5);
+  --noir-on-light: #111113;
+  --noir-selection: #f2f2f2;
 
   /* Estrutura */
-  --noir-border-soft: rgba(255, 255, 255, 0.055);
-  --noir-border-strong: rgba(255, 255, 255, 0.22);
   --noir-divider: rgba(255, 255, 255, 0.075);
+  --noir-scroll-thumb: rgba(255, 255, 255, 0.13);
+  --noir-scroll-thumb-hover: rgba(255, 255, 255, 0.28);
 
-  /* Forma e elevação */
-  --radius-sm: 5px;
-  --radius-md: 7px;
+  /* Forma */
+  --radius: 2px;
   --radius-pill: 999px;
-  --shadow-window: 0 14px 42px rgba(0, 0, 0, 0.48);
 
   /* Movimento */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -87,6 +102,31 @@ body {
   color: var(--noir-text);
   user-select: none;
   -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+/* v3 §6.5: barra de rolagem global, só pelos pseudo-elementos. */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: var(--radius-pill);
+  background-color: var(--noir-scroll-thumb);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--noir-scroll-thumb-hover);
 }
 
 @media (prefers-reduced-motion: reduce) {

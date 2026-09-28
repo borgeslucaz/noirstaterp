@@ -59,7 +59,7 @@ T.truthy(builtPage:find('./assets/', 1, true), 'o build usa caminho relativo, ex
 -- Nada de CDN: o cliente pode não ter internet, e a falha é silenciosa — fonte com serifa,
 -- ícone quadrado, e ninguém relaciona isso com a rede. Por isso ícones e fontes são locais.
 local webFiles = { 'web/index.html', 'web/src/app.css', 'web/src/App.svelte',
-    'web/src/lib/Icon.svelte', 'web/src/lib/SkillCard.svelte' }
+    'web/src/lib/Icon.svelte', 'web/src/lib/SkillRow.svelte' }
 
 for _, path in ipairs(webFiles) do
     local source = read(path)
@@ -67,21 +67,30 @@ for _, path in ipairs(webFiles) do
     T.falsy(source:find('font%-awesome'), path .. ' não depende de fonte de ícone remota')
 end
 
--- Guia de design v3 (resources/docs/DESIGN_v3.md) ------------------------------------------
+-- Guia de design v4 (resources/docs/DESIGN_v4.md) ------------------------------------------
 local css = read('web/src/app.css')
-T.truthy(css:find("url('./fonts/Poppins-400.woff2')", 1, true), 'Poppins empacotada no resource')
-for _, weight in ipairs({ '400', '500', '600', '700' }) do
-    T.truthy(exists('web/src/fonts/Poppins-' .. weight .. '.woff2'),
-        'peso ' .. weight .. ' da Poppins precisa estar no resource')
+local fonts = {
+    { family = 'SairaCondensed', weights = { '500', '700' } },
+    { family = 'Rajdhani', weights = { '400', '500', '600', '700' } },
+}
+for _, font in ipairs(fonts) do
+    for _, weight in ipairs(font.weights) do
+        local file = font.family .. '-' .. weight .. '.woff2'
+        T.truthy(css:find("url('./fonts/" .. file .. "')", 1, true), file .. ' declarada no CSS')
+        T.truthy(exists('web/src/fonts/' .. file), file .. ' precisa estar no resource')
+    end
+    T.truthy(exists('web/src/fonts/OFL-' .. font.family .. '.txt'), 'a licença da ' .. font.family .. ' acompanha os arquivos')
 end
-T.truthy(exists('web/src/fonts/OFL-Poppins.txt'), 'a licença da fonte acompanha os arquivos')
 
-local fontShipped = false
+local shipped = {}
 local buildDir = io.popen('ls web/build/assets 2>/dev/null')
 for line in buildDir:lines() do
-    if line:find('Poppins', 1, true) then fontShipped = true end
+    for _, font in ipairs(fonts) do
+        if line:find(font.family, 1, true) then shipped[font.family] = true end
+    end
 end
 buildDir:close()
+local fontShipped = shipped.SairaCondensed and shipped.Rajdhani
 T.truthy(fontShipped, 'a fonte precisa sair no build, senão a NUI cai no fallback')
 
 -- Raiz transparente é regra crítica da NUI: fundo opaco no documento pinta a cena de preto
