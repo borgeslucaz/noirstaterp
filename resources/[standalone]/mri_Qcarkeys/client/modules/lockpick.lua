@@ -49,7 +49,6 @@ function LockPick:LockPickDoor(isAdvanced)
             description = 'Veículo destrancado',
             type = 'success'
         })
-        Utils:AddSkill("lockpicking")
         SetVehicleLights(vehicle, 2)
         Wait(250)
         SetVehicleLights(vehicle, 1)

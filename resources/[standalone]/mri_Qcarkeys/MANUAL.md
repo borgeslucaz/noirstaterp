@@ -27,7 +27,8 @@ Sistema de chaves veiculares com chaves permanentes (item de inventário) e temp
 | `ox_lib` | Sim | Comandos, callbacks, progressBar, textUI, skillCheck, notificações |
 | Framework | Sim | Um entre `qbx_core` (via compat `qb-core`), `qb-core`, `es_extended` ou `ox_core`. Detectado automaticamente em `shared/init.lua` |
 | Inventário | Sim | Um entre `ox_inventory`, `qb-inventory`, `ps-inventory`, `mm_inventory` ou `qs-inventory`. Detectado automaticamente em `shared/init.lua` |
-| `cw-rep` | Sim (se usar hotwire/lockpick) | `getCurrentLevel` e `updateSkill` são chamados sem guarda em `hotwire.lua` e `lockpick.lua` |
+| `rep-enginewire` | Sim | Minigame da ligação direta (dependência declarada) |
+| `noir_skills` | Não | Nível e XP de `arrombamento`; sem ele a ligação direta usa nível 1 e não dá XP |
 | `InteractSound` | Não | Som de trancar/destrancar (`InteractSound_SV:PlayWithinDistance`) |
 | `hud` (QBCore/Qbox) | Não | Ganho de estresse (`hud:server:GainStress`) em roubo, hotwire e lockpick |
 | `rep-enginewire` | Não | Minigame extra de ligação direta. Só é usado se o recurso estiver iniciado |
@@ -111,7 +112,7 @@ Arquivo: `shared/shared.lua`.
 | `grab.minTime` / `grab.maxTime` | ms | Sim | Faixa aleatória da duração do grab |
 | `hotwire.available` | bool | Sim | Habilita a ligação direta (textUI + tecla `H`) quando o jogador está no banco do motorista sem chave |
 | `hotwire.label` | string | Sim | Texto da progressBar da ligação direta |
-| `hotwire.chance` | number | Sim | Chance base de sucesso. É multiplicada pelo nível `hotwiring` do `cw-rep` (limitado a 8) |
+| `hotwire.chance` | number | Sim | Chance base de sucesso. É multiplicada pelo nível de `skills.name` no `noir_skills` (limitado a 8) |
 | `hotwire.minTime` / `hotwire.maxTime` | ms | Sim | Faixa aleatória da duração da ligação direta (também é o tempo de alarme do veículo) |
 | `hotwire.stressIncrease` | number | Sim | Estresse ganho na ligação direta |
 | `BlackListedWeapon` | lista | Sim | Armas que não permitem carjacking (corpo a corpo, arremessáveis, itens) |
@@ -157,13 +158,13 @@ Com `keepKeysInVehicle = true`:
 
 ## Integrações
 
-### cw-rep
+### noir_skills
 
-O nível de habilidade escala as ações de crime. Na ligação direta, a chance de sucesso é `hotwire.chance * nível` (nível `hotwiring`, teto 8); em caso de sucesso, `updateSkill("hotwiring", 1)` é chamado. No lockpick de porta bem-sucedido, `updateSkill("lockpicking", 1)`.
+Ligação direta e lockpick de porta treinam a habilidade `skills.name` (`arrombamento`). Na ligação direta, a chance de sucesso é `hotwire.chance * nível` (teto 8), com o nível lido do export de cliente `GetLevel`. O XP é dado no servidor com `AddXp`: `skills.hotwireXp` na ligação direta (evento `mri_Qcarkeys:server:hotwireXp`, conferido: motorista, carro marcado `hotwired`, sem chave) e `skills.lockpickXp` no lockpick de porta que destrancou um carro trancado. Cada tipo tem cooldown de `skills.cooldown` segundos por jogador. Sem dependência declarada: o `noir_skills` depende do `bgrz_core`, que depende deste resource.
 
 ### rep-enginewire
 
-Se o recurso estiver iniciado, `exports["rep-enginewire"]:MiniGame()` roda junto com a progressBar da ligação direta e o resultado dele passa a valer como condição adicional de sucesso.
+`exports["rep-enginewire"]:MiniGame()` é a ligação direta: substitui a progressBar, com a animação de fiação por baixo. ESC cancela.
 
 ### inside-lockpicking
 
@@ -266,7 +267,7 @@ mri_Qcarkeys/
 │   ├── interface.lua     — estado compartilhado do client (chaves, veículo atual, flags)
 │   └── modules/
 │       ├── keys.lua      — trancar/destrancar, motor, keysIn, comandos e keybinds
-│       ├── hotwire.lua   — ligação direta com cw-rep e rep-enginewire
+│       ├── hotwire.lua   — ligação direta com rep-enginewire e noir_skills
 │       ├── lockpick.lua  — lockpick de porta e de ignição, quebra do item
 │       ├── steal.lua     — carjacking e grab de chave de NPC
 │       └── utils.lua     — helpers (normalização de placa, peds no veículo, arma bloqueada)

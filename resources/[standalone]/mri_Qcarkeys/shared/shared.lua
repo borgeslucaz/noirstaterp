@@ -35,6 +35,14 @@ Shared = {
         breakChance = 0.5,
         advancedBreakChance = 0.1
     },
+    skills = {
+        -- Habilidade do noir_skills treinada pela ligação direta e pelo lockpick de porta. O
+        -- nível dela multiplica hotwire.chance. XP é dado no servidor.
+        name = 'arrombamento',
+        hotwireXp = 10,
+        lockpickXp = 8,
+        cooldown = 20, -- segundos entre ganhos do mesmo tipo, por jogador
+    },
     blacklistedClasses = {
         [13] = true, -- Bicicletas
         [14] = true, -- Barcos

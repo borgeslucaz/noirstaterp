@@ -24,18 +24,12 @@ function Utils:GetPedsInVehicle(vehicle)
     return otherPeds
 end
 
----Nivel de habilidade no cw-rep; sem o resource, nivel 1 (chance base).
----@param skill string
+---Nivel da habilidade (Shared.skills.name) no noir_skills; sem o resource, nivel 1 (chance base).
+---O XP nao passa por aqui: o noir_skills so aceita ganho no servidor.
 ---@return number
-function Utils:GetSkillLevel(skill)
-    if GetResourceState('cw-rep') ~= 'started' then return 1 end
-    return exports['cw-rep']:getCurrentLevel(skill) or 1
-end
-
----@param skill string
-function Utils:AddSkill(skill)
-    if GetResourceState('cw-rep') ~= 'started' then return end
-    exports['cw-rep']:updateSkill(skill, 1)
+function Utils:GetSkillLevel()
+    if GetResourceState('noir_skills') ~= 'started' then return 1 end
+    return exports.noir_skills:GetLevel(Shared.skills.name) or 1
 end
 
 -- Marca local de ligacao direta: cobre o intervalo ate o state bag do servidor chegar, nos dois

@@ -36,7 +36,7 @@ function Hotwire:HotwireHandler()
 
     if wired and VehicleKeys.currentVehicle == vehicle and VehicleKeys.isInDrivingSeat then
         TriggerServerEvent('hud:server:GainStress', Shared.hotwire.stressIncrease)
-        local level = Utils:GetSkillLevel("hotwiring")
+        local level = Utils:GetSkillLevel()
         if level > 8 then
             level = 8
         end
@@ -46,9 +46,10 @@ function Hotwire:HotwireHandler()
         end
 
         if (math.random() <= Shared.hotwire.chance * level) then
-            Utils:AddSkill("hotwiring")
             -- sem chave: o carro fica ligado enquanto o motor rodar; desligou, precisa de nova ligacao
             Utils:SetHotwired(VehicleKeys.currentVehicle, true)
+            -- depois do setHotwired: o servidor confere a marca antes de dar XP
+            TriggerServerEvent('mri_Qcarkeys:server:hotwireXp', NetworkGetNetworkIdFromEntity(VehicleKeys.currentVehicle))
             SetVehicleEngineOn(VehicleKeys.currentVehicle, true, true, true)
             VehicleKeys.isEngineRunning = true
             success = true

@@ -346,6 +346,35 @@ if Shared.LockParkedVehicles then
     end)
 end
 
+-- XP de arrombamento no noir_skills. Sem dependencia declarada: o noir_skills depende do bgrz_core,
+-- que depende deste resource (qbx_vehiclekeys). Cooldown por jogador e tipo segura evento em loop.
+local lastSkillGain = {} ---@type table<number, table<string, number>>
+
+local function GrantSkillXp(src, kind, amount)
+    if GetResourceState('noir_skills') ~= 'started' then return end
+    local now = os.time()
+    local last = lastSkillGain[src] or {}
+    if last[kind] and now - last[kind] < Shared.skills.cooldown then return end
+    last[kind] = now
+    lastSkillGain[src] = last
+    exports.noir_skills:AddXp(src, Shared.skills.name, amount)
+end
+
+AddEventHandler('playerDropped', function()
+    lastSkillGain[source] = nil
+end)
+
+---Ligacao direta concluida. O cliente manda depois do setHotwired, entao a marca ja esta no carro.
+RegisterNetEvent('mri_Qcarkeys:server:hotwireXp', function(netId)
+    local src = source
+    if type(netId) ~= 'number' then return end
+    local vehicle = NetworkGetEntityFromNetworkId(netId)
+    if vehicle == 0 or not DoesEntityExist(vehicle) then return end
+    if GetPedInVehicleSeat(vehicle, -1) ~= GetPlayerPed(src) then return end
+    if Entity(vehicle).state.hotwired ~= true or HasKeyForVehicle(src, vehicle) then return end
+    GrantSkillXp(src, 'hotwire', Shared.skills.hotwireXp)
+end)
+
 ---Lockpick de porta bem-sucedido. O cliente manda antes de consumir o lockpick, entao o item ainda
 ---esta no inventario aqui.
 RegisterNetEvent('mri_Qcarkeys:server:lockpickUnlock', function(netId, isAdvanced)
@@ -355,7 +384,9 @@ RegisterNetEvent('mri_Qcarkeys:server:lockpickUnlock', function(netId, isAdvance
     if vehicle == 0 or not DoesEntityExist(vehicle) or not IsNear(src, vehicle, MAX_KEY_DISTANCE) then return end
     local item = isAdvanced and 'advancedlockpick' or 'lockpick'
     if (exports.ox_inventory:Search(src, 'count', item) or 0) < 1 then return end
+    local wasLocked = GetVehicleDoorLockStatus(vehicle) > 1
     SetVehicleDoorsLocked(vehicle, 1)
+    if wasLocked then GrantSkillXp(src, 'lockpick', Shared.skills.lockpickXp) end
 end)
 
 RegisterNetEvent('mm_carkeys:server:setVehLockState', function(vehNetId, state)
