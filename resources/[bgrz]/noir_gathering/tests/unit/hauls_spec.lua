@@ -38,6 +38,10 @@ local threads = {}
 CreateThread = function(fn) threads[#threads + 1] = fn end
 Wait = function(ms) now = now + (ms or 0) end
 locale = function(key) return key end
+local carryState = {}
+Player = function(source)
+    return { state = { set = function(_, key, value) carryState[source] = key == 'noirGatheringCarry' and value or nil end } }
+end
 
 local handlers = {}
 lib.callback = { register = function(name, fn) handlers[name:gsub('^noir_gathering:server:', '')] = fn end }
@@ -163,6 +167,7 @@ move(1, 5)
 T.equal(call('haulTake', 1).error, 'too_far', 'pegar da pilha exige estar nela')
 move(1, 10)
 T.truthy(call('haulTake', 1).ok, 'pega a caixa na pilha')
+T.equal(carryState[1], true, 'a caixa na mão vai para o state bag, para todos verem')
 moveEntity(vehicle, 12)
 tick(500)
 T.equal(handlers.haulLoad(1, started.netId).error, 'too_soon', 'guardar logo depois de pegar não conta')
@@ -178,6 +183,7 @@ moveEntity(vehicle, 12)
 
 local loaded = call('haulLoad', 1, started.netId)
 T.truthy(loaded.ok and loaded.loaded == 1 and not loaded.full, 'primeira caixa guardada')
+T.equal(carryState[1], nil, 'guardada, a caixa sai da mão para todos')
 
 call('haulTake', 1)
 clientEvents = {}
@@ -258,7 +264,9 @@ T.truthy(call('haulLoad', 2, 1861).ok, 'o primeiro do model em que guardar vira 
 call('haulTake', 2)
 T.equal(call('haulLoad', 2, 1850).error, 'wrong_vehicle', 'e depois nenhum outro serve')
 
+T.equal(carryState[2], true, 'segunda caixa na mão')
 call('haulStop', 2)
+T.equal(carryState[2], nil, 'desistir tira a caixa da mão')
 T.falsy(deleted[861], 'veículo do jogador nunca é apagado')
 move(2, 0)
 T.equal(call('haulStart', 2, 2).error, 'route_cooldown', 'a rota respeita o intervalo entre saídas')

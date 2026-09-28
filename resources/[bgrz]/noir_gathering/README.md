@@ -24,6 +24,12 @@ rivais. Ele leva o veículo até o destino, tira as caixas uma a uma e deixa no 
 entrega. Com a última caixa, recebe os itens da rota e a gang ganha reputação no
 `noir_illegal_core`. Sem espaço no inventário, o pagamento fica pendente no ponto de entrega.
 Uma rota tem uma carga por vez, com intervalo configurável entre uma saída e a próxima.
+
+Tudo isso é visto por quem está por perto, não só por quem carrega: o NPC e a pilha são
+criados em cada client que se aproxima, mesmo sem acesso à rota (sem acesso, só não há
+opção no NPC); a caixa na mão é marcada pelo servidor no state bag `noirGatheringCarry`
+do jogador, e cada client por perto põe uma caixa na mão dele. São props locais: nada de
+entidade de rede para ficar órfã quando alguém cai.
 `F7` desiste, depois de confirmar.
 
 Por item da rota: quantidade mínima e máxima, tempo de coleta, ferramenta com desgaste,
@@ -75,7 +81,7 @@ jogadores; o menu avisa.
 | rota sem início não entregava item | entrega |
 | extras conferiam o peso do item principal | cada extra confere o próprio |
 | recompensa, alerta e extras publicados para todos os clientes | só a visão pública (pontos, tempo, animação) vai para o client |
-| `qb-core`, `ps-dispatch`, job `police` fixo, PolyZone, emote menu | `bgrz_core` para tudo, inclusive o alvo; dispatch pelo `SendDispatch` |
+| `qb-core`, `ps-dispatch`, job `police` fixo, PolyZone, emote menu | `bgrz_core` para tudo; `ox_target` direto (§2.5); dispatch pelo `SendDispatch` |
 | `print` a cada coleta | silencioso; `debug = true` em `config/shared.lua` |
 
 Saíram também: modo sem ox_target (marker/PolyZone), integração com `mri_Qbox`, animação
@@ -91,8 +97,9 @@ por comando de emote e o "tipo" do alerta do ps-dispatch.
 | `server/sessions.lua` | turno e coleta, com estados `ACTIVE` → `COLLECTING` → `PROCESSING` |
 | `server/hauls.lua` | carga, com fases `LOAD` → `UNLOAD` → `PAY`, trava por rota e veículo |
 | `client/haul.lua` | pilha, veículo, destino e olheiro do lado do jogador |
-| `client/carry.lua` | caixa na mão (prop e animação conferidas antes de usar) |
+| `client/carry.lua` | caixa na mão de quem carrega, desenhada por todo client por perto |
 | `client/npc.lua` | NPC do início, criado perto e apagado longe |
+| `client/scenery.lua` | pilha de caixas das rotas de carga, criada perto e apagada longe |
 | `client/placement.lua` | posicionar pela mira (NPC, veículo, pilha, entrega), como no noir_garage |
 | `server/routes.lua` | registro, persistência e publicação em `GlobalState['noir_gathering:routes']` |
 | `server/storage.lua` | SQL da tabela `noir_gathering_routes` |
@@ -102,8 +109,8 @@ por comando de emote e o "tipo" do alerta do ps-dispatch.
 
 ## Dependências
 
-`bgrz_core` (inventário, durabilidade, grupos, stress, notificação, dispatch, alvo, spawn
-e chave do veículo, celular), `noir_lib` (teclas visíveis ao marcar pontos), `ox_lib`,
+`bgrz_core` (inventário, durabilidade, grupos, stress, notificação, dispatch, spawn e
+chave do veículo, celular), `ox_target` (chamado direto, §2.5), `noir_lib` (teclas visíveis ao marcar pontos), `ox_lib`,
 `oxmysql`.
 
 Opcionais, consultados na hora: `noir_illegal_core` (requisito, catálogo de categorias e

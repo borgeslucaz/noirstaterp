@@ -7,6 +7,8 @@ local Integrations = require 'client.integrations'
 local Collect = require 'client.collect'
 local Haul = require 'client.haul'
 local Npc = require 'client.npc'
+local Scenery = require 'client.scenery'
+local Carry = require 'client.carry'
 local Creator = require 'client.creator'
 
 local STATE_KEY = 'noir_gathering:routes'
@@ -18,6 +20,7 @@ local function clearZones()
     for index = 1, #zones do Integrations.removeZone(zones[index]) end
     zones = {}
     Npc.clear()
+    Scenery.clear()
 end
 
 local function isBusy()
@@ -104,7 +107,17 @@ local function rebuild(routes)
     if not Integrations.isLoggedIn() then return end
 
     for _, route in ipairs(routes or GlobalState[STATE_KEY] or {}) do
-        if Rules.isPublic(route.groups) or Integrations.hasGroup(route.groups) then
+        -- A pilha fica no mapa para todo mundo que chega perto, inclusive quem não tem acesso
+        -- à rota: é cenário, não alvo.
+        if route.haul and route.haul.stack then
+            Scenery.add(('noir_gathering:stack:%d'):format(route.id), route.haul.stack, route.haul.prop)
+        end
+        local allowed = Rules.isPublic(route.groups) or Integrations.hasGroup(route.groups)
+        -- O NPC também é visto por todos; só quem tem acesso recebe a opção nele.
+        if not allowed and route.npc and route.start then
+            Npc.add(('noir_gathering:start:%d'):format(route.id), route.start, route.npc, {})
+        end
+        if allowed then
             if (route.mode == 'shift' or route.mode == 'haul') and route.start then
                 addStart(route)
             elseif route.mode == 'free' then
@@ -179,6 +192,8 @@ AddEventHandler('onResourceStop', function(resource)
     Collect.reset()
     Haul.reset()
     Npc.clear()
+    Scenery.clear()
+    Carry.clearAll()
     Creator.reset()
 end)
 

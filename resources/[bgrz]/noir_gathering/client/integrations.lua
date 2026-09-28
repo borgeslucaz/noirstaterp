@@ -1,9 +1,10 @@
 ---Único ponto do client que conhece outro resource pelo nome.
 ---
----Notificação, login, job, gang e alvo passam pelo `bgrz_core` (§2.1); as teclas
----visíveis vêm do `noir_lib`.
+---Notificação, login, job e gang passam pelo `bgrz_core` (§2.1). O alvo fala com o
+---`ox_target` direto (§2.5), e as teclas visíveis vêm do `noir_lib`.
 
 local CORE = 'bgrz_core'
+local TARGET = 'ox_target'
 local KEYS = 'noir_lib'
 
 local Integrations = {}
@@ -36,41 +37,40 @@ function Integrations.hasGroup(groups)
     return false
 end
 
----O bridge dá nome próprio por resource às zonas e opções, e limpa tudo sozinho quando
----este resource para.
+---Alvo pelo `ox_target` direto (§2.5). As options já vêm com o namespace do resource.
 ---@param data { name: string, coords: vector3, radius: number, options: table[] }
----@return string? zoneName
+---@return integer? zoneId
 function Integrations.addZone(data)
-    if not coreReady() then return nil end
-    local called, ok = pcall(function()
-        return exports[CORE]:AddSphereZoneTarget({
+    if GetResourceState(TARGET) ~= 'started' then return nil end
+    local ok, id = pcall(function()
+        return exports[TARGET]:addSphereZone({
             name = data.name,
             coords = data.coords,
             radius = data.radius,
             options = data.options,
         })
     end)
-    return (called and ok) and data.name or nil
+    return ok and id or nil
 end
 
----@param name string?
-function Integrations.removeZone(name)
-    if not name or not coreReady() then return end
-    pcall(function() exports[CORE]:RemoveZoneTarget(name) end)
+---@param id integer?
+function Integrations.removeZone(id)
+    if not id or GetResourceState(TARGET) ~= 'started' then return end
+    pcall(function() exports[TARGET]:removeZone(id) end)
 end
 
----Alvo numa entidade local (NPC do início, pilha de caixas).
+---Alvo numa entidade local (NPC do início).
 ---@param entity integer
 ---@param options table[]
 function Integrations.addEntityTarget(entity, options)
-    if not coreReady() then return end
-    pcall(function() exports[CORE]:AddLocalEntityTarget(entity, options) end)
+    if GetResourceState(TARGET) ~= 'started' then return end
+    pcall(function() exports[TARGET]:addLocalEntity(entity, options) end)
 end
 
 ---@param entity integer
 function Integrations.removeEntityTarget(entity)
-    if not coreReady() then return end
-    pcall(function() exports[CORE]:RemoveLocalEntityTarget(entity) end)
+    if GetResourceState(TARGET) ~= 'started' then return end
+    pcall(function() exports[TARGET]:removeLocalEntity(entity) end)
 end
 
 ---Alvo em todo veículo de um model: o da rota, entregue por ela ou trazido pelo jogador.
@@ -78,15 +78,15 @@ end
 ---@param model string
 ---@param options table[]
 function Integrations.addModelTarget(model, options)
-    if not coreReady() then return end
-    pcall(function() exports[CORE]:AddModelTarget(model, options) end)
+    if GetResourceState(TARGET) ~= 'started' then return end
+    pcall(function() exports[TARGET]:addModel(joaat(model), options) end)
 end
 
 ---@param model string
 ---@param names string[]
 function Integrations.removeModelTarget(model, names)
-    if not coreReady() then return end
-    pcall(function() exports[CORE]:RemoveModelTarget(model, names) end)
+    if GetResourceState(TARGET) ~= 'started' then return end
+    pcall(function() exports[TARGET]:removeModel(joaat(model), names) end)
 end
 
 ---@param keys { key: string, label: string }[]

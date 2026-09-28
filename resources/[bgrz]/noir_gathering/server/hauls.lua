@@ -38,6 +38,16 @@ local function fail(code)
     return { ok = false, error = code }
 end
 
+---Caixa na mão, replicada no state bag do jogador: é por ele que todo client por perto
+---desenha a caixa. Só visual — a verdade é `run.carrying`.
+---@param source integer
+---@param value boolean
+local function showCarry(source, value)
+    local run = runs[source]
+    if run then run.carrying = value end
+    Player(source).state:set('noirGatheringCarry', value or nil, true)
+end
+
 local function debugPrint(...)
     if SharedConfig.debug then lib.print.info('[hauls]', ...) end
 end
@@ -69,6 +79,7 @@ end
 local function endRun(source, reason)
     local run = runs[source]
     if not run then return end
+    if run.carrying then showCarry(source, false) end
     runs[source] = nil
     if routeOwner[run.routeId] == source then routeOwner[run.routeId] = nil end
     if run.ownsVehicle then removeVehicle(run.vehicle) end
@@ -221,7 +232,8 @@ local function takeFromStack(source)
     if run.loaded >= route.haul.count then return fail('wrong_step') end
     if not near(Security.pedCoords(source), route.haul.stack, Config.distance.stack) then return fail('too_far') end
 
-    run.carrying, run.carryAt = true, GetGameTimer()
+    run.carryAt = GetGameTimer()
+    showCarry(source, true)
     return { ok = true }
 end
 
@@ -238,7 +250,7 @@ local function loadVehicle(source, netId)
     if not coords or #(coords - GetEntityCoords(vehicle)) > Config.distance.vehicleUse then return fail('too_far') end
 
     run.vehicle, run.netId = vehicle, netId
-    run.carrying = false
+    showCarry(source, false)
     run.loaded = run.loaded + 1
     if run.loaded < route.haul.count then return { ok = true, loaded = run.loaded } end
 
@@ -260,7 +272,8 @@ local function takeFromVehicle(source, netId)
     local coords = Security.pedCoords(source)
     if not coords or #(coords - vehicleCoords) > Config.distance.vehicleUse then return fail('too_far') end
 
-    run.carrying, run.carryAt = true, GetGameTimer()
+    run.carryAt = GetGameTimer()
+    showCarry(source, true)
     run.loaded = run.loaded - 1
     return { ok = true, loaded = run.loaded }
 end
@@ -273,7 +286,7 @@ local function dropOff(source)
     if GetGameTimer() - run.carryAt < Config.haul.minCarryMs then return fail('too_soon') end
     if not near(Security.pedCoords(source), route.haul.dropoff, Config.distance.dropoff) then return fail('too_far') end
 
-    run.carrying = false
+    showCarry(source, false)
     run.delivered = run.delivered + 1
     if run.delivered < route.haul.count then return { ok = true, delivered = run.delivered } end
 

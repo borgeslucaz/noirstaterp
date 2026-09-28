@@ -31,18 +31,20 @@ files {
     'client/carry.lua',
     'client/haul.lua',
     'client/npc.lua',
+    'client/scenery.lua',
     'client/placement.lua',
     'client/creator.lua',
     'locales/*.json',
 }
 
--- `qbx_core`, `ox_inventory` e `ox_target` são providers do bgrz_core e não aparecem
--- aqui (§6.2). `noir_illegal_core` e `noir_gangs` são opcionais: consultados na hora, e
+-- `qbx_core` e `ox_inventory` são providers do bgrz_core e não aparecem aqui (§6.2).
+-- `ox_target` é chamado direto (§2.5) e por isso está declarado. `noir_illegal_core` e `noir_gangs` são opcionais: consultados na hora, e
 -- sem eles a rota com requisito não abre e o olheiro não avisa ninguém.
 dependencies {
     '/onesync',
     'ox_lib',
     'oxmysql',
     'bgrz_core',
+    'ox_target',
     'noir_lib',
 }

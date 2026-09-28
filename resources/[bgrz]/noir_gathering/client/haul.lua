@@ -7,11 +7,9 @@ local Carry = require 'client.carry'
 
 local Haul = {}
 
-local STACK_ZONE = 'noir_gathering:haul:stack'
-local DROP_ZONE = 'noir_gathering:haul:drop'
 local VEHICLE_OPTIONS = { 'noir_gathering:haul:load', 'noir_gathering:haul:unload' }
 
----@type { route: table, count: integer, loaded: integer, delivered: integer, phase: string, netId: integer?, prop: integer?, blip: integer?, vehicleBlip: integer?, zones: table<string, boolean>, busy: boolean }?
+---@type { route: table, count: integer, loaded: integer, delivered: integer, phase: string, netId: integer?, blip: integer?, vehicleBlip: integer?, stackZone: integer?, dropZone: integer?, busy: boolean }?
 local run = nil
 
 local ERRORS = {
@@ -87,33 +85,16 @@ end
 -- Pilha -----------------------------------------------------------------------------------
 
 local function removeStack()
-    Integrations.removeZone(STACK_ZONE)
-    run.zones[STACK_ZONE] = nil
-    if run.prop and DoesEntityExist(run.prop) then
-        SetEntityAsMissionEntity(run.prop, true, true)
-        DeleteObject(run.prop)
-    end
-    run.prop = nil
+    Integrations.removeZone(run.stackZone)
+    run.stackZone = nil
 end
 
----A pilha é só cenário: o alvo é uma esfera no lugar dela, para funcionar igual com ou
----sem a prop.
+---A pilha em si é cenário, visto por todos (`client/scenery.lua`). Aqui é só o alvo, uma
+---esfera no lugar dela, para quem está fazendo a carga.
 local function createStack()
     local stack = run.route.haul.stack
-    local model = joaat(run.route.haul.prop)
-    if IsModelInCdimage(model) and pcall(lib.requestModel, model, 5000) then
-        local prop = CreateObject(model, stack.x, stack.y, stack.z, false, false, false)
-        SetModelAsNoLongerNeeded(model)
-        if prop ~= 0 then
-            SetEntityHeading(prop, stack.w)
-            PlaceObjectOnGroundProperly(prop)
-            FreezeEntityPosition(prop, true)
-            run.prop = prop
-        end
-    end
-
-    Integrations.addZone({
-        name = STACK_ZONE,
+    run.stackZone = Integrations.addZone({
+        name = 'noir_gathering:haul:stack',
         coords = toVector(stack) + vector3(0.0, 0.0, 0.8),
         radius = Config.targetRadius,
         options = { {
@@ -124,14 +105,13 @@ local function createStack()
             onSelect = function() Haul.take() end,
         } },
     })
-    run.zones[STACK_ZONE] = true
 end
 
 -- Destino ---------------------------------------------------------------------------------
 
 local function createDropoff()
-    Integrations.addZone({
-        name = DROP_ZONE,
+    run.dropZone = Integrations.addZone({
+        name = 'noir_gathering:haul:drop',
         coords = toVector(run.route.haul.dropoff),
         radius = Config.targetRadius,
         options = {
@@ -151,7 +131,6 @@ local function createDropoff()
             },
         },
     })
-    run.zones[DROP_ZONE] = true
 end
 
 -- Veículo ---------------------------------------------------------------------------------
@@ -214,7 +193,7 @@ local function cleanup()
     clearBlip()
     if run.vehicleBlip and DoesBlipExist(run.vehicleBlip) then RemoveBlip(run.vehicleBlip) end
     removeStack()
-    Integrations.removeZone(DROP_ZONE)
+    Integrations.removeZone(run.dropZone)
     Integrations.removeModelTarget(run.route.vehicle, VEHICLE_OPTIONS)
     run = nil
 end
@@ -246,7 +225,7 @@ function Haul.start(route)
     if not result or not result.ok then return notifyError(result) end
 
     run = { route = route, count = result.count, loaded = 0, delivered = 0, phase = 'LOAD',
-        netId = result.netId, zones = {}, busy = false }
+        netId = result.netId, busy = false }
     createStack()
     addVehicleTarget()
     markVehicle()
