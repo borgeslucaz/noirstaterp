@@ -8,7 +8,8 @@ local Hotwire = {
 
 local function ShowHotwireText(show)
     if show and not VehicleKeys.showTextUi then
-        lib.showTextUI('Ligação direta', { position = "right-center", icon = 'h' })
+        -- key vira a caixa de tecla do textUI (ox_lib customizado); icon não é mais desenhado
+        lib.showTextUI('Ligação direta', { position = "right-center", key = 'H' })
         VehicleKeys.showTextUi = true
     elseif not show and VehicleKeys.showTextUi then
         lib.hideTextUI()
@@ -77,12 +78,8 @@ function Hotwire:HotwireHandler()
             type = 'error'
         })
     end
-    if VehicleKeys.currentVehicle and VehicleKeys.isInDrivingSeat and not success and not VehicleKeys.showTextUi then
-        lib.showTextUI('Ligação direta', {
-            position = "right-center",
-            icon = 'h',
-        })
-        VehicleKeys.showTextUi = true
+    if VehicleKeys.currentVehicle and VehicleKeys.isInDrivingSeat and not success then
+        ShowHotwireText(true)
     end
     self.isHotwiring = false
 end
