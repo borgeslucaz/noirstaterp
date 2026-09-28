@@ -22,6 +22,7 @@
   --noir-text-strong: rgba(255, 255, 255, 0.96);
   --noir-text: rgba(255, 255, 255, 0.76);
   --noir-border: rgba(255, 255, 255, 0.11);
+  --target-dot: #3d9bff;
   --noir-select: #f2f2f2;
   --noir-select-text: #111113;
 
@@ -53,7 +54,7 @@ p {
   margin: 0;
 }
 
-/* Olho no centro: mira enquanto o ALT esta segurado; some quando ha alvo (a tecla E assume). */
+/* Mira no centro: bolinha azul enquanto o ALT esta segurado; some quando ha alvo (a tecla E assume). */
 #eye {
   position: absolute;
   top: 50%;
@@ -63,14 +64,11 @@ p {
 
 #eyeSvg {
   display: block;
-  box-sizing: border-box;
-  width: var(--eye-size);
-  height: var(--eye-size);
-  padding: 5px;
-  background: rgba(12, 14, 18, 0.72);
-  border: 1px solid var(--noir-border);
-  border-radius: var(--radius);
-  fill: rgba(255, 255, 255, 0.55);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--target-dot);
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.55), 0 0 8px rgba(61, 155, 255, 0.7);
   transition: opacity var(--duration-fast) ease;
 }
 

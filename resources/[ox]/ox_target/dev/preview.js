@@ -114,7 +114,7 @@ async function boot() {
   await import("/web/js/main.js");
 
   const panel = document.getElementById("dev");
-  const buttons = { ...Object.fromEntries(Object.entries(scenarios).map(([k, v]) => [k, v.label])), fora: "Alvo fora da tela", vazio: "Sem alvo (so o olho)" };
+  const buttons = { ...Object.fromEntries(Object.entries(scenarios).map(([k, v]) => [k, v.label])), fora: "Alvo fora da tela", vazio: "Sem alvo (so a mira)" };
   for (const [key, label] of Object.entries(buttons)) {
     const b = document.createElement("button");
     b.textContent = label;
