@@ -28,7 +28,6 @@
     // ───────────── formatação (pt-BR) ─────────────
 
     const int = (v) => Math.floor(Number(v) || 0).toLocaleString("pt-BR")
-    const signed = (v) => (Number(v) > 0 ? "+" : "") + int(v)
 
     /// Nome de bairro e de gang chegam em minúsculo com underline.
     const pretty = (name) => String(name || "").replace(/_/g, " ").toUpperCase()
@@ -125,7 +124,7 @@
         remove_member: ["Desligar", "Tirar alguém da gang"],
         promote: ["Promover", "Subir alguém para o cargo seguinte"],
         demote: ["Rebaixar", "Descer alguém para o cargo anterior"],
-        view_reputation: ["Ver reputação", "O placar da gang"],
+        view_reputation: ["Ver progresso", "O nível e a reputação da gang"],
         view_products: ["Ver operação", "O que a gang movimenta"],
         manage_ranks: ["Gerir cargos", "Criar, renomear e definir o que cada cargo pode"],
     }
@@ -138,7 +137,6 @@
         member_demoted: "Rebaixamento",
         member_removed: "Desligamento",
         member_left: "Saída da gang",
-        reputation_changed: "Reputação ajustada",
         management_point_created: "Ponto de gestão criado",
         management_point_moved: "Ponto de gestão movido",
         management_point_deleted: "Ponto de gestão removido",
@@ -165,11 +163,6 @@
             case "rank_created":
             case "rank_updated":
             case "rank_deleted": return meta.label ? actor + " · " + meta.label : "Por " + actor
-            case "reputation_changed": {
-                const base = actor + " ajustou em " + signed(meta.delta) + ", total de " + int(meta.total)
-                const reason = String(meta.reason || "").trim()
-                return reason ? base + " · " + reason : base
-            }
             default: return "Por " + actor
         }
     }
@@ -212,8 +205,10 @@
         meRank: $("me-rank"),
         footerBrand: $("footer-brand"),
         // central
-        statReputationCard: $("stat-reputation-card"),
-        statReputation: $("stat-reputation"),
+        statLevelCard: $("stat-level-card"),
+        statLevel: $("stat-level"),
+        progressGroup: $("progress-group"),
+        progressList: $("progress-list"),
         statActive: $("stat-active"),
         statTerritory: $("stat-territory"),
         statMembers: $("stat-members"),
@@ -413,12 +408,10 @@
         m.statMembers.textContent = int(data.memberCount || members.length)
         m.statActive.textContent = int(data.onlineCount || online.length)
 
-        // Reputação é leitura, e só para quem tem a permissão. Quem não tem não vê o número
-        // em branco: não vê o cartão. A linha se fecha com três, porque as colunas nascem do
-        // número de cartões visíveis.
-        const hasReputation = typeof data.reputation === "number"
-        show(m.statReputationCard, hasReputation)
-        if (hasReputation) m.statReputation.textContent = int(data.reputation)
+        // Progresso é leitura, e só para quem tem a permissão. Ele vem do noir_illegal_core; sem
+        // permissão ou sem o core no ar, o cartão some em vez de mostrar zero. A linha se fecha
+        // com três, porque as colunas nascem do número de cartões visíveis.
+        renderProgress(data.progress)
 
         // Operação
         m.operationChips.replaceChildren()
@@ -501,6 +494,49 @@
                 m.onlinePreview.appendChild(card)
             })
         }
+    }
+
+    /// O nível do cartão é o maior entre os produtos que a gang opera; a lista mostra cada
+    /// categoria com a barra até o próximo nível.
+    function renderProgress(progress) {
+        const rows = Array.isArray(progress) ? progress : []
+        show(m.statLevelCard, rows.length > 0)
+        show(m.progressGroup, rows.length > 0)
+        m.progressList.replaceChildren()
+        if (rows.length === 0) return
+
+        const own = rows.filter((row) => row.category !== "street")
+        const top = (own.length ? own : rows).reduce((best, row) => (row.level > best.level ? row : best))
+        m.statLevel.textContent = int(top.level) + " · " + String(top.label).toUpperCase()
+
+        rows.forEach((row) => {
+            const item = document.createElement("li")
+            item.className = "progress-row"
+
+            const name = document.createElement("span")
+            name.className = "progress-row__name"
+            name.textContent = row.label
+
+            const level = document.createElement("span")
+            level.className = "progress-row__level"
+            level.textContent = "NÍV " + int(row.level)
+
+            const bar = document.createElement("span")
+            bar.className = "progress-row__bar"
+            const fill = document.createElement("span")
+            const hasNext = typeof row.nextLevelAt === "number"
+            const span = hasNext ? row.nextLevelAt - (row.levelFloor || 0) : 0
+            const ratio = hasNext && span > 0 ? (row.reputation - (row.levelFloor || 0)) / span : 1
+            fill.style.width = Math.max(0, Math.min(1, ratio)) * 100 + "%"
+            bar.appendChild(fill)
+
+            const value = document.createElement("span")
+            value.className = "progress-row__value"
+            value.textContent = hasNext ? int(row.reputation) + " / " + int(row.nextLevelAt) : int(row.reputation) + " · MÁX"
+
+            item.append(name, level, bar, value)
+            m.progressList.appendChild(item)
+        })
     }
 
     function chip(label, muted) {

@@ -39,7 +39,7 @@ Config.SnapshotCacheTTL = 3
 ---bagunça — sobe uma vez com `true`, volta para `false`.
 ---
 ---Produtos não dependem desta chave: eles não têm editor, então continuam saindo do
----config a cada start. Reputação nunca é tocada por nenhum dos dois modos.
+---config a cada start.
 Config.RanksFromConfig = false
 
 ---Mesmo acordo dos cargos, agora que produtos têm editor no `/gangsetup`.
@@ -112,7 +112,7 @@ Config.Permissions = {
     'remove_member',       -- expulsar
     'promote',             -- subir cargo de alguém abaixo
     'demote',              -- descer cargo de alguém abaixo
-    'view_reputation',     -- ver a reputação da gang
+    'view_reputation',     -- ver o nível e a reputação da gang (lidos do noir_illegal_core)
     'view_products',       -- ver os produtos que a gang opera
     'manage_ranks',        -- criar, renomear e definir o que cada cargo pode
 }
@@ -217,9 +217,3 @@ Config.Gangs = {
     triads   = { label = 'Triads',      color = 'vermelho', archetype = 'cartel', products = { 'attachments' } },
 }
 
--- ---------------------------------------------------------------------------
--- Reputação
--- ---------------------------------------------------------------------------
--- Um inteiro por gang. Ninguém edita a própria reputação pelo menu: ela é concedida por
--- admin (`/gangrep`) ou por outro resource via export, e o menu só mostra.
-Config.Reputation = { min = -100000, max = 100000, maxDelta = 10000 }

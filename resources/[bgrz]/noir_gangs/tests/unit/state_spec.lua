@@ -87,13 +87,13 @@ local function execute(query, values)
     if query:find('INSERT IGNORE INTO noir_gang_state', 1, true) then
         local id = values[1]
         if not tables.noir_gang_state[id] then
-            tables.noir_gang_state[id] = { gang_name = id, reputation = 0,
+            tables.noir_gang_state[id] = { gang_name = id,
                 label = values[2], color = values[3], archetype = values[4] }
         end
         return 1
     end
     if query:find('INSERT INTO noir_gang_state', 1, true) then
-        tables.noir_gang_state[values[1]] = { gang_name = values[1], reputation = 0,
+        tables.noir_gang_state[values[1]] = { gang_name = values[1],
             label = values[2], color = values[3], archetype = values[4] }
         return 1
     end
@@ -124,11 +124,6 @@ local function execute(query, values)
     if query:find('UPDATE noir_gang_state SET archetype', 1, true) then
         local row = tables.noir_gang_state[values[2]]
         if row then row.archetype = values[1] end
-        return 1
-    end
-    if query:find('UPDATE noir_gang_state SET reputation', 1, true) then
-        local row = tables.noir_gang_state[values[2]]
-        if row then row.reputation = values[1] end
         return 1
     end
 
@@ -400,42 +395,6 @@ NoirGangs.bootstrap()
 T.equal(#NoirGangs.productsOf('ballas'), 1, 'tirar do config tira do banco')
 
 -- O rótulo do cargo não viaja mais para o Qbox: quem lê cargo lê daqui.
-
--- Reputação --------------------------------------------------------------------------------------
-T.equal(NoirGangs.reputationOf('ballas'), 0, 'gang nova começa em zero')
-
-local total = NoirGangs.addReputation('ballas', 250)
-T.equal(total, 250, 'somar pontos')
-T.equal(NoirGangs.reputationOf('ballas'), 250, 'e o cache acompanha')
-
-total = NoirGangs.addReputation('ballas', -100)
-T.equal(total, 150, 'tirar pontos é o mesmo caminho, com delta negativo')
-
-local ok, err = NoirGangs.addReputation('ballas', 0)
-T.falsy(ok, 'delta zero não é ajuste')
-T.equal(err, 'invalid_delta', 'e diz o porquê')
-
-ok, err = NoirGangs.addReputation('ballas', 1.5)
-T.falsy(ok, 'reputação é inteiro')
-T.equal(err, 'invalid_delta', 'fração é recusada')
-
-ok, err = NoirGangs.addReputation('ballas', Config.Reputation.maxDelta + 1)
-T.falsy(ok, 'um ajuste sozinho não pode ser ilimitado')
-T.equal(err, 'delta_too_large', 'o teto por ajuste protege contra o zero a mais')
-
-ok, err = NoirGangs.addReputation('inexistente', 10)
-T.falsy(ok, 'gang desconhecida não acumula reputação')
-T.equal(err, 'gang_not_found', 'com o erro certo')
-
--- O total fica preso no limite em vez de passar dele.
-for _ = 1, 12 do NoirGangs.addReputation('ballas', Config.Reputation.maxDelta) end
-T.equal(NoirGangs.reputationOf('ballas'), Config.Reputation.max, 'o total para no teto')
-total, err = NoirGangs.addReputation('ballas', 1)
-T.equal(err, 'at_limit', 'e avisa que já está no limite')
-
--- Reseed não apaga reputação: cargo e produto vêm do config, reputação é dado vivo.
-NoirGangs.bootstrap()
-T.equal(NoirGangs.reputationOf('ballas'), Config.Reputation.max, 'o reseed preserva a reputação')
 
 -- Como o TINYINT chega do driver ------------------------------------------------------------
 -- O mesmo `1` chega como número, como `true` ou como string dependendo do driver e da

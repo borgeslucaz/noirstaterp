@@ -775,6 +775,24 @@ kbd {
 
 .card__group .data-label { flex: 0 0 auto; margin-bottom: 9px; }
 
+.card__group--fit { flex: 0 0 auto; }
+
+.progress-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+
+.progress-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "name level" "bar bar" "value value";
+    row-gap: 5px;
+    column-gap: 10px;
+}
+
+.progress-row__name { grid-area: name; overflow: hidden; color: var(--noir-text); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.progress-row__level { grid-area: level; color: var(--noir-text-strong); font-size: 11px; font-variant-numeric: tabular-nums; letter-spacing: 0.08em; }
+.progress-row__bar { grid-area: bar; height: 3px; overflow: hidden; border-radius: var(--radius-pill); background: var(--noir-divider); }
+.progress-row__bar > span { display: block; height: 100%; border-radius: inherit; background: var(--noir-accent); }
+.progress-row__value { grid-area: value; color: var(--noir-text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+
 .mini-list {
     min-height: 0;
     flex: 1;

@@ -231,13 +231,6 @@ end
 T.truthy(Config.Colors[Config.FallbackColor], 'a cor padrão precisa existir na paleta')
 T.truthy(Config.Gang.max >= 6, 'o teto de gangs precisa caber as que já existem')
 
--- Reputação ---------------------------------------------------------------------------------
-T.truthy(Config.Reputation.min < 0, 'a reputação precisa poder ficar negativa')
-T.truthy(Config.Reputation.max > 0, 'e crescer')
-T.truthy(Config.Reputation.maxDelta > 0, 'um ajuste sozinho precisa de teto')
-T.truthy(Config.Reputation.maxDelta < Config.Reputation.max,
-    'o teto por ajuste tem que ser menor que o total, senão não limita nada')
-
 -- Convites -----------------------------------------------------------------------------
 T.truthy(Config.Invitation.maxDistance > 0, 'convite precisa de uma distância máxima')
 T.truthy(Config.Invitation.duration > Config.Invitation.cooldown,

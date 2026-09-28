@@ -35,7 +35,6 @@ local world = {
     characters = {},
     online = {},
     membership = {},
-    reputation = { ballas = 0, duo = 0, trio = 0 },
     products = { ballas = { drugs = true }, duo = {}, trio = { weapons = true, ammo = true } },
     distance = 0.5,
 }
@@ -319,7 +318,6 @@ function NoirGangs.setProducts(gangName, list)
     return true
 end
 
-function NoirGangs.reputationOf(gangName) return world.reputation[gangName] or 0 end
 
 function NoirGangs.productsOf(gangName)
     local list = {}
@@ -359,14 +357,21 @@ function NoirGangs.deleteRank(gangName, level)
     return true
 end
 
-function NoirGangs.addReputation(gangName, delta)
-    if world.reputation[gangName] == nil then return nil, 'gang_not_found' end
-    world.reputation[gangName] = world.reputation[gangName] + delta
-    return world.reputation[gangName]
-end
 
 -- Runtime stubado ---------------------------------------------------------------------------
-exports = T.exports({ bgrz_core = core })
+-- O progresso da gang vem do noir_illegal_core, que só é consultado se estiver no ar.
+local coreProgress = {
+    { category = 'ammo', label = 'Munições', product = 'ammo', reputation = 0, level = 0 },
+    { category = 'drug', label = 'Drogas', product = 'drugs', reputation = 320, level = 2 },
+    { category = 'street', label = 'Rua', reputation = 12, level = 0 },
+    { category = 'weapons', label = 'Armas', product = 'weapons', reputation = 40, level = 0 },
+}
+local illegalCore = { GetOrganizationProgress = function(_, gangName)
+    return true, gangName == 'ballas' and coreProgress or {}
+end }
+local coreState = 'started'
+GetResourceState = function(name) return name == 'noir_illegal_core' and coreState or 'missing' end
+exports = T.exports({ bgrz_core = core, noir_illegal_core = illegalCore })
 
 local netEvents, registerNet = T.handlers()
 RegisterNetEvent = registerNet
@@ -563,11 +568,19 @@ T.truthy(state.permissions.view_members, 'todo membro vê a lista')
 T.equal(state.rankLabel, 'Soldado', 'o rótulo do cargo vem da nossa tabela')
 
 -- Reputação e produto só viajam para quem tem a permissão.
-T.falsy(state.reputation, 'soldado não vê reputação')
+T.falsy(state.progress, 'soldado não vê o progresso')
 T.falsy(state.products, 'soldado não vê os produtos')
 
 state = callbacks['noir_gangs:server:getState'](1)
-T.equal(state.reputation, 0, 'o chefe vê a reputação')
+T.equal(#state.progress, 3, 'o chefe vê o progresso: produto, rua e o que já tem reputação')
+T.equal(state.progress[1].category, 'drug', 'o produto que a gang opera vem primeiro')
+T.equal(state.progress[1].level, 2, 'com o nível lido do core')
+T.equal(state.progress[3].category, 'street', 'a rua vem por último')
+for _, row in ipairs(state.progress) do T.truthy(row.category ~= 'ammo', 'produto alheio e zerado fica de fora') end
+
+coreState = 'stopped'
+T.falsy(callbacks['noir_gangs:server:getState'](1).progress, 'sem o core no ar, o painel só não mostra progresso')
+coreState = 'started'
 T.equal(#state.products, 1, 'e vê o produto que a gang opera')
 T.equal(state.products[1].id, 'drugs', 'com o id do produto')
 

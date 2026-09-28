@@ -190,6 +190,41 @@ end)
 -- abaixo existem para que o snapshot e o estado do radial leiam a mesma coisa — duas
 -- montagens divergiriam no dia em que uma permissão nova entrasse só numa delas.
 
+---A reputação da gang é do noir_illegal_core, não daqui. Ele depende deste resource (lê a
+---gang por aqui), então a volta não pode ser `dependency`: a pergunta é feita na hora, e sem
+---o core o painel só deixa de mostrar o progresso.
+---
+---Vão para a tela a rua e as categorias dos produtos que a gang opera — mais qualquer outra
+---em que ela já tenha reputação, para trocar de produto não esconder o que foi conquistado.
+---@return table[]|nil
+local function gangProgress(gangName)
+    if GetResourceState('noir_illegal_core') ~= 'started' then return nil end
+    local called, ok, progress = pcall(function()
+        return exports.noir_illegal_core:GetOrganizationProgress(gangName)
+    end)
+    if not called or not ok or type(progress) ~= 'table' then return nil end
+
+    local owned = {}
+    for _, product in ipairs(NoirGangs.productsOf(gangName)) do owned[product] = true end
+    local list = {}
+    for _, row in ipairs(progress) do
+        if row.category == 'street' or (row.product and owned[row.product]) or (row.reputation or 0) > 0 then
+            list[#list + 1] = row
+        end
+    end
+    -- O que a gang opera primeiro, depois o que ela já deixou de operar, e a rua, que é o
+    -- geral, por último.
+    local function order(row)
+        if row.category == 'street' then return 3 end
+        return (row.product and owned[row.product]) and 1 or 2
+    end
+    table.sort(list, function(a, b)
+        if order(a) ~= order(b) then return order(a) < order(b) end
+        return a.label < b.label
+    end)
+    return list
+end
+
 local function buildState(source)
     -- Bootstrap falhado não é "esta pessoa não tem gang": é o resource sem registro. A
     -- tela precisa saber a diferença para dizer a coisa certa em vez de "acesso negado".
@@ -213,7 +248,7 @@ local function buildState(source)
         gangColor = NoirGangs.gangColor(gang.name),
         rankLabel = rank and rank.label or gang.gradeName }
 
-    if permissions.view_reputation then state.reputation = NoirGangs.reputationOf(gang.name) end
+    if permissions.view_reputation then state.progress = gangProgress(gang.name) end
     if permissions.view_products then
         state.products = {}
         for _, product in ipairs(NoirGangs.productsOf(gang.name)) do
@@ -1101,37 +1136,6 @@ lib.callback.register('noir_gangs:server:getLocations', function(source)
     return locations
 end)
 
--- ---------------------------------------------------------------------------
--- Reputação
--- ---------------------------------------------------------------------------
----Ponto único de escrita da reputação: admin e outros resources passam por aqui, então
----todo ajuste fica no histórico da gang com quem pediu e por quê.
----@return integer|nil novoTotal
----@return string? errorCode
-local function applyReputation(gangName, delta, reason, actorCitizenId)
-    local updated, err = NoirGangs.addReputation(gangName, delta)
-    if not updated or err == 'at_limit' then return updated, err or 'operation_failed' end
-    log(gangName, 'reputation_changed', actorCitizenId, nil,
-        { delta = delta, total = updated, reason = reason })
-    return updated
-end
-
-RegisterCommand('gangrep', function(source, args)
-    if source <= 0 then return lib.print.error('[noir_gangs] /gangrep só funciona em jogo') end
-    if not admin(source) then return notify(source, 'Acesso negado.', 'error') end
-
-    local gangName, delta = args[1], tonumber(args[2])
-    if not gangName or not delta then
-        return notify(source, 'Uso: /gangrep <gang> <pontos>. Use número negativo para tirar.', 'error')
-    end
-
-    local actor = core:GetCharacter(source)
-    local updated, err = applyReputation(gangName, delta, table.concat(args, ' ', 3), actor and actor.citizenId)
-    if not updated then return notify(source, ('Não foi possível alterar a reputação (%s).'):format(tostring(err)), 'error') end
-    if err == 'at_limit' then return notify(source, ('%s já está no limite (%d).'):format(gangName, updated), 'error') end
-    notify(source, ('Reputação de %s agora é %d.'):format(gangName, updated), 'success')
-end, false)
-
 ---Estado do bootstrap em jogo. O erro do start some do console, e "o menu não abre" é o
 ---mesmo sintoma de bug, de permissão e de bootstrap falhado — este comando separa os três
 ---sem precisar de acesso ao servidor.
@@ -1155,10 +1159,6 @@ exports('IsReady', function() return ready end)
 exports('GetGang', function(source) return gangOf(source) end)
 
 -- Atributos para os outros resources: craft, laboratório e tipo de missão perguntam aqui.
-exports('GetGangReputation', function(gangName) return NoirGangs.reputationOf(gangName) end)
-exports('AddGangReputation', function(gangName, delta, reason)
-    return applyReputation(gangName, delta, reason or GetInvokingResource() or 'export')
-end)
 exports('GetGangProducts', function(gangName) return NoirGangs.productsOf(gangName) end)
 exports('HasGangProduct', function(gangName, productType) return NoirGangs.hasProduct(gangName, productType) end)
 exports('GetGangRanks', function(gangName) return NoirGangs.ranksOf(gangName) end)

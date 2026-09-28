@@ -1,4 +1,5 @@
--- Os três atributos que o Qbox não tem: reputação, cargos com permissão e produtos.
+-- Os atributos que o Qbox não tem: cargos com permissão e produtos. A reputação da gang
+-- não mora aqui: é do noir_illegal_core, e o painel lê de lá.
 -- Nada aqui precisa do framework, exceto publicar o RÓTULO do cargo — que é o único
 -- campo que o resto do servidor lê de fora (`PlayerData.gang.grade.name`).
 NoirGangs = NoirGangs or {}
@@ -10,7 +11,6 @@ local core = exports.bgrz_core
 local registry = {}    -- gangName -> { name, label, color, archetype }
 local ranks = {}       -- gangName -> { [level] = { level, label, isBoss, bankAuth, permissions = set } }
 local products = {}    -- gangName -> { [productType] = true }
-local reputation = {}  -- gangName -> integer
 
 local permissionSet = {}
 for i = 1, #Config.Permissions do permissionSet[Config.Permissions[i]] = true end
@@ -389,13 +389,6 @@ local function loadProducts()
     end
 end
 
-local function loadReputation()
-    reputation = {}
-    for _, row in ipairs(MySQL.query.await('SELECT gang_name, reputation FROM noir_gang_state') or {}) do
-        reputation[row.gang_name] = row.reputation
-    end
-end
-
 ---@return boolean ok
 function NoirGangs.bootstrap()
     if not NoirGangs.validateConfig() then return false end
@@ -427,7 +420,6 @@ function NoirGangs.bootstrap()
 
     NoirGangs.repairBossRanks()
     loadProducts()
-    loadReputation()
 
     lib.print.info(('[noir_gangs] %d gangs carregadas'):format(#NoirGangs.gangList()))
     return true
@@ -570,36 +562,6 @@ end
 
 function NoirGangs.hasProduct(gangName, productType)
     return products[gangName] ~= nil and products[gangName][productType] == true
-end
-
----@return integer
-function NoirGangs.reputationOf(gangName)
-    return reputation[gangName] or 0
-end
-
--- ---------------------------------------------------------------------------
--- Escrita
--- ---------------------------------------------------------------------------
----Soma (ou subtrai) reputação, com o total preso entre `Config.Reputation.min/max`.
----@param gangName string
----@param delta integer
----@return integer|nil novoTotal
----@return string? errorCode
-function NoirGangs.addReputation(gangName, delta)
-    if type(gangName) ~= 'string' or gangName == '' or gangName == 'none' then return nil, 'invalid_gang' end
-    if reputation[gangName] == nil then return nil, 'gang_not_found' end
-
-    delta = tonumber(delta)
-    if not delta or delta ~= delta or delta % 1 ~= 0 or delta == 0 then return nil, 'invalid_delta' end
-    if math.abs(delta) > Config.Reputation.maxDelta then return nil, 'delta_too_large' end
-
-    local current = reputation[gangName]
-    local updated = math.max(Config.Reputation.min, math.min(Config.Reputation.max, current + delta))
-    if updated == current then return current, 'at_limit' end
-
-    MySQL.update.await('UPDATE noir_gang_state SET reputation = ? WHERE gang_name = ?', { updated, gangName })
-    reputation[gangName] = updated
-    return updated
 end
 
 -- ---------------------------------------------------------------------------

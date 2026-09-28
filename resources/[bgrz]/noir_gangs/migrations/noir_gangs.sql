@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS `noir_gang_activity` (
 -- cada start e nada aqui pode destruir.
 CREATE INDEX IF NOT EXISTS `idx_noir_gang_activity_gang_id` ON `noir_gang_activity` (`gang_name`, `id`);
 CREATE TABLE IF NOT EXISTS `noir_gang_state` (
- `gang_name` VARCHAR(64) NOT NULL, `reputation` INT NOT NULL DEFAULT 0,
+ `gang_name` VARCHAR(64) NOT NULL,
  `archetype` VARCHAR(32) NOT NULL DEFAULT 'gueto',
  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

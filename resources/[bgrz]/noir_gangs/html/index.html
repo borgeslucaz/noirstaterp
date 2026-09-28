@@ -91,9 +91,9 @@
                     <!-- CENTRAL -->
                     <section class="tab tab--overview" id="tab-overview" role="tabpanel" aria-labelledby="nav-overview" aria-label="Resumo da gang">
                         <div class="hero__stats">
-                            <div class="stat" id="stat-reputation-card">
-                                <span class="data-label">REPUTAÇÃO</span>
-                                <span class="stat__value" id="stat-reputation">0</span>
+                            <div class="stat" id="stat-level-card">
+                                <span class="data-label">NÍVEL</span>
+                                <span class="stat__value" id="stat-level">0</span>
                             </div>
                             <div class="stat">
                                 <span class="data-label">MEMBROS ATIVOS</span>
@@ -116,6 +116,10 @@
                                     <p class="card__sub" id="operation-sub">O que a gang movimenta.</p>
                                 </header>
                                 <div class="chips" id="operation-chips"></div>
+                                <div class="card__group card__group--fit" id="progress-group" hidden>
+                                    <p class="data-label">PROGRESSO</p>
+                                    <ul class="progress-list" id="progress-list"></ul>
+                                </div>
                                 <div class="card__group">
                                     <p class="data-label">BAIRROS SOB DOMÍNIO</p>
                                     <ul class="mini-list" id="overview-zones"></ul>

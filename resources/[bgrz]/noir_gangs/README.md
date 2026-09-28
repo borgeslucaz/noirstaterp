@@ -1,7 +1,8 @@
 # noir_gangs
 
 Gestão de gang em jogo: registro das gangs do servidor, lista de membros, convite por
-proximidade, cargos editáveis com permissão, reputação, tipo de produto operado e o mapa dos
+proximidade, cargos editáveis com permissão, tipo de produto operado, o progresso da gang
+(lido do `noir_illegal_core`) e o mapa dos
 bairros dominados.
 
 O resource não fala com o framework. Membros, cargos, personagens e alvos chegam pelos exports
@@ -78,7 +79,7 @@ daqui, e porque `AddPlayerToGang` recusa um nível que a gang não tenha. É por
 cargos no start. A publicação usa `commitToFile = false` de propósito — gravar naquele arquivo
 atropelaria edições feitas à mão lá.
 
-Permissão, reputação e produto o Qbox não conhece. São nossos, sem sincronização nenhuma.
+Permissão e produto o Qbox não conhece. São nossos, sem sincronização nenhuma.
 
 ## Registro de gangs
 
@@ -332,15 +333,16 @@ chefe inativo deixaria a gang sem gestão e sem saída.
 Os níveis não precisam ser contíguos: uma gang com cargos 0, 2 e 5 é válida, e promover pula para
 o próximo que existe de verdade.
 
-## Reputação
+## Progresso
 
-Um inteiro por gang. **Ninguém edita a própria reputação pelo menu** — quem tem `view_reputation`
-só vê. Ajustar é coisa de admin (`/gangrep`) ou de outro resource, via export.
+A reputação da gang **não mora aqui**: é do `noir_illegal_core`, que tem as categorias, os
+níveis, o histórico e os desbloqueios. O painel lê `GetOrganizationProgress(gang)` de lá e mostra
+o nível no cartão da Central e a barra de cada categoria no cartão Operação — a rua e as
+categorias dos produtos que a gang opera (o campo `product` de cada categoria do core).
 
-Todo ajuste entra no histórico da gang com quem fez, quanto e por quê. Além do teto total
-(`Config.Reputation.min/max`), existe um teto por ajuste (`maxDelta`): sem ele, um zero a mais
-digitado no comando estoura o placar de uma vez. Ajuste que bateria no limite retorna `at_limit`
-em vez de fingir que aplicou.
+Quem tem `view_reputation` vê; ninguém edita pelo menu. Como o core depende deste resource, a
+volta não é `dependency`: a leitura acontece na hora, e com o core fora do ar o painel só deixa
+de mostrar o progresso.
 
 ## Produtos
 
@@ -453,7 +455,6 @@ Como o pedido vem de fora, tem teto por source. Edições do admin continuam sai
 | Comando | Quem | O que faz |
 |---|---|---|
 | `/gangsetup` | ace `noir.gangsetup` | Cria e edita gangs, e cuida dos pontos de gestão |
-| `/gangrep <gang> <pontos>` | ace `noir.gangsetup` | Soma reputação; número negativo tira |
 | `/gangstatus` | ace `noir.gangsetup` | Diz se o bootstrap passou, e quantas gangs e pontos estão no ar |
 | `/gangmembro <id> <gang\|none> [cargo]` | ace `noir.gangsetup` | Põe ou tira alguém de uma gang, por fora da tela |
 
@@ -471,8 +472,6 @@ exports.noir_gangs:GetGangMembers(gangName)              --> { { citizenId, grad
 exports.noir_gangs:GetCitizenGang(citizenId)            --> gang por citizenid, inclusive offline
 exports.noir_gangs:GetGangRanks(gangName)                --> { [level] = { label, isBoss, permissions } }
 
-exports.noir_gangs:GetGangReputation(gangName)           --> integer
-exports.noir_gangs:AddGangReputation(gangName, delta, motivo) --> total | nil, errorCode
 
 exports.noir_gangs:GetGangProducts(gangName)             --> { 'drugs', ... }
 exports.noir_gangs:HasGangProduct(gangName, tipo)        --> boolean
@@ -511,7 +510,7 @@ Consumidores hoje: `noir_illegal_core` (`server/bridges/gangs.lua`) e `noir_graf
 |---|---|
 | `noir_gang_locations` | Pontos de gestão |
 | `noir_gang_activity` | Histórico de toda ação de gestão |
-| `noir_gang_state` | O registro: quais gangs existem, com rótulo, cor, arquétipo e reputação |
+| `noir_gang_state` | O registro: quais gangs existem, com rótulo, cor e arquétipo |
 | `noir_gang_products` | Produtos por gang |
 | `noir_gang_members` | **Membresia.** Uma linha por personagem: gang e nível. É a fonte de verdade — o Qbox não guarda mais gang nenhuma |
 | `noir_gang_ranks` | Cargos: rótulo, `isBoss`, `bankAuth`, permissões, e `sort_order` (posição na escada, separada do `level`) |
@@ -524,7 +523,7 @@ falhar ali significa gang sem chefe, ou seja, chefia desprotegida e editor de ca
 abre para ninguém. Por isso um chefe ausente agora vira erro no console em vez de silêncio.
 
 Ações gravadas no histórico: `invitation_sent`, `invitation_declined`, `member_joined`,
-`member_promoted`, `member_demoted`, `member_removed`, `member_left`, `reputation_changed`,
+`member_promoted`, `member_demoted`, `member_removed`, `member_left`,
 `rank_created`, `rank_updated`, `rank_deleted`, `gang_created`, `gang_updated`,
 `management_point_created`, `management_point_moved`, `management_point_deleted`,
 `boss_assigned`.
@@ -619,7 +618,7 @@ lua5.4 tests/unit/server_spec.lua
   CDN — um arquivo faltando não dá erro no CEF, a tela só não aparece.
 - `state_spec` — roda `server/state.lua` contra um banco em memória: schema, validação do config,
   seed dos cargos, publicação do rótulo no provider, permissão por cargo, produtos (inclusive
-  vários por gang) e limites da reputação.
+  vários por gang).
 - `server_spec` — regras de membro com o `NoirGangs` stubado: chefe intocável, promoção parando
   antes do chefe, ausência de comparação de hierarquia, convite, cooldown e limpeza no
   `playerDropped`. Cobre também o custo do snapshot: pedido repetido sai do cache sem tocar o
