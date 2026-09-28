@@ -28,7 +28,7 @@ Substitui a animação de parado (idle) padrão do personagem masculino multipla
    ```
    ensure idle
    ```
-3. Reinicie o servidor. O asset em `stream/` é carregado automaticamente pelos clientes.
+3. Reinicie o servidor. O asset em `stream_enhanced/` é carregado automaticamente pelos clientes.
 
 Não há SQL, itens, comandos, permissões ou configuração.
 
@@ -38,7 +38,7 @@ Não há SQL, itens, comandos, permissões ou configuração.
 
 ## Como funciona
 
-O recurso é essencialmente um asset replacement. O arquivo `stream/move_m@generic_idles@std.ycd` sobrescreve o clip dictionary padrão do jogo com o mesmo nome, que é o usado pelo personagem masculino multiplayer quando fica parado. Não há lógica em runtime: o motor do GTA V toca a animação nova no lugar da original sozinho.
+O recurso é essencialmente um asset replacement. O arquivo `stream_enhanced/move_m@generic_idles@std.ycd` sobrescreve o clip dictionary padrão do jogo com o mesmo nome, que é o usado pelo personagem masculino multiplayer quando fica parado. Não há lógica em runtime: o motor do GTA V toca a animação nova no lugar da original sozinho.
 
 O `client.lua` existe mas está **inteiramente comentado** — nenhuma linha é executada. Ele guarda uma implementação alternativa (um loop que chamava `TaskPlayAnim` a cada frame) que não é necessária, já que a substituição do `.ycd` resolve por si.
 
@@ -50,7 +50,7 @@ A animação em si é de autoria de terceiros (`-EcLiPsE-`, via GTA5-Mods); este
 
 ```
 idle/
-├── stream/
+├── stream_enhanced/
 │   └── move_m@generic_idles@std.ycd   — clip dictionary que substitui a idle padrão do MP male
 ├── client.lua                          — totalmente comentado, não executa nada
 ├── README.md
