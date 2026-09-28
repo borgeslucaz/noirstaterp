@@ -15,25 +15,13 @@ local headingRanges = {
     { min = 225, max = 315, dir = "W" },
 }
 
+local compassEnabled = config.compassLocation ~= "hidden"
+
 local voiceModes = {
     Whisper = 15,
     Normal = 50,
     Shouting = 100,
 }
-
-local function shallowEqual(previous, current)
-    if not previous then return false end
-
-    for key, value in pairs(current) do
-        if previous[key] ~= value then return false end
-    end
-
-    for key in pairs(previous) do
-        if current[key] == nil then return false end
-    end
-
-    return true
-end
 
 ---@return table
 function PlayerStatusThread.new()
@@ -43,18 +31,10 @@ function PlayerStatusThread.new()
         lastMinimap = nil,
         radarVisible = nil,
         uiWasVisible = false,
-        source = {
-            server_id = GetPlayerServerId(PlayerId()),
-        },
     }, PlayerStatusThread)
 
     return self
 end
-
--- What was this here for?
--- AddStateBagChangeHandler("stress", ("player:%s"):format(self.source.server_id), function(_, _, value)
---     stress = value
--- end)
 
 function PlayerStatusThread:getIsVehicleThreadRunning()
     return self.isVehicleThreadRunning
@@ -66,8 +46,10 @@ function PlayerStatusThread:setIsVehicleThreadRunning(value)
     self.isVehicleThreadRunning = value
 end
 
+-- Skips the native unless the radar is actually in another state (the game or
+-- the pause menu can hide it behind our back, so the cache alone is not enough).
 function PlayerStatusThread:setRadarVisible(state, force)
-    if not force and self.radarVisible == state then return end
+    if not force and self.radarVisible == state and IsRadarHidden() ~= state then return end
     self.radarVisible = state
     DisplayRadar(state)
 end
@@ -76,77 +58,18 @@ function PlayerStatusThread:start(vehicleStatusThread, seatbeltLogic, framework)
     CreateThread(function()
         while true do
             local ped = PlayerPedId()
-            local playerId = PlayerId()
-            local talking = NetworkIsPlayerTalking(playerId)
-            local voice = 0
-            local voiceMode = nil
-            local coords = GetEntityCoords(ped)
-
-            local currentStreet = GetStreetNameFromHashKey(GetStreetNameAtCoord(coords.x, coords.y, coords.z))
-            local zone = GetLabelText(GetNameOfZone(coords.x, coords.y, coords.z))
-
-            local camRot = GetGameplayCamRot(0)
-            local heading = utility.round(360.0 - ((camRot.z + 360.0) % 360.0))
-            local compass = " "
-
-            for _, range in ipairs(headingRanges) do
-                if heading >= range.min and heading < range.max then
-                    compass = range.dir
-                    break
-                end
-            end
-
-            local proximity = LocalPlayer.state["proximity"]
-            if proximity then
-                voiceMode = proximity.mode
-                voice = voiceModes[voiceMode] or 0
-            else
-                voice = 0
-            end
-
-            local pedArmor = GetPedArmour(ped)
-            local pedMaxHealth = GetEntityMaxHealth(ped)
-            local pedCurrentHealth = GetEntityHealth(ped)
-            local pedHealthPercentage = math.floor(((pedCurrentHealth - 100) / (pedMaxHealth - 100)) * 100)
-            pedHealthPercentage = math.max(0, math.min(100, pedHealthPercentage))
-            local pedHunger = framework and framework:getPlayerHunger() or nil
-            local pedThirst = framework and framework:getPlayerThirst() or nil
-            local pedStress = framework and framework:getPlayerStress() or nil
-            local pedOxygen = math.floor(GetPlayerUnderwaterTimeRemaining(PlayerId()) * 10) or nil
-			local pedStamina = math.floor(100 - GetPlayerSprintStaminaRemaining(PlayerId())) or nil
-
             local isInVehicle = IsPedInAnyVehicle(ped, false)
-            local isSeatbeltOn = config.useBuiltInSeatbeltLogic and seatbeltLogic.seatbeltState or sharedFunctions.isSeatbeltOn()
 
             if isInVehicle then
                 if not self:getIsVehicleThreadRunning() and vehicleStatusThread then
                     vehicleStatusThread:start()
                     lib.print.verbose("(playerStatus) (vehicleStatusThread) Vehicle status thread started.")
                 end
-                self:setRadarVisible(true, true)
+                self:setRadarVisible(true)
             else
-                self:setRadarVisible(_G.minimapVisible, true)
+                self:setRadarVisible(_G.minimapVisible)
             end
 
-            local player_data = {
-                health = pedHealthPercentage,
-                armor = pedArmor,
-                hunger = pedHunger,
-                thirst = pedThirst,
-                stress = pedStress,
-                oxygen = pedOxygen,
-				stamina = pedStamina,
-                streetLabel = currentStreet,
-                areaLabel = zone,
-                heading = compass,
-                voice = voice,
-                voiceMode = voiceMode,
-                mic = talking,
-                isSeatbeltOn = isSeatbeltOn,
-                isInVehicle = isInVehicle,
-            }
-
-            local minimap = utility.calculateMinimapSizeAndPosition()
             local uiVisible = interface.store.visibility.app
             if uiVisible and not self.uiWasVisible then
                 self.lastPlayerData = nil
@@ -154,16 +77,70 @@ function PlayerStatusThread:start(vehicleStatusThread, seatbeltLogic, framework)
             end
             self.uiWasVisible = uiVisible
 
-            local playerChanged = not shallowEqual(self.lastPlayerData, player_data)
-            local minimapChanged = self.lastMinimap ~= minimap
+            -- Hidden HUD (pause menu, logged out): keep the radar in sync, skip the rest.
+            if uiVisible then
+                local playerId = PlayerId()
+                local voice, voiceMode = 0, nil
 
-            if uiVisible and (playerChanged or minimapChanged) then
-                interface:message("state::global::set", {
-                    minimap = minimap,
-                    player = player_data,
-                })
-                self.lastPlayerData = player_data
-                self.lastMinimap = minimap
+                -- Street, zone and heading only feed the compass; the heading follows the
+                -- camera, so computing it while hidden would resend the state on every look.
+                local currentStreet, zone, compass = "", "", ""
+                if compassEnabled and (config.compassAlways or isInVehicle) then
+                    local coords = GetEntityCoords(ped)
+                    currentStreet = GetStreetNameFromHashKey(GetStreetNameAtCoord(coords.x, coords.y, coords.z))
+                    zone = GetLabelText(GetNameOfZone(coords.x, coords.y, coords.z))
+
+                    local camRot = GetGameplayCamRot(0)
+                    local heading = utility.round(360.0 - ((camRot.z + 360.0) % 360.0))
+                    compass = " "
+                    for _, range in ipairs(headingRanges) do
+                        if heading >= range.min and heading < range.max then
+                            compass = range.dir
+                            break
+                        end
+                    end
+                end
+
+                local proximity = LocalPlayer.state["proximity"]
+                if proximity then
+                    voiceMode = proximity.mode
+                    voice = voiceModes[voiceMode] or 0
+                end
+
+                local pedMaxHealth = GetEntityMaxHealth(ped)
+                local pedHealthPercentage = math.floor(((GetEntityHealth(ped) - 100) / (pedMaxHealth - 100)) * 100)
+                pedHealthPercentage = math.max(0, math.min(100, pedHealthPercentage))
+
+                local player_data = {
+                    health = pedHealthPercentage,
+                    armor = GetPedArmour(ped),
+                    hunger = framework and framework:getPlayerHunger() or nil,
+                    thirst = framework and framework:getPlayerThirst() or nil,
+                    stress = framework and framework:getPlayerStress() or nil,
+                    oxygen = math.floor(GetPlayerUnderwaterTimeRemaining(playerId) * 10),
+                    stamina = math.floor(100 - GetPlayerSprintStaminaRemaining(playerId)),
+                    streetLabel = currentStreet,
+                    areaLabel = zone,
+                    heading = compass,
+                    voice = voice,
+                    voiceMode = voiceMode,
+                    mic = NetworkIsPlayerTalking(playerId),
+                    isSeatbeltOn = config.useBuiltInSeatbeltLogic and seatbeltLogic.seatbeltState or sharedFunctions.isSeatbeltOn(),
+                    isInVehicle = isInVehicle,
+                }
+
+                local minimap = utility.calculateMinimapSizeAndPosition()
+                local playerChanged = not utility.shallowEqual(self.lastPlayerData, player_data)
+                local minimapChanged = self.lastMinimap ~= minimap
+
+                if playerChanged or minimapChanged then
+                    interface:message("state::global::set", {
+                        minimap = minimap,
+                        player = player_data,
+                    })
+                    self.lastPlayerData = player_data
+                    self.lastMinimap = minimap
+                end
             end
 
             Wait(config.playerUpdateInterval or 500)

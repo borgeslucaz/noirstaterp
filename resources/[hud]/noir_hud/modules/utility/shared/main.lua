@@ -3,6 +3,7 @@ local config = lib.require("config.shared")
 local cachedMinimap
 local cachedResolutionX
 local cachedResolutionY
+local cachedSafezone
 
 ---@param value number
 ---@return number
@@ -10,6 +11,24 @@ utility.convertRpmToPercentage = function(value)
     local percentage = math.ceil(value * 10000 - 2001) / 80
     local clampedPercentage = math.max(0, math.min(percentage, 100))
     return math.floor(clampedPercentage + 0.5)
+end
+
+-- True when both flat tables hold the same keys and values (nil previous = changed).
+---@param previous table?
+---@param current table
+---@return boolean
+utility.shallowEqual = function(previous, current)
+    if not previous then return false end
+
+    for key, value in pairs(current) do
+        if previous[key] ~= value then return false end
+    end
+
+    for key in pairs(previous) do
+        if current[key] == nil then return false end
+    end
+
+    return true
 end
 
 ---@param num number
@@ -50,7 +69,10 @@ end
 ---@return {width: number, height: number, left: number, top: number}
 utility.calculateMinimapSizeAndPosition = function(force)
     local resX, resY = GetActiveScreenResolution()
-    if not force and cachedMinimap and cachedResolutionX == resX and cachedResolutionY == resY then
+    -- The HUD size setting (safezone) moves the map too, so it is part of the key.
+    local safezone = GetSafeZoneSize()
+    if not force and cachedMinimap and cachedResolutionX == resX and cachedResolutionY == resY
+        and cachedSafezone == safezone then
         return cachedMinimap
     end
 
@@ -90,6 +112,7 @@ utility.calculateMinimapSizeAndPosition = function(force)
     }
     cachedResolutionX = resX
     cachedResolutionY = resY
+    cachedSafezone = safezone
 
     return cachedMinimap
 end
@@ -176,12 +199,14 @@ utility.setupMinimap = function()
     utility.watchingResolution = true
 
     local lastX, lastY = GetActiveScreenResolution()
+    local lastSafezone = GetSafeZoneSize()
     while true do
         Wait(1000)
         local resX, resY = GetActiveScreenResolution()
-        if resX ~= lastX or resY ~= lastY then
-            lastX, lastY = resX, resY
-            lib.print.debug(("(utility:setupMinimap) Resolution changed to %dx%d, repositioning minimap."):format(resX, resY))
+        local safezone = GetSafeZoneSize()
+        if resX ~= lastX or resY ~= lastY or safezone ~= lastSafezone then
+            lastX, lastY, lastSafezone = resX, resY, safezone
+            lib.print.debug(("(utility:setupMinimap) Screen changed to %dx%d, safezone %.3f; repositioning minimap."):format(resX, resY, safezone))
             utility.positionMinimap()
             -- Same bigmap toggle as the first setup, so the radar applies the new layout.
             SetBigmapActive(true, false)
