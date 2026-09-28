@@ -10,7 +10,7 @@ return {
         point = 3.0,
         ---Folga no fim da coleta: o ped escorrega um pouco durante a animação.
         finishSlack = 1.5,
-        ---O veículo exigido pela rota precisa estar até aqui do jogador.
+        ---Um veículo do model exigido pela rota precisa estar até aqui do jogador.
         vehicle = 60.0,
     },
 

@@ -14,14 +14,19 @@ GetGameTimer = function() return now end
 
 local peds = { [1] = 101, [2] = 102 }
 local pedCoords = { [101] = vector3(0, 0, 0), [102] = vector3(0, 0, 0) }
-local pedVehicle, lastVehicle = {}, {}
+local pedVehicle = {}
 local vehicleModel, vehicleCoords = {}, {}
 
 GetPlayerPed = function(source) return peds[source] or 0 end
 DoesEntityExist = function(entity) return pedCoords[entity] ~= nil or vehicleModel[entity] ~= nil end
 GetEntityCoords = function(entity) return pedCoords[entity] or vehicleCoords[entity] end
-GetVehiclePedIsIn = function(ped, last) return (last and lastVehicle[ped]) or (not last and pedVehicle[ped]) or 0 end
+GetVehiclePedIsIn = function(ped) return pedVehicle[ped] or 0 end
 GetEntityModel = function(entity) return vehicleModel[entity] end
+GetAllVehicles = function()
+    local list = {}
+    for vehicle in pairs(vehicleModel) do list[#list + 1] = vehicle end
+    return list
+end
 
 local clientEvents = {}
 TriggerClientEvent = function(name, target, ...) clientEvents[#clientEvents + 1] = { name, target, ... } end
@@ -160,6 +165,22 @@ call('beginCollect', 1, 1, 'orange', 2)
 tick(5000)
 T.truthy(handlers.finishCollect(1).finished, 'último ponto encerra o turno')
 T.equal(call('beginCollect', 1, 1, 'orange', 1).error, 'no_shift', 'depois do fim não há turno')
+
+-- Veículo exigido ----------------------------------------------------------------------
+
+routeTable[3] = {
+    name = 'Entrega', mode = 'free', groups = {}, vehicle = 'burrito3', police = { enabled = false, chance = 0 },
+    items = { box = { min = 1, max = 1, time = 2000, random = false, unlimited = false, extras = {}, points = { point(100) } } },
+}
+move(2, 100)
+T.equal(call('beginCollect', 2, 3, 'box', 1).error, 'wrong_vehicle', 'sem o veículo da rota por perto é recusado')
+vehicleModel[900], vehicleCoords[900] = joaat('burrito2'), vector3(105, 0, 0)
+T.equal(call('beginCollect', 2, 3, 'box', 1).error, 'wrong_vehicle', 'model diferente não serve')
+vehicleModel[901], vehicleCoords[901] = joaat('burrito3') - 0x100000000, vector3(400, 0, 0)
+T.equal(call('beginCollect', 2, 3, 'box', 1).error, 'wrong_vehicle', 'model certo longe não serve')
+vehicleCoords[901] = vector3(110, 0, 0)
+T.truthy(call('beginCollect', 2, 3, 'box', 1).ok, 'model certo por perto serve, mesmo com hash com sinal')
+call('cancelCollect', 2)
 
 -- Rota sem início -----------------------------------------------------------------------
 

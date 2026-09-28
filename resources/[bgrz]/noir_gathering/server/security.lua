@@ -53,10 +53,11 @@ local function unsigned(hash)
     return hash & 0xFFFFFFFF
 end
 
----A pé, e — se a rota exige veículo — tendo chegado no model certo, que continua por perto.
+---A pé e, se a rota exige veículo, com um veículo daquele model por perto.
 ---
----O "chegou no model certo" é o último veículo do ped, que o servidor conhece pelo
----OneSync. A distância impede o jogador de deixar o veículo do outro lado do mapa.
+---Não usa o "último veículo do ped": o servidor não devolveu o burrito3 com que o
+---jogador tinha acabado de chegar. Procurar o model perto do jogador é o que a regra
+---quer dizer na prática — veio de van, a van está ali.
 ---@param ped integer
 ---@param coords vector3
 ---@param model string?
@@ -66,13 +67,15 @@ function Security.checkVehicle(ped, coords, model)
     if GetVehiclePedIsIn(ped, false) ~= 0 then return false, 'in_vehicle' end
     if not model then return true end
 
-    local last = GetVehiclePedIsIn(ped, true)
-    if not last or last == 0 or not DoesEntityExist(last)
-        or unsigned(GetEntityModel(last)) ~= unsigned(joaat(model)) then
-        return false, 'wrong_vehicle'
+    local wanted = unsigned(joaat(model))
+    local maxDistance = Config.distance.vehicle
+    for _, vehicle in ipairs(GetAllVehicles()) do
+        if DoesEntityExist(vehicle) and unsigned(GetEntityModel(vehicle)) == wanted
+            and #(GetEntityCoords(vehicle) - coords) <= maxDistance then
+            return true
+        end
     end
-    if #(GetEntityCoords(last) - coords) > Config.distance.vehicle then return false, 'vehicle_far' end
-    return true
+    return false, 'wrong_vehicle'
 end
 
 return Security

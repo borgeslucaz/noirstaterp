@@ -72,8 +72,8 @@ de validade no lugar da durabilidade, e o bridge ignora o slot.
 
 ## Veículo exigido
 
-Conferido no servidor: o jogador está a pé, o **último veículo** dele (OneSync) é do
-model da rota, e esse veículo está a até `distance.vehicle` metros.
+A rota não entrega veículo: o jogador traz o dele. Conferido no servidor: o jogador está
+a pé e existe um veículo do model da rota a até `distance.vehicle` metros (60 m).
 
 ## Testes
 

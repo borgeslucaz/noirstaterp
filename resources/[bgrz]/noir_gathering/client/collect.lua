@@ -22,7 +22,6 @@ local ERRORS = {
     no_shift = 'error_no_shift',
     in_vehicle = 'error_in_vehicle',
     wrong_vehicle = 'error_wrong_vehicle',
-    vehicle_far = 'error_vehicle_far',
     no_tool = 'error_no_tool',
     low_durability = 'error_low_durability',
     inventory_full = 'error_inventory_full',
