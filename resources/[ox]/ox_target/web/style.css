@@ -54,7 +54,7 @@ p {
   margin: 0;
 }
 
-/* Mira no centro: anel azul enquanto o ALT esta segurado; some quando ha alvo (a tecla E assume). */
+/* Mira no centro: bolinha azul enquanto o ALT esta segurado; some quando ha alvo (a tecla E assume). */
 #eye {
   position: absolute;
   top: 50%;
@@ -67,10 +67,10 @@ p {
   box-sizing: border-box;
   width: 8px;
   height: 8px;
-  border: 1.5px solid var(--target-dot);
   border-radius: 50%;
-  /* contorno escuro dos dois lados do anel, para ler em fundo claro */
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+  background: var(--target-dot);
+  /* contorno escuro para ler em fundo claro */
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
   transition: opacity var(--duration-fast) ease;
 }
 
