@@ -1,7 +1,7 @@
 return {
     menuPosition = GetConvar('scully_emotemenu:menuPosition', 'top-right'),
     menuCommands = json.decode(GetConvar('scully_emotemenu:menuCommands', '["em", "emotemenu"]')),
-    menuKeybind = GetConvar('scully_emotemenu:menuKeybind', 'F5'),
+    menuKeybind = GetConvar('scully_emotemenu:menuKeybind', ''), -- Noir: F5 é do radial; o menu abre por lá (Emotes)
     enableRadialMenu = GetConvar('scully_emotemenu:enableRadialMenu', 'true') == 'true',
     enableEmotePreview = GetConvar('scully_emotemenu:enableEmotePreview', 'true') == 'true',
     enableEmoteBinds = GetConvar('scully_emotemenu:enableEmoteBinds', 'true') == 'true',

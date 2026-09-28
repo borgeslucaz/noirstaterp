@@ -328,9 +328,11 @@ function lib.disableRadial(state)
 end
 
 lib.addKeybind({
-    name = 'ox_lib-radial',
+    -- Noir: radial no F5 (era Z). Nome trocado junto: o FiveM guarda a tecla de cada
+    -- mapeamento no cliente, e só mudar o defaultKey deixaria quem já jogou no Z.
+    name = 'ox_lib-radialmenu',
     description = locale('open_radial_menu'),
-    defaultKey = 'z',
+    defaultKey = 'F5',
     onPressed = function()
         if isDisabled then return end
 
