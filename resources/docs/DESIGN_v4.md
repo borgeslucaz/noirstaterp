@@ -174,6 +174,8 @@ Pílulas no **canto inferior direito da tela**, fixas, mostrando só as teclas d
 
 Exemplo: `[↵] ESCOLHER / [ESC] FECHAR`. Sem rodapé com botão de fechar: fechar é o X do cabeçalho e o Esc.
 
+Resource **sem NUI própria** (sentar, encostar, interações em Lua puro) não usa textUI do ox_lib: mostra as pílulas pelo `noir_lib` (`exports.noir_lib:ShowKeyHints({ position, keys })`, veja o README dele). Nesse caso a posição é escolhida por quem chama (`cima`, `baixo`, `esquerda`, `direita`), porque não há menu no canto para acompanhar.
+
 ## 8. Campos e busca
 
 - Campo escuro de 36–40 px, borda fina, raio 2 px, texto 14 px.

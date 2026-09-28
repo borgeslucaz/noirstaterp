@@ -1,0 +1,99 @@
+/* DESIGN_v4: Saira Condensed 700 nas pílulas, Rajdhani 700 na tecla. Só os pesos usados. */
+@font-face {
+  font-family: "Saira Condensed";
+  src: url("./fonts/SairaCondensed-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Rajdhani";
+  src: url("./fonts/Rajdhani-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-display: "Saira Condensed", "Rajdhani", Arial, sans-serif;
+  --font-ui: "Rajdhani", Arial, sans-serif;
+  --edge: 16px;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent !important;
+}
+
+/* ---- Teclas visíveis (DESIGN_v4 §7) ---- */
+
+.keyhints {
+  position: fixed;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.keyhints[hidden] { display: none; }
+.keyhints.is-visible { opacity: 1; transform: none; }
+
+.keyhints[data-position="baixo"] { bottom: var(--edge); left: 50%; transform: translate(-50%, 8px); }
+.keyhints[data-position="baixo"].is-visible { transform: translate(-50%, 0); }
+
+.keyhints[data-position="cima"] { top: var(--edge); left: 50%; transform: translate(-50%, -8px); }
+.keyhints[data-position="cima"].is-visible { transform: translate(-50%, 0); }
+
+/* Nas laterais as pílulas empilham, alinhadas à borda de onde saem. */
+.keyhints[data-position="esquerda"],
+.keyhints[data-position="direita"] { top: 50%; flex-direction: column; }
+.keyhints[data-position="esquerda"] { left: var(--edge); align-items: flex-start; transform: translate(-8px, -50%); }
+.keyhints[data-position="direita"] { right: var(--edge); align-items: flex-end; transform: translate(8px, -50%); }
+.keyhints[data-position="esquerda"].is-visible,
+.keyhints[data-position="direita"].is-visible { transform: translate(0, -50%); }
+
+.keyhints__key {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 6px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.72);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #fff;
+}
+
+.keyhints__key kbd {
+  min-width: 22px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: #f2f2f2;
+  font: 700 11px/1.4 var(--font-ui);
+  font-style: normal;
+  text-align: center;
+  text-transform: uppercase;
+  color: #111113;
+}
+
+.keyhints__sep {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .keyhints { transition: none; }
+}

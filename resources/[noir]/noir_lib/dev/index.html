@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>noir_lib · preview</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #111 url("sinner.png") center / cover no-repeat !important; }
+    iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; }
+    .dev { position: fixed; left: 16px; bottom: 16px; z-index: 1; display: flex; flex-wrap: wrap; gap: 6px; max-width: 360px; font: 600 13px Arial, sans-serif; }
+    .dev button { padding: 6px 10px; border: 0; border-radius: 2px; background: rgba(0,0,0,.72); color: #fff; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <!-- A NUI real, sem cópia: o preview só faz o papel do Lua (SendNUIMessage). -->
+  <iframe id="nui" src="../web/index.html" allowtransparency="true"></iframe>
+  <div class="dev">
+    <button data-pos="baixo">Baixo</button>
+    <button data-pos="cima">Cima</button>
+    <button data-pos="esquerda">Esquerda</button>
+    <button data-pos="direita">Direita</button>
+    <button data-set="curto">Só ESC</button>
+    <button data-hide>Esconder</button>
+  </div>
+  <script>
+    const sets = {
+      sentado: [
+        { key: 'W', label: 'Levantar' },
+        { key: 'F', label: 'Câmera' },
+        { key: 'Espaço', label: 'Posições' },
+        { key: 'A/D', label: 'Girar' },
+      ],
+      curto: [{ key: 'Esc', label: 'Fechar' }],
+    };
+    const nui = document.getElementById('nui');
+    const send = (msg) => nui.contentWindow.postMessage(msg, '*');
+    let position = new URLSearchParams(location.search).get('pos') || 'baixo';
+    let keys = sets[new URLSearchParams(location.search).get('set')] || sets.sentado;
+    const show = () => send({ action: 'keyhints:show', position, keys });
+    document.querySelector('.dev').addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.pos) { position = b.dataset.pos; show(); }
+      else if (b.dataset.set) { keys = sets[b.dataset.set]; show(); }
+      else if ('hide' in b.dataset) send({ action: 'keyhints:hide' });
+    });
+    nui.addEventListener('load', show);
+  </script>
+</body>
+</html>
