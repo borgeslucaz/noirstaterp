@@ -37,7 +37,7 @@ O resource existente no repositório chama-se **`bgrz_core`**. Embora “`brgz_c
 
 Todo script próprio Noir/BGRZ deve falar com `bgrz_core` para capacidades pertencentes ao framework ou a provedores substituíveis. O resource de gameplay **não deve chamar `qbx_core`, `qbx_vehiclekeys`, `ox_fuel` ou alternativas equivalentes diretamente** quando a capacidade fizer parte do contrato do bridge.
 
-**`ox_target` é exceção explícita a esta regra.** Ver §2.5.
+**`ox_target` é exceção explícita a esta regra: em código novo, ele é chamado direto, não pelo bridge.** Ver §2.5.
 
 ```text
 resource de gameplay
@@ -88,7 +88,7 @@ Pertence ao bridge:
 - ler/definir combustível;
 - normalizar lifecycle do jogador;
 - adaptar provider de inventário quando houver decisão explícita de centralização;
-- adaptar provider de target para quem preferir a ponte — os adapters continuam válidos, mas deixaram de ser obrigatórios (§2.5).
+- target: **não**. Os wrappers de target do bridge existem por legado; código novo chama o `ox_target` direto (§2.5).
 
 Não pertence ao bridge:
 
@@ -111,7 +111,7 @@ Correto:
 ```lua
 local ok, err = exports.bgrz_core:GiveVehicleKeys(source, vehicle)
 local fuel = exports.bgrz_core:GetVehicleFuel(vehicle)
-exports.ox_target:addModel(models, options) -- exceção do §2.5
+exports.ox_target:addModel(models, options) -- direto, §2.5
 ```
 
 Incorreto:
@@ -124,9 +124,10 @@ exports.qbx_core:AddMoney(source, 'cash', reward)
 
 As chamadas incorretas podem funcionar hoje, mas espalham detalhes do provider e tornam uma migração cara.
 
-### 2.5. Exceção: `ox_target` pode ser chamado diretamente
+### 2.5. Exceção: `ox_target` é chamado diretamente
 
-O consumidor **pode** chamar `ox_target` direto, sem passar pelo bridge:
+O consumidor **chama** `ox_target` direto, sem passar pelo bridge. Em código novo não é
+escolha: os wrappers de target do `bgrz_core` não devem ser usados.
 
 ```lua
 exports.ox_target:addModel(models, options)
@@ -167,7 +168,9 @@ A exceção é **só para registro de target**. Continuam valendo, sem mudança:
 
 Honestamente: trocar de provider de target deixa de ser "mexer só no bridge" e passa a ser "mexer no arquivo de integrações de cada resource que usa target". Com a obrigação 2 cumprida, isso é um arquivo por resource — aceitável para uma troca que ninguém planeja fazer, e o motivo de a exceção parar onde para.
 
-`AddEntityTarget`, `AddLocalEntityTarget`, `AddSphereZoneTarget` e `AddBoxZoneTarget` continuam existindo no `bgrz_core` e continuam válidos. Quem já os usa não precisa migrar; quem vai escrever código novo escolhe.
+#### Os wrappers do bridge
+
+`AddEntityTarget`, `AddLocalEntityTarget`, `AddSphereZoneTarget`, `AddBoxZoneTarget` e `AddModelTarget` continuam existindo no `bgrz_core` para não quebrar quem já os usa, mas **não entram em código novo**, e quem mexer num resource que os usa deve migrar para o `ox_target` direto. Já houve problema real com eles: além do cleanup atribuído ao `bgrz_core` descrito acima, a ponte acrescenta um ponto de falha (restart do bridge, reidratação de registros, cache de export) numa superfície que não ganha nada com a abstração.
 
 ---
 
@@ -232,7 +235,7 @@ O bridge atual ainda não expõe contrato público completo para:
 - remoção segura de veículo criado pelo bridge;
 - grupos/ACE normalizados;
 - inventário/itens;
-- target/zones (opcional desde o §2.5: o consumidor pode chamar o `ox_target` direto em vez de esperar o adapter);
+- target/zones: **fora do contrato** desde o §2.5; o consumidor chama o `ox_target` direto, e os wrappers existentes são legado;
 - logging/auditoria genéricos;
 - capability/version handshake.
 
@@ -641,7 +644,7 @@ Observações:
 - incluir `oxmysql` somente se o resource possuir storage próprio;
 - incluir `ui_page`/`files` somente se houver NUI;
 - não declarar `qbx_core`, `qbx_vehiclekeys` ou `ox_fuel` no consumidor se toda interação ocorrer pelo bridge;
-- **declarar `ox_target`** no consumidor que o chamar direto pela exceção do §2.5; dependência usada é dependência declarada;
+- **declarar `ox_target`** no consumidor que usa target (§2.5); dependência usada é dependência declarada;
 - declarar providers como dependências de `bgrz_core`, onde o adapter vive;
 - não habilitar OAL experimental sem benchmark, testes e compreensão das incompatibilidades.
 
@@ -1675,7 +1678,7 @@ Antes de adicionar um adapter/export:
 - [ ] Integrações framework/provider passam por `bgrz_core`.
 - [ ] Não há chamada direta a `qbx_core` no consumidor.
 - [ ] Não há chamada direta a `qbx_vehiclekeys`/`ox_fuel` no consumidor.
-- [ ] Chamada direta a `ox_target` (§2.5), se houver, está concentrada no arquivo de integrações, com `ox_target` declarado em `dependencies{}` e as options no namespace do resource.
+- [ ] Target chama o `ox_target` direto (§2.5), nunca os wrappers do bridge; a chamada está concentrada no arquivo de integrações, com `ox_target` declarado em `dependencies{}` e as options no namespace do resource.
 - [ ] Não há query em tabela pertencente a outro resource.
 - [ ] Dependências são mínimas, explícitas e estáveis.
 - [ ] Config está separada em shared/client/server conforme sigilo.
@@ -1776,6 +1779,7 @@ Antes de adicionar um adapter/export:
 - ler `players`, `player_vehicles` ou tabelas de provider diretamente;
 - chamar Qbox/chaves/fuel/inventário diretamente fora de `bgrz_core` (`ox_target` é a exceção do §2.5);
 - espalhar a chamada direta ao `ox_target` por vários arquivos do resource em vez de concentrá-la no arquivo de integrações;
+- usar os wrappers de target do `bgrz_core` (`Add*Target`) em código novo;
 - usar `canInteract` ou o filtro `items` de uma option como se fossem checagem de servidor;
 - colocar regra de job dentro de `bgrz_core`;
 - confiar em preço/reward/model/item enviado pelo client;
@@ -1840,7 +1844,7 @@ Essa sequência é referência estrutural. A atividade concreta pode não ter cu
 Para qualquer novo script Noir State:
 
 1. O resource contém seu domínio; `bgrz_core` contém integração genérica.
-2. Toda dependência do Qbox ou de provider substituível passa pelo bridge, com uma exceção: `ox_target` pode ser chamado direto (§2.5), concentrado num arquivo e declarado no manifest.
+2. Toda dependência do Qbox ou de provider substituível passa pelo bridge, com uma exceção: `ox_target` é chamado direto (§2.5), concentrado num arquivo e declarado no manifest — nunca pelos wrappers do bridge.
 3. Se faltar chave, combustível ou outra capacidade, ampliar primeiro o `bgrz_core`.
 4. Não modificar o core nem consultar tabelas que outro resource possui.
 5. O servidor é autoritativo para estado, posição, permissão, entidade, item, dinheiro e recompensa.
