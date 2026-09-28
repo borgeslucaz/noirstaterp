@@ -1,91 +1,131 @@
-@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700&display=swap");
+/* Visual Noir State (resources/docs/DESIGN_v4.md). So aparencia: a logica e a do ox_target. */
+
+@font-face {
+  font-family: "Saira Condensed";
+  src: url("fonts/SairaCondensed-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
-  --color-default: #cfd2da;
-  --color-hover: white;
+  --font-display: "Saira Condensed", Arial, sans-serif;
+
+  --noir-text-strong: rgba(255, 255, 255, 0.96);
+  --noir-text: rgba(255, 255, 255, 0.76);
+  --noir-select: #f2f2f2;
+  --noir-select-text: #111113;
+
+  --surface-active: linear-gradient(180deg, rgba(12, 14, 18, 0.94), rgba(12, 14, 18, 0.8));
+  --radius: 2px;
+  --duration-fast: 140ms;
+
+  --eye-size: 30px;
+  --row-height: 40px;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent !important;
 }
 
 body {
   visibility: hidden;
   user-select: none;
   white-space: nowrap;
-  margin: 0;
-  user-select: none;
-  overflow: hidden;
 }
 
 p {
   margin: 0;
 }
 
-.material-symbols-outlined {
-  font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "opsz" 40;
-}
-
+/* Olho no centro: apagado sem alvo, branco da selecao com alvo. */
 #eye {
   position: absolute;
   top: 50%;
   left: 50%;
+  width: var(--eye-size);
+  height: var(--eye-size);
   transform: translate(-50%, -50%);
-  font-size: 22pt;
-  fill: black;
 }
 
-.eye-hover {
-  fill: var(--color-default);
+#eyeSvg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: rgba(255, 255, 255, 0.45);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+  transition: fill var(--duration-fast) ease;
 }
 
+#eyeSvg.eye-hover {
+  fill: var(--noir-select);
+}
+
+/* Lista ao lado do olho: a primeira linha fica alinhada com ele. */
 #options-wrapper {
   position: absolute;
-  top: calc(48.4%);
-  left: calc(50% + 18pt);
+  top: calc(50% - var(--row-height) / 2);
+  left: calc(50% + var(--eye-size) / 2 + 12px);
+  min-width: 220px;
+  max-width: 360px;
+  background: var(--surface-active);
+}
+
+#options-wrapper:empty {
+  display: none;
 }
 
 .option-container {
-  color: var(--color-default);
   display: flex;
-  flex-direction: row;
-  justify-content: flex-start;
   align-items: center;
-  font-family: "Nunito";
-  background: linear-gradient(
-    90deg,
-    rgba(20, 20, 20, 0.7) 0%,
-    rgba(20, 20, 20, 0.6) 66%,
-    rgba(47, 48, 53, 0) 100%
-  );
-  font-size: 11pt;
-  line-height: 22pt;
-  vertical-align: middle;
-  margin: 2pt;
-  transition: 300ms;
-  transform-origin: left top;
-  scale: 1;
-  height: 22pt;
-  width: 150pt;
-  top: 0;
+  gap: 12px;
+  height: var(--row-height);
+  padding: 0 20px 0 16px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--noir-text-strong);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) ease,
+    color var(--duration-fast) ease;
 }
 
 .option-container:hover {
-  background: linear-gradient(
-    90deg,
-    rgba(30, 30, 30, 0.7) 0%,
-    rgba(30, 30, 30, 0.6) 66%,
-    rgba(57, 58, 63, 0) 100%
-  );
-  transform-origin: left top;
-  color: var(--color-hover);
-  margin-left: 4pt;
+  background-color: var(--noir-select);
+  color: var(--noir-select-text);
 }
 
 .option-icon {
-  font-size: 12pt;
-  line-height: 22pt;
-  width: 14pt;
-  margin: 5pt;
-  color: var(--color-default);
+  flex: none;
+  width: 18px;
+  font-size: 15px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.82);
+  transition: color var(--duration-fast) ease;
+}
+
+.option-container:hover .option-icon {
+  color: var(--noir-select-text);
 }
 
 .option-label {
-  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #eyeSvg,
+  .option-container,
+  .option-icon {
+    transition: none;
+  }
 }
