@@ -2,12 +2,12 @@
 local RES = (os.getenv('RES') or './')
 
 Config = {
-    TerritoryAlert = { Enable = true, SenderNumber = '0800', SenderName = 'Rua', CooldownSeconds = 300 },
+    TerritoryAlert = { Enable = true, SenderName = 'Rua', CooldownSeconds = 300 },
 }
 function TranslateIt(key, label) return key .. ':' .. tostring(label) end
 function debugPrint() end
 
-local started = { noir_territories = true, ['sd-phone'] = true, noir_gangs = true, bgrz_core = true }
+local started = { noir_territories = true, noir_gangs = true, bgrz_core = true }
 function GetResourceState(n) return started[n] and 'started' or 'missing' end
 function GetPlayerPed() return 1 end
 function GetEntityCoords() return { x = 100.0, y = 200.0, z = 30.0 } end
@@ -21,7 +21,7 @@ function TriggerClientEvent(event, target, text, kind)
 end
 
 -- Estado que cada caso ajusta
-local world = { status = nil, sellerGang = nil, members = {}, numbers = {}, refusal = nil }
+local world = { status = nil, sellerGang = nil, members = {}, online = {}, refusal = nil }
 sent = {}
 granted = {}
 notified = {}
@@ -43,11 +43,9 @@ exports = {
     },
     bgrz_core = {
         GetGangMembers = function(_, _) return world.members end,
-    },
-    ['sd-phone'] = {
-        getPhoneNumberByIdentifier = function(_, cid) return world.numbers[cid] end,
-        sendLocation = function(_, _, _, number, x, y, opts)
-            sent[#sent + 1] = { number = number, x = x, y = y, body = opts.body }
+        GetCharacterSource = function(_, cid) return world.online[cid] end,
+        SendPhoneNotification = function(_, target, payload)
+            sent[#sent + 1] = { target = target, title = payload.title, body = payload.body }
             return true
         end,
     },
@@ -65,7 +63,7 @@ local function reset(status, sellerGang)
     world.status = status
     world.sellerGang = sellerGang
     world.members = { { citizenId = 'A' }, { citizenId = 'B' }, { citizenId = 'C' } }
-    world.numbers = { A = '5551111', B = '5552222' } -- C nunca pegou numero
+    world.online = { A = 11, B = 12 } -- C esta offline
     sent = {}
     granted = {}
     notified = {}
@@ -79,10 +77,10 @@ local controlled = { state = 'controlled', gang = 'ballas', zone = 'vespucci_bea
 print('bairro dominado, vendedor de fora:')
 reset(controlled, 'vagos')
 NoirDrugTerritory.onSale(1)
-check(#sent == 2, 'avisa os membros com numero (2 de 3)')
+check(#sent == 2, 'avisa os membros online (2 de 3)')
 check(sent[1] and sent[1].body == 'territory_alert_body:Vespucci Beach',
     'corpo sai da locale certa e traz o bairro apresentavel')
-check(sent[1] and sent[1].x == 100.0, 'pino na coordenada da venda')
+check(sent[1] and sent[1].target == 11 and sent[1].title == 'Rua', 'notificacao no source do membro, com o remetente de titulo')
 
 print('vendedor sem gang nenhuma:')
 reset(controlled, nil)
@@ -136,11 +134,11 @@ reset(controlled, nil)
 NoirDrugTerritory.onSale(1)
 check(#notified == 0, 'quem nao tem gang nao recebe aviso de territorio')
 
-print('sd-phone desligado nao para a influencia:')
+print('bgrz_core desligado nao para a influencia:')
 reset(controlled, 'vagos')
-started['sd-phone'] = false
+started.bgrz_core = false
 NoirDrugTerritory.onSale(1)
-started['sd-phone'] = true
+started.bgrz_core = true
 check(#granted == 1 and #sent == 0, 'o mapa anda mesmo com o celular fora do ar')
 
 print('cooldown:')
@@ -158,11 +156,11 @@ world.status = { state = 'controlled', gang = 'ballas', zone = 'grove_street' }
 NoirDrugTerritory.onSale(1)
 check(#sent == 4, 'cooldown e por bairro, nao por gang')
 
-print('sd-phone desligado:')
+print('bgrz_core desligado:')
 reset(controlled, 'vagos')
-started['sd-phone'] = false
+started.bgrz_core = false
 NoirDrugTerritory.onSale(1)
-started['sd-phone'] = true
+started.bgrz_core = true
 check(#sent == 0, 'nao estoura, so nao avisa')
 
 print('')

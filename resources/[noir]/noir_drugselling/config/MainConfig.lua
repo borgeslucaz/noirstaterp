@@ -68,6 +68,67 @@ Config.DrugSelling = {
             handPropName = "prop_weed_bottle",
             icon = "https://data.otherplanet.dev/fivemicons/%5bdrugs%5d/baggy_weed.png",
         },
+        -- Saquinhos do noir_weed (mesa de embalar). Mesmo preço até existirem tiers de qualidade.
+        ["weed_og-kush_baggy"] = {
+            itemName = "weed_og-kush_baggy",
+            label = "Saquinho de OG Kush",
+            minimumPrice = 40,
+            optimalPrice = 55,
+            maximumPrice = 70,
+            maxAmountPedTransaction = 5,
+            handPropName = "prop_weed_bottle",
+            icon = "nui://ox_inventory/web/images/weed_og-kush_baggy.png",
+        },
+        ["weed_amnesia_baggy"] = {
+            itemName = "weed_amnesia_baggy",
+            label = "Saquinho de Amnesia",
+            minimumPrice = 40,
+            optimalPrice = 55,
+            maximumPrice = 70,
+            maxAmountPedTransaction = 5,
+            handPropName = "prop_weed_bottle",
+            icon = "nui://ox_inventory/web/images/weed_amnesia_baggy.png",
+        },
+        ["weed_skunk_baggy"] = {
+            itemName = "weed_skunk_baggy",
+            label = "Saquinho de Skunk",
+            minimumPrice = 40,
+            optimalPrice = 55,
+            maximumPrice = 70,
+            maxAmountPedTransaction = 5,
+            handPropName = "prop_weed_bottle",
+            icon = "nui://ox_inventory/web/images/weed_skunk_baggy.png",
+        },
+        ["weed_ak47_baggy"] = {
+            itemName = "weed_ak47_baggy",
+            label = "Saquinho de AK47",
+            minimumPrice = 40,
+            optimalPrice = 55,
+            maximumPrice = 70,
+            maxAmountPedTransaction = 5,
+            handPropName = "prop_weed_bottle",
+            icon = "nui://ox_inventory/web/images/weed_ak47_baggy.png",
+        },
+        ["weed_purple-haze_baggy"] = {
+            itemName = "weed_purple-haze_baggy",
+            label = "Saquinho de Purple Haze",
+            minimumPrice = 40,
+            optimalPrice = 55,
+            maximumPrice = 70,
+            maxAmountPedTransaction = 5,
+            handPropName = "prop_weed_bottle",
+            icon = "nui://ox_inventory/web/images/weed_purple-haze_baggy.png",
+        },
+        ["weed_white-widow_baggy"] = {
+            itemName = "weed_white-widow_baggy",
+            label = "Saquinho de White Widow",
+            minimumPrice = 40,
+            optimalPrice = 55,
+            maximumPrice = 70,
+            maxAmountPedTransaction = 5,
+            handPropName = "prop_weed_bottle",
+            icon = "nui://ox_inventory/web/images/weed_white-widow_baggy.png",
+        },
         ["meth"] = {
             itemName = "meth",
             label = "Metanfetamina",
@@ -130,12 +191,11 @@ Config.DealLimits = {
 -- `saleEXP` do tipo de ped (5 a 50) pelo export AddXp.
 -- Venda dentro de bairro dominado por gang alheia avisa a dona pelo celular, com o pino do
 -- lugar. Bairro em disputa ou neutro não avisa ninguém: não há dono para ser passado para
--- trás. O aviso depende de noir_territories e sd-phone estarem de pé; sem eles a venda
+-- trás. O aviso depende de noir_territories e bgrz_core estarem de pé; sem eles a venda
 -- acontece normal, só em silêncio.
 Config.TerritoryAlert = {
     Enable = true,
-    SenderNumber = '0800',  -- remetente que aparece na conversa
-    SenderName = 'Rua',
+    SenderName = 'Rua',     -- título da notificação no telefone
 
     -- Por gang e bairro. O mesmo invasor vendendo a tarde inteira gera um aviso a cada três
     -- minutos, não um por venda — aí o alerta ainda significa alguma coisa. É o cooldown DO

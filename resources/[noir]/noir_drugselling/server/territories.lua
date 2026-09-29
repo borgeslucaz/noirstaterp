@@ -1,10 +1,14 @@
 -- Alerta de invasão: venda de droga dentro de bairro dominado por gang.
 --
--- Quem não é da gang dona vender ali dispara uma mensagem no celular de todos os membros
--- dela, com o pino do lugar. É o que dá à gang a chance de responder — sem isso, tomar a
+-- Quem não é da gang dona vender ali dispara uma notificação no celular dos membros online
+-- dela, com o nome do bairro. É o que dá à gang a chance de responder — sem isso, tomar a
 -- rua só aparece no mapa, depois, sem ninguém para reagir.
 --
--- O domínio vem do noir_territories e o celular do sd-phone. Os dois são opcionais: sem eles a
+-- Era SMS com pino, guardado para quem estava offline, pelo sd-phone. O sky_phone não expõe
+-- envio de mensagem por export, então o aviso sai como notificação pelo bgrz_core, só para
+-- quem está online e sem o pino.
+--
+-- O domínio vem do noir_territories e o celular do bgrz_core. Os dois são opcionais: sem eles a
 -- venda acontece igual, só não avisa ninguém. É o oposto do noir_skills, que é dependency
 -- dura — lá a falta quebraria a progressão em silêncio, aqui ela só desliga um aviso.
 --
@@ -16,7 +20,7 @@
 NoirDrugTerritory = {}
 
 -- ['gang:bairro'] = os.time() do último alerta. Sem isto uma tarde de trabalho vira uma
--- enxurrada de SMS para cada membro: dá ~149 vendas fechadas só para subir ao nível 15.
+-- enxurrada de avisos para cada membro: dá ~149 vendas fechadas só para subir ao nível 15.
 local lastAlert = {}
 
 ---A venda rende influência sempre que o noir_territories estiver de pé. O aviso é outra
@@ -29,7 +33,7 @@ end
 local function canAlert()
     local cfg = Config.TerritoryAlert
     if not cfg or not cfg.Enable then return false end
-    if GetResourceState('sd-phone') ~= 'started' then return false end
+    if GetResourceState('bgrz_core') ~= 'started' then return false end
     return true
 end
 
@@ -94,8 +98,8 @@ local function sellerGangName(source)
     return gang.name
 end
 
----Membros da gang, inclusive quem está offline: a mensagem fica guardada e aparece no
----próximo login. Passa pelo bgrz_core, que é a fronteira com o Qbox.
+---Membros da gang, inclusive quem está offline; quem recebe o aviso é filtrado depois.
+---Passa pelo bgrz_core, que é a fronteira com o Qbox.
 local function membersOf(gang)
     local ok, members = pcall(function() return exports.bgrz_core:GetGangMembers(gang) end)
     if not ok or type(members) ~= 'table' then return {} end
@@ -143,14 +147,17 @@ function NoirDrugTerritory.onSale(source)
     local sent = 0
 
     for _, member in ipairs(membersOf(status.gang)) do
-        local number = exports['sd-phone']:getPhoneNumberByIdentifier(member.citizenId)
-        if number then
-            exports['sd-phone']:sendLocation(
-                cfg.SenderNumber, cfg.SenderName, number,
-                coords.x, coords.y,
-                { label = label, body = body }
-            )
-            sent = sent + 1
+        local ok, target = pcall(function()
+            return exports.bgrz_core:GetCharacterSource(member.citizenId)
+        end)
+        if ok and target then
+            local called, delivered = pcall(function()
+                return exports.bgrz_core:SendPhoneNotification(target, {
+                    title = cfg.SenderName,
+                    body = body,
+                })
+            end)
+            if called and delivered then sent = sent + 1 end
         end
     end
 

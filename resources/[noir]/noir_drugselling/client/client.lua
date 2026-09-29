@@ -295,6 +295,11 @@ function sellDrugForPedFinalize(drug_name, price)
     local drugCfg = Config.DrugSelling.availableDrugs[drug_name]
     if not drugCfg then return print('[op-drugselling] Missing drug config:', drug_name) end
 
+    -- O servidor confere o ped pelo netId (existe, perto, ainda não negociou) e tira dele o
+    -- tipo; ped que não é de rede não tem como ser conferido e a venda é recusada.
+    local customerNetId = dealingPed and DoesEntityExist(dealingPed) and NetworkGetEntityIsNetworked(dealingPed)
+        and NetworkGetNetworkIdFromEntity(dealingPed) or 0
+
     Fr.TriggerServerCallback('op-drugselling:sellDrug', function(sold)
         if not sold then 
             return print('An server-side error occured. Check txAdmin Console.')
@@ -376,7 +381,7 @@ function sellDrugForPedFinalize(drug_name, price)
         end
 
         scheduleNextCustomer(nextCustomerDelay)
-    end, drug_name, price, pedType, isDrugDealing)
+    end, drug_name, price, customerNetId, isDrugDealing)
 end
 
 ----

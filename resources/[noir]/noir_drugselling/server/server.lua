@@ -57,9 +57,57 @@ Fr.RegisterServerCallback('op-drugselling:getlvl', function(source, cb)
     return cb(getDrugLevel(source))
 end)
 
-Fr.RegisterServerCallback('op-drugselling:sellDrug', function(source, cb, drugName, pricePerGram, pedType, cornerSelling)
+-- Um negócio por ped, contado aqui. A lista do cliente (`soldPedsList`) só serve para esconder
+-- a opção; quem decide é o servidor, senão um cliente adulterado vende o estoque inteiro parado,
+-- sem ped nenhum, e leva XP, influência e reputação a cada chamada.
+-- `entityRemoved` limpa quando o ped some; o prazo cobre o caso em que o evento não vem (entidade
+-- culled) e o handle volta a ser usado por outro ped.
+local DEALT_TTL = 30 * 60
+local dealtPeds = {}
+
+AddEventHandler('entityRemoved', function(entity)
+    dealtPeds[entity] = nil
+end)
+
+CreateThread(function()
+    while true do
+        Wait(10 * 60 * 1000)
+        local now = os.time()
+        for ped, at in pairs(dealtPeds) do
+            if now - at > DEALT_TTL then dealtPeds[ped] = nil end
+        end
+    end
+end)
+
+---O ped da negociação, resolvido pelo servidor: existe, é ped, não é jogador, está ao alcance
+---do vendedor e ainda não negociou. Tipo do ped sai do modelo, não do que o cliente diz.
+local function resolveCustomer(source, netId)
+    if type(netId) ~= 'number' or netId <= 0 then return end
+    local ped = NetworkGetEntityFromNetworkId(netId)
+    if not ped or ped == 0 or not DoesEntityExist(ped) or GetEntityType(ped) ~= 1 then return end
+    if IsPedAPlayer(ped) then return end
+
+    local at = dealtPeds[ped]
+    if at and os.time() - at <= DEALT_TTL then return end
+
+    -- Folga sobre o limite do cliente: a posição que o servidor vê chega com atraso.
+    local maxDistance = (tonumber(Config.DealLimits and Config.DealLimits.MaxDistance) or 3.0) + 2.0
+    if #(GetEntityCoords(GetPlayerPed(source)) - GetEntityCoords(ped)) > maxDistance then return end
+
+    return ped, Config.PedsList[GetEntityModel(ped)] or 'normal'
+end
+
+Fr.RegisterServerCallback('op-drugselling:sellDrug', function(source, cb, drugName, pricePerGram, customerNetId, cornerSelling)
     local xPlayer = Fr.getPlayerFromId(source)
     if not xPlayer then return cb(false) end
+
+    local customer, pedType = resolveCustomer(source, customerNetId)
+    if not customer then
+        -- Recusa em vez de erro: o cliente solta o ped e segue para o próximo, como numa
+        -- recusa comum. O log fica para medir se ped legítimo cai aqui (ped fora da rede).
+        print(('[op-drugselling] venda recusada, ped inválido: src=%s netId=%s'):format(source, tostring(customerNetId)))
+        return cb({ refused = true })
+    end
 
     local hasItem = Fr.getItem(xPlayer, drugName)
     if not (hasItem and hasItem.amount and hasItem.amount > 0) then
@@ -80,6 +128,19 @@ Fr.RegisterServerCallback('op-drugselling:sellDrug', function(source, cb, drugNa
         print('[op-drugselling] Missing pedType config:', pedType)
         return cb(false)
     end
+
+    -- O preço vem da NUI; fora da faixa do config só um cliente adulterado manda. Prende na
+    -- faixa em vez de confiar, senão o preço vira dinheiro sujo sem teto.
+    if type(pricePerGram) ~= 'number' or pricePerGram ~= pricePerGram then
+        return cb(false)
+    end
+    local minPrice = cfgDrug.minimumPrice or 0
+    local maxPrice = cfgDrug.maximumPrice or minPrice
+    local clamped = math.floor(math.max(minPrice, math.min(maxPrice, pricePerGram)))
+    if clamped ~= pricePerGram then
+        print(('[op-drugselling] preço fora da faixa: src=%s droga=%s preço=%s faixa=%s-%s'):format(source, drugName, pricePerGram, minPrice, maxPrice))
+    end
+    pricePerGram = clamped
 
     local maxPerPed = cfgDrug.maxAmountPedTransaction or 1
     local maxCanSell = math.max(1, math.min(hasItem.amount, maxPerPed))
@@ -102,6 +163,8 @@ Fr.RegisterServerCallback('op-drugselling:sellDrug', function(source, cb, drugNa
         stealChance = math.max(0, math.min(100, cfgPed.stealDrugChance or 0))
         refuseChance = math.max(0, 100 - (sellChance + stealChance))
     end
+
+    dealtPeds[customer] = os.time()
 
     local roll = math.random(1, 100)
     local stealBandEnd = stealChance
