@@ -126,8 +126,15 @@ function NPC.exit(ped, vehicle)
     end)
 end
 
----Limpa referências locais ao passageiro atual.
+---Limpa referências locais ao passageiro atual (e ao grupo, na van).
 function NPC.release()
+    for _, extra in ipairs(Taxi.fare and Taxi.fare.extras or {}) do
+        if DoesEntityExist(extra) and not IsPedInAnyVehicle(extra, false) then
+            SetPedKeepTask(extra, false)
+            ClearPedTasks(extra)
+        end
+    end
+    if Taxi.fare then Taxi.fare.extras, Taxi.fare.extraNetIds = {}, {} end
     if Taxi.fare and Taxi.fare.npc and Taxi.fare.npc ~= 0 then
         local ped = Taxi.fare.npc
         if DoesEntityExist(ped) and not IsPedInAnyVehicle(ped, false) then

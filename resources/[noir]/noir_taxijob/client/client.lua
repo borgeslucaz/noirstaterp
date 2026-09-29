@@ -158,9 +158,10 @@ local function boardPassenger(fare, veh)
     end
 
     local fareId = fare.id
-    local ok = NPC.board(fare.npc, veh, seat, function()
+    local function aborted()
         return not Taxi.fare or Taxi.fare.id ~= fareId or not Taxi.is(TAXI_STATE.BOARDING)
-    end, function()
+    end
+    local ok = NPC.board(fare.npc, veh, seat, aborted, function()
         return lib.callback.await('noir_taxijob:server:warpPassenger', false, fareId, seat) == true
     end)
     if not Taxi.fare or Taxi.fare.id ~= fareId then return end
@@ -168,6 +169,20 @@ local function boardPassenger(fare, veh)
         cancelFare('boarding_failed')
         return
     end
+
+    -- Van: o resto do grupo entra depois do primeiro, um por assento livre. Quem não couber
+    -- ou não entrar fica para trás (o servidor tira do bônus de grupo).
+    for index, extra in ipairs(fare.extras or {}) do
+        if aborted() then return end
+        local extraSeat = NPC.findSeat(veh)
+        if extraSeat and DoesEntityExist(extra) then
+            local netId = fare.extraNetIds[index]
+            NPC.board(extra, veh, extraSeat, aborted, function()
+                return lib.callback.await('noir_taxijob:server:warpPassenger', false, fareId, extraSeat, netId) == true
+            end)
+        end
+    end
+    if not Taxi.fare or Taxi.fare.id ~= fareId then return end
 
     local res = lib.callback.await('noir_taxijob:server:passengerBoarded', false, fareId)
     if not Taxi.fare or Taxi.fare.id ~= fareId then return end
@@ -194,7 +209,7 @@ local function completeFare(fare, veh)
         return false
     end
 
-    Taxi.result = { fare = res.fare, confidence = res.confidence, mood = res.mood, satisfaction = res.satisfaction, bonus = res.calmBonus or 0 }
+    Taxi.result = { fare = res.fare, confidence = res.confidence, mood = res.mood, satisfaction = res.satisfaction, bonus = res.calmBonus or 0, rating = res.rating }
     Taxi.passenger = { mood = res.mood, comfort = res.satisfaction, fear = nil }
     Taxi.meter = { fare = res.fare, distance = res.distance }
     UI.render()
@@ -206,6 +221,7 @@ local function completeFare(fare, veh)
         FreezeEntityPosition(veh, true)
     end
     NPC.exit(fare.npc, veh)
+    for _, extra in ipairs(fare.extras or {}) do NPC.exit(extra, veh) end
     Wait(P.DropoffHoldMs)
     if hold and DoesEntityExist(veh) then
         FreezeEntityPosition(veh, false)
@@ -268,6 +284,14 @@ local function missionLoop(fare)
                         if ped ~= 0 then
                             fare.npc = ped
                             fare.npcNetId = res.netId
+                        end
+                        fare.extras, fare.extraNetIds = {}, {}
+                        for _, netId in ipairs(res.extras or {}) do
+                            local extra = NPC.attach(netId)
+                            if extra ~= 0 then
+                                fare.extras[#fare.extras + 1] = extra
+                                fare.extraNetIds[#fare.extraNetIds + 1] = netId
+                            end
                         end
                     end
                     requesting = false

@@ -49,6 +49,13 @@ CREATE TABLE IF NOT EXISTS `noir_taxi_fare_results` (
     ]],
 }
 
+-- Colunas da nota da corrida, acrescentadas depois do schema original (idempotente no MariaDB).
+local schemaUpgrades = {
+    'ALTER TABLE `noir_taxi_fare_results` ADD COLUMN IF NOT EXISTS `rating` TINYINT UNSIGNED NOT NULL DEFAULT 0',
+    'ALTER TABLE `noir_taxi_profiles` ADD COLUMN IF NOT EXISTS `rating_sum` INT UNSIGNED NOT NULL DEFAULT 0',
+    'ALTER TABLE `noir_taxi_profiles` ADD COLUMN IF NOT EXISTS `rating_count` INT UNSIGNED NOT NULL DEFAULT 0',
+}
+
 local function log(fmt, ...)
     print(('[noir_taxijob] ' .. fmt):format(...))
 end
@@ -112,6 +119,20 @@ function Progression.confidenceFor(satisfaction)
         delta = delta + PG.UnhappyBonus
     end
     return math.max(0, math.floor(delta))
+end
+
+---Nota da corrida (1 a 5), a partir do que o servidor mediu.
+---@param satisfaction number
+---@param calm boolean entregou com o bônus de calma
+---@param fearKey string nível de medo no fim da corrida
+---@return integer
+function Progression.ratingFor(satisfaction, calm, fearKey)
+    local stars = ServerConfig.Rating.Stars
+    local C = Config.Climate
+    if fearKey == 'desperate' then return stars.desperate end
+    if satisfaction >= C.SatisfiedThreshold then return calm and stars.calm or stars.satisfied end
+    if satisfaction > C.UnhappyThreshold then return stars.neutral end
+    return stars.unhappy
 end
 
 -- ───────────────────────── dia canônico ─────────────────────────
@@ -198,6 +219,10 @@ function Progression.view(row, earnedToday)
         maxLevel = lv.maxLevel,
         earnedToday = math.floor(tonumber(earnedToday) or 0),
         completedRides = math.floor(tonumber(row.completed_rides) or 0),
+        ratingCount = math.floor(tonumber(row.rating_count) or 0),
+        -- Média com uma casa; nil antes da primeira corrida com nota.
+        ratingAverage = (tonumber(row.rating_count) or 0) > 0
+            and math.floor((tonumber(row.rating_sum) or 0) / tonumber(row.rating_count) * 10 + 0.5) / 10 or nil,
     }
 end
 
@@ -208,7 +233,7 @@ end
 function Progression.getProfile(citizenid, displayName)
     if not Progression.ready then return nil end
     local ok, row = pcall(MySQL.single.await,
-        'SELECT citizenid, display_name, confidence, completed_rides, total_earned FROM noir_taxi_profiles WHERE citizenid = ?',
+        'SELECT citizenid, display_name, confidence, completed_rides, total_earned, rating_sum, rating_count FROM noir_taxi_profiles WHERE citizenid = ?',
         { citizenid })
     if not ok then
         log('getProfile falhou (select): %s', tostring(row))
@@ -268,9 +293,11 @@ end
 ---@param confidenceDelta number
 ---@param distance number
 ---@param satisfaction number
+---@param rating integer nota de 1 a 5
 ---@return boolean persisted
 ---@return table|nil row perfil atualizado
-function Progression.recordFare(citizenid, fareKey, amount, confidenceDelta, distance, satisfaction)
+function Progression.recordFare(citizenid, fareKey, amount, confidenceDelta, distance, satisfaction, rating)
+    rating = math.max(0, math.min(5, math.floor(tonumber(rating) or 0)))
     if not Progression.ready then return false end
     local dayKey = Progression.dayKey()
     amount = math.max(0, math.floor(amount))
@@ -285,18 +312,20 @@ function Progression.recordFare(citizenid, fareKey, amount, confidenceDelta, dis
     local ok, result = pcall(MySQL.transaction.await, {
         {
             query = [[INSERT INTO noir_taxi_fare_results
-                (fare_id, citizenid, fare_amount, confidence_delta, distance_meters, satisfaction, day_key)
-                VALUES (?, ?, ?, ?, ?, ?, ?)]],
-            values = { fareKey, citizenid, amount, confidenceDelta, math.floor(distance), math.floor(satisfaction), dayKey },
+                (fare_id, citizenid, fare_amount, confidence_delta, distance_meters, satisfaction, rating, day_key)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)]],
+            values = { fareKey, citizenid, amount, confidenceDelta, math.floor(distance), math.floor(satisfaction), rating, dayKey },
         },
         {
             query = [[UPDATE noir_taxi_profiles SET
                 confidence = LEAST(confidence + ?, ?),
                 completed_rides = completed_rides + 1,
                 total_earned = total_earned + ?,
+                rating_sum = rating_sum + ?,
+                rating_count = rating_count + IF(? > 0, 1, 0),
                 confidence_reached_at = IF(? > 0, CURRENT_TIMESTAMP, confidence_reached_at)
                 WHERE citizenid = ?]],
-            values = { confidenceDelta, PG.MaxConfidence, amount, confidenceDelta, citizenid },
+            values = { confidenceDelta, PG.MaxConfidence, amount, rating, rating, confidenceDelta, citizenid },
         },
         {
             query = [[INSERT INTO noir_taxi_daily_stats (citizenid, day_key, earned, completed_rides, confidence_earned)
@@ -316,7 +345,7 @@ function Progression.recordFare(citizenid, fareKey, amount, confidenceDelta, dis
     Ranking.markDirty()
 
     local okRow, row = pcall(MySQL.single.await,
-        'SELECT citizenid, display_name, confidence, completed_rides, total_earned FROM noir_taxi_profiles WHERE citizenid = ?',
+        'SELECT citizenid, display_name, confidence, completed_rides, total_earned, rating_sum, rating_count FROM noir_taxi_profiles WHERE citizenid = ?',
         { citizenid })
     return true, okRow and row or nil
 end
@@ -330,6 +359,13 @@ MySQL.ready(function()
         local ok, err = pcall(MySQL.query.await, stmt)
         if not ok then
             log('falha ao criar schema: %s', tostring(err))
+            return
+        end
+    end
+    for _, stmt in ipairs(schemaUpgrades) do
+        local ok, err = pcall(MySQL.query.await, stmt)
+        if not ok then
+            log('falha ao atualizar schema: %s', tostring(err))
             return
         end
     end

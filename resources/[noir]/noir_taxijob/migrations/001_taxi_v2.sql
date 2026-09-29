@@ -38,3 +38,8 @@ CREATE TABLE IF NOT EXISTS `noir_taxi_fare_results` (
     PRIMARY KEY (`fare_id`),
     INDEX `idx_noir_taxi_fare_citizen` (`citizenid`, `day_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Nota da corrida (1 a 5 estrelas), acrescentada depois; o resource aplica sozinho em MySQL.ready.
+ALTER TABLE `noir_taxi_fare_results` ADD COLUMN IF NOT EXISTS `rating` TINYINT UNSIGNED NOT NULL DEFAULT 0;
+ALTER TABLE `noir_taxi_profiles` ADD COLUMN IF NOT EXISTS `rating_sum` INT UNSIGNED NOT NULL DEFAULT 0;
+ALTER TABLE `noir_taxi_profiles` ADD COLUMN IF NOT EXISTS `rating_count` INT UNSIGNED NOT NULL DEFAULT 0;

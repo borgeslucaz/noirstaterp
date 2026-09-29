@@ -11,42 +11,154 @@ Config.Locale = 'pt-br'
 -- Todo model do catálogo (Config.RentalVehicles) precisa constar aqui; o servidor valida na inicialização.
 Config.AllowedVehicles = {
     'taxi',
+    'ingottaxi', -- addon: resources/[assets]/ingot_taxi_enhanced
     'tailgater',
+    'imperialpas', -- addon: resources/[assets]/tfimperial (versão de passageiros)
+    'granger',
+    'cognoscenti',
     'stretch',
 }
 
 -- Catálogo de veículos da central. A ordem da lista é a ordem de exibição dentro do mesmo nível.
 -- O browser envia somente o `id`; model, nível, taxa e spawn são resolvidos pelo servidor.
+-- `class` escolhe o tipo de passageiro (Config.VehicleClasses): o carro muda a corrida, não só o visual.
+-- Imagem ausente não quebra a central: o card aparece sem foto.
 Config.RentalVehicles = {
     {
         id = 'standard',
         label = 'Táxi Standard',
         model = 'taxi',
+        class = 'standard',
         requiredLevel = 1,
         rentalFee = 0,
         image = 'img/vehicles/taxi.png',
+        -- Montado no qbx_customs e copiado do carro (dev/visuais/taxi.json): amarelo e
+        -- sem o painel de propaganda. Extras: 0 = ligado, 1 = desligado.
+        appearance = {
+            props = {
+                color1 = 89, color2 = 89, paintType1 = 7, paintType2 = 7, pearlescentColor = 5,
+                wheels = 0, wheelColor = 156,
+                extras = { [5] = 0, [6] = 1, [7] = 0, [8] = 1, [9] = 1, [10] = 0, [11] = 1 },
+            },
+        },
         description = 'O clássico da cidade. Confiável e econômico.',
+        enabled = true,
+    },
+    {
+        id = 'economy',
+        label = 'Táxi Ingot',
+        model = 'ingottaxi',
+        class = 'standard',
+        requiredLevel = 2,
+        rentalFee = 0,
+        image = 'img/vehicles/ingottaxi.png',
+        description = 'Perua de táxi com mais espaço. Mesmas corridas do Standard.',
         enabled = true,
     },
     {
         id = 'executive',
         label = 'Executivo',
         model = 'tailgater',
+        class = 'executive',
         requiredLevel = 3,
         rentalFee = 0,
         image = 'img/vehicles/tailgater.png',
-        description = 'Atendimento executivo para motoristas experientes.',
+        description = 'Passageiros executivos: exigentes com a temperatura, gorjeta de até 15%.',
+        enabled = true,
+    },
+    {
+        id = 'van',
+        label = 'Van',
+        model = 'imperialpas',
+        class = 'van',
+        requiredLevel = 4,
+        rentalFee = 0,
+        image = 'img/vehicles/imperialpas.png',
+        -- Cara de táxi: placa de teto `imperial_taxi` (mod 10 = Roof, índice 4; só existe no modkit
+        -- da versão de passageiros) e amarelo táxi (cor 88). Os desenhos na lataria são o mod 48
+        -- (Livery) do kit, na ordem 0 = livery2, 1 = livery8, 2 = livery9, 3 = livery11,
+        -- 4 = livery12, 5 = livery13, 6 = livery14, 7 = livery15. A de táxi é a 5ª do menu (4).
+        appearance = { mods = { [10] = 4, [48] = 4 }, color = 88 },
+        description = 'Grupos de 2 ou 3 passageiros: +15% por passageiro extra, embarque mais demorado.',
+        enabled = true,
+    },
+    {
+        id = 'suv',
+        label = 'SUV',
+        model = 'granger',
+        class = 'suv',
+        requiredLevel = 4,
+        rentalFee = 0,
+        image = 'img/vehicles/granger.png',
+        -- O Granger não tem livery nem placa de táxi: só o amarelo táxi (cor 88).
+        appearance = { color = 88 },
+        description = 'Chamadas em Sandy Shores e Paleto Bay, com corridas mais longas.',
+        enabled = true,
+    },
+    {
+        id = 'luxury',
+        label = 'Luxo',
+        model = 'cognoscenti',
+        class = 'luxury',
+        requiredLevel = 5,
+        rentalFee = 0,
+        image = 'img/vehicles/cognoscenti.png',
+        description = 'Clientes VIP: bônus de calma maior para quem dirige com cuidado.',
         enabled = true,
     },
     {
         id = 'limousine',
         label = 'Limousine',
         model = 'stretch',
+        class = 'limousine',
         requiredLevel = 6,
         rentalFee = 0,
         image = 'img/vehicles/stretch.png',
-        description = 'O nível máximo de confiança da central.',
+        description = 'Corridas de evento: longas, exigentes e com gorjeta alta.',
         enabled = true,
+    },
+}
+
+-- Tipo de passageiro de cada categoria de carro. O que não estiver aqui usa o padrão
+-- (Config.Dispatch, Config.Climate, Config.Payout, Config.Passenger.Models).
+-- Todos os ajustes são pequenos: a hora de táxi continua na âncora da economia (~$550/h);
+-- o carro novo muda o tipo de corrida e dá um pouco mais para quem dirige bem.
+--   comfortBand / comfortVariation: faixa de temperatura do passageiro (°C) e o sorteio dela
+--   tipPercent / calmBonusPercent: sobrepõem Config.Payout
+--   passengers: { mín, máx } de pessoas por corrida; groupBonusPercent por pessoa além da 1ª
+--   zoneWeights: peso extra por zona de Config.Points ao sortear a coleta
+--   pickup / trip: sobrepõem as distâncias de Config.Dispatch
+Config.VehicleClasses = {
+    standard = {},
+    executive = {
+        comfortBand = 2.0,
+        comfortVariation = 1.0,
+        tipPercent = 15,
+        models = { 'a_m_y_business_02', 'a_f_y_business_01', 'a_m_m_business_01', 'a_f_y_business_02' },
+    },
+    van = {
+        passengers = { 2, 3 },
+        groupBonusPercent = 15,
+    },
+    suv = {
+        zoneWeights = { ['sandy shores'] = 5, ['paleto bay'] = 5 },
+        pickup = { max = 6000.0, ideal = 4000.0 },
+        trip = { max = 8000.0 },
+    },
+    luxury = {
+        comfortBand = 2.5,
+        comfortVariation = 1.0,
+        tipPercent = 15,
+        calmBonusPercent = 45,
+        models = { 'a_m_y_business_02', 'a_f_y_business_01', 'a_m_m_business_01', 'a_f_y_business_02' },
+    },
+    limousine = {
+        comfortBand = 2.5,
+        comfortVariation = 1.0,
+        tipPercent = 20,
+        calmBonusPercent = 45,
+        trip = { min = 2500.0, max = 8000.0 },
+        models = { 'a_m_y_business_02', 'a_f_y_business_01', 'a_m_m_business_01', 'a_f_y_business_02' },
     },
 }
 
@@ -268,6 +380,16 @@ function Config.IsAllowedVehicle(model)
         if joaat(m) == hash then return true end
     end
     return false
+end
+
+---Categoria (tipo de passageiro) de um carro do catálogo.
+---@param id string|nil
+---@return string key
+---@return table class
+function Config.GetVehicleClass(id)
+    local entry = id and Config.GetRentalVehicle(id)
+    local key = entry and entry.class or 'standard'
+    return key, Config.VehicleClasses[key] or Config.VehicleClasses.standard
 end
 
 ---@param id string

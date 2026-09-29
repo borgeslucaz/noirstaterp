@@ -61,6 +61,9 @@ function Dispatch.accept()
         destination = nil,
         npc = 0,
         npcNetId = nil,
+        extras = {},
+        extraNetIds = {},
+        passengers = offer.passengers or 1,
     }
     Taxi.routeDistance = offer.distanceToPickup
     SetTaxiState(TAXI_STATE.EN_ROUTE)
@@ -76,6 +79,7 @@ RegisterNetEvent('noir_taxijob:client:offer', function(offer)
         distanceToPickup = offer.distanceToPickup,
         estimateMin = offer.estimateMin,
         estimateMax = offer.estimateMax,
+        passengers = offer.passengers or 1,
         expiresAt = GetGameTimer() + (offer.expiresIn or Config.Dispatch.OfferTimeout),
     }
     SetTaxiState(TAXI_STATE.OFFER)

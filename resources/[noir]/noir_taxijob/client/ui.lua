@@ -42,6 +42,7 @@ function UI.render()
                 distance = offer.distanceToPickup,
                 estimateMin = offer.estimateMin,
                 estimateMax = offer.estimateMax,
+                passengers = offer.passengers or 1,
                 remaining = math.max(0, offer.expiresAt - GetGameTimer()),
             } or nil,
             route = fare and {

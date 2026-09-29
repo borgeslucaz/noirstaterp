@@ -1,59 +1,61 @@
-/* Noir Taxi — aplicação do Noir Design v3. */
+/* Noir Taxi — composição da v3 (janela de comando) com os fundamentos da v4. */
 
+/* Fontes da v4 (§1.1): Saira Condensed para display, Rajdhani para texto. A Saira só tem
+   500 e 700 empacotados; o 600 usado nos rótulos aponta para o 700. */
 @font-face {
-    font-family: "Poppins";
-    font-style: normal;
-    font-weight: 400;
-    font-display: swap;
-    src: url("fonts/Poppins-400.woff2") format("woff2");
-}
-
-@font-face {
-    font-family: "Poppins";
+    font-family: "Saira Condensed";
     font-style: normal;
     font-weight: 500;
     font-display: swap;
-    src: url("fonts/Poppins-500.woff2") format("woff2");
+    src: url("fonts/SairaCondensed-500.woff2") format("woff2");
 }
 
 @font-face {
-    font-family: "Poppins";
+    font-family: "Saira Condensed";
     font-style: normal;
     font-weight: 600;
     font-display: swap;
-    src: url("fonts/Poppins-600.woff2") format("woff2");
+    src: url("fonts/SairaCondensed-700.woff2") format("woff2");
 }
 
 @font-face {
-    font-family: "Poppins";
+    font-family: "Saira Condensed";
     font-style: normal;
     font-weight: 700;
     font-display: swap;
-    src: url("fonts/Poppins-700.woff2") format("woff2");
+    src: url("fonts/SairaCondensed-700.woff2") format("woff2");
 }
 
 @font-face {
-    font-family: "Plus Jakarta Sans";
-    font-style: normal;
-    font-weight: 600;
-    font-display: swap;
-    src: url("fonts/PlusJakartaSans-600.woff2") format("woff2");
-}
-
-@font-face {
-    font-family: "Inter";
-    font-style: normal;
-    font-weight: 300;
-    font-display: swap;
-    src: url("fonts/Inter-300.woff2") format("woff2");
-}
-
-@font-face {
-    font-family: "Inter";
+    font-family: "Rajdhani";
     font-style: normal;
     font-weight: 400;
     font-display: swap;
-    src: url("fonts/Inter-400.woff2") format("woff2");
+    src: url("fonts/Rajdhani-400.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Rajdhani";
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url("fonts/Rajdhani-500.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Rajdhani";
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url("fonts/Rajdhani-600.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Rajdhani";
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url("fonts/Rajdhani-700.woff2") format("woff2");
 }
 
 :root {
@@ -79,15 +81,15 @@
     --noir-border-strong: rgba(255, 255, 255, 0.22);
     --noir-divider: rgba(255, 255, 255, 0.075);
 
-    --noir-success: #59ce72;
+    --noir-success: #39df45;
     --noir-warning: #d7a84b;
-    --noir-danger: #df5555;
-    --noir-danger-hover: #ef6868;
+    --noir-danger: #d51a1a;
+    --noir-danger-hover: #ef2929;
     --noir-info: #6e9fbd;
 
-    --radius-xs: 3px;
-    --radius-sm: 5px;
-    --radius-md: 7px;
+    --radius-xs: 2px;
+    --radius-sm: 2px;
+    --radius-md: 2px;
     --radius-pill: 999px;
 
     --shadow-window: 0 14px 42px rgba(0, 0, 0, 0.48);
@@ -106,8 +108,8 @@
     --noir-accent-soft: rgba(226, 183, 20, 0.16);
     --noir-accent-border: rgba(226, 183, 20, 0.42);
 
-    --font-ui: "Poppins", "Plus Jakarta Sans", Inter, "Segoe UI", Arial, sans-serif;
-    --font-body: "Poppins", Inter, "Segoe UI", Arial, sans-serif;
+    --font-ui: "Saira Condensed", "Rajdhani", Arial, sans-serif;
+    --font-body: "Rajdhani", Arial, sans-serif;
 }
 
 html,
@@ -123,7 +125,7 @@ body,
 
 body {
     color: var(--noir-text);
-    font-family: var(--font-ui);
+    font-family: var(--font-body);
     font-weight: 600;
     user-select: none;
 }
@@ -953,7 +955,7 @@ kbd {
 .tab__intro {
     margin: 0 0 18px;
     color: var(--noir-text-muted);
-    font: 400 14px/1.5 var(--font-body);
+    font: 400 15px/1.5 var(--font-body);
 }
 
 .tab__notice {
@@ -963,7 +965,7 @@ kbd {
     border-radius: var(--radius-sm);
     background: rgba(215, 168, 75, 0.07);
     color: var(--noir-warning);
-    font: 400 12px/1.5 var(--font-body);
+    font: 400 13px/1.5 var(--font-body);
 }
 
 /* Resumo do turno */
@@ -1005,12 +1007,12 @@ kbd {
 .hero__note {
     margin: 7px 0 0;
     color: var(--noir-text-muted);
-    font: 400 13px/1.5 var(--font-body);
+    font: 400 14px/1.5 var(--font-body);
 }
 
 .hero__stats {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px;
 }
 
@@ -1173,7 +1175,7 @@ kbd {
     white-space: nowrap;
 }
 .prog__side-value[data-active="true"] { color: var(--noir-accent); }
-.prog__side-sub { margin: 6px 0 0; color: var(--noir-text-faint); font: 400 12px/1.5 var(--font-body); }
+.prog__side-sub { margin: 6px 0 0; color: var(--noir-text-faint); font: 400 13px/1.5 var(--font-body); }
 
 /* Veículos */
 .veh-section {
@@ -1204,7 +1206,7 @@ kbd {
     margin: 0;
     overflow: hidden;
     color: var(--noir-text-muted);
-    font: 400 12px/1.4 var(--font-body);
+    font: 400 13px/1.4 var(--font-body);
     text-align: right;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1250,7 +1252,8 @@ kbd {
 .window__main[data-tab="overview"] .veh-list { min-height: 0; flex: 1; }
 .window__main[data-tab="overview"] .veh-section__head { margin-bottom: 12px; }
 .window__main[data-tab="overview"] .veh-card { gap: 7px; padding: 11px 12px; }
-.window__main[data-tab="overview"] .veh-card__media { height: 76px; }
+/* A foto ocupa o vão entre o nome e o botão: o card tem a altura da linha da grade. */
+.window__main[data-tab="overview"] .veh-card__media { height: auto; min-height: 76px; flex: 1 1 76px; }
 .window__main[data-tab="overview"] .veh-card__desc {
     min-height: 18px;
     overflow: hidden;
@@ -1275,7 +1278,13 @@ kbd {
 }
 
 .veh-card:hover { border-color: var(--noir-border-strong); background: var(--noir-card-hover); }
-.veh-card[aria-selected="true"] { border-color: var(--noir-accent-border); background: var(--noir-card-hover); }
+.veh-card[aria-selected="true"] { border-color: #f2f2f2; background: #f2f2f2; color: #111113; }
+.veh-card[aria-selected="true"] .veh-card__name,
+.veh-card[aria-selected="true"] .veh-card__fee-value { color: #111113; }
+.veh-card[aria-selected="true"] .veh-card__status,
+.veh-card[aria-selected="true"] .veh-card__desc,
+.veh-card[aria-selected="true"] .veh-card__fee .data-label { color: rgba(17, 17, 19, 0.72); }
+.veh-card[aria-selected="true"] .veh-card__media { background: rgba(17, 17, 19, 0.06); }
 
 .veh-card__status {
     display: inline-flex;
@@ -1331,8 +1340,8 @@ kbd {
 }
 .veh-card__name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .veh-card__chev { width: 14px; height: 14px; flex: 0 0 14px; color: var(--noir-text-faint); }
-.veh-card[aria-selected="true"] .veh-card__chev { color: var(--noir-accent); }
-.veh-card__desc { min-height: 36px; color: var(--noir-text-muted); font: 400 12px/1.5 var(--font-body); }
+.veh-card[aria-selected="true"] .veh-card__chev { color: #111113; }
+.veh-card__desc { min-height: 36px; color: var(--noir-text-muted); font: 400 13px/1.5 var(--font-body); }
 .veh-card[data-status="locked"] .veh-card__name,
 .veh-card[data-status="locked"] .veh-card__desc,
 .veh-card[data-status="locked"] .veh-card__fee { opacity: 0.48; }
@@ -1342,7 +1351,7 @@ kbd {
 .veh-card__fee-value,
 .pair__value { color: var(--noir-text-strong); font-size: 12px; font-variant-numeric: tabular-nums; }
 .veh-card__rent { width: 100%; margin-top: auto; }
-.veh-message { margin: 13px 0 0; color: var(--noir-danger); font: 400 12px/1.5 var(--font-body); }
+.veh-message { margin: 13px 0 0; color: var(--noir-danger); font: 400 13px/1.5 var(--font-body); }
 .veh-message[data-kind="success"] { color: var(--noir-success); }
 
 /* Botões */
@@ -1357,8 +1366,9 @@ kbd {
     background: var(--noir-panel-raised);
     color: var(--noir-text-strong);
     cursor: pointer;
-    font: 600 12px/1 var(--font-ui);
-    letter-spacing: 0.02em;
+    font: 700 15px/1 var(--font-ui);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
     transition:
         color var(--duration-control) var(--ease-soft),
         background-color var(--duration-control) var(--ease-soft),
@@ -1370,17 +1380,17 @@ kbd {
 .btn--fill,
 .confirm-box .btn--primary,
 .veh-card[aria-selected="true"] .veh-card__rent:not(:disabled) {
-    border-color: #fff;
-    background: #fff;
-    color: var(--noir-on-light);
+    border-color: var(--noir-success);
+    background: var(--noir-success);
+    color: #111113;
 }
 
 .btn--fill:hover,
 .confirm-box .btn--primary:hover,
 .veh-card[aria-selected="true"] .veh-card__rent:not(:disabled):hover {
-    border-color: rgba(255, 255, 255, 0.88);
-    background: rgba(255, 255, 255, 0.88);
-    color: var(--noir-on-light);
+    border-color: #5ee867;
+    background: #5ee867;
+    color: #111113;
 }
 
 .btn--primary { background: transparent; }
@@ -1477,7 +1487,7 @@ button:focus-visible,
     border-radius: var(--radius-sm);
     background: rgba(223, 85, 85, 0.06);
 }
-.menu__error-text { margin: 0; color: var(--noir-text); font: 400 14px/1.6 var(--font-body); }
+.menu__error-text { margin: 0; color: var(--noir-text); font: 400 15px/1.6 var(--font-body); }
 
 .window__footer {
     grid-column: 2;
@@ -1540,7 +1550,7 @@ button:focus-visible,
     font-size: 20px;
     letter-spacing: -0.02em;
 }
-.confirm-box p { margin: 0 0 22px; color: var(--noir-text); font: 400 14px/1.6 var(--font-body); }
+.confirm-box p { margin: 0 0 22px; color: var(--noir-text); font: 400 15px/1.6 var(--font-body); }
 .confirm-box__actions { display: flex; justify-content: flex-end; gap: 10px; }
 
 /* Loading */
@@ -1596,7 +1606,7 @@ button:focus-visible,
     .window__main[data-tab="overview"] .veh-section { margin-top: 0; padding: 12px 16px; }
     .window__main[data-tab="overview"] .veh-section__head { margin-bottom: 9px; }
     .window__main[data-tab="overview"] .veh-card { gap: 5px; padding: 8px 10px; }
-    .window__main[data-tab="overview"] .veh-card__media { height: 62px; }
+    .window__main[data-tab="overview"] .veh-card__media { min-height: 62px; flex-basis: 62px; }
     .window__main[data-tab="overview"] .veh-card__desc,
     .window__main[data-tab="overview"] .veh-card__fee { display: none; }
     .window__main[data-tab="overview"] .veh-card__rent { min-height: 30px; }
@@ -1612,4 +1622,44 @@ button:focus-visible,
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
     }
+}
+
+/* Nota da corrida (1 a 5 estrelas) no resultado. */
+.rating { color: var(--noir-warning, #d7a84b); letter-spacing: 0.08em; }
+
+/* ═══════════════════════════════ Estúdio de fotos (admin) ═══════════════════════════════ */
+
+.studio {
+    position: absolute;
+    right: clamp(24px, 2.8vw, 54px);
+    bottom: clamp(24px, 4vh, 54px);
+    padding: 14px 16px;
+    min-width: 250px;
+}
+
+.studio__title {
+    margin-bottom: 10px;
+    color: var(--noir-text-strong);
+    font: 600 12px/1 var(--font-ui);
+    letter-spacing: 0.08em;
+}
+
+.studio__keys {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--noir-text-muted);
+    font-size: 11px;
+}
+
+.studio__keys li {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.studio__keys kbd:last-of-type {
+    margin-right: 6px;
 }

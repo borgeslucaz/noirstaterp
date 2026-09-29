@@ -178,31 +178,34 @@ lib.callback.register('noir_taxijob:server:completeFare', function(src, fareId)
     fare.paid = true
 
     local satisfaction = fare.comfort
+    local class = Config.VehicleClasses[fare.class or 'standard'] or {}
     local multiplier, tip = 1.0, 0.0
     if satisfaction <= C.UnhappyThreshold then
         multiplier = Config.Payout.UnhappyMultiplier
     elseif satisfaction < C.SatisfiedThreshold then
         multiplier = Config.Payout.NeutralMultiplier
     else
-        tip = fare.currentFare * (Config.Payout.SatisfiedTipPercent / 100.0)
+        tip = fare.currentFare * ((class.tipPercent or Config.Payout.SatisfiedTipPercent) / 100.0)
     end
 
     -- Bônus de calma: entrega com o ar dentro da faixa térmica do passageiro (mood 'happy')
     -- e sentimento TRANQUILO (medo nunca passou do primeiro nível).
-    local calmBonus = 0.0
-    if Sessions.mood(fare, driver) == 'happy' and Sessions.fearLevel(fare).key == 'calm' then
-        calmBonus = Config.Payout.CalmBonusPercent / 100.0
-    end
-    local bonusAmount = math.floor(fare.currentFare * multiplier * calmBonus + 0.5)
-    local finalFare = math.floor(math.min(fare.currentFare * multiplier * (1.0 + calmBonus) + tip, M.MaxFare))
+    local calm = Sessions.mood(fare, driver) == 'happy' and Sessions.fearLevel(fare).key == 'calm'
+    local calmBonus = calm and (class.calmBonusPercent or Config.Payout.CalmBonusPercent) / 100.0 or 0.0
+    -- Van: cada pessoa do grupo além da primeira soma um percentual (só quem embarcou).
+    local group = math.max(1, fare.groupBoarded or 1)
+    local groupBonus = (group - 1) * ((class.groupBonusPercent or 0) / 100.0)
+    local bonusAmount = math.floor(fare.currentFare * multiplier * (calmBonus + groupBonus) + 0.5)
+    local finalFare = math.floor(math.min(fare.currentFare * multiplier * (1.0 + calmBonus + groupBonus) + tip, M.MaxFare))
     local confidenceDelta = Progression.confidenceFor(satisfaction)
+    local rating = Progression.ratingFor(satisfaction, calm, Sessions.fearLevel(fare).key)
     local mood = Sessions.mood(fare, driver)
     local distance = math.floor(fare.distanceMeters)
 
     -- Ledger + perfil + diário em uma transação; só depois o pagamento.
     local persisted, row = false, nil
     if finalFare > 0 or ServerConfig.Progression.CountZeroFare then
-        persisted, row = Progression.recordFare(character.citizenId, Sessions.fareKey(fare.id), finalFare, confidenceDelta, distance, satisfaction)
+        persisted, row = Progression.recordFare(character.citizenId, Sessions.fareKey(fare.id), finalFare, confidenceDelta, distance, satisfaction, rating)
     end
     if not persisted then
         confidenceDelta = 0
@@ -239,6 +242,8 @@ lib.callback.register('noir_taxijob:server:completeFare', function(src, fareId)
         mood = mood,
         distance = distance,
         calmBonus = bonusAmount,
+        rating = rating,
+        group = group,
         progress = progress,
     }
 end)

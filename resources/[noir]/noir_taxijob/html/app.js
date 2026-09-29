@@ -83,11 +83,15 @@
         offerDistance: $("offer-distance"),
         offerEstimate: $("offer-estimate"),
         offerCountdown: $("offer-countdown"),
+        offerGroupRow: $("offer-group-row"),
+        offerGroup: $("offer-group"),
         routeOrigin: $("route-origin"),
         routeDistance: $("route-distance"),
         resultFare: $("result-fare"),
         resultBonus: $("result-bonus"),
         resultConfidence: $("result-confidence"),
+        resultRatingRow: $("result-rating-row"),
+        resultRating: $("result-rating"),
         climate: $("climate"),
         climateValue: $("climate-value"),
         fanDots: $("fan-dots"),
@@ -145,6 +149,15 @@
         hud.offerDistance.textContent = routeDistance(offer.distance)
         hud.offerEstimate.textContent = moneyInt(offer.estimateMin) + " — " + moneyInt(offer.estimateMax)
         hud.offerCountdown.textContent = seconds(offer.remaining)
+        const group = Number(offer.passengers) || 1
+        hud.offerGroupRow.hidden = group <= 1
+        hud.offerGroup.textContent = "GRUPO DE " + int(group)
+    }
+
+    // Nota de 1 a 5 em estrelas cheias e vazias.
+    function stars(value) {
+        const n = Math.max(0, Math.min(5, Math.round(Number(value) || 0)))
+        return "★".repeat(n) + "☆".repeat(5 - n)
     }
 
     function renderRoute(route) {
@@ -159,6 +172,10 @@
         hud.resultBonus.textContent = moneyInt(Number(result.bonus) || 0)
         const c = Number(result.confidence) || 0
         hud.resultConfidence.textContent = (c >= 0 ? "+" : "") + int(c)
+        const rating = Number(result.rating) || 0
+        hud.resultRatingRow.hidden = rating <= 0
+        hud.resultRating.textContent = stars(rating)
+        hud.resultRating.setAttribute("aria-label", "Nota " + rating + " de 5")
     }
 
     function renderKeys(keys) {
@@ -233,6 +250,7 @@
         heroStatus: $("hero-status"),
         statEarned: $("stat-earned"),
         statRides: $("stat-rides"),
+        statRating: $("stat-rating"),
         statPosition: $("stat-position"),
         // progressão
         ring: $("lvl-ring"),
@@ -324,6 +342,10 @@
         if (!profile) return
         m.statEarned.textContent = moneyInt(profile.earnedToday)
         m.statRides.textContent = int(profile.completedRides)
+        m.statRating.textContent = profile.ratingAverage != null
+            ? Number(profile.ratingAverage).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " ★"
+            : "—"
+        m.statRating.title = profile.ratingCount ? int(profile.ratingCount) + " corridas com nota" : ""
         renderPosition()
     }
 
@@ -411,14 +433,14 @@
                 : ""
 
             card.innerHTML =
-                '<span class="veh-card__status">' + statusIcon + "<span></span></span>" +
+                '<span class="veh-card__status">' + statusIcon + '<span class="veh-card__status-text"></span></span>' +
                 '<span class="veh-card__media">' + mediaImg + CAR_SVG + "</span>" +
                 '<span class="veh-card__name"><span></span>' + CHEV_SVG + "</span>" +
                 '<span class="veh-card__desc"></span>' +
                 feeRow +
                 '<button class="btn btn--primary veh-card__rent" type="button">ALUGAR VEÍCULO</button>'
 
-            card.querySelector(".veh-card__status span").textContent = vehicleStatusText(v)
+            card.querySelector(".veh-card__status-text").textContent = vehicleStatusText(v)
             card.querySelector(".veh-card__name span").textContent = v.label
             card.querySelector(".veh-card__desc").textContent = v.description || ""
             if (v.status === "locked") {
@@ -886,6 +908,11 @@
         },
         "taxiMenu:open": (payload) => openMenu(payload),
         "taxiMenu:close": () => hideMenu(),
+        "studio:show": (payload) => {
+            $("studio-label").textContent = (payload && payload.label) || ""
+            $("studio").hidden = false
+        },
+        "studio:hide": () => { $("studio").hidden = true },
     }
 
     window.addEventListener("message", (event) => {

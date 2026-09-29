@@ -39,13 +39,15 @@ ServerConfig = {
 
     -- Progressão de Confiança (fonte canônica: somente o servidor calcula)
     Progression = {
+        -- ~13 de Confiança por corrida e ~15 corridas por hora: o nível 6 fica em ~25 dias com
+        -- 2 h de jogo por dia (rampa de 4 semanas, como caminhão e ônibus).
         Levels = {
-            { level = 1, min = 0,    label = 'Iniciante' },
-            { level = 2, min = 100,  label = 'Motorista' },
-            { level = 3, min = 250,  label = 'Profissional' },
-            { level = 4, min = 500,  label = 'Especialista' },
-            { level = 5, min = 850,  label = 'Veterano' },
-            { level = 6, min = 1300, label = 'Elite' },
+            { level = 1, min = 0,     label = 'Iniciante' },
+            { level = 2, min = 150,   label = 'Motorista' },
+            { level = 3, min = 600,   label = 'Profissional' },
+            { level = 4, min = 2000,  label = 'Especialista' },
+            { level = 5, min = 5000,  label = 'Veterano' },
+            { level = 6, min = 10000, label = 'Elite' },
         },
         MaxConfidence = 2000000000, -- limite técnico (evita overflow)
 
@@ -65,6 +67,34 @@ ServerConfig = {
         -- Política quando a persistência falhar na conclusão: pagar a corrida mesmo assim e avisar o jogador.
         -- A Confiança nunca é concedida sem registro no ledger.
         PayWhenPersistFails = true,
+    },
+
+    -- Nota da corrida (1 a 5 estrelas), calculada no servidor:
+    --   5 satisfeito e TRANQUILO (bônus de calma) · 4 satisfeito · 3 neutro · 2 insatisfeito
+    --   1 passageiro DESESPERADO (medo travado), independentemente do resto.
+    Rating = {
+        Stars = { calm = 5, satisfied = 4, neutral = 3, unhappy = 2, desperate = 1 },
+    },
+
+    -- Estúdio de fotos da central (/taxifotos): carro parado no alto, parede verde e câmera de
+    -- lado; o PNG cru vai para dev/fotos e o `dev/fotos.sh` recorta para html/img/vehicles.
+    Studio = {
+        Command = 'taxifotos',
+        AdminAce = 'noir.taxijob.admin',
+        -- Maior que a tela = captura na resolução nativa. Reduzir aqui estraga o dev/fotos.sh:
+        -- no Enhanced, tela fora de múltiplo de 64 px chega com faixas e só dá pra desfazer sem escala.
+        Width = 7680,
+        Height = 4320,
+        Scene = {
+            coords = { x = -2600.0, y = -4200.0, z = 900.0 }, -- sobre o mar, longe do mapa
+            heading = 0.0,
+            fov = 30.0,
+            margin = 1.25,        -- folga em volta do carro no enquadramento
+            wallDistance = 14.0,  -- parede verde atrás do carro (m)
+            wallColor = { 0, 255, 0 },
+            settleMs = 1500,      -- espera texturas e peças antes da foto
+            windowTint = 1,       -- película só na foto (1 = preta): vidro claro deixa o verde passar
+        },
     },
 
     Ranking = {

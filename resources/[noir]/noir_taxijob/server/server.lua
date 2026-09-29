@@ -25,6 +25,9 @@ do
         if type(v.requiredLevel) ~= 'number' or v.requiredLevel < 1 then
             error(('[noir_taxijob] Config.RentalVehicles: requiredLevel inválido em `%s`'):format(v.id))
         end
+        if v.class ~= nil and not Config.VehicleClasses[v.class] then
+            error(('[noir_taxijob] Config.RentalVehicles: class `%s` (%s) não existe em Config.VehicleClasses'):format(tostring(v.class), v.id))
+        end
     end
 end
 

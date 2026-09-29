@@ -31,6 +31,7 @@ client_scripts {
     'client/rental.lua',
     'client/central.lua',
     'client/client.lua',
+    'client/studio.lua',
 }
 
 server_scripts {
@@ -45,6 +46,7 @@ server_scripts {
     'server/dispatch.lua',
     'server/meter.lua',
     'server/server.lua',
+    'server/studio.lua',
 }
 
 dependencies {

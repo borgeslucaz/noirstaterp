@@ -31,6 +31,38 @@ function Rental.clear()
     Rental.vehicleId = nil
 end
 
+---Visual do catálogo (`appearance`): peças do modkit, cor e livery. Quem aplica é o dono da
+---entidade (o taxista, que entra nela no aluguel); as mudanças replicam para os outros.
+---@param veh number
+---@param appearance { mods?: table<integer, integer>, color?: integer, livery?: integer, extras?: integer[], props?: table }|nil
+local function applyAppearance(veh, appearance)
+    if not appearance or veh == 0 or not DoesEntityExist(veh) then return end
+    if not NetworkHasControlOfEntity(veh) then
+        NetworkRequestControlOfEntity(veh)
+        pcall(lib.waitFor, function()
+            if NetworkHasControlOfEntity(veh) then return true end
+        end, 'no control of rental vehicle', 3000)
+    end
+    SetVehicleModKit(veh, 0)
+    -- Visual copiado de um carro montado no qbx_customs (dev/visuais): pintura, peças, rodas,
+    -- película e extras de uma vez. Os campos abaixo continuam valendo por cima.
+    if appearance and appearance.props then lib.setVehicleProperties(veh, appearance.props) end
+    for modType, index in pairs(appearance.mods or {}) do
+        if GetNumVehicleMods(veh, modType) > index then SetVehicleMod(veh, modType, index, false) end
+    end
+    if appearance.color then SetVehicleColours(veh, appearance.color, appearance.color) end
+    if appearance.livery and GetVehicleLiveryCount(veh) > appearance.livery then SetVehicleLivery(veh, appearance.livery) end
+    -- Extras (painel de propaganda, luminoso...) o jogo sorteia a cada spawn: fica ligado só o
+    -- que está na lista.
+    if appearance.extras then
+        local keep = {}
+        for _, id in ipairs(appearance.extras) do keep[id] = true end
+        for id = 0, 20 do
+            if DoesExtraExist(veh, id) then SetVehicleExtra(veh, id, not keep[id]) end
+        end
+    end
+end
+
 ---Resposta de sucesso do servidor: guarda o vínculo e resolve a entidade com timeout limitado.
 ---@param res { netId: number, vehicleId: string }
 function Rental.onRented(res)
@@ -42,6 +74,8 @@ function Rental.onRented(res)
         end, 'rental vehicle did not stream in', 8000)
         if Rental.netId ~= res.netId then return end
         if ok then
+            local entry = Config.GetRentalVehicle(res.vehicleId)
+            applyAppearance(NetToVeh(res.netId), entry and entry.appearance)
             Notify('notify.rental_taken', 'success')
         else
             -- O servidor mantém a autoridade; o veículo pode aparecer em seguida ou ser limpo na varredura.

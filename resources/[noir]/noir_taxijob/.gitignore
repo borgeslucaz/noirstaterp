@@ -1,0 +1,3 @@
+# Cache do vite do preview e fotos cruas do /taxifotos (o dev/fotos.sh gera html/img/vehicles).
+.vite/
+dev/fotos/*.png

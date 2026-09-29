@@ -41,6 +41,7 @@
                         <div class="row"><span class="data-label">ORIGEM</span><span class="value truncate" id="offer-origin">—</span></div>
                         <div class="row"><span class="data-label">ATÉ A COLETA</span><span class="value" id="offer-distance">—</span></div>
                         <div class="row"><span class="data-label">ESTIMATIVA</span><span class="value value--accent" id="offer-estimate">—</span></div>
+                        <div class="row" id="offer-group-row" hidden><span class="data-label">PASSAGEIROS</span><span class="value" id="offer-group">—</span></div>
                         <div class="offer__accept">
                             <span class="key-hint"><kbd id="key-accept">E</kbd> ACEITAR</span>
                             <span class="countdown" id="offer-countdown">10 s</span>
@@ -58,6 +59,7 @@
                         <div class="row"><span class="data-label">TARIFA</span><span class="value value--accent" id="result-fare">$0</span></div>
                         <div class="row"><span class="data-label">BÔNUS</span><span class="value value--accent" id="result-bonus">$0</span></div>
                         <div class="row"><span class="data-label">CONFIANÇA</span><span class="value" id="result-confidence">+0</span></div>
+                        <div class="row" id="result-rating-row" hidden><span class="data-label">NOTA</span><span class="value rating" id="result-rating" aria-label="Nota da corrida">—</span></div>
                     </div>
                 </section>
 
@@ -183,6 +185,10 @@
                                 <span class="data-label">SUA POSIÇÃO</span>
                                 <span class="stat__value" id="stat-position">—</span>
                             </div>
+                            <div class="stat">
+                                <span class="data-label">NOTA MÉDIA</span>
+                                <span class="stat__value" id="stat-rating">—</span>
+                            </div>
                         </div>
                     </section>
 
@@ -262,6 +268,21 @@
             </div>
         </div>
     </div>
+    <!-- Estúdio de fotos (/taxifotos, admin): teclas da câmera. Some antes de cada captura. -->
+    <aside class="studio taxi-panel" id="studio" hidden>
+        <div class="studio__title">ESTÚDIO <span class="value--accent" id="studio-label"></span></div>
+        <ul class="studio__keys">
+            <li><kbd>MOUSE</kbd> girar em volta</li>
+            <li><kbd>W</kbd><kbd>S</kbd> aproximar / afastar</li>
+            <li><kbd>Q</kbd><kbd>E</kbd> subir / descer</li>
+            <li><kbd>RODA</kbd> zoom</li>
+            <li><kbd>SHIFT</kbd> mais rápido</li>
+            <li><kbd>R</kbd> enquadramento automático</li>
+            <li><kbd>ENTER</kbd> tirar a foto</li>
+            <li><kbd>BACKSPACE</kbd> pular carro</li>
+            <li><kbd>ESC</kbd> encerrar</li>
+        </ul>
+    </aside>
     <script src="app.js"></script>
 </body>
 </html>

@@ -36,6 +36,11 @@ Sessions = {}
 ---@field bodyHealth number|nil última lataria medida (detecção de batida forte)
 ---@field ignoredJumps number
 ---@field paid boolean
+---@field class string categoria do carro alugado (Config.VehicleClasses)
+---@field passengers integer pessoas sorteadas para a corrida (van: 2–3)
+---@field extraEntities number[] passageiros do grupo além do principal
+---@field extraNetIds number[]
+---@field groupBoarded integer|nil pessoas que de fato embarcaram
 
 ---@class TaxiRental
 ---@field source number
@@ -142,17 +147,22 @@ end
 ---@param fare TaxiFare
 ---@param delayMs? number
 function Sessions.deleteNpc(fare, delayMs)
-    local npc = fare and fare.npcEntity
-    if not npc then return end
+    if not fare then return end
+    local peds = {}
+    if fare.npcEntity then peds[#peds + 1] = fare.npcEntity end
+    for _, extra in ipairs(fare.extraEntities or {}) do peds[#peds + 1] = extra end
     fare.npcEntity = nil
     fare.npcNetId = nil
-    if not delayMs or delayMs <= 0 then
-        if DoesEntityExist(npc) then DeleteEntity(npc) end
-        return
+    fare.extraEntities = {}
+    fare.extraNetIds = {}
+    if #peds == 0 then return end
+    local function remove()
+        for _, ped in ipairs(peds) do
+            if DoesEntityExist(ped) then DeleteEntity(ped) end
+        end
     end
-    SetTimeout(delayMs, function()
-        if DoesEntityExist(npc) then DeleteEntity(npc) end
-    end)
+    if not delayMs or delayMs <= 0 then return remove() end
+    SetTimeout(delayMs, remove)
 end
 
 ---@param src number
