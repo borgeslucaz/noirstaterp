@@ -1,8 +1,8 @@
 # Guia de design de interfaces v4 — Noir State RP
 
-> A v4 é o sistema visual das NUIs da Noir State: fontes, cor, superfícies, transparência, controles, janelas e as regras de cada **tipo de interface**. A Parte 1 vale para toda interface; a Parte 2 descreve os tipos (hoje, o **Menu Lateral**) e cresce conforme novos tipos forem criados.
+> A v4 é o sistema visual das NUIs da Noir State: fontes, cor, superfícies, transparência, controles, janelas e as regras de cada **tipo de interface**. A Parte 1 vale para toda interface; a Parte 2 descreve os tipos (hoje, o **Menu Lateral** e a **Janela de Compra**) e cresce conforme novos tipos forem criados.
 
-> Nasceu na garagem (`resources/[noir]/noir_garage/web`), que é a implementação de referência: `src/index.css` (tokens e visual), `src/components/Menu.tsx` (coluna do menu lateral), `src/components/Modal.tsx` e `Dialogs.tsx` (janela central), `src/app/GarageApp.tsx` e `src/app/EditorApp.tsx` (dois usos do menu lateral).
+> Nasceu na garagem (`resources/[noir]/noir_garage/web`), que é a implementação de referência: `src/index.css` (tokens e visual), `src/components/Menu.tsx` (coluna do menu lateral), `src/components/Modal.tsx` e `Dialogs.tsx` (janela central), `src/app/GarageApp.tsx` e `src/app/EditorApp.tsx` (dois usos do menu lateral). A Janela de Compra tem referência própria no `noir_shops` (§JC).
 
 ## 0. Precedência
 
@@ -212,9 +212,9 @@ Cada tipo define **composição e comportamento**; a aparência vem da Parte 1. 
 
 ### ML.1 Quando usar
 
-Interação aberta **num ponto do mundo** com uma lista de escolhas e poucos níveis: garagem, pátio, loja de balcão, serviços (chaves, aluguel), escolha de rota, editor de pontos de admin. A cena continua visível e útil (o carro na prévia, o balcão).
+Interação aberta **num ponto do mundo** com uma lista de escolhas e poucos níveis: garagem, pátio, serviços de balcão com poucas opções (chaves, aluguel), escolha de rota, editor de pontos de admin. A cena continua visível e útil (o carro na prévia, o balcão).
 
-Não use para gestão densa (tabelas, históricos longos, permissões em massa): isso é janela de comando.
+Não use para gestão densa (tabelas, históricos longos, permissões em massa): isso é janela de comando. Catálogo com imagem e carrinho (comprar vários itens de uma vez) é Janela de Compra (§JC).
 
 ### ML.2 Layout: colunas na borda direita
 
@@ -335,6 +335,120 @@ O mesmo menu lateral serve para editar dados (ex.: `/garagem`):
 - [ ] clicar de novo no submenu aberto fecha a coluna;
 - [ ] digitar/confirmar em janela central (Parte 1 §6);
 - [ ] preview no navegador com mocks dos casos difíceis (Parte 1 §10).
+
+---
+
+## Janela de Compra
+
+Implementação de referência: `resources/[noir]/noir_shops/html` — `ui.html` (marcação da loja), `css/shop.css` (visual, escopo `.store-app`), funções `renderItems`/`renderCart`/`setPaymentModal` em `js/script.js`; preview em `dev/`.
+
+### JC.1 Quando usar
+
+Comprar **vários itens de uma vez** num ponto do mundo, escolhendo pela imagem: loja de conveniência, bebidas, ferramentas, Ammu-Nation, qualquer NPC que vende catálogo. O jogador monta um carrinho e paga uma vez.
+
+Não use quando:
+- a escolha é **uma coisa só** ou um serviço (chave, aluguel, reparo): Menu Lateral;
+- é venda **do jogador para o NPC** ou troca item por item: isso é inventário (ox_inventory);
+- o catálogo tem 1–2 itens sem quantidade: uma confirmação na janela central basta.
+
+### JC.2 Layout: janela central com duas áreas
+
+```text
+┌──────────────────────────────────────────────────────────────┬──────────────────┐
+│ LOJA DE CONVENIÊNCIA                                          │               ✕  │  cabeçalho 88 px
+├──────────────────────────────────────────────────────────────┼──────────────────┤
+│ [🔍 Buscar item                                            ]  │ CARRINHO         │
+│ [TODOS] [COMIDA] [BEBIDA]                                     │ BURGER      $20 🗑│
+│ ┌────────┐ ┌────────┐ ┌────────┐                              │ 2 × $10          │
+│ │  img   │ │  img   │ │  img   │   (grade rola aqui)          │ ÁGUA        $10 🗑│
+│ │ BURGER │ │ ÁGUA   │ │ SPRUNK │                              │                  │
+│ │ $10    │ │ $10    │ │ $10    │                              │ Total      $280  │
+│ │[-1+][ADICIONAR]   │ │ ...    │                              │ [FINALIZAR COMPRA]│
+│ └────────┘ └────────┘ └────────┘                              │                  │
+└──────────────────────────────────────────────────────────────┴──────────────────┘
+                                                                   [ESC] FECHAR   (canto inf. dir. da tela)
+```
+
+- Janela no centro, `width: min(1120px, 100vw - 96px)`, `height: min(720px, 100vh - 120px)`: **altura fixa**, não cresce com o catálogo — só a grade e a lista do carrinho rolam.
+- Superfície de **painel ativo** (Parte 1 §2.1), raio 2 px, sem borda e sem sombra; **sem overlay** atrás (a cena do balcão continua visível). Entra em 240 ms subindo 16 px.
+- Duas áreas lado a lado: **catálogo** (flexível, à esquerda) e **carrinho** (340 px fixos, à direita, fundo `rgba(0,0,0,.22)` sobre o painel).
+- Uma janela só — sem colunas, sem submenus. Categoria é filtro (aba), não navegação.
+
+### JC.3 Anatomia
+
+**Cabeçalho** (88 px)
+- Título em display 34 px com o **nome da loja** (`LOJA DE CONVENIÊNCIA`, `AMMU-NATION`); gradiente de cabeçalho, sem divisor.
+- X (ícone 40 px) no canto direito: fecha a loja.
+
+**Catálogo**
+- **Busca** primeiro (campo 40 px, Parte 1 §8), placeholder `Buscar item`; X de limpar dentro do campo quando há texto.
+- **Abas de categoria** abaixo da busca: display 14 px 700 caixa alta, 32 px de altura, raio 2 px; ativa = seleção branca com texto escuro; inativas = `--noir-panel-raised` com borda. `TODOS` sempre primeira. Sem categoria nos itens → sem abas.
+- **Grade** `repeat(auto-fill, minmax(196px, 1fr))`, espaço de 12 px; em 1200 px de janela cabem 3 colunas.
+- Nenhum resultado: linha informativa em texto (`Nenhum item encontrado.`), não card vazio.
+
+**Card de item**
+- Bloco de destaque `rgba(255,255,255,.04)` (hover `.07`), raio 2 px, padding 16 px, **sem borda, sem sombra, sem subir no hover**.
+- Imagem 80 px centrada numa área de 96 px (altura fixa: nomes curtos e longos alinham).
+- Nome em display 18 px 500 caixa alta, **uma linha** com reticências; preço em texto 16 px 600 tabular, cor de texto (não acento).
+- Ações na base: seletor de quantidade `[– 1 +]` (campo 40 px, raio 2 px) + botão **ADICIONAR** (secundário, ocupa o resto). O botão não repete o preço.
+- Item que exige licença: ícone discreto no canto superior direito (`fa-id-card`, texto muted). Item sem a licença **não aparece** (o servidor recusa de novo no checkout).
+- Preço variável (preço dinâmico): valor em `--noir-warning`, sem animação.
+
+**Carrinho**
+- Título `CARRINHO` em display 22 px 700.
+- Linhas de lista (raio 0, divisor embaixo, mín. 56 px): nome em display 18 px 500 + descrição `2 × $10` (12,5 px muted); **subtotal à direita** em 14 px 600 tabular; lixeira como ícone 32 px (muted → perigo no hover).
+- Mesmo item adicionado de novo **soma na linha existente** (respeitando o máximo), não duplica.
+- Vazio: linha informativa `Seu carrinho está vazio`.
+- Rodapé fixo com divisor em cima: linha `Total` (texto muted à esquerda, valor em display 26 px 700 à direita) e, abaixo, **FINALIZAR COMPRA** em botão de confirmar (verde, 44 px, largura toda). Carrinho vazio → botão desabilitado (`opacity .35`). O total fica **fora do botão** (Parte 1 §5).
+
+**Janela de pagamento** (janela central, Parte 1 §6)
+- Título `FORMA DE PAGAMENTO` + X; linha `Total da compra ........ $280`; frase `Escolha como pagar.`.
+- Rodapé em **duas metades iguais**: `DINHEIRO` e `CARTÃO`, ambos secundários (branco no hover). Não há verde aqui: são duas ações equivalentes, e cancelar é o X/Esc.
+- Foco inicial em `DINHEIRO`; com a janela aberta, as teclas visíveis somem.
+
+**Teclas visíveis**: `[ESC] FECHAR` no canto inferior direito (Parte 1 §7).
+
+### JC.4 Interação
+
+| Entrada | Ação |
+|---|---|
+| clique em ADICIONAR | põe a quantidade escolhida no carrinho e volta o seletor para 1 |
+| `–` / `+` / digitar | quantidade de 1 até o máximo do item |
+| lixeira | remove a linha inteira |
+| FINALIZAR COMPRA | abre a janela de pagamento |
+| DINHEIRO / CARTÃO | envia o carrinho e fecha a loja; o resultado vem por notificação |
+| Esc | com a janela de pagamento aberta, fecha só ela; senão, fecha a loja |
+
+- O cliente só **monta** o carrinho: preço, quantidade inteira, máximo por item, licença, cargo, distância do balcão e dinheiro são **validados no servidor** (o carrinho que chega é tratado como sugestão).
+- Valores em dinheiro formatados em pt-BR (`$1.000`), tabulares.
+
+### JC.5 Variações
+
+- **Loja restrita** (emprego/gangue): mesma janela; quem não tem acesso não vê o atendente nem o blip.
+- **Catálogo pequeno** (≤ 3 itens, sem categoria): mesma janela, sem abas; a grade simplesmente não enche.
+- **Preview no navegador** (Parte 1 §10): `dev/` fora do fxmanifest, com cenários de cada tipo de loja, com e sem licença e um catálogo de 10 itens para ver a rolagem. A NUI roda num iframe do tamanho da janela em pixel 1:1 (`?res=1920x1080` simula outra resolução).
+
+### JC.6 Antipadrões
+
+- Janela que cresce/encolhe com o catálogo, ou página inteira rolando em vez da grade.
+- Card que sobe, brilha ou aumenta a imagem no hover.
+- Preço dentro do botão (`ADICIONAR $10`, `PAGAR $280`).
+- Cor de acento de serviço em preço, título ou aba ativa (a seleção é branca).
+- Overlay escuro atrás da loja (só com a janela de pagamento aberta).
+- Carrinho com cards arredondados em vez de linhas.
+- Confiar em preço/quantidade vindos da NUI.
+
+### JC.7 Checklist
+
+- [ ] janela central de altura fixa; só grade e carrinho rolam; sem overlay;
+- [ ] busca primeiro, abas de categoria com seleção branca, "nenhum resultado" como linha;
+- [ ] card sem borda/sombra/movimento; imagem em área fixa; nome em uma linha; preço tabular;
+- [ ] quantidade + ADICIONAR secundário no card; soma na linha existente do carrinho;
+- [ ] total fora do botão; FINALIZAR COMPRA verde, desabilitado com carrinho vazio;
+- [ ] pagamento em janela central com duas metades; Esc fecha só ela;
+- [ ] `[ESC] FECHAR` no canto; somem com a janela aberta;
+- [ ] servidor valida tudo (distância, quantidade inteira, máximo, licença, forma de pagamento);
+- [ ] preview no navegador com lista longa e item com licença.
 
 ---
 
