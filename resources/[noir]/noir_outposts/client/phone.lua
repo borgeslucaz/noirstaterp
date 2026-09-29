@@ -123,14 +123,7 @@ CreateThread(function()
     end
 end)
 
-AddEventHandler('onClientResourceStart', function(resource)
-    if resource ~= 'sd-phone' then return end
-    registered = false
-    CreateThread(function()
-        Wait(2000)
-        register()
-    end)
-end)
+-- Restart do telefone não pede nada aqui: o bgrz_core reidrata o registro sozinho.
 
 AddEventHandler('onClientResourceStop', function(resource)
     if resource ~= GetCurrentResourceName() then return end

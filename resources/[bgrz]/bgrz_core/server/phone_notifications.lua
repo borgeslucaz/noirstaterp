@@ -10,6 +10,9 @@ local notificationFields = {
 }
 
 
+-- Ícone/agrupamento no telefone quando o caller não informa o app de origem.
+local DEFAULT_APP_ID = 'noir'
+
 local function normalizePayload(payload)
     if type(payload) ~= 'table' or type(payload.title) ~= 'string'
         or #payload.title == 0 or #payload.title > notificationFields.title then
@@ -37,13 +40,21 @@ function BGRZ.SendPhoneNotification(source, payload)
     local normalized = normalizePayload(payload)
     if not normalized then return false, 'invalid_payload' end
 
-    local provider = BGRZ.Provider.name('phone')
     if not BGRZ.Provider.isAvailable('phone') then return false, 'provider_unavailable' end
-    local called, sent = pcall(function()
-        return exports[provider]:notify(source, normalized)
+    -- O sky_phone só notifica por export nativo em nome de um app com policy de servidor. A
+    -- notificação solta, por source, ele expõe no alias de compatibilidade qs-smartphone, que vai
+    -- direto para o sistema de notificações dele. O alias não devolve resultado: jogador sem
+    -- telefone equipado simplesmente não recebe.
+    local appId = normalized.appId
+    if not appId or not appId:match('^[a-z0-9][a-z0-9._-]+$') then appId = DEFAULT_APP_ID end
+    local called = pcall(function()
+        exports['qs-smartphone']:sendPhoneNotification(source, {
+            appId = appId,
+            title = normalized.title,
+            body = normalized.body or normalized.title,
+        })
     end)
     if not called then return false, 'provider_unavailable' end
-    if sent ~= true then return false, 'notification_failed' end
     return true
 end
 

@@ -1376,6 +1376,15 @@ T.equal(N.Entities.spawned[2], true, 'victim has a ped')
 
 -- Chamado para a polícia. Sem ele, executar os corredores é a forma silenciosa de atacar um
 -- posto: não rende loot, não acorda ninguém, e o dono só descobre pelo telefone.
+-- O resto do cenário roda com o stub de Notification, que só conta. Aqui o que se prova é o
+-- chamado de verdade (payload e cooldown por posto), então o maybeDispatch real entra no stub —
+-- é a mesma tabela que o dealer_service capturou — e sai no fim do bloco.
+local stubNotification = N.Services.Notification
+local stubMaybeDispatch = stubNotification.maybeDispatch
+dofile('server/services/notification_service.lua')
+stubNotification.maybeDispatch = N.Services.Notification.maybeDispatch
+N.Services.Notification = stubNotification
+
 local dispatchesBefore = #dispatches
 State.get(OUTPOST).dispatchUntil = 0
 local realKillDispatch = serverConfig.dealers.dispatchChance
@@ -1395,6 +1404,7 @@ T.equal(killCall.jobs[1], serverConfig.police.jobs[1], 'the call goes to the pol
 T.truthy(State.get(OUTPOST).dispatchUntil > os.time(),
     'the first kill arms the per-outpost dispatch cooldown')
 serverConfig.dealers.dispatchChance = realKillDispatch
+stubNotification.maybeDispatch = stubMaybeDispatch
 T.equal(State.dealer(2).status, C.DealerStatus.RECOVERING, 'killed runner is recovering')
 T.equal(N.Entities.corpses[2], true, 'the body stays where it fell')
 T.equal(N.Entities.spawned[2], true, 'the corpse is not deleted on the spot')

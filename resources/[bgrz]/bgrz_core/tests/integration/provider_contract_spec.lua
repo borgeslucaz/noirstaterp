@@ -19,15 +19,16 @@ for _, name in ipairs({ 'addEntity', 'removeEntity', 'addLocalEntity', 'removeLo
     contains(target, 'function api.' .. name, 'ox_target')
 end
 
-local phoneClient = read('../../[standalone]/sd-phone/client/main.lua')
-contains(phoneClient, "exports('addCustomApp'", 'sd-phone custom app')
-contains(phoneClient, "exports('removeCustomApp'", 'sd-phone custom app cleanup')
+local phoneApi = read('../../[standalone]/sky_phone/source/client/custom_apps.lua')
+for _, name in ipairs({
+    'AddCustomAppFromAdapter', 'UpdateCustomAppFromAdapter',
+    'RemoveCustomAppFromAdapter', 'SendCustomAppMessageFromAdapter',
+}) do
+    contains(phoneApi, name .. ' = ', 'sky_phone custom app')
+end
 
-local phoneNotifications = read('../../[standalone]/sd-phone/server/notifications/init.lua')
-contains(phoneNotifications, "exports('notify'", 'sd-phone notification')
-
-local phoneDispatch = read('../../[standalone]/sd-phone/server/mdt/init.lua')
-contains(phoneDispatch, "exports('mdtCreateCall'", 'sd-phone dispatch')
+local phoneConfig = read('../../[standalone]/sky_phone/config/config.lua')
+contains(phoneConfig, 'bgrz_core = true', 'sky_phone trusted adapter')
 
 local policeClient = read('../../[qbx]/qbx_police/client/main.lua')
 contains(policeClient, "RegisterNetEvent('police:client:policeAlert'", 'qbx_police fallback')

@@ -49,17 +49,36 @@ local function validDefinition(definition)
     return true
 end
 
-local function addToProvider(definition)
+-- Contrato do bridge -> manifesto do sky_phone. O app é registrado em nome de quem chamou
+-- (owner), com o bgrz_core como adapter: o sky_phone exige que a UI e o ícone sejam do owner, e
+-- o bgrz_core precisa estar em Config.CustomApps.TrustedAdapters do sky_phone.
+local function providerDefinition(definition)
+    return {
+        id = definition.identifier,
+        name = definition.name,
+        description = definition.description,
+        developer = definition.developer,
+        ui = definition.ui,
+        icon = definition.icon,
+        defaultInstalled = definition.defaultApp == true,
+    }
+end
+
+---@param update boolean? o owner já tem este app no telefone; o sky_phone recusa add repetido
+local function addToProvider(owner, definition, update)
     local provider = BGRZ.Provider.name('phone')
     if not BGRZ.Provider.isAvailable('phone') then return false, 'provider_unavailable' end
+    local manifest = providerDefinition(definition)
     local called, ok, providerError = pcall(function()
-        return exports[provider]:addCustomApp(copyTable(definition))
+        if update then
+            local updated, updateError = exports[provider]:UpdateCustomAppFromAdapter(owner, manifest)
+            if updated or updateError ~= 'app_not_found' then return updated, updateError end
+        end
+        return exports[provider]:AddCustomAppFromAdapter(owner, manifest)
     end)
     if not called then return false, 'provider_unavailable' end
     if ok ~= true then
-        if type(providerError) == 'string'
-            and (providerError:find('registered', 1, true)
-                or providerError:find('reserved', 1, true)) then
+        if providerError == 'duplicate_app_id' or providerError == 'reserved_app_id' then
             return false, 'identifier_collision'
         end
         return false, 'registration_failed'
@@ -82,7 +101,7 @@ function BGRZ.RegisterPhoneApp(definition)
     end
 
     local normalized = copyTable(definition)
-    local ok, err = addToProvider(normalized)
+    local ok, err = addToProvider(caller, normalized, existing ~= nil)
     if not ok then return false, err end
     registrations[identifier] = { owner = caller, definition = normalized }
     return true
@@ -93,7 +112,7 @@ local function removeRegistration(identifier)
     if not registration then return end
     local provider = BGRZ.Provider.name('phone')
     if BGRZ.Provider.isAvailable('phone') then
-        pcall(function() exports[provider]:removeCustomApp(identifier) end)
+        pcall(function() exports[provider]:RemoveCustomAppFromAdapter(registration.owner, identifier) end)
     end
     registrations[identifier] = nil
 end
@@ -115,7 +134,7 @@ local function rehydrateProvider(resource)
     table.sort(identifiers)
     for index = 1, #identifiers do
         local registration = registrations[identifiers[index]]
-        addToProvider(registration.definition)
+        addToProvider(registration.owner, registration.definition)
     end
 end
 
@@ -138,7 +157,7 @@ function BGRZ.SendPhoneAppMessage(identifier, message)
     local provider = BGRZ.Provider.name('phone')
     if not BGRZ.Provider.isAvailable('phone') then return false, 'provider_unavailable' end
     local called, ok = pcall(function()
-        return exports[provider]:sendCustomAppMessage(identifier, message)
+        return exports[provider]:SendCustomAppMessageFromAdapter(caller, identifier, message)
     end)
     if not called then return false, 'provider_unavailable' end
     if ok ~= true then return false, 'operation_failed' end

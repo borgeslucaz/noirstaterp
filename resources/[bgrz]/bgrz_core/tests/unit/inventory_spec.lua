@@ -11,8 +11,8 @@ function provider:AddItem(holder, item, amount, metadata)
     return true, { slot = 1 }
 end
 
-function provider:RemoveItem(holder, item, amount, metadata)
-    calls[#calls + 1] = { 'remove', holder, item, amount, metadata }
+function provider:RemoveItem(holder, item, amount, metadata, slot)
+    calls[#calls + 1] = { 'remove', holder, item, amount, metadata, slot }
     return amount ~= 9, amount == 9 and 'not_enough_items' or nil
 end
 
@@ -206,5 +206,23 @@ provider.Search = function() error('provider exploded') end
 local boom, boomErr = BGRZ.HasItemDurability(12, 'pickaxe', 1)
 T.equal(boom, false, 'exceção do provider não sobe')
 T.equal(boomErr, 'provider_unavailable', 'exceção vira código tratado')
+
+-- Remover pelo metadata --------------------------------------------------------------------
+
+provider.Search = function(_, holder, search, item)
+    return {
+        { slot = 1013, count = 1, metadata = { plate = 'CRG00001', noirHaul = true, label = 'CHAVE-CRG00001' } },
+        { slot = 4, count = 1, metadata = { plate = 'ABC12345', label = 'CHAVE-ABC12345' } },
+        { slot = 9, count = 1, metadata = { plate = 'CRG00002', noirHaul = true } },
+    }
+end
+calls = {}
+local removedOk, removed = BGRZ.RemoveItemsWithMetadata(12, 'vehiclekey', { noirHaul = true })
+T.truthy(removedOk, 'remove pelo metadata')
+T.equal(removed, 2, 'só os slots com a marca')
+T.equal(calls[1][6], 1013, 'inclusive o slot de equipamento')
+T.equal(calls[2][6], 9, 'e o slot comum')
+T.equal(#calls, 2, 'a chave do carro próprio fica')
+T.equal(select(2, BGRZ.RemoveItemsWithMetadata(12, 'vehiclekey', {})), 'invalid_metadata', 'marca vazia removeria tudo: recusada')
 
 print('inventory_spec: ok')

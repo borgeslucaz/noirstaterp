@@ -4,11 +4,12 @@ BGRZConfig = {
     Providers = {
         inventory = 'ox_inventory',
         target = 'ox_target',
-        phone = 'sd-phone',
-        dispatch = 'sd-phone',
+        phone = 'sky_phone',
+        -- Sem MDT com chamado na base: o dispatch vai direto para o dispatchFallback.
         dispatchFallback = 'qbx_police',
         banking = 'Renewed-Banking',
         gangs = 'noir_gangs',
+        vehiclekeys = 'mri_Qcarkeys',
     },
     Limits = {
         maxItemAmount = 100000,

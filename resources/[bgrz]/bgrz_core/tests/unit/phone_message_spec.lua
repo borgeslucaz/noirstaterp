@@ -1,21 +1,21 @@
 local T = dofile('tests/testlib.lua')
 
 BGRZ = {}
-BGRZConfig = { Providers = { phone = 'sd-phone' } }
+BGRZConfig = { Providers = { phone = 'sky_phone' } }
 local state = 'started'
 local caller = 'noir_outposts'
 local sent = {}
 local providerResult = true
 local provider = {}
 
-function provider:addCustomApp() return true end
-function provider:removeCustomApp() return true end
-function provider:sendCustomAppMessage(identifier, message)
-    sent[#sent + 1] = { identifier = identifier, message = message }
+function provider:AddCustomAppFromAdapter() return true end
+function provider:RemoveCustomAppFromAdapter() return true end
+function provider:SendCustomAppMessageFromAdapter(owner, identifier, message)
+    sent[#sent + 1] = { owner = owner, identifier = identifier, message = message }
     return providerResult
 end
 
-exports = T.exports({ ['sd-phone'] = provider })
+exports = T.exports({ sky_phone = provider })
 GetResourceState = function() return state end
 GetInvokingResource = function() return caller end
 GetCurrentResourceName = function() return 'bgrz_core' end
@@ -35,6 +35,7 @@ ok, err = BGRZ.SendPhoneAppMessage('exchange', { action = 'state', data = { a = 
 T.equal(ok, true, 'owner message sent')
 T.equal(err, nil, 'owner message no error')
 T.equal(sent[#sent].identifier, 'exchange', 'identifier forwarded')
+T.equal(sent[#sent].owner, 'noir_outposts', 'message sent in the owner name')
 T.equal(sent[#sent].message.action, 'state', 'message forwarded')
 
 ok, err = BGRZ.SendPhoneAppMessage('exchange', 'text')

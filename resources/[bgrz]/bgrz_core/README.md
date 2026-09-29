@@ -11,7 +11,7 @@ Camada de abstração dos resources Noir/BGRZ sobre Qbox e providers substituív
     version = '0.5.0',
     inventory = { available = boolean, provider = 'ox_inventory', maxItemAmount = 100000 },
     target = { available = boolean, provider = 'ox_target' },
-    phone = { available = boolean, provider = 'sd-phone' },
+    phone = { available = boolean, provider = 'sky_phone' },
     dispatch = { available = boolean, provider = string|nil },
 }
 ```
@@ -91,18 +91,20 @@ local ok, err = exports.bgrz_core:RegisterPhoneApp(definition)
 local ok, err = exports.bgrz_core:SendPhoneNotification(source, payload)
 ```
 
-Apps são registrados por caller. Identificadores não podem colidir entre resources; registros são reidratados após restart do `sd-phone` e removidos quando o dono para. O gate visual de app não substitui autorização server-side.
+Apps são registrados por caller. Identificadores não podem colidir entre resources; registros são reidratados após restart do `sky_phone` e removidos quando o dono para. Registrar de novo o mesmo identificador, pelo mesmo dono, atualiza o app. O gate visual de app não substitui autorização server-side.
+
+No `sky_phone` o bridge usa a API de adapter (`AddCustomAppFromAdapter`, `UpdateCustomAppFromAdapter`, `RemoveCustomAppFromAdapter`, `SendCustomAppMessageFromAdapter`): o app fica em nome do resource que chamou, e por isso `ui` e `icon` precisam ser URLs `https://cfx-nui-<dono>/...`. O `bgrz_core` precisa estar em `Config.CustomApps.TrustedAdapters` do `sky_phone`. Da definição, vão para o telefone `identifier` (como `id`), `name`, `description`, `developer`, `ui`, `icon` e `defaultApp` (como `defaultInstalled`); `requires` é validado mas o `sky_phone` não tem gate por item.
+
+`SendPhoneNotification` vai pelo alias de compatibilidade `qs-smartphone:sendPhoneNotification` do `sky_phone`, que notifica por source sem exigir policy de app. `appId` agrupa a notificação no telefone (sem ele, ou fora do formato `^[a-z0-9][a-z0-9._-]+$`, vai como `noir`); sem `body`, o texto repete o título. O alias não devolve resultado: jogador sem telefone equipado não recebe, e o retorno continua `true`.
 
 ```lua
 -- client: envia uma mensagem para a UI do app registrado pelo próprio caller
 local ok, err = exports.bgrz_core:SendPhoneAppMessage('exchange', { action = 'state', data = snapshot })
 ```
 
-Do ponto de vista do `sd-phone`, quem registrou o app é o **bridge**, porque é ele que invoca
-o export. Então o `resourceName` que o provider injeta na página do app aponta para
-`bgrz_core`, não para o resource dono. A página do app não deve usar esse valor para montar
-a URL dos próprios callbacks: use `GetParentResourceName()`, ou derive de `location.hostname`,
-que vem como `cfx-nui-<resource>`.
+A página do app não deve confiar no `resourceName` que o telefone injeta para montar a URL
+dos próprios callbacks: use `GetParentResourceName()`, ou derive de `location.hostname`, que
+vem como `cfx-nui-<resource>`.
 
 Somente o resource dono do identificador pode enviar mensagens. A mensagem chega ao iframe do app via `window.postMessage`. Códigos: `invalid_identifier`, `invalid_message`, `not_registered`, `not_owner`, `provider_unavailable`, `operation_failed`.
 
@@ -144,6 +146,28 @@ o próprio loop de respawn dele executa no segundo seguinte, sem correr junto co
 `bgrz_core:client:playerRespawned` sai quando o respawn no hospital é aceito — o jogador ainda
 fica com `isDead` até levantar da cama.
 
+## Remover pelo metadata (server)
+
+```lua
+local ok, removed = exports.bgrz_core:RemoveItemsWithMetadata(source, 'vehiclekey', { noirHaul = true })
+```
+
+Remove todo slot do item, inclusive os de equipamento, cujo metadata contém os campos
+pedidos. Os demais campos do slot não importam. Uma marca vazia é recusada, porque
+removeria todos os slots do item.
+
+## Veículo (server)
+
+```lua
+local netId, vehicle = exports.bgrz_core:SpawnVehicle(source, model, coords, warp, plate)
+local ok = exports.bgrz_core:GiveVehicleKeys(source, vehicle, plate)
+```
+
+`SpawnVehicle` cria no servidor e já entrega a chave. A chave é temporária, do provider
+`vehiclekeys` (`mri_Qcarkeys`, pelo `GiveTempKeys`). O `qbx_vehiclekeys` não existe mais aqui.
+Quem troca a placa deve passá-la em `GiveVehicleKeys`, porque logo depois de
+`SetVehicleNumberPlateText` o servidor ainda pode ler a placa antiga.
+
 ## Dispatch (server)
 
 ```lua
@@ -158,7 +182,7 @@ local ok, resultOrError = exports.bgrz_core:SendDispatch({
 })
 ```
 
-Coordenadas explícitas e finitas são obrigatórias. O adapter tenta `sd-phone:mdtCreateCall`; se o MDT recusar ou falhar, envia `police:client:policeAlert` diretamente apenas aos jobs configurados e em serviço. Em sucesso, o segundo retorno informa `provider`, e também `id` ou `recipients` conforme o caminho.
+Coordenadas explícitas e finitas são obrigatórias. Se `Providers.dispatch` apontar para um MDT com `mdtCreateCall`, o adapter tenta ele primeiro. Nesta base não há nenhum (o `ps-mdt` não cria chamado por export), então vai direto ao fallback: envia `police:client:policeAlert` diretamente apenas aos jobs configurados e em serviço. Em sucesso, o segundo retorno informa `provider`, e também `id` ou `recipients` conforme o caminho.
 
 ## Testes
 

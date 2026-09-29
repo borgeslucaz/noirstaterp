@@ -272,6 +272,47 @@ function BGRZ.ConsumeItemDurability(holder, item, cost)
     return true, nil, remaining
 end
 
+---Remove todo slot do item cujo metadata contém os campos de `match` (os demais campos do
+---slot não importam). Serve para recolher item marcado por um resource — a chave de um
+---veículo de missão que sobrou de uma sessão interrompida, por exemplo.
+---@param holder number|string
+---@param item string
+---@param match table campos que o metadata precisa ter, com os mesmos valores
+---@return boolean ok
+---@return string|integer errorOrRemoved quantidade removida, ou o código do erro
+function BGRZ.RemoveItemsWithMetadata(holder, item, match)
+    if not validateHolder(holder) then return false, 'invalid_holder' end
+    if type(item) ~= 'string' or #item == 0 or #item > 64 then return false, 'invalid_item' end
+    if type(match) ~= 'table' or next(match) == nil then return false, 'invalid_metadata' end
+    local provider = BGRZ.Provider.name('inventory')
+    if not BGRZ.Provider.isAvailable('inventory') then return false, 'provider_unavailable' end
+
+    local called, slots = pcall(function()
+        return exports[provider]:Search(holder, 'slots', item)
+    end)
+    if not called then return false, 'provider_unavailable' end
+
+    local removed = 0
+    for _, slot in ipairs(type(slots) == 'table' and slots or {}) do
+        local metadata = type(slot) == 'table' and slot.metadata or nil
+        local matches = type(metadata) == 'table' and type(slot.slot) == 'number'
+        if matches then
+            for key, value in pairs(match) do
+                if metadata[key] ~= value then matches = false break end
+            end
+        end
+        if matches then
+            local count = math.max(1, math.floor(tonumber(slot.count) or 1))
+            local ok = pcall(function()
+                return exports[provider]:RemoveItem(holder, item, count, nil, slot.slot)
+            end)
+            if ok then removed = removed + count end
+        end
+    end
+    return true, removed
+end
+
+exports('RemoveItemsWithMetadata', BGRZ.RemoveItemsWithMetadata)
 exports('GetItemList', BGRZ.GetItemList)
 exports('HasItemDurability', BGRZ.HasItemDurability)
 exports('ConsumeItemDurability', BGRZ.ConsumeItemDurability)

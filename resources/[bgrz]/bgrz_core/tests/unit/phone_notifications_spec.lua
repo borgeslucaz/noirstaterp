@@ -1,17 +1,17 @@
 local T = dofile('tests/testlib.lua')
 
 BGRZ = {}
-BGRZConfig = { Providers = { phone = 'sd-phone' } }
+BGRZConfig = { Providers = { phone = 'sky_phone' } }
 local state = 'started'
 local sent
-local provider = {}
+local alias = {}
 
-function provider:notify(source, payload)
+-- O sky_phone recebe a notificação solta pelo alias de compatibilidade qs-smartphone.
+function alias:sendPhoneNotification(source, payload)
     sent = { source = source, payload = payload }
-    return true
 end
 
-exports = T.exports({ ['sd-phone'] = provider })
+exports = T.exports({ sky_phone = {}, ['qs-smartphone'] = alias })
 GetResourceState = function() return state end
 
 dofile('shared/provider.lua')
@@ -29,7 +29,15 @@ T.equal(ok, true, 'notification sent')
 T.equal(err, nil, 'notification no error')
 T.equal(sent.source, 18, 'notification target')
 T.equal(sent.payload.title, 'Sale completed', 'notification title forwarded')
+T.equal(sent.payload.body, 'A runner completed a sale.', 'notification body forwarded')
+T.equal(sent.payload.appId, 'exchange', 'app id forwarded')
 T.equal(sent.payload.ignored, nil, 'unknown field removed')
+
+BGRZ.SendPhoneNotification(18, { title = 'Olheiro', body = 'Carga à vista.' })
+T.equal(sent.payload.appId, 'noir', 'missing app id falls back to the default')
+BGRZ.SendPhoneNotification(18, { title = 'Olheiro', appId = 'Bad Id!' })
+T.equal(sent.payload.appId, 'noir', 'invalid app id falls back to the default')
+T.equal(sent.payload.body, 'Olheiro', 'missing body reuses the title')
 T.equal(payload.ignored ~= nil, true, 'caller payload not mutated')
 
 ok, err = BGRZ.SendPhoneNotification(0, payload)
@@ -40,12 +48,7 @@ ok, err = BGRZ.SendPhoneNotification(18, { body = 'missing title' })
 T.equal(ok, false, 'invalid payload rejected')
 T.equal(err, 'invalid_payload', 'invalid payload code')
 
-provider.notify = function() return false end
-ok, err = BGRZ.SendPhoneNotification(18, payload)
-T.equal(ok, false, 'provider refusal returned')
-T.equal(err, 'notification_failed', 'provider refusal code')
-
-provider.notify = function() error('phone exploded') end
+alias.sendPhoneNotification = function() error('phone exploded') end
 ok, err = BGRZ.SendPhoneNotification(18, payload)
 T.equal(ok, false, 'provider exception returned')
 T.equal(err, 'provider_unavailable', 'provider exception code')

@@ -4,12 +4,13 @@ BGRZ.Provider = BGRZ.Provider or {}
 local defaults = {
     inventory = 'ox_inventory',
     target = 'ox_target',
-    phone = 'sd-phone',
-    dispatch = 'sd-phone',
+    phone = 'sky_phone',
+    -- Sem MDT com chamado na base: o dispatch vai direto para o dispatchFallback.
     dispatchFallback = 'qbx_police',
     banking = 'Renewed-Banking',
     gangs = 'noir_gangs',
     medical = 'qbx_medical',
+    vehiclekeys = 'mri_Qcarkeys',
 }
 
 ---@param capability string

@@ -189,7 +189,7 @@ function BGRZ.SpawnVehicle(source, model, coords, warp, plate)
     if plate then
         SetVehicleNumberPlateText(veh, plate)
     end
-    BGRZ.GiveVehicleKeys(source, veh)
+    BGRZ.GiveVehicleKeys(source, veh, plate)
     return netId, veh
 end
 

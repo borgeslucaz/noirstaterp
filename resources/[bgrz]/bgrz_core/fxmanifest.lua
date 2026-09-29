@@ -39,7 +39,7 @@ dependencies {
     'ox_lib',
     'qbx_core',
     'oxmysql',
-    'qbx_vehiclekeys',
+    'mri_Qcarkeys',
     'ox_inventory',
     'ox_target'
 }
