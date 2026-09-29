@@ -1,38 +1,26 @@
-local Config = require 'config'
+local Config = require 'config.server'
+local Rules = require 'shared.rules'
+local Storage = require 'server.storage'
+local Catalog = require 'server.catalog'
+local Security = require 'server.security'
+local Integrations = require 'server.integrations'
+require 'server.editor'
+
 local sessions, menuSessions, starting, returning, leaderboard = {}, {}, {}, {}, { at = 0, entries = {} }
 local schemaReady = false
 
-local function runMigrations()
-    local sql = LoadResourceFile(GetCurrentResourceName(), 'migrations/001_initial.sql')
-    if not sql or sql == '' then
-        error('Não foi possível carregar migrations/001_initial.sql.')
-    end
-
-    local executed = 0
-    for rawStatement in sql:gmatch('([^;]+);') do
-        local statement = rawStatement:match('^%s*(.-)%s*$')
-        if statement ~= '' then
-            if not statement:upper():match('^CREATE%s+TABLE%s+IF%s+NOT%s+EXISTS%s+') then
-                error(('Comando não permitido na migration: %s'):format(statement:sub(1, 80)))
-            end
-            MySQL.query.await(statement)
-            executed = executed + 1
-        end
-    end
-
-    if executed == 0 then
-        error('A migration não contém comandos executáveis.')
-    end
-
-    schemaReady = true
-    print(('[noir_busjob] Banco preparado (%d tabelas verificadas).'):format(executed))
-end
-
 MySQL.ready(function()
-    local ok, migrationError = pcall(runMigrations)
+    local ok, err = pcall(function()
+        local executed = Storage.migrate()
+        Catalog.load()
+        lib.print.info(('banco preparado (%d tabelas verificadas), catálogo com versão %d'):format(executed, Catalog.version))
+    end)
     if not ok then
-        print(('[noir_busjob] ^1Falha ao preparar o banco: %s^0'):format(migrationError))
+        lib.print.error(('falha ao preparar o banco ou o catálogo: %s'):format(err))
+        return
     end
+    schemaReady = true
+    TriggerClientEvent('noir_busjob:client:catalog', -1, Catalog.publicView())
 end)
 
 local State = { IDLE = 'IDLE', DEADHEAD = 'DEADHEAD', DOCKED = 'DOCKED', BOARDING = 'BOARDING', DEPARTING = 'DEPARTING', RETURNING_DEPOT = 'RETURNING_DEPOT', PARKING = 'PARKING', COMPLETING = 'COMPLETING', SUMMARY = 'SUMMARY', CANCELLED = 'CANCELLED' }
@@ -49,65 +37,64 @@ local function setBusState(session, nextState)
     return true
 end
 
-local function levelFor(xp)
-    local current = Config.progression[1]
-    for i = 1, #Config.progression do
-        if xp >= Config.progression[i].xp then current = Config.progression[i] else break end
-    end
-    return current.level, current
-end
-
-local function near(source, coords, radius)
-    local ped = GetPlayerPed(source)
-    return ped ~= 0 and #(GetEntityCoords(ped) - vec3(coords.x, coords.y, coords.z)) <= radius
-end
-
-local function character(source)
-    return exports.bgrz_core:GetCharacter(source)
-end
-
 local function getProfile(source)
-    local player = character(source)
+    local player = Integrations.character(source)
     if not player then return nil end
-    local row = MySQL.single.await('SELECT * FROM busjob_driver_profiles WHERE citizenid = ?', { player.citizenId })
+    local row = Storage.profile(player.citizenId)
     if not row then
-        MySQL.insert.await('INSERT INTO busjob_driver_profiles (citizenid, last_known_name) VALUES (?, ?)', { player.citizenId, player.name.full })
-        row = { citizenid = player.citizenId, last_known_name = player.name.full, level = 1, xp_total = 0, routes_completed = 0, stops_completed = 0, passengers_transported = 0, perfect_stops = 0, total_earned = 0, score_sum = 0 }
+        Storage.createProfile(player.citizenId, player.name.full)
+        row = { citizenid = player.citizenId, last_known_name = player.name.full, xp_total = 0, routes_completed = 0 }
     elseif row.last_known_name ~= player.name.full then
-        MySQL.update.await('UPDATE busjob_driver_profiles SET last_known_name = ? WHERE citizenid = ?', { player.name.full, player.citizenId })
-        row.last_known_name = player.name.full
+        Storage.renameProfile(player.citizenId, player.name.full)
     end
-    row.level = levelFor(tonumber(row.xp_total) or 0)
+    row.level = Catalog.levelFor(tonumber(row.xp_total) or 0)
     return row, player
 end
 
-local function routeView(routeId, level)
-    local route = Config.routes[routeId]
+---O que a tela da Central mostra de uma linha, já com o que falta para o jogador.
+local function routeView(source, route, level)
     local stops = {}
-    for i, stopId in ipairs(route.stops) do stops[i] = Config.stops[stopId].name end
-    return { id = routeId, code = route.code, name = route.name, minimumLevel = route.minimumLevel, vehicle = route.vehicle, stopCount = #route.stops, stops = stops, baseXp = route.reward.baseXp, available = level >= route.minimumLevel }
+    for index, id in ipairs(route.stops) do stops[index] = Catalog.stops[id] and Catalog.stops[id].name or '?' end
+    local vehicles = {}
+    for _, model in ipairs(route.vehicles) do
+        local vehicle = Catalog.vehicles[model]
+        if vehicle and vehicle.enabled then
+            vehicles[#vehicles + 1] = { model = model, label = vehicle.label, capacity = vehicle.capacity, minLevel = vehicle.minLevel, unlocked = level >= vehicle.minLevel }
+        end
+    end
+    local unlockedVehicle = #Catalog.vehiclesFor(route, level) > 0
+    local allowed = Integrations.hasGroupAccess(source, route.access.groups)
+    return {
+        id = route.id, code = route.code, name = route.name, minimumLevel = route.minLevel,
+        vehicle = vehicles[1] and vehicles[1].label or '—', vehicles = vehicles,
+        stopCount = #route.stops, stops = stops, baseXp = route.baseXp,
+        restricted = next(route.access.groups) ~= nil, allowed = allowed,
+        available = level >= route.minLevel and unlockedVehicle and allowed,
+    }
 end
 
 local function rankingFor(citizenid)
     local now = GetGameTimer()
     if now - leaderboard.at > 45000 then
-        local rows = MySQL.query.await([[SELECT last_known_name, level, xp_total, routes_completed, score_sum / NULLIF(routes_completed, 0) average_score
-            FROM busjob_driver_profiles ORDER BY xp_total DESC, routes_completed DESC, average_score DESC, passengers_transported DESC LIMIT 50]]) or {}
         leaderboard.entries = {}
-        for i, row in ipairs(rows) do leaderboard.entries[i] = { rank = i, name = row.last_known_name, level = row.level, xp = row.xp_total, routes = row.routes_completed, averageScore = tonumber(row.average_score) or 0 } end
+        for i, row in ipairs(Storage.leaderboard()) do
+            leaderboard.entries[i] = { rank = i, name = row.last_known_name, level = row.level, xp = row.xp_total, routes = row.routes_completed, averageScore = tonumber(row.average_score) or 0 }
+        end
         leaderboard.at = now
     end
-    local position = MySQL.scalar.await([[SELECT COUNT(*) + 1 FROM busjob_driver_profiles o JOIN busjob_driver_profiles p ON p.citizenid = ?
-        WHERE o.xp_total > p.xp_total OR (o.xp_total = p.xp_total AND o.routes_completed > p.routes_completed)
-        OR (o.xp_total = p.xp_total AND o.routes_completed = p.routes_completed AND (o.score_sum / NULLIF(o.routes_completed, 0)) > (p.score_sum / NULLIF(p.routes_completed, 0))) ]], { citizenid }) or 1
-    return leaderboard.entries, position
+    return leaderboard.entries, Storage.rankOf(citizenid)
 end
 
 local function menuSnapshot(source)
     local profile, player = getProfile(source)
     if not profile then return nil end
     local routes = {}
-    for id in pairs(Config.routes) do routes[#routes + 1] = routeView(id, profile.level) end
+    for _, route in pairs(Catalog.routes) do
+        -- Linha restrita a grupo só aparece para quem é do grupo.
+        if Catalog.routeUsable(route) and (next(route.access.groups) == nil or Integrations.hasGroupAccess(source, route.access.groups)) then
+            routes[#routes + 1] = routeView(source, route, profile.level)
+        end
+    end
     table.sort(routes, function(a, b)
         if a.minimumLevel ~= b.minimumLevel then return a.minimumLevel < b.minimumLevel end
         local aNumber = tonumber(a.code:match('%d+')) or math.huge
@@ -116,27 +103,27 @@ local function menuSnapshot(source)
         return a.code < b.code
     end)
     local entries, rank = rankingFor(player.citizenId)
-    local level, tier = levelFor(profile.xp_total)
+    local level, tier = Catalog.levelFor(tonumber(profile.xp_total) or 0)
     local active = sessions[source]
-    local activeRoute = active and Config.routes[active.routeId] or nil
+    local progression = Catalog.progression()
     return {
         profile = {
             displayName = player.name.full,
             level = level,
             title = tier.title,
             xp = profile.xp_total,
-            nextXp = Config.progression[level + 1] and Config.progression[level + 1].xp or nil,
+            nextXp = progression[level + 1] and progression[level + 1].xp or nil,
             routes = profile.routes_completed,
             rank = rank,
         },
         routes = routes,
-        progression = Config.progression,
+        progression = progression,
         leaderboard = entries,
-        activeRoute = activeRoute and {
-            id = active.routeId,
-            code = activeRoute.code,
-            name = activeRoute.name,
-            vehicle = active.vehicleModel,
+        activeRoute = active and {
+            id = active.route.id,
+            code = active.route.code,
+            name = active.route.name,
+            vehicle = active.vehicle.model,
             state = active.state,
         } or nil,
     }
@@ -149,7 +136,18 @@ local function validBus(source, session)
     return vehicle
 end
 
-local function prepareStopPassengers(session, route)
+---Hora do servidor dentro de uma janela de pico?
+local function peakNow()
+    local peak = Catalog.settings.peak
+    if not peak.enabled then return false end
+    local hour = tonumber(os.date('%H'))
+    for _, window in ipairs(peak.windows) do
+        if hour >= window.from and hour < window.to then return true end
+    end
+    return false
+end
+
+local function prepareStopPassengers(session)
     if session.preparedStop and session.preparedStop.index == session.currentStopIndex then
         return session.preparedStop
     end
@@ -159,11 +157,14 @@ local function prepareStopPassengers(session, route)
         if session.passengers[i].destination == session.currentStopIndex then dropped = dropped + 1 end
     end
 
-    local capacity = Config.vehicleProfiles[route.vehicle].capacity
+    local passenger = Catalog.settings.passenger
+    local capacity = session.vehicle.capacity
     local remaining = #session.passengers - dropped
     local board = 0
-    if session.currentStopIndex < #route.stops then
-        board = math.min(capacity - remaining, math.random(Config.passenger.minDemand, Config.passenger.maxDemand))
+    if session.currentStopIndex < #session.route.stops then
+        local maxDemand = passenger.maxDemand
+        if peakNow() then maxDemand = math.ceil(maxDemand * Catalog.settings.peak.demandMultiplier) end
+        board = math.max(0, math.min(capacity - remaining, math.random(passenger.minDemand, math.max(passenger.minDemand, maxDemand))))
     end
 
     session.preparedStop = { index = session.currentStopIndex, board = board, drop = dropped }
@@ -180,8 +181,15 @@ local function cleanup(source)
     TriggerClientEvent('noir_busjob:client:cleanup', source)
 end
 
+lib.callback.register('noir_busjob:server:catalog', function()
+    if not Catalog.isReady() then return nil end
+    return Catalog.publicView()
+end)
+
 lib.callback.register('noir_busjob:server:openMenu', function(source)
     if not schemaReady then return { ok = false, code = 'storage_unavailable' } end
+    if not Security.rateLimit(source, 'menu') then return { ok = false, code = 'busy' } end
+    if not Security.near(source, Catalog.settings.depot.ped, 10.0) then return { ok = false, code = 'too_far' } end
     local snapshot = menuSnapshot(source)
     if not snapshot then return { ok = false, code = 'profile_unavailable' } end
     local token = ('%x%x%x'):format(GetGameTimer(), source, math.random(0xFFFF))
@@ -202,19 +210,52 @@ lib.callback.register('noir_busjob:server:returnVehicle', function(source, token
     return { ok = true, data = snapshot }
 end)
 
-lib.callback.register('noir_busjob:server:startRoute', function(source, token, routeId)
-    if menuSessions[source] ~= token or sessions[source] or starting[source] or type(routeId) ~= 'string' then return { ok = false, code = 'invalid_session' } end
+lib.callback.register('noir_busjob:server:startRoute', function(source, token, routeId, model)
+    if menuSessions[source] ~= token or sessions[source] or starting[source] or type(routeId) ~= 'string' or #routeId > Rules.LIMITS.routeId then
+        return { ok = false, code = 'invalid_session' }
+    end
+    if model ~= nil and (type(model) ~= 'string' or #model > Rules.LIMITS.model) then return { ok = false, code = 'invalid_vehicle' } end
+    if not Security.rateLimit(source, 'start') then return { ok = false, code = 'busy' } end
     starting[source] = true
+
+    local function refuse(code)
+        starting[source] = nil
+        return { ok = false, code = code }
+    end
+
     local profile, player = getProfile(source)
-    local route = Config.routes[routeId]
-    if not profile or not route or profile.level < route.minimumLevel then starting[source] = nil return { ok = false, code = 'route_locked' } end
-    local netId = exports.bgrz_core:SpawnVehicle(source, route.vehicle, Config.Depot.spawn, true, ('NOIR%04d'):format(math.random(9999)))
-    if not netId then starting[source] = nil return { ok = false, code = 'spawn_failed' } end
-    local session = { id = token, citizenid = player.citizenId, routeId = routeId, state = State.IDLE, vehicleNetId = netId, vehicleModel = route.vehicle, startedAt = os.time(), currentStopIndex = 1, completedStops = 0, passengers = {}, passengerCount = 0, totalBoarded = 0, totalDropped = 0, stopScores = {}, safetyPenalty = 0, servicePenalty = 0, finalized = false }
-    if not setBusState(session, State.DEADHEAD) then starting[source] = nil return { ok = false, code = 'invalid_state' } end
+    local route = Catalog.routes[routeId]
+    if not profile or not Catalog.routeUsable(route) or profile.level < route.minLevel then return refuse('route_locked') end
+    if not Integrations.hasGroupAccess(source, route.access.groups) then return refuse('route_restricted') end
+
+    local choices = Catalog.vehiclesFor(route, profile.level)
+    local vehicle = choices[1]
+    if model then
+        vehicle = nil
+        for _, choice in ipairs(choices) do
+            if choice.model == model then vehicle = choice break end
+        end
+    end
+    if not vehicle then return refuse('vehicle_locked') end
+
+    local depot = Catalog.settings.depot
+    local netId = Integrations.spawnVehicle(source, vehicle.model, vec4(depot.spawn.x, depot.spawn.y, depot.spawn.z, depot.spawn.w), ('%s%04d'):format(Config.platePrefix, math.random(9999)))
+    if not netId then return refuse('spawn_failed') end
+
+    local snapshot = Catalog.snapshotRoute(route)
+    local session = {
+        id = token, citizenid = player.citizenId, route = snapshot, state = State.IDLE, vehicleNetId = netId,
+        vehicle = { model = vehicle.model, capacity = vehicle.capacity, doors = vehicle.doors },
+        startedAt = os.time(), currentStopIndex = 1, completedStops = 0, passengers = {}, passengerCount = 0,
+        totalBoarded = 0, totalDropped = 0, stopScores = {}, safetyPenalty = 0, servicePenalty = 0, finalized = false,
+    }
+    if not setBusState(session, State.DEADHEAD) then return refuse('invalid_state') end
     sessions[source], menuSessions[source] = session, nil
     starting[source] = nil
-    return { ok = true, netId = netId, route = routeView(routeId, profile.level), capacity = Config.vehicleProfiles[route.vehicle].capacity }
+    return {
+        ok = true, netId = netId, capacity = vehicle.capacity, doors = vehicle.doors,
+        route = { id = snapshot.id, code = snapshot.code, name = snapshot.name, stops = snapshot.stops, stopCount = #snapshot.stops },
+    }
 end)
 
 RegisterNetEvent('noir_busjob:server:prepareStopPassengers', function()
@@ -224,13 +265,12 @@ RegisterNetEvent('noir_busjob:server:prepareStopPassengers', function()
     local now = GetGameTimer()
     if session.lastPassengerPrepare and session.lastPassengerPrepare + 1000 > now then return end
 
-    local route = Config.routes[session.routeId]
-    local stop = Config.stops[route.stops[session.currentStopIndex]]
+    local stop = session.route.stops[session.currentStopIndex]
     local vehicle = validBus(source, session)
-    if not vehicle or not near(source, stop.coords, Config.passenger.spawnDistance) then return end
+    if not vehicle or not Security.near(source, stop.dock, Catalog.settings.passenger.spawnDistance) then return end
 
     session.lastPassengerPrepare = now
-    local prepared = prepareStopPassengers(session, route)
+    local prepared = prepareStopPassengers(session)
     TriggerClientEvent('noir_busjob:client:waitingPassengers', source, {
         stopIndex = session.currentStopIndex,
         board = prepared.board,
@@ -242,14 +282,14 @@ local finishStopService
 RegisterNetEvent('noir_busjob:server:arriveStop', function()
     local source, session = source, sessions[source]
     if not session or session.state ~= State.DEADHEAD and session.state ~= State.DEPARTING then return end
-    local route, stop = Config.routes[session.routeId], nil
-    stop = Config.stops[route.stops[session.currentStopIndex]]
+    local stop = session.route.stops[session.currentStopIndex]
+    local stopSettings = Catalog.settings.stop
     local vehicle = validBus(source, session)
-    if not vehicle or not near(source, stop.coords, Config.stop.radius) or GetEntitySpeed(vehicle) * 3.6 > Config.stop.maxDockSpeedKmh then return end
+    if not vehicle or not Security.near(source, stop.dock, stopSettings.radius) or GetEntitySpeed(vehicle) * 3.6 > stopSettings.maxDockSpeedKmh then return end
     if not setBusState(session, State.DOCKED) then return end
-    session.dockDistance = #(GetEntityCoords(vehicle) - stop.coords.xyz)
+    session.dockDistance = #(GetEntityCoords(vehicle) - vec3(stop.dock.x, stop.dock.y, stop.dock.z))
     session.dockSpeed = GetEntitySpeed(vehicle) * 3.6
-    local prepared = prepareStopPassengers(session, route)
+    local prepared = prepareStopPassengers(session)
     if not setBusState(session, State.BOARDING) then return end
 
     local token = ('%x%x%x'):format(GetGameTimer(), source, math.random(0xFFFF))
@@ -263,11 +303,11 @@ RegisterNetEvent('noir_busjob:server:arriveStop', function()
         stopIndex = session.currentStopIndex,
         board = prepared.board,
         drop = prepared.drop,
-        capacity = Config.vehicleProfiles[route.vehicle].capacity,
-        timeoutMs = Config.stop.serviceTimeoutMs,
+        capacity = session.vehicle.capacity,
+        timeoutMs = stopSettings.serviceTimeoutMs,
     })
 
-    SetTimeout(Config.stop.serviceTimeoutMs, function()
+    SetTimeout(stopSettings.serviceTimeoutMs, function()
         local current = sessions[source]
         if current == session and current.state == State.BOARDING and current.service and current.service.token == token then
             finishStopService(source, true)
@@ -279,8 +319,8 @@ finishStopService = function(source, timedOut)
     local session = sessions[source]
     if not session or session.state ~= State.BOARDING or not session.service then return end
 
-    local route = Config.routes[session.routeId]
     local service = session.service
+    local stopCount = #session.route.stops
     local dropped = 0
     for i = #session.passengers, 1, -1 do
         if session.passengers[i].destination == session.currentStopIndex then
@@ -289,10 +329,9 @@ finishStopService = function(source, timedOut)
         end
     end
 
-    local capacity = Config.vehicleProfiles[route.vehicle].capacity
-    local demand = math.min(capacity - #session.passengers, service.board)
-    for i = 1, demand do
-        session.passengers[#session.passengers + 1] = { boardedAt = session.currentStopIndex, destination = math.random(session.currentStopIndex + 1, #route.stops) }
+    local demand = math.min(session.vehicle.capacity - #session.passengers, service.board)
+    for _ = 1, demand do
+        session.passengers[#session.passengers + 1] = { boardedAt = session.currentStopIndex, destination = math.random(session.currentStopIndex + 1, stopCount) }
     end
     session.preparedStop, session.service = nil, nil
     session.passengerCount = #session.passengers
@@ -304,7 +343,7 @@ finishStopService = function(source, timedOut)
     local score = math.max(50, positionScore * .50 + speedScore * .25 + procedureScore * .25)
     session.stopScores[#session.stopScores + 1] = score
     session.completedStops = session.completedStops + 1
-    if session.currentStopIndex == #route.stops then
+    if session.currentStopIndex == stopCount then
         setBusState(session, State.DEPARTING)
         setBusState(session, State.RETURNING_DEPOT)
     else
@@ -322,10 +361,9 @@ end
 RegisterNetEvent('noir_busjob:server:completeStopService', function()
     local source, session = source, sessions[source]
     if not session or session.state ~= State.BOARDING or not session.service then return end
-    local route = Config.routes[session.routeId]
-    local stop = Config.stops[route.stops[session.currentStopIndex]]
+    local stop = session.route.stops[session.currentStopIndex]
     local vehicle = validBus(source, session)
-    if not vehicle or not near(source, stop.coords, Config.stop.radius) then return end
+    if not vehicle or not Security.near(source, stop.dock, Catalog.settings.stop.radius) then return end
     finishStopService(source, false)
 end)
 
@@ -339,33 +377,67 @@ end)
 lib.callback.register('noir_busjob:server:park', function(source)
     local session = sessions[source]
     local vehicle = session and validBus(source, session)
-    if not session or session.state ~= State.RETURNING_DEPOT or session.completedStops ~= #Config.routes[session.routeId].stops or not near(source, Config.Depot.coords, Config.Depot.radius) or not vehicle or GetEntitySpeed(vehicle) * 3.6 > Config.stop.maxDoorSpeedKmh then return { ok = false, code = 'invalid_completion' } end
-    if not setBusState(session, State.PARKING) or not setBusState(session, State.COMPLETING) or session.finalized then return { ok = false, code = 'invalid_state' } end
+    local depot = Catalog.settings.depot
+    if not session or session.state ~= State.RETURNING_DEPOT or session.completedStops ~= #session.route.stops
+        or not Security.near(source, depot.ped, depot.radius) or not vehicle
+        or GetEntitySpeed(vehicle) * 3.6 > Catalog.settings.stop.maxDoorSpeedKmh then
+        return { ok = false, code = 'invalid_completion' }
+    end
+    if session.finalized then return { ok = false, code = 'invalid_state' } end
+
+    local timing = Catalog.settings.timing
+    local duration = os.time() - session.startedAt
+    if duration < session.route.expected * timing.minFraction then
+        lib.print.warn(('%s fechou %s em %ds (esperado %ds); volta recusada'):format(session.citizenid, session.route.code, duration, math.floor(session.route.expected)))
+        cleanup(source)
+        return { ok = false, code = 'too_fast' }
+    end
+    if not setBusState(session, State.PARKING) or not setBusState(session, State.COMPLETING) then return { ok = false, code = 'invalid_state' } end
     session.finalized = true
+
     local sum = 0 for _, score in ipairs(session.stopScores) do sum = sum + score end
     local stopScore = sum / math.max(1, #session.stopScores)
-    local safetyScore, punctualityScore, serviceScore = math.max(0, 100 - session.safetyPenalty), 85, math.max(0, 100 - session.servicePenalty)
+    local safetyScore = math.max(0, 100 - session.safetyPenalty)
+    local punctualityScore = Rules.punctuality(duration, session.route.expected, timing)
+    local serviceScore = math.max(0, 100 - session.servicePenalty)
     local finalScore = stopScore * .35 + safetyScore * .30 + punctualityScore * .20 + serviceScore * .15
-    local reward = Config.routes[session.routeId].reward
-    local quality = finalScore >= 95 and 1.15 or finalScore >= 90 and 1.10 or finalScore >= 80 and 1 or finalScore >= 70 and .95 or finalScore >= 60 and .85 or .75
-    local xp = math.floor(reward.baseXp * quality + math.min(reward.baseXp * .15, session.totalDropped * 2))
-    local pay = math.floor(reward.basePay + math.min(reward.basePay * .25, session.totalDropped * 5) + math.min(reward.basePay * .20, reward.basePay * math.max(0, finalScore - 80) / 100))
-    local profile = MySQL.single.await('SELECT xp_total FROM busjob_driver_profiles WHERE citizenid = ?', { session.citizenid })
-    local oldLevel = levelFor(profile.xp_total)
-    local newXp, newLevel = profile.xp_total + xp, levelFor(profile.xp_total + xp)
-    local ok = MySQL.transaction.await({
-        { query = 'UPDATE busjob_driver_profiles SET xp_total=?, level=?, routes_completed=routes_completed+1, stops_completed=stops_completed+?, passengers_transported=passengers_transported+?, perfect_stops=perfect_stops+?, total_earned=total_earned+?, score_sum=score_sum+?, best_score=GREATEST(best_score, ?), last_route_id=?, last_route_at=NOW() WHERE citizenid=?', values = { newXp, newLevel, session.completedStops, session.totalDropped, stopScore >= 95 and session.completedStops or 0, pay, finalScore, finalScore, session.routeId, session.citizenid } },
-        { query = 'INSERT INTO busjob_route_history (citizenid,route_id,vehicle_model,started_at,completed_at,duration_seconds,stops_completed,passengers_transported,stop_score,safety_score,punctuality_score,service_score,final_score,payout,xp_earned) VALUES (?, ?, ?, FROM_UNIXTIME(?), NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', values = { session.citizenid, session.routeId, session.vehicleModel, session.startedAt, os.time() - session.startedAt, session.completedStops, session.totalDropped, stopScore, safetyScore, punctualityScore, serviceScore, finalScore, pay, xp } },
+    local pay, xp = Rules.reward(session.route, Catalog.settings.payout, finalScore, session.totalDropped)
+
+    local oldXp = Storage.profileXp(session.citizenid) or 0
+    local oldLevel = Catalog.levelFor(oldXp)
+    local newXp = oldXp + xp
+    local newLevel = Catalog.levelFor(newXp)
+    local ok = Storage.completeRoute({
+        citizenId = session.citizenid, routeId = session.route.id, vehicleModel = session.vehicle.model, startedAt = session.startedAt,
+        duration = duration, stops = session.completedStops, passengers = session.totalDropped,
+        perfectStops = stopScore >= 95 and session.completedStops or 0, distance = math.floor(session.route.distance),
+        stopScore = stopScore, safetyScore = safetyScore, punctualityScore = punctualityScore, serviceScore = serviceScore,
+        finalScore = finalScore, pay = pay, xp = xp, xpTotal = newXp, level = newLevel,
     })
-    if not ok then session.finalized = false return { ok = false, code = 'storage_failed' } end
-    exports.bgrz_core:AddMoney(source, 'cash', pay, 'noir_busjob:route:credit')
+    if not ok then
+        -- Nada foi gravado: a volta continua estacionando e pode tentar de novo.
+        session.finalized = false
+        session.state = State.RETURNING_DEPOT
+        return { ok = false, code = 'storage_failed' }
+    end
+    if not Integrations.addMoney(source, pay, 'noir_busjob:route:credit') then
+        lib.print.error(('pagamento de $%d a %s falhou depois de gravar a volta %s'):format(pay, session.citizenid, session.route.code))
+    end
     leaderboard.at = 0
     setBusState(session, State.SUMMARY)
     cleanup(source)
     return { ok = true, summary = { payout = pay, xp = xp, finalScore = finalScore, stops = session.completedStops, passengers = session.totalDropped, level = newLevel, leveledUp = newLevel > oldLevel } }
 end)
 
+local function forget(source)
+    cleanup(source)
+    menuSessions[source] = nil
+    starting[source] = nil
+    returning[source] = nil
+    Security.forget(source)
+end
+
 RegisterNetEvent('noir_busjob:server:cancel', function() cleanup(source) end)
-AddEventHandler('playerDropped', function() cleanup(source); menuSessions[source] = nil; starting[source] = nil; returning[source] = nil end)
-AddEventHandler('bgrz_core:server:playerUnloaded', function(source) cleanup(source); menuSessions[source] = nil; starting[source] = nil; returning[source] = nil end)
+AddEventHandler('playerDropped', function() forget(source) end)
+AddEventHandler('bgrz_core:server:playerUnloaded', function(source) forget(source) end)
 AddEventHandler('onResourceStop', function(resource) if resource == GetCurrentResourceName() then for source in pairs(sessions) do cleanup(source) end end end)

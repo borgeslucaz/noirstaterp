@@ -1,5 +1,47 @@
 {
     "target": {
         "open_central": "Abrir Central de Transporte"
+    },
+    "central": {
+        "open_failed": "Não foi possível abrir a Central de Transporte.",
+        "returned": "Ônibus devolvido. Serviço cancelado sem pagamento ou XP."
+    },
+    "route": {
+        "next_stop": "Próxima parada",
+        "return_depot": "Retorne à garagem",
+        "stop_timeout": "Tempo da parada encerrado.",
+        "stop_perfect": "Parada perfeita.",
+        "stop_done": "Parada concluída.",
+        "bus_broken": "O ônibus quebrou. O serviço foi cancelado.",
+        "too_fast": "Volta rápida demais para ser válida. Nada foi pago."
+    },
+    "editor": {
+        "open_failed": "Não foi possível abrir o editor de ônibus.",
+        "busy_route": "Termine ou devolva a linha antes de abrir o editor.",
+        "model_invalid": "O modelo %s não existe neste build.",
+        "key_aim": "Mirar",
+        "key_rotate": "Girar",
+        "key_confirm": "Confirmar",
+        "key_cancel": "Cancelar",
+        "key_back": "Voltar",
+        "key_capture_dock": "Marcar onde o ônibus encosta",
+        "key_zone_first": "Marcar a 1ª ponta",
+        "key_zone_second": "Marcar a 2ª ponta",
+        "key_zone_width": "Largura",
+        "not_allowed": "Sem permissão para o editor de ônibus.",
+        "not_ready": "O catálogo do ônibus ainda não carregou.",
+        "command_help": "Editor de linhas, paradas e veículos de ônibus",
+        "map_help": "Mapa de debug das linhas de ônibus",
+        "map_unavailable": "O noir_territories não está rodando: sem tiles para o mapa.",
+        "trace_help": "Traça linhas de ônibus pela estrada (GPS do jogo)",
+        "trace_param": "Código da linha (ex.: A07) ou all",
+        "trace_unknown": "Linha %s não encontrada.",
+        "trace_running": "Traçando %s pelo GPS…",
+        "trace_failed": "O GPS não devolveu o traçado de %s. Veja o F8.",
+        "trace_done": "%s: %d pontos, %.1f km pela estrada (%.1f km em linha reta).",
+        "trace_save_param": "save para gravar no banco",
+        "trace_saved": "%s salva: %.1f km pela estrada.",
+        "trace_save_failed": "Não foi possível salvar o traçado de %s.",
+        "trace_batch_done": "%d linha(s) traçada(s), %d salva(s), %d com trecho em reta. Veja o F8."
     }
 }

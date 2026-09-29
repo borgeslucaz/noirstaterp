@@ -1,0 +1,150 @@
+/* Mapa de debug das linhas (/onibusmap): Leaflet sobre os tiles do /territorymap, com o menu
+   de linhas à esquerda. Fundamentos da v4; é tela de admin, não de jogador. */
+
+.bm {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: grid;
+    place-items: center;
+    background: var(--noir-overlay);
+    font-family: "Rajdhani", Arial, sans-serif;
+    color: var(--noir-text);
+    animation: bm-fade 200ms var(--ease-soft);
+}
+
+.bm[hidden] { display: none; }
+
+@keyframes bm-fade { from { opacity: 0; } }
+
+.bm__panel {
+    display: grid;
+    width: min(1500px, calc(100vw - 64px));
+    height: min(900px, calc(100vh - 64px));
+    grid-template-columns: 340px minmax(0, 1fr);
+    overflow: hidden;
+    border: 1px solid var(--noir-border);
+    border-radius: 2px;
+    background: linear-gradient(180deg, rgba(12, 14, 18, 0.96), rgba(12, 14, 18, 0.90));
+    box-shadow: var(--shadow-modal);
+}
+
+.bm__side {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    border-right: 1px solid var(--noir-divider);
+}
+
+.bm__header {
+    position: relative;
+    padding: 18px 56px 14px 20px;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.25));
+}
+
+.bm__title { margin: 0; color: var(--noir-text-strong); font: 700 34px/1 "Saira Condensed", "Rajdhani", Arial, sans-serif; text-transform: uppercase; }
+.bm__subtitle { margin-top: 4px; font: 500 15px/1.2 "Rajdhani", Arial, sans-serif; }
+
+.bm__close {
+    position: absolute;
+    top: 14px;
+    right: 12px;
+    display: grid;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    background: transparent;
+    color: var(--noir-text-muted);
+    cursor: pointer;
+}
+
+.bm__close:hover { border-color: var(--noir-border); background: var(--noir-card); color: var(--noir-text-strong); }
+
+.bm__list { min-height: 0; flex: 1; overflow-y: auto; padding: 4px 0 12px; }
+
+.bm__section {
+    padding: 14px 20px 6px;
+    color: var(--noir-text-muted);
+    font: 700 13px/1 "Saira Condensed", "Rajdhani", Arial, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.bm__item {
+    display: grid;
+    width: 100%;
+    min-height: 48px;
+    grid-template-columns: 12px minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 12px;
+    padding: 6px 20px;
+    border: 0;
+    background: transparent;
+    color: var(--noir-text);
+    cursor: pointer;
+    text-align: left;
+}
+
+.bm__item:hover { background: rgba(255, 255, 255, 0.05); }
+.bm__item[aria-pressed="true"] { background: #f2f2f2; color: #111113; }
+
+.bm__swatch { width: 12px; height: 12px; border-radius: 2px; background: var(--bm-color, #888); }
+.bm__label { display: block; overflow: hidden; font: 500 18px/1.15 "Saira Condensed", "Rajdhani", Arial, sans-serif; letter-spacing: 0.02em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.bm__meta { display: block; margin-top: 2px; overflow: hidden; color: var(--noir-text-muted); font: 500 12.5px/1.3 "Rajdhani", Arial, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.bm__value { color: var(--noir-text-muted); font: 600 14px/1 "Rajdhani", Arial, sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bm__value[data-tone="warning"] { color: var(--noir-warning); }
+.bm__value[data-tone="danger"] { color: var(--noir-danger-hover); }
+.bm__item[aria-pressed="true"] .bm__meta,
+.bm__item[aria-pressed="true"] .bm__value { color: rgba(17, 17, 19, 0.72); }
+
+.bm__map { position: relative; min-width: 0; min-height: 0; background: #0b0b0d; }
+.bm__map .leaflet-container { width: 100%; height: 100%; background: #0b0b0d; outline: none; font-family: "Rajdhani", Arial, sans-serif; }
+.bm__map .leaflet-control-attribution { display: none; }
+
+.bm__legend {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    z-index: 500;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    padding: 8px 12px;
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.72);
+    font: 600 12.5px/1 "Rajdhani", Arial, sans-serif;
+    pointer-events: none;
+}
+
+.bm__legend span { display: inline-flex; align-items: center; gap: 6px; }
+.bm__legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+
+.bm-stop {
+    display: grid;
+    width: 22px !important;
+    height: 22px !important;
+    place-items: center;
+    border: 2px solid #111113;
+    border-radius: 50%;
+    background: var(--bm-color, #f2f2f2);
+    color: #111113;
+    font: 700 12px/1 "Saira Condensed", Arial, sans-serif;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+.bm-stop[data-kind="loose"] { width: 12px !important; height: 12px !important; border-width: 1px; background: #bdbdbd; }
+.bm-stop[data-kind="loose"][data-zone="false"] { background: var(--noir-warning); }
+
+.bm-tip {
+    padding: 6px 8px;
+    border: 1px solid var(--noir-border);
+    border-radius: 2px;
+    background: rgba(12, 14, 18, 0.94);
+    box-shadow: none;
+    color: var(--noir-text-strong);
+    font: 500 13px/1.35 "Rajdhani", Arial, sans-serif;
+}
+
+.bm-tip::before { display: none; }

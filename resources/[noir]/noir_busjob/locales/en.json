@@ -1,5 +1,47 @@
 {
     "target": {
-        "open_central": "Open Transport Center"
+        "open_central": "Open Transit Central"
+    },
+    "central": {
+        "open_failed": "Could not open the Transit Central.",
+        "returned": "Bus returned. Service cancelled with no pay or XP."
+    },
+    "route": {
+        "next_stop": "Next stop",
+        "return_depot": "Return to the depot",
+        "stop_timeout": "Stop time is over.",
+        "stop_perfect": "Perfect stop.",
+        "stop_done": "Stop completed.",
+        "bus_broken": "The bus broke down. The service was cancelled.",
+        "too_fast": "Run too fast to be valid. Nothing was paid."
+    },
+    "editor": {
+        "open_failed": "Could not open the bus editor.",
+        "busy_route": "Finish or return the route before opening the editor.",
+        "model_invalid": "Model %s does not exist in this build.",
+        "key_aim": "Aim",
+        "key_rotate": "Rotate",
+        "key_confirm": "Confirm",
+        "key_cancel": "Cancel",
+        "key_back": "Back",
+        "key_capture_dock": "Mark where the bus stops",
+        "key_zone_first": "Mark the 1st end",
+        "key_zone_second": "Mark the 2nd end",
+        "key_zone_width": "Width",
+        "not_allowed": "You are not allowed to use the bus editor.",
+        "not_ready": "The bus catalog has not loaded yet.",
+        "command_help": "Bus routes, stops and vehicles editor",
+        "map_help": "Bus routes debug map",
+        "map_unavailable": "noir_territories is not running: no map tiles.",
+        "trace_help": "Trace bus routes along the road (game GPS)",
+        "trace_param": "Route code (e.g. A07) or all",
+        "trace_unknown": "Route %s not found.",
+        "trace_running": "Tracing %s through the GPS…",
+        "trace_failed": "The GPS returned no trace for %s. See F8.",
+        "trace_done": "%s: %d points, %.1f km by road (%.1f km straight).",
+        "trace_save_param": "save to store in the database",
+        "trace_saved": "%s saved: %.1f km by road.",
+        "trace_save_failed": "Could not save the trace of %s.",
+        "trace_batch_done": "%d route(s) traced, %d saved, %d with straight legs. See F8."
     }
 }

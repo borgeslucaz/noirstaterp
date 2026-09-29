@@ -20,6 +20,7 @@
         tab: "overview",
         railOpen: false,
         selectedId: null,
+        vehicleByRoute: {},
         data: null,
         failed: false,
         timers: [],
@@ -110,6 +111,23 @@
         profile_unavailable: "Não foi possível atualizar seu perfil.",
         internal_error: "Não foi possível concluir a operação. Tente novamente.",
         transport_error: "A Central não respondeu. Tente novamente.",
+        route_restricted: "Esta linha é exclusiva de outro grupo.",
+        vehicle_locked: "Este veículo ainda não foi liberado para seu nível.",
+        invalid_vehicle: "Escolha um veículo da linha.",
+        busy: "Aguarde um instante antes de tentar de novo.",
+        too_far: "Fale com o atendente de perto.",
+        storage_unavailable: "A Central está indisponível no momento.",
+    }
+
+    function routeVehicles(route) {
+        return Array.isArray(route && route.vehicles) ? route.vehicles : []
+    }
+
+    // Veículo escolhido na linha: o último clicado, ou o primeiro liberado.
+    function chosenVehicle(route) {
+        const unlocked = routeVehicles(route).filter((vehicle) => vehicle.unlocked)
+        const saved = unlocked.find((vehicle) => vehicle.model === menu.vehicleByRoute[route.id])
+        return saved || unlocked[0] || null
     }
 
     async function post(name, body = {}) {
@@ -341,7 +359,7 @@
         const body = element("span", "route-card__body")
         body.append(
             element("span", "route-card__name", routeShortName(route)),
-            element("span", "route-card__meta", `${int(route.stopCount)} PARADAS · ${String(route.vehicle || "").toUpperCase()}`)
+            element("span", "route-card__meta", `${int(route.stopCount)} PARADAS · ${String((chosenVehicle(route) || {}).label || route.vehicle || "").toUpperCase()}`)
         )
 
         card.append(
@@ -377,7 +395,8 @@
         }
 
         const stats = element("div", "route-detail__stats")
-        appendPair(stats, "TIPO", String(route.vehicle || "—").toUpperCase())
+        const vehicle = chosenVehicle(route)
+        appendPair(stats, "VEÍCULO", String((vehicle && vehicle.label) || route.vehicle || "—").toUpperCase())
         appendPair(stats, "PARADAS", int(route.stopCount))
         appendPair(stats, "XP BASE", int(route.baseXp))
         appendPair(stats, "NÍVEL", int(route.minimumLevel))
@@ -385,6 +404,34 @@
         const stops = element("ol", "stop-list")
         const routeStops = Array.isArray(route.stops) ? route.stops : []
         routeStops.forEach((stop) => stops.appendChild(element("li", null, stop || "Parada")))
+
+        // Mais de um veículo na linha: o jogador escolhe entre os liberados.
+        const choices = routeVehicles(route)
+        let vehiclePicker = null
+        if (choices.length > 1) {
+            vehiclePicker = element("div", "vehicle-picker")
+            vehiclePicker.setAttribute("role", "radiogroup")
+            vehiclePicker.setAttribute("aria-label", "Veículo da linha")
+            choices.forEach((choice) => {
+                const option = element("button", "vehicle-picker__option")
+                option.type = "button"
+                option.disabled = !choice.unlocked
+                option.setAttribute("role", "radio")
+                option.setAttribute("aria-checked", String(!!vehicle && vehicle.model === choice.model))
+                option.append(
+                    element("span", "vehicle-picker__name", String(choice.label || choice.model).toUpperCase()),
+                    element("span", "vehicle-picker__meta", choice.unlocked ? `${int(choice.capacity)} LUGARES` : `NÍVEL ${int(choice.minLevel)}`)
+                )
+                if (choice.unlocked) {
+                    option.addEventListener("click", () => {
+                        menu.vehicleByRoute[route.id] = choice.model
+                        renderRouteList()
+                        renderRouteDetail()
+                    })
+                }
+                vehiclePicker.appendChild(option)
+            })
+        }
 
         const active = activeRoute()
         const start = element("button", "btn btn--fill route-detail__action")
@@ -406,9 +453,12 @@
             element("h2", "route-detail__title", routeShortName(route)),
             stats,
             element("span", "data-label route-detail__stops-label", "ITINERÁRIO"),
-            stops,
-            start
+            stops
         )
+        if (vehiclePicker) {
+            dom.routeDetail.append(element("span", "data-label route-detail__stops-label", "VEÍCULO"), vehiclePicker)
+        }
+        dom.routeDetail.appendChild(start)
 
         if (!route.available) {
             dom.routeDetail.appendChild(
@@ -469,7 +519,8 @@
         renderShift()
         renderRouteDetail()
 
-        const response = await post("startRoute", { routeId: route.id })
+        const vehicle = chosenVehicle(route)
+        const response = await post("startRoute", { routeId: route.id, vehicle: vehicle ? vehicle.model : null })
         if (!menu.data || menu.lifecycle === "closing") return
         if (response && response.ok) return
 

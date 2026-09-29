@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS busjob_route_traces (
+    route_id VARCHAR(32) NOT NULL,
+    signature VARCHAR(64) NOT NULL,
+    road_meters INT UNSIGNED NOT NULL,
+    straight_meters INT UNSIGNED NOT NULL,
+    failed_legs TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    points LONGTEXT NOT NULL,
+    traced_by VARCHAR(100) NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (route_id)
+);
