@@ -1,0 +1,10 @@
+*.log
+*.tmp
+*.bak
+*.zip
+*.7z
+.DS_Store
+Thumbs.db
+.vscode/
+saved_shops.json
+.vite/

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>noir_shops — preview</title>
+    <style>
+      /* Por padrão a NUI usa a janela inteira em pixel 1:1, como no jogo.
+         ?res=1920x1080 simula outra resolução, escalada para caber. */
+      html, body { margin: 0; height: 100%; background: #050607; overflow: hidden; }
+      #stage { position: absolute; left: 50%; top: 50%; width: 1920px; height: 1080px; border: 0; transform-origin: 0 0; }
+      #dev { position: fixed; left: 16px; bottom: 16px; display: flex; flex-wrap: wrap; gap: 8px; z-index: 2; }
+      #dev button { padding: 8px 12px; border: 1px solid rgba(255,255,255,.11); border-radius: 2px; background: rgba(12,14,18,.88); color: #fff; font: 500 14px Arial, sans-serif; text-transform: uppercase; letter-spacing: .03em; cursor: pointer; }
+      #dev button.is-on { background: #f2f2f2; color: #111113; }
+    </style>
+  </head>
+  <body>
+    <iframe id="stage" src="/dev/frame.html"></iframe>
+    <div id="dev"></div>
+    <script>
+      const stage = document.getElementById('stage');
+      const res = (new URLSearchParams(location.search).get('res') || '').match(/^(\d+)x(\d+)$/);
+      function fit() {
+        if (!res) {
+          Object.assign(stage.style, { left: '0', top: '0', width: '100%', height: '100%', transform: 'none' });
+          return;
+        }
+        const [w, h] = [Number(res[1]), Number(res[2])];
+        const s = Math.min(innerWidth / w, innerHeight / h);
+        Object.assign(stage.style, { width: w + 'px', height: h + 'px' });
+        stage.style.transform = `scale(${s}) translate(-50%, -50%)`;
+      }
+      addEventListener('resize', fit);
+      fit();
+
+      window.addEventListener('message', (e) => {
+        if (!e.data || !e.data.devReady) return;
+        const win = stage.contentWindow;
+        const bar = document.getElementById('dev');
+        bar.innerHTML = '';
+        const open = (key) => {
+          win.devOpen(key);
+          bar.querySelectorAll('button').forEach((b) => b.classList.toggle('is-on', b.dataset.key === key));
+        };
+        for (const [key, label] of Object.entries(win.devScenarios)) {
+          const b = document.createElement('button');
+          b.textContent = label;
+          b.dataset.key = key;
+          b.onclick = () => open(key);
+          bar.appendChild(b);
+        }
+        const preset = new URLSearchParams(location.search).get('preset');
+        open(win.devScenarios[preset] ? preset : 'general');
+      });
+    </script>
+  </body>
+</html>

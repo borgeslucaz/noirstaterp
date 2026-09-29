@@ -1,0 +1,1261 @@
+-- Framework auto-detection
+local Framework = 'none'
+local ESX, QBCore = nil, nil
+
+if GetResourceState('es_extended') == 'started' then
+    Framework = 'esx'
+    ESX = exports['es_extended']:getSharedObject()
+    print('^2[noir_shops] ESX Framework detected.^0')
+elseif GetResourceState('qbx_core') == 'started' then
+    Framework = 'qbox'
+    print('^2[noir_shops] QBox Framework detected.^0')
+elseif GetResourceState('qb-core') == 'started' then
+    Framework = 'qbcore'
+    QBCore = exports['qb-core']:GetCoreObject()
+    print('^2[noir_shops] QB-Core Framework detected.^0')
+else
+    print('^3[noir_shops] No accepted framework detected, running standalone if applicable.^0')
+end
+
+local function GetShopRestriction(shop)
+    if not shop then return nil end
+    if shop.Restriction ~= nil then return shop.Restriction end
+    return shop.JobRestriction
+end
+
+local function HasRestrictionAccess(restriction, jobName, gangName)
+    if not restriction then return true end
+    if type(restriction) == 'table' then
+        for _, name in ipairs(restriction) do
+            if name == jobName or name == gangName then
+                return true
+            end
+        end
+        return false
+    end
+    return restriction == jobName or restriction == gangName
+end
+
+local function GetGradeValue(entry)
+    if not entry then return 0 end
+    local grade = entry.grade
+    if type(grade) == 'table' then return grade.level or 0 end
+    return grade or 0
+end
+
+local Log = {}
+
+function Log.Send(title, message, color, plainMsg)
+    if Config.LogType == 'discord' and Config.WebhookURL ~= '' then
+        local embed = {
+            {
+                ["color"] = color or 16711680,
+                ["title"] = title,
+                ["description"] = message,
+                ["footer"] = {
+                    ["text"] = "Mizu SmartShop",
+                },
+            }
+        }
+        PerformHttpRequest(Config.WebhookURL, function(err, text, headers) end, 'POST', json.encode({username = "SmartShop Logs", embeds = embed}), { ['Content-Type'] = 'application/json' })
+    elseif Config.LogType == 'fivemanage' and Config.FivemanageToken ~= '' then
+        local cleanMsg = plainMsg
+        if not cleanMsg then
+            cleanMsg = string.gsub(message, "%*%*", "")
+            cleanMsg = string.gsub(cleanMsg, "\n\n", " | ")
+            cleanMsg = string.gsub(cleanMsg, "\n", " | ")
+        end
+        local payload = {
+            {
+                level = color == 16711680 and "error" or "info",
+                message = title .. " | " .. cleanMsg,
+                resource = "noir_shops"
+            }
+        }
+        PerformHttpRequest('https://api.fivemanage.com/api/v3/logs', function(err, text, headers) end, 'POST', json.encode(payload), { ['Content-Type'] = 'application/json', ['Authorization'] = Config.FivemanageToken })
+    end
+end
+
+-- Inventory System Detection
+local InventorySystem = nil
+local function GetInventorySystem()
+    if InventorySystem then return InventorySystem end
+    if GetResourceState('ox_inventory') == 'started' then
+        InventorySystem = 'ox_inventory'
+    elseif GetResourceState('qs-inventory') == 'started' then
+        InventorySystem = 'qs-inventory'
+    elseif GetResourceState('codem-inventory') == 'started' then
+        InventorySystem = 'codem-inventory'
+    else
+        InventorySystem = 'default' -- qb-inventory / lj-inventory / ESX standard
+    end
+    print('^2[noir_shops] Inventory system: ' .. InventorySystem .. '^0')
+    return InventorySystem
+end
+
+-- Returns true if the player can carry the item. Falls back to true if no check is available.
+local function InventoryCanCarry(src, itemName, qty, xPlayer)
+    local inv = GetInventorySystem()
+    if inv == 'ox_inventory' then
+        return exports.ox_inventory:CanCarryItem(src, itemName, qty)
+    elseif inv == 'qs-inventory' then
+        return exports['qs-inventory']:CanCarryItem(src, itemName, qty)
+    elseif xPlayer and xPlayer.canCarryItem then
+        return xPlayer.canCarryItem(itemName, qty)
+    end
+    return true -- no pre-check available for this inventory, assume can carry
+end
+
+-- Adds item to inventory with optional metadata
+-- 'player' = QBCore/QBox player object, 'xPlayer' = ESX player object
+local function InventoryAddItem(src, itemName, qty, metadata, player, xPlayer)
+    local inv = GetInventorySystem()
+    if inv == 'ox_inventory' then
+        exports.ox_inventory:AddItem(src, itemName, qty, metadata)
+        return true
+    elseif inv == 'qs-inventory' then
+        local ok = exports['qs-inventory']:AddItem(src, itemName, qty, metadata)
+        return ok ~= false
+    elseif inv == 'codem-inventory' then
+        exports['codem-inventory']:AddItem(src, itemName, qty, metadata)
+        return true
+    elseif player and player.Functions and player.Functions.AddItem then
+        -- qb-inventory (QBCore) / lj-inventory
+        return player.Functions.AddItem(itemName, qty, false, metadata)
+    elseif xPlayer and xPlayer.addInventoryItem then
+        -- ESX standard inventory (no metadata support)
+        xPlayer.addInventoryItem(itemName, qty)
+        return true
+    end
+    return false
+end
+
+-- Returns true if player has the item in inventory (license item fallback)
+local function InventoryHasItem(src, itemName, player, xPlayer)
+    local inv = GetInventorySystem()
+
+    -- get player's own citizenid to verify personal items (e.g. id_card)
+    local citizenid = nil
+    if player and player.PlayerData then
+        citizenid = player.PlayerData.citizenid
+    end
+
+    if inv == 'ox_inventory' then
+        -- search all slots of this item and check ownership
+        local slots = exports.ox_inventory:Search(src, 'slots', itemName)
+        if not slots then return false end
+        for _, slot in pairs(slots) do
+            local md = slot.metadata or {}
+            -- if the item carries a citizenid, it must match the player's own
+            if not md.citizenid or md.citizenid == citizenid then
+                return true
+            end
+        end
+        return false
+
+    elseif inv == 'qs-inventory' then
+        return (exports['qs-inventory']:GetItemCount(src, itemName) or 0) > 0
+
+    elseif player and player.Functions and player.Functions.GetItemByName then
+        local item = player.Functions.GetItemByName(itemName)
+        if not item then return false end
+        -- verify citizenid on personal items
+        local info = item.info or item.metadata or {}
+        if citizenid and info.citizenid and info.citizenid ~= citizenid then
+            return false
+        end
+        return true
+
+    elseif xPlayer and xPlayer.getInventoryItem then
+        local it = xPlayer.getInventoryItem(itemName)
+        return it and it.count and it.count > 0
+    end
+    return false
+end
+
+-- Returns true if the player has the required license, or if no license is needed.
+local function HasLicense(src, licenseKey)
+    if not licenseKey or not Config.Licenses then return true end
+    local licData = Config.Licenses[licenseKey]
+    if not licData then return true end -- unknown key - don't block
+
+    local metaKey = licData.metadata
+    local esxType = licData.esx_type or metaKey
+    local metadataKeys, seenMetadataKeys = {}, {}
+    local esxTypes, seenEsxTypes = {}, {}
+    local function addCandidate(list, seen, value)
+        if not value then return end
+        local v = tostring(value)
+        if v == '' then return end
+        if seen[v] then return end
+        seen[v] = true
+        table.insert(list, v)
+    end
+
+    addCandidate(metadataKeys, seenMetadataKeys, metaKey)
+    addCandidate(metadataKeys, seenMetadataKeys, licenseKey)
+
+    if #metadataKeys == 0 then
+        table.insert(metadataKeys, metaKey)
+    end
+
+    addCandidate(esxTypes, seenEsxTypes, licData.esx_type)
+    addCandidate(esxTypes, seenEsxTypes, metaKey)
+    addCandidate(esxTypes, seenEsxTypes, licenseKey)
+
+    if #esxTypes == 0 then
+        table.insert(esxTypes, esxType)
+    end
+
+    if Framework == 'qbcore' then
+        local Player = QBCore.Functions.GetPlayer(src)
+        if not Player then return false end
+        local licences = Player.PlayerData.metadata and Player.PlayerData.metadata.licences
+        if licences then
+            for _, candidateKey in ipairs(metadataKeys) do
+                if licences[candidateKey] == true then return true end
+            end
+        end
+        -- fallback: check inventory item
+        return InventoryHasItem(src, licenseKey, Player, nil)
+
+    elseif Framework == 'qbox' then
+        local Player = exports.qbx_core:GetPlayer(src)
+        if not Player then return false end
+        local licences = Player.PlayerData.metadata and Player.PlayerData.metadata.licences
+        if licences then
+            for _, candidateKey in ipairs(metadataKeys) do
+                if licences[candidateKey] == true then return true end
+            end
+        end
+        return InventoryHasItem(src, licenseKey, Player, nil)
+
+    elseif Framework == 'esx' then
+        local xPlayer = ESX.GetPlayerFromId(src)
+        if not xPlayer then return false end
+        local licences = xPlayer.getMeta('licences')
+        if licences and type(licences) == 'table' then
+            for _, candidateType in ipairs(esxTypes) do
+                if licences[candidateType] == true then
+                    return true
+                end
+            end
+        end
+        if xPlayer.getLicense then
+            for _, candidateType in ipairs(esxTypes) do
+                if xPlayer.getLicense(candidateType) ~= nil then
+                    return true
+                end
+            end
+        end
+        -- fallback: direct DB check for setups where ESX metadata is not synced
+        local identifier = nil
+        if xPlayer.getIdentifier then
+            identifier = xPlayer.getIdentifier()
+        elseif xPlayer.identifier then
+            identifier = xPlayer.identifier
+        end
+        if identifier then
+            local baseIdentifier = identifier
+            local colonPos = identifier:find(':', 1, true)
+            if colonPos then
+                baseIdentifier = identifier:sub(colonPos + 1)
+            end
+
+            local esxTypeA = esxTypes[1] or esxType
+            local esxTypeB = esxTypes[2] or esxTypeA
+            local esxTypeC = esxTypes[3] or esxTypeB
+            local sql = 'SELECT type FROM user_licenses WHERE (type = ? OR type = ? OR type = ?) AND (owner = ? OR owner = ? OR owner LIKE ? OR owner LIKE ?) LIMIT 1'
+            local params = { esxTypeA, esxTypeB, esxTypeC, identifier, baseIdentifier, ('char%%:' .. baseIdentifier), ('%%:' .. baseIdentifier) }
+            local hasDbLicense = false
+            local hitDbType = nil
+
+            if MySQL and MySQL.scalar and MySQL.scalar.await then
+                hitDbType = MySQL.scalar.await(sql, params)
+                hasDbLicense = hitDbType ~= nil
+            elseif MySQL and MySQL.query and MySQL.query.await then
+                local rows = MySQL.query.await(sql, params) or {}
+                hasDbLicense = rows[1] ~= nil
+                hitDbType = hasDbLicense and rows[1].type or nil
+            elseif GetResourceState('oxmysql') == 'started' and exports and exports.oxmysql then
+                if exports.oxmysql.scalarSync then
+                    hitDbType = exports.oxmysql:scalarSync(sql, params)
+                    hasDbLicense = hitDbType ~= nil
+                elseif exports.oxmysql.querySync then
+                    local rows = exports.oxmysql:querySync(sql, params) or {}
+                    hasDbLicense = rows[1] ~= nil
+                    hitDbType = hasDbLicense and rows[1].type or nil
+                end
+            end
+
+            if hasDbLicense then
+                return true
+            end
+        end
+        -- fallback: check inventory item
+        return InventoryHasItem(src, licenseKey, nil, xPlayer)
+    end
+
+    return true -- standalone - no license system
+end
+
+-- Dynamic Pricing Engine
+local DynamicPrices = {} -- DynamicPrices[shopId][itemName] = currentPrice
+local DynamicLastRefresh = {} -- DynamicLastRefresh[shopId] = os.time() of last refresh
+
+local function CalculateDynamicPrice(basePrice, shop, item)
+    if item.minPrice and item.maxPrice then
+        return math.random(item.minPrice, item.maxPrice)
+    end
+    local range = shop.DynamicPriceRange or 30
+    local minP = math.floor(basePrice * (1 - range / 100))
+    local maxP = math.ceil(basePrice * (1 + range / 100))
+    if minP < 0 then minP = 0 end
+    if maxP < minP then maxP = minP end
+    return math.random(minP, maxP)
+end
+
+local function RefreshDynamicPrices(shopId)
+    local shop = Config.Shops[shopId]
+    if not shop or not shop.DynamicPricing then
+        DynamicPrices[shopId] = nil
+        DynamicLastRefresh[shopId] = nil
+        return
+    end
+    DynamicPrices[shopId] = {}
+    for _, item in ipairs(shop.items or {}) do
+        DynamicPrices[shopId][item.name] = CalculateDynamicPrice(item.price, shop, item)
+    end
+    DynamicLastRefresh[shopId] = os.time()
+end
+
+local function RefreshAllDynamicPrices()
+    for shopId, shop in pairs(Config.Shops) do
+        if shop.DynamicPricing then
+            RefreshDynamicPrices(shopId)
+        end
+    end
+end
+
+local function GetDynamicPrice(shopId, itemName, basePrice)
+    if DynamicPrices[shopId] and DynamicPrices[shopId][itemName] then
+        return DynamicPrices[shopId][itemName]
+    end
+    return basePrice
+end
+
+-- Seed random number generator
+math.randomseed(os.time())
+
+-- Price update thread — checks each shop's individual interval
+CreateThread(function()
+    while true do
+        Wait(60 * 1000) -- Check every minute
+        local now = os.time()
+        local globalInterval = (Config.DynamicPriceInterval or 30) * 60
+        for shopId, shop in pairs(Config.Shops) do
+            if shop.DynamicPricing then
+                local shopInterval = (shop.DynamicPriceInterval or globalInterval / 60) * 60
+                if shopInterval <= 0 then shopInterval = globalInterval end
+                local lastRefresh = DynamicLastRefresh[shopId] or 0
+                if (now - lastRefresh) >= shopInterval then
+                    RefreshDynamicPrices(shopId)
+                end
+            end
+        end
+    end
+end)
+
+-- Checkout handler
+RegisterNetEvent('noir_shops:server:checkoutCart', function(shopId, cart, paymentType)
+    local src = source
+
+    local shop = Config.Shops[shopId]
+    if not shop then return end
+    if not Config.PaymentTypes[paymentType] then return end
+    if type(cart) ~= 'table' then return end
+
+    local playerCoords = GetEntityCoords(GetPlayerPed(src))
+    if #(playerCoords - vector3(shop.coords.x, shop.coords.y, shop.coords.z)) > Config.MaxCheckoutDistance then
+        Log.Send("Checkout fora de alcance: " .. shop.name, "Player " .. GetPlayerName(src) .. " tentou comprar longe da loja [" .. tostring(shopId) .. "].", 16711680)
+        return
+    end
+
+    -- Uma linha por item, quantidade inteira: linha repetida somaria acima do maxQty
+    -- e quantidade quebrada pagaria fração enquanto o ox_inventory arredonda para cima.
+    local cartQty, cartOrder = {}, {}
+    for _, cartItem in ipairs(cart) do
+        local name, qty = type(cartItem) == 'table' and cartItem.name, type(cartItem) == 'table' and cartItem.qty
+        if type(name) ~= 'string' or type(qty) ~= 'number' or qty ~= math.floor(qty) or qty <= 0 then return end
+        qty = math.floor(qty)
+        if not cartQty[name] then cartOrder[#cartOrder + 1] = name end
+        cartQty[name] = (cartQty[name] or 0) + qty
+    end
+    cart = {}
+    for i, name in ipairs(cartOrder) do
+        cart[i] = { name = name, qty = cartQty[name] }
+    end
+
+    local PlayerJobName = 'unemployed'
+    local PlayerJobGrade = 0
+    local PlayerGangName = 'none'
+
+    if Framework == 'esx' then
+        local xPlayer = ESX.GetPlayerFromId(src)
+        if xPlayer then
+            PlayerJobName = xPlayer.job.name
+            PlayerJobGrade = xPlayer.job.grade
+        end
+    elseif Framework == 'qbcore' then
+        local Player = QBCore.Functions.GetPlayer(src)
+        if Player then
+            PlayerJobName = Player.PlayerData.job.name
+            PlayerJobGrade = GetGradeValue(Player.PlayerData.job)
+            PlayerGangName = Player.PlayerData.gang and Player.PlayerData.gang.name or 'none'
+        end
+    elseif Framework == 'qbox' then
+        local Player = exports.qbx_core:GetPlayer(src)
+        if Player then
+            PlayerJobName = Player.PlayerData.job.name
+            PlayerJobGrade = GetGradeValue(Player.PlayerData.job)
+            PlayerGangName = Player.PlayerData.gang and Player.PlayerData.gang.name or 'none'
+        end
+    end
+
+    local restriction = GetShopRestriction(shop)
+    if not HasRestrictionAccess(restriction, PlayerJobName, PlayerGangName) then
+        Log.Send("Access Denied: " .. shop.name, "Player " .. GetPlayerName(src) .. " tried to checkout at a restricted shop without the correct job/gang.", 16711680)
+            return
+    end
+
+    local totalCost = 0
+    local validatedItems = {}
+    local hasLicenseFailure = false
+    local missingLicenseLabel = nil
+
+    for _, cartItem in ipairs(cart) do
+        local itemData = nil
+        for _, shopItem in ipairs(shop.items) do
+            if shopItem.name == cartItem.name then
+                itemData = shopItem
+                break
+            end
+        end
+
+        if itemData and cartItem.qty and cartItem.qty > 0 then
+            local reqGrade = itemData.grade or 0
+            if PlayerJobGrade >= reqGrade then
+                if not HasLicense(src, itemData.license) then
+                    hasLicenseFailure = true
+                    if not missingLicenseLabel then
+                        local licData = Config.Licenses and itemData.license and Config.Licenses[itemData.license]
+                        missingLicenseLabel = (licData and licData.label) or itemData.license
+                    end
+                else
+                    local pQty = cartItem.qty
+                    local maxQ = itemData.maxQty or 999
+                    if pQty > maxQ then pQty = maxQ end
+
+                    local actualPrice = shop.DynamicPricing and GetDynamicPrice(shopId, itemData.name, itemData.price) or itemData.price
+                    totalCost = totalCost + (actualPrice * pQty)
+                    table.insert(validatedItems, { name = itemData.name, label = itemData.label, qty = pQty, price = actualPrice, metadata = itemData.metadata, license = itemData.license })
+                end
+            else
+                Log.Send("Grade Restricted", "Player " .. GetPlayerName(src) .. " tried to buy ["..itemData.name.."] but lacks grade "..tostring(reqGrade)..".", 16711680)
+            end
+        end
+    end
+
+    if hasLicenseFailure then
+        TriggerClientEvent('noir_shops:client:notify', src, _U('no_license', missingLicenseLabel or '?'), 'error', shop.name)
+    end
+
+    if totalCost <= 0 or #validatedItems == 0 then return end
+
+    local success = false
+
+    if Framework == 'esx' then
+        local xPlayer = ESX.GetPlayerFromId(src)
+        local account = paymentType == 'cash' and 'money' or 'bank'
+
+        if xPlayer.getAccount(account).money >= totalCost then
+            local canCarryAll = true
+            for _, item in ipairs(validatedItems) do
+                if not InventoryCanCarry(src, item.name, item.qty, xPlayer) then
+                    canCarryAll = false
+                    break
+                end
+            end
+
+            if canCarryAll then
+                local successfulItems = {}
+                local refundedCost = 0
+                xPlayer.removeAccountMoney(account, totalCost)
+                for _, item in ipairs(validatedItems) do
+                    if InventoryAddItem(src, item.name, item.qty, item.metadata, nil, xPlayer) then
+                        table.insert(successfulItems, item)
+                    else
+                        refundedCost = refundedCost + (item.price * item.qty)
+                        local adminWarn = "Failed to give item '" .. tostring(item.name) .. "' to " .. GetPlayerName(src) .. " (Inventory Full or Item missing). Refunded automatically."
+                        print("^1[noir_shops ERROR] " .. adminWarn .. "^0")
+                        Log.Send("Shop Warning: " .. shop.name, "**Warning:** " .. adminWarn, 16711680, "Warning: " .. adminWarn)
+                    end
+                end
+                if refundedCost > 0 then
+                    xPlayer.addAccountMoney(account, refundedCost)
+                end
+                if #successfulItems > 0 then
+                    success = true
+                    validatedItems = successfulItems
+                    totalCost = totalCost - refundedCost
+                else
+                    TriggerClientEvent('noir_shops:client:notify', src, _U('inventory_full'), 'error', shop.name)
+                end
+            else
+                TriggerClientEvent('noir_shops:client:notify', src, _U('inventory_full'), 'error', shop.name)
+            end
+        else
+            TriggerClientEvent('noir_shops:client:notify', src, _U('not_enough_money'), 'error', shop.name)
+        end
+    elseif Framework == 'qbcore' then
+        local Player = QBCore.Functions.GetPlayer(src)
+        if Player.Functions.GetMoney(paymentType) >= totalCost then
+            local inv = GetInventorySystem()
+
+            if inv == 'ox_inventory' or inv == 'qs-inventory' or inv == 'codem-inventory' then
+                -- Pre-check approach: CanCarry → pay → add
+                local canCarryAll = true
+                for _, item in ipairs(validatedItems) do
+                    if not InventoryCanCarry(src, item.name, item.qty, nil) then
+                        canCarryAll = false
+                        local adminWarn = "Failed to give item '" .. tostring(item.name) .. "' to " .. GetPlayerName(src) .. " (Inventory Full)."
+                        print("^1[noir_shops ERROR] " .. adminWarn .. "^0")
+                        Log.Send("Shop Warning: " .. shop.name, "**Warning:** " .. adminWarn, 16711680, "Warning: " .. adminWarn)
+                        break
+                    end
+                end
+
+                if canCarryAll then
+                    Player.Functions.RemoveMoney(paymentType, totalCost, "smartshop-checkout")
+                    for _, item in ipairs(validatedItems) do
+                        InventoryAddItem(src, item.name, item.qty, item.metadata, Player, nil)
+                    end
+                    success = true
+                else
+                    TriggerClientEvent('noir_shops:client:notify', src, _U('inventory_full'), 'error', shop.name)
+                end
+            else
+                -- qb-inventory / lj-inventory: add item by item, pay only for successful ones
+                local successfulItems = {}
+                local failedItems = false
+                local refundedCost = 0
+
+                for _, item in ipairs(validatedItems) do
+                    if InventoryAddItem(src, item.name, item.qty, item.metadata, Player, nil) then
+                        table.insert(successfulItems, item)
+                        TriggerClientEvent('inventory:client:ItemBox', src, QBCore.Shared.Items[item.name], "add", item.qty)
+                    else
+                        failedItems = true
+                        refundedCost = refundedCost + (item.price * item.qty)
+                        local adminWarn = "Failed to give item '" .. tostring(item.name) .. "' to " .. GetPlayerName(src) .. " (Missing in DB or Inventory Full). Refunded automatically."
+                        print("^1[noir_shops ERROR] " .. adminWarn .. "^0")
+                        Log.Send("Shop Warning: " .. shop.name, "**Warning:** " .. adminWarn, 16711680, "Warning: " .. adminWarn)
+                    end
+                end
+
+                local actualCost = totalCost - refundedCost
+
+                if #successfulItems > 0 then
+                    Player.Functions.RemoveMoney(paymentType, actualCost, "smartshop-checkout")
+                    success = true
+                    validatedItems = successfulItems
+                    totalCost = actualCost
+                end
+
+                if failedItems then
+                    TriggerClientEvent('noir_shops:client:notify', src, _U('inventory_full'), 'error', shop.name)
+                end
+            end
+        else
+            TriggerClientEvent('noir_shops:client:notify', src, _U('not_enough_money'), 'error', shop.name)
+        end
+    elseif Framework == 'qbox' then
+        local Player = exports.qbx_core:GetPlayer(src)
+        if Player.Functions.GetMoney(paymentType) >= totalCost then
+            local canCarryAll = true
+            for _, item in ipairs(validatedItems) do
+                if not InventoryCanCarry(src, item.name, item.qty, nil) then
+                    canCarryAll = false
+                    local adminWarn = "Failed to give item '" .. tostring(item.name) .. "' to " .. GetPlayerName(src) .. " (Inventory Full)."
+                    print("^1[noir_shops ERROR] " .. adminWarn .. "^0")
+                    Log.Send("Shop Warning: " .. shop.name, "**Warning:** " .. adminWarn, 16711680, "Warning: " .. adminWarn)
+                    break
+                end
+            end
+
+            if not canCarryAll then
+                TriggerClientEvent('noir_shops:client:notify', src, _U('inventory_full'), 'error', shop.name)
+            elseif not Player.Functions.RemoveMoney(paymentType, totalCost, "smartshop-checkout") then
+                TriggerClientEvent('noir_shops:client:notify', src, _U('not_enough_money'), 'error', shop.name)
+            else
+                for _, item in ipairs(validatedItems) do
+                    InventoryAddItem(src, item.name, item.qty, item.metadata, Player, nil)
+                end
+                success = true
+            end
+        else
+            TriggerClientEvent('noir_shops:client:notify', src, _U('not_enough_money'), 'error', shop.name)
+        end
+    end
+
+    if success then
+        local pTypeLabel = paymentType == 'cash' and 'Cash' or 'Card'
+        
+        local totalItems = 0
+        local lastItemLabel = "Item"
+        for _, it in ipairs(validatedItems) do 
+            totalItems = totalItems + it.qty 
+            lastItemLabel = it.label
+        end
+
+        if totalItems == 1 then
+            TriggerClientEvent('noir_shops:client:notify', src, _U('success_purchase', lastItemLabel, totalCost), 'success', shop.name)
+        else
+            TriggerClientEvent('noir_shops:client:notify', src, _U('success_purchase_multiple', totalCost), 'success', shop.name)
+        end
+        
+        local itemList = ""
+        for _, it in ipairs(validatedItems) do itemList = itemList .. it.qty .. "x " .. it.label .. ", " end
+        if string.len(itemList) > 2 then itemList = string.sub(itemList, 1, -3) end
+
+        local steamId = "N/A"
+        local discordId = "N/A"
+        local license = "N/A"
+        local fivemId = "N/A"
+        for _, id in ipairs(GetPlayerIdentifiers(src)) do
+            if string.match(id, "^steam:") then
+                steamId = id
+            elseif string.match(id, "^discord:") then
+                discordId = string.sub(id, 9)
+            elseif string.match(id, "^license:") then
+                if license == "N/A" then license = id end
+            elseif string.match(id, "^fivem:") then
+                fivemId = id
+            end
+        end
+
+        local coordsTxt = string.format("%.2f, %.2f, %.2f", shop.coords.x, shop.coords.y, shop.coords.z)
+
+        -- collect which licenses were required by items in this purchase
+        local licenseLines = {}
+        local seenLicenses = {}
+        for _, it in ipairs(validatedItems) do
+            if it.license and not seenLicenses[it.license] then
+                seenLicenses[it.license] = true
+                local licData = Config.Licenses and Config.Licenses[it.license]
+                table.insert(licenseLines, (licData and licData.label) or it.license)
+            end
+        end
+        local licenseNote = #licenseLines > 0 and ("\n**License required:** " .. table.concat(licenseLines, ", ")) or ""
+        local licenseNotePlain = #licenseLines > 0 and (" | License req: " .. table.concat(licenseLines, ", ")) or ""
+
+        local logMsg = string.format("**Player:** %s\n**Items:** %s\n**Payment:** %s ($%s)\n\n**Location:** %s\n**License:** %s\n**FiveM:** %s\n**Steam ID:** %s\n**Discord:** %s", 
+            GetPlayerName(src), itemList, pTypeLabel, totalCost, coordsTxt, license, fivemId, steamId, discordId) .. licenseNote
+            
+        local plainMsg = string.format("Player: %s | Items: %s| Payment: %s ($%s) | Loc: %s | Lic: %s | FiveM: %s | Steam: %s | DC: %s", 
+            GetPlayerName(src), itemList, pTypeLabel, totalCost, coordsTxt, license, fivemId, steamId, discordId) .. licenseNotePlain
+            
+        Log.Send("Shop Checkout: " .. shop.name, logMsg, 65280, plainMsg)
+    end
+end)
+
+-- Dynamic Shop Management (saved shops persist across restarts)
+
+local ConfigShopIds = {} -- Track which shops come from config.lua
+for id, _ in pairs(Config.Shops) do
+    ConfigShopIds[id] = true
+end
+
+local function DeserializeVectors(shop)
+    if shop.coords and type(shop.coords) == 'table' and not shop.coords.x then
+        shop.coords = vector3(shop.coords[1], shop.coords[2], shop.coords[3])
+    end
+    shop.MarkerPos = nil -- deprecated, use coords
+    if shop.MarkerSize and type(shop.MarkerSize) == 'table' and not shop.MarkerSize.x then
+        shop.MarkerSize = vector3(shop.MarkerSize[1], shop.MarkerSize[2], shop.MarkerSize[3])
+    end
+    return shop
+end
+
+local function SerializeShop(shop)
+    local s = {}
+    for k, v in pairs(shop) do
+        if type(v) == 'table' then
+            s[k] = {}
+            for ik, iv in pairs(v) do
+                if type(iv) == 'table' then
+                    s[k][ik] = {}
+                    for iik, iiv in pairs(iv) do
+                        s[k][ik][iik] = iiv
+                    end
+                else
+                    s[k][ik] = iv
+                end
+            end
+        else
+            s[k] = v
+        end
+    end
+    if s.coords then s.coords = { s.coords.x, s.coords.y, s.coords.z } end
+
+    if s.MarkerSize then s.MarkerSize = { s.MarkerSize.x, s.MarkerSize.y, s.MarkerSize.z } end
+    return s
+end
+
+local function DeepCopy(orig)
+    local copy = {}
+    for k, v in pairs(orig) do
+        if type(v) == 'table' then
+            copy[k] = DeepCopy(v)
+        else
+            copy[k] = v
+        end
+    end
+    return copy
+end
+
+local function DistanceBetweenShops(a, b)
+    if not a or not b or not a.coords or not b.coords then return nil end
+    local dx = (a.coords.x or 0.0) - (b.coords.x or 0.0)
+    local dy = (a.coords.y or 0.0) - (b.coords.y or 0.0)
+    local dz = (a.coords.z or 0.0) - (b.coords.z or 0.0)
+    return math.sqrt(dx * dx + dy * dy + dz * dz)
+end
+
+local function FindOverlappingShopId(shopId, shop)
+    -- Very small tolerance: catches accidental duplicates at the same spot
+    local overlapRadius = 0.6
+    for existingId, existingShop in pairs(Config.Shops) do
+        if existingId ~= shopId then
+            local dist = DistanceBetweenShops(shop, existingShop)
+            if dist and dist <= overlapRadius then
+                local pedA = tostring(shop.PedModel or '')
+                local pedB = tostring(existingShop.PedModel or '')
+                local blipA = tostring(shop.Blipname or '')
+                local blipB = tostring(existingShop.Blipname or '')
+                -- Require at least one strong similarity to avoid false positives.
+                if (pedA ~= '' and pedA == pedB) or (blipA ~= '' and blipA == blipB) then
+                    return existingId, dist
+                end
+            end
+        end
+    end
+    return nil, nil
+end
+
+local function LoadSavedShops()
+    local raw = LoadResourceFile(GetCurrentResourceName(), 'saved_shops.json')
+    if not raw or raw == '' then return end
+
+    local saved = json.decode(raw)
+    if not saved then return end
+
+    local overrideCount, dynamicCount, skippedDuplicates = 0, 0, 0
+    for id, shop in pairs(saved) do
+        shop = DeserializeVectors(shop)
+        if shop._dynamic then
+            local overlapId, overlapDist = FindOverlappingShopId(id, shop)
+            if overlapId then
+                skippedDuplicates = skippedDuplicates + 1
+                print(string.format('^3[noir_shops] Skipped duplicate saved shop "%s" (overlaps "%s", dist=%.2f)^0', id, overlapId, overlapDist))
+            else
+                Config.Shops[id] = shop
+                dynamicCount = dynamicCount + 1
+            end
+        elseif shop._override and ConfigShopIds[id] then
+            for k, v in pairs(shop) do
+                if k ~= '_override' then
+                    Config.Shops[id][k] = v
+                end
+            end
+            Config.Shops[id]._override = true
+            overrideCount = overrideCount + 1
+        end
+    end
+    print('^2[noir_shops] Loaded ' .. dynamicCount .. ' dynamic shop(s), ' .. overrideCount .. ' override(s), skipped ' .. skippedDuplicates .. ' duplicate(s) from saved_shops.json^0')
+end
+
+local function SaveAllShops()
+    local data = {}
+    local count = 0
+    for id, shop in pairs(Config.Shops) do
+        if shop._dynamic or shop._override then
+            data[id] = SerializeShop(shop)
+            count = count + 1
+        end
+    end
+    local ok = SaveResourceFile(GetCurrentResourceName(), 'saved_shops.json', json.encode(data), -1)
+    if ok then
+        print('^2[noir_shops] Saved ' .. count .. ' shop(s) to ' .. GetResourcePath(GetCurrentResourceName()) .. '/saved_shops.json^0')
+    else
+        print('^1[noir_shops] SAVE FAILED: could not write saved_shops.json in ' .. tostring(GetResourcePath(GetCurrentResourceName())) .. ' - check file/folder write permissions!^0')
+    end
+end
+
+LoadSavedShops()
+RefreshAllDynamicPrices() -- Refresh after saved shops are loaded
+
+-- Image Scanner — collects available images at startup
+
+local AvailableImages = {}
+local ImagePathMap = {}
+
+local function ScanImages()
+    local images = {}
+    local pathMap = {}
+    local resourcePath = GetResourcePath(GetCurrentResourceName())
+    local resName = GetCurrentResourceName()
+    local scanPaths = {
+        { path = resourcePath .. '/html/images', nui = 'nui://' .. resName .. '/html/images/' },
+    }
+
+    -- Also scan common inventory image folders
+    local inventoryPaths = {
+        { res = 'ox_inventory', sub = '/web/images', nuiSub = '/web/images/' },
+    }
+
+    for _, inv in ipairs(inventoryPaths) do
+        if GetResourceState(inv.res) ~= 'missing' then
+            local invPath = GetResourcePath(inv.res)
+            if invPath then
+                table.insert(scanPaths, { path = invPath .. inv.sub, nui = 'nui://' .. inv.res .. inv.nuiSub })
+            end
+        end
+    end
+
+    local isWindows = resourcePath:find('\\') ~= nil
+    local seen = {}
+    for _, sp in ipairs(scanPaths) do
+        local cmd
+        if isWindows then
+            cmd = 'dir "' .. sp.path .. '" /b /a-d 2>nul'
+        else
+            cmd = 'ls -1 "' .. sp.path .. '" 2>/dev/null'
+        end
+        local handle = io.popen(cmd)
+        if handle then
+            for file in handle:lines() do
+                file = file:gsub('%s+$', '')
+                local lower = file:lower()
+                if (lower:match('%.png$') or lower:match('%.jpg$') or lower:match('%.jpeg$') or lower:match('%.webp$')) and not seen[lower] then
+                    seen[lower] = true
+                    table.insert(images, file)
+                    local nuiUrl = sp.nui .. file
+                    pathMap[file] = nuiUrl
+                    pathMap[lower] = nuiUrl
+                end
+            end
+            handle:close()
+        end
+    end
+
+    table.sort(images, function(a, b) return a:lower() < b:lower() end)
+    return images, pathMap
+end
+
+AvailableImages, ImagePathMap = ScanImages()
+print('^2[noir_shops] Scanned ' .. #AvailableImages .. ' available images.^0')
+
+-- Admin Panel Events
+
+local function GetAllRestrictions()
+    local restrictions = {}
+    local seen = {}
+
+    local function addEntry(name, label, entryType)
+        if not name or seen[name] then return end
+        seen[name] = true
+        local suffix = entryType == 'gang' and ' (Gang)' or ' (Job)'
+        table.insert(restrictions, {
+            name = name,
+            label = (label or name) .. suffix,
+            type = entryType
+        })
+    end
+
+    if Framework == 'qbcore' then
+        local shared = QBCore.Shared.Jobs
+        if shared then
+            for name, data in pairs(shared) do
+                addEntry(name, data.label, 'job')
+            end
+        end
+        local gangs = QBCore.Shared.Gangs
+        if gangs then
+            for name, data in pairs(gangs) do
+                addEntry(name, data.label, 'gang')
+            end
+        end
+    elseif Framework == 'qbox' then
+        local jobs = exports.qbx_core:GetJobs()
+        if jobs then
+            for key, data in pairs(jobs) do
+                if type(key) == 'string' then
+                    addEntry(key, data and data.label, 'job')
+                elseif type(data) == 'table' then
+                    addEntry(data.name, data.label, 'job')
+                end
+            end
+        end
+        local gangs = exports.qbx_core:GetGangs()
+        if gangs then
+            for key, data in pairs(gangs) do
+                if type(key) == 'string' then
+                    addEntry(key, data and data.label, 'gang')
+                elseif type(data) == 'table' then
+                    addEntry(data.name, data.label, 'gang')
+                end
+            end
+        end
+    elseif Framework == 'esx' then
+        local result = MySQL and MySQL.query and MySQL.query.await('SELECT name, label FROM jobs') or {}
+        for _, row in ipairs(result) do
+            addEntry(row.name, row.label, 'job')
+        end
+    end
+    table.sort(restrictions, function(a, b) return a.label:lower() < b.label:lower() end)
+    return restrictions
+end
+
+local function GetAllItems()
+    local items = {}
+    local seen = {}
+
+    -- 1) Framework items
+    if Framework == 'qbcore' then
+        local shared = QBCore.Shared.Items
+        if shared then
+            for name, data in pairs(shared) do
+                if not seen[name] then
+                    seen[name] = true
+                    table.insert(items, { name = name, label = data.label or name })
+                end
+            end
+        end
+    elseif Framework == 'qbox' then
+        if GetResourceState('ox_inventory') == 'started' then
+            local ok, shared = pcall(exports.ox_inventory.Items, exports.ox_inventory)
+            if ok and shared then
+                for name, data in pairs(shared) do
+                    if not seen[name] then
+                        seen[name] = true
+                        table.insert(items, { name = name, label = data.label or name })
+                    end
+                end
+            end
+        end
+    elseif Framework == 'esx' then
+        local result = MySQL and MySQL.query and MySQL.query.await('SELECT name, label FROM items') or {}
+        for _, row in ipairs(result) do
+            if not seen[row.name] then
+                seen[row.name] = true
+                table.insert(items, { name = row.name, label = row.label or row.name })
+            end
+        end
+    end
+
+    -- 2) Inventory resource items (additional/authoritative source)
+    if GetResourceState('ox_inventory') == 'started' then
+        local ok, invItems = pcall(exports.ox_inventory.Items, exports.ox_inventory)
+        if ok and invItems then
+            for name, data in pairs(invItems) do
+                if not seen[name] then
+                    seen[name] = true
+                    table.insert(items, { name = name, label = data.label or name })
+                end
+            end
+        end
+    elseif GetResourceState('qb-inventory') == 'started' then
+        if QBCore and QBCore.Shared and QBCore.Shared.Items then
+            for name, data in pairs(QBCore.Shared.Items) do
+                if not seen[name] then
+                    seen[name] = true
+                    table.insert(items, { name = name, label = data.label or name })
+                end
+            end
+        end
+    elseif GetResourceState('qs-inventory') == 'started' then
+        local ok, invItems = pcall(exports['qs-inventory'].GetItemList, exports['qs-inventory'])
+        if ok and invItems then
+            for name, data in pairs(invItems) do
+                if not seen[name] then
+                    seen[name] = true
+                    table.insert(items, { name = name, label = data.label or name })
+                end
+            end
+        end
+    elseif GetResourceState('ps-inventory') == 'started' then
+        local ok, invItems = pcall(exports['ps-inventory'].Items, exports['ps-inventory'])
+        if ok and invItems then
+            for name, data in pairs(invItems) do
+                if not seen[name] then
+                    seen[name] = true
+                    table.insert(items, { name = name, label = data.label or name })
+                end
+            end
+        end
+    elseif GetResourceState('lj-inventory') == 'started' then
+        local ok, invItems = pcall(exports['lj-inventory'].Items, exports['lj-inventory'])
+        if ok and invItems then
+            for name, data in pairs(invItems) do
+                if not seen[name] then
+                    seen[name] = true
+                    table.insert(items, { name = name, label = data.label or name })
+                end
+            end
+        end
+    end
+
+    table.sort(items, function(a, b) return a.label:lower() < b.label:lower() end)
+    return items
+end
+
+local function IsAdmin(src)
+    return IsPlayerAceAllowed(src, 'command.smartshopedit')
+end
+
+local function SanitizeShopId(id)
+    if type(id) ~= 'string' then return nil end
+    id = id:gsub('[^%w_%-]', '')
+    if #id == 0 or #id > 64 then return nil end
+    return id
+end
+
+RegisterNetEvent('noir_shops:server:requestSavedShops', function()
+    local src = source
+    local shops = {}
+    for id, shop in pairs(Config.Shops) do
+        if shop._dynamic or shop._override then
+            shops[id] = SerializeShop(shop)
+        end
+    end
+    TriggerClientEvent('noir_shops:client:receiveSavedShops', src, shops)
+end)
+
+RegisterNetEvent('noir_shops:server:requestDynamicPrices', function(shopId)
+    local src = source
+    local shop = Config.Shops[shopId]
+    if not shop or not shop.DynamicPricing then
+        TriggerClientEvent('noir_shops:client:receiveDynamicPrices', src, shopId, nil)
+        return
+    end
+    if not DynamicPrices[shopId] then
+        RefreshDynamicPrices(shopId)
+    end
+    TriggerClientEvent('noir_shops:client:receiveDynamicPrices', src, shopId, DynamicPrices[shopId])
+end)
+
+RegisterNetEvent('noir_shops:server:requestPlayerLicenses', function(shopId)
+    local src = source
+    local validKeys = {}
+
+    if Config.Licenses then
+        for licKey, _ in pairs(Config.Licenses) do
+            if HasLicense(src, licKey) then
+                validKeys[licKey] = true
+            end
+        end
+    end
+    TriggerClientEvent('noir_shops:client:receivePlayerLicenses', src, shopId, validKeys)
+end)
+
+RegisterNetEvent('noir_shops:server:requestAdminData', function()
+    local src = source
+    if not IsAdmin(src) then return end
+    -- Serialize all shops for NUI
+    local shops = {}
+    for id, shop in pairs(Config.Shops) do
+        local s = SerializeShop(shop)
+        s._isConfig = ConfigShopIds[id] or false
+        shops[id] = s
+    end
+    TriggerClientEvent('noir_shops:client:receiveAdminData', src, shops, AvailableImages, GetAllRestrictions(), GetAllItems(), ImagePathMap)
+end)
+
+RegisterNetEvent('noir_shops:server:saveShop', function(shopId, shopData)
+    local src = source
+    if not IsAdmin(src) then return end
+    shopId = SanitizeShopId(shopId)
+    if not shopId or not shopData then return end
+
+    shopData = DeserializeVectors(shopData)
+
+    if ConfigShopIds[shopId] then
+        shopData._override = true
+        shopData._dynamic = nil
+    else
+        shopData._dynamic = true
+        shopData._override = nil
+    end
+
+    Config.Shops[shopId] = shopData
+    SaveAllShops()
+    RefreshDynamicPrices(shopId)
+
+    TriggerClientEvent('noir_shops:client:registerShop', -1, shopId, SerializeShop(shopData))
+    TriggerClientEvent('noir_shops:client:notify', src, 'Loja "' .. shopId .. '" salva.', 'success')
+    print('^2[noir_shops] Shop "' .. shopId .. '" saved by ' .. GetPlayerName(src) .. '^0')
+end)
+
+RegisterNetEvent('noir_shops:server:deleteShop', function(shopId)
+    local src = source
+    if not IsAdmin(src) then return end
+    shopId = SanitizeShopId(shopId)
+    if not shopId then return end
+
+    if ConfigShopIds[shopId] then
+        TriggerClientEvent('noir_shops:client:notify', src, 'Loja da config não pode ser apagada. Use "Voltar à config".', 'error')
+        return
+    end
+
+    Config.Shops[shopId] = nil
+    SaveAllShops()
+
+    TriggerClientEvent('noir_shops:client:unregisterShop', -1, shopId)
+    TriggerClientEvent('noir_shops:client:notify', src, 'Loja "' .. shopId .. '" apagada.', 'success')
+    print('^3[noir_shops] Shop "' .. shopId .. '" deleted by ' .. GetPlayerName(src) .. '^0')
+end)
+
+RegisterNetEvent('noir_shops:server:resetShop', function(shopId)
+    local src = source
+    if not IsAdmin(src) then return end
+    shopId = SanitizeShopId(shopId)
+    if not shopId or not ConfigShopIds[shopId] then
+        TriggerClientEvent('noir_shops:client:notify', src, 'A loja "' .. tostring(shopId) .. '" não vem da config.', 'error')
+        return
+    end
+
+    Config.Shops[shopId]._override = nil
+    SaveAllShops()
+
+    TriggerClientEvent('noir_shops:client:notify', src, 'Alterações da loja "' .. shopId .. '" descartadas. A config original volta no próximo restart.', 'success')
+    print('^3[noir_shops] Override removed for "' .. shopId .. '" by ' .. GetPlayerName(src) .. '^0')
+end)
+
+RegisterNetEvent('noir_shops:server:createNewShop', function(shopId)
+    local src = source
+    if not IsAdmin(src) then return end
+    shopId = SanitizeShopId(shopId)
+    if not shopId then
+        TriggerClientEvent('noir_shops:client:notify', src, 'Informe o ID da loja.', 'error')
+        return
+    end
+
+    if Config.Shops[shopId] then
+        TriggerClientEvent('noir_shops:client:notify', src, 'Já existe uma loja com o ID "' .. shopId .. '".', 'error')
+        return
+    end
+
+    local ped = GetPlayerPed(src)
+    local playerCoords = GetEntityCoords(ped)
+
+    local newShop = {
+        name = 'New Shop',
+        coords = vector3(playerCoords.x, playerCoords.y, playerCoords.z - 1.0),
+        _dynamic = true,
+        items = {},
+    }
+
+    Config.Shops[shopId] = newShop
+    SaveAllShops()
+
+    TriggerClientEvent('noir_shops:client:registerShop', -1, shopId, SerializeShop(newShop))
+    TriggerClientEvent('noir_shops:client:notify', src, 'Loja "' .. shopId .. '" criada.', 'success')
+    print('^2[noir_shops] New empty shop "' .. shopId .. '" created by ' .. GetPlayerName(src) .. '^0')
+end)
+
+-- /smartshopcreate <sourceShopId> [newShopId]
+-- Copies an existing shop to the player's current position
+RegisterCommand('smartshopcreate', function(source, args)
+    local src = source
+    if src == 0 then
+        print('^1[noir_shops] This command must be used in-game.^0')
+        return
+    end
+
+    local sourceId = args[1]
+    if not sourceId then
+        TriggerClientEvent('noir_shops:client:notify', src, 'Uso: /smartshopcreate <idDaLoja> [novoId]', 'error')
+        return
+    end
+
+    local sourceShop = Config.Shops[sourceId]
+    if not sourceShop then
+        TriggerClientEvent('noir_shops:client:notify', src, 'Loja "' .. sourceId .. '" não encontrada.', 'error')
+        return
+    end
+
+    local newId = args[2] or (sourceId .. '_' .. os.time())
+
+    if Config.Shops[newId] then
+        TriggerClientEvent('noir_shops:client:notify', src, 'Já existe uma loja com o ID "' .. newId .. '".', 'error')
+        return
+    end
+
+    local ped = GetPlayerPed(src)
+    local playerCoords = GetEntityCoords(ped)
+
+    local newShop = DeepCopy(sourceShop)
+
+    newShop.coords = vector3(playerCoords.x, playerCoords.y, playerCoords.z - 1.0)
+    newShop.MarkerPos = nil
+    newShop._dynamic = true
+    newShop._override = nil
+
+    Config.Shops[newId] = newShop
+    SaveAllShops()
+
+    -- Tell all clients to register the new shop (blips, targets, etc.)
+    TriggerClientEvent('noir_shops:client:registerShop', -1, newId, SerializeShop(newShop))
+    TriggerClientEvent('noir_shops:client:notify', src, 'Loja "' .. newId .. '" criada na sua posição.', 'success')
+    print('^2[noir_shops] Shop "' .. newId .. '" created by ' .. GetPlayerName(src) .. ' at ' .. tostring(newShop.coords) .. '^0')
+end, true) -- restricted = true (requires ace permission: command.smartshopcreate)
+
+-- /smartshopedit — opens admin panel (ACE restricted)
+RegisterCommand('smartshopedit', function(source, args)
+    TriggerClientEvent('noir_shops:client:openAdminPanel', source)
+end, true) -- restricted = true (requires ace permission: command.smartshopedit)
+
+-- /smartshoplist — prints all shops + positions to F8 console
+RegisterCommand('smartshoplist', function(source, args)
+    local src = source
+    local lines = { '^3========== [noir_shops] All Shops ==========^0' }
+
+    for shopId, shop in pairs(Config.Shops) do
+        local c = shop.coords
+        local coordStr = string.format('%.2f, %.2f, %.2f', c.x, c.y, c.z)
+        local dynamic = shop._dynamic and ' ^5[dynamic]^0' or ''
+        local restrictionText = ''
+        local restriction = GetShopRestriction(shop)
+        if restriction then
+            if type(restriction) == 'table' then
+                restrictionText = ' ^1[restriction: ' .. table.concat(restriction, ', ') .. ']^0'
+            else
+                restrictionText = ' ^1[restriction: ' .. restriction .. ']^0'
+            end
+        end
+        table.insert(lines, string.format('^2%s^0 (%s) — %s%s%s', shop.name or shopId, shopId, coordStr, restrictionText, dynamic))
+    end
+
+    table.insert(lines, '^3================================================^0')
+
+    -- If run from server console (src=0) or from in-game
+    for _, line in ipairs(lines) do
+        if src == 0 then
+            print(line)
+        else
+            -- F8 console on client side
+            TriggerClientEvent('noir_shops:client:printF8', src, line)
+        end
+    end
+end, false) -- not restricted, everyone can list

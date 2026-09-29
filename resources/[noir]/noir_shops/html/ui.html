@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>noir_shops</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/shop.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body>
+    <div id="app" class="store-app" style="display: none;">
+        <section class="store" role="dialog" aria-labelledby="shop-title">
+            <header class="store__header">
+                <h1 id="shop-title" class="store__title">Loja</h1>
+                <button id="close-btn" class="store__icon-btn" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+            </header>
+            <main class="store__body">
+                <div class="store__catalog">
+                    <div class="store__search">
+                        <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                        <label for="search-input" class="sr-only">Buscar item</label>
+                        <input type="text" id="search-input" class="store__field" placeholder="Buscar item" autocomplete="off">
+                        <button id="search-clear" class="store__search-clear" style="display:none;" aria-label="Limpar busca"><i class="fas fa-xmark"></i></button>
+                    </div>
+                    <div id="category-tabs" class="store__tabs" style="display: none;"></div>
+                    <div id="items-grid" class="store__grid"></div>
+                </div>
+
+                <aside class="store__cart">
+                    <h2 id="cart-title" class="store__cart-title">Carrinho</h2>
+                    <div id="cart-items" class="store__cart-list">
+                        <div class="store__empty" id="empty-cart-msg">Seu carrinho está vazio</div>
+                    </div>
+                    <div class="store__cart-footer">
+                        <div class="store__total" id="cart-total"></div>
+                        <button class="store__btn store__btn--confirm" id="checkout-btn">Finalizar compra</button>
+                    </div>
+                </aside>
+            </main>
+        </section>
+
+        <div class="store__keys" id="store-keys">
+            <span class="store__key"><kbd>ESC</kbd>Fechar</span>
+        </div>
+
+        <!-- Janela central: forma de pagamento -->
+        <div id="payment-modal" class="store-modal" style="display: none;">
+            <div class="store-modal__window" role="dialog" aria-labelledby="modal-title">
+                <header class="store-modal__header">
+                    <h2 id="modal-title" class="store-modal__title">Forma de pagamento</h2>
+                    <button id="close-modal-btn" class="store__icon-btn" aria-label="Cancelar"><i class="fas fa-xmark"></i></button>
+                </header>
+                <div class="store-modal__body">
+                    <div class="store-modal__line"><span id="modal-total-label">Total da compra</span><strong id="modal-total">$0</strong></div>
+                    <p id="modal-hint">Escolha como pagar.</p>
+                </div>
+                <div class="store-modal__footer">
+                    <button class="store__btn store__btn--secondary" id="pay-cash-btn"><i class="fas fa-money-bill-wave"></i><span id="text-cash">Dinheiro</span></button>
+                    <button class="store__btn store__btn--secondary" id="pay-card-btn"><i class="fas fa-credit-card"></i><span id="text-card">Cartão</span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Painel de admin (/smartshopedit) -->
+    <div id="admin-app" class="admin-app" style="display: none;">
+        <section class="admin-window">
+            <header class="admin-header">
+                <div class="admin-header-left">
+                    <button id="admin-back-btn" class="admin-icon-btn" style="display: none;" aria-label="Voltar"><i class="fas fa-arrow-left"></i></button>
+                    <h1 id="admin-title" class="admin-title">Lojas</h1>
+                </div>
+                <button id="admin-close-btn" class="admin-icon-btn" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+            </header>
+            <main class="admin-body" id="admin-content">
+                <!-- Tela 1: lista de lojas -->
+                <div id="admin-shop-list" class="admin-list-screen">
+                    <div class="admin-search">
+                        <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                        <label for="admin-search" class="sr-only">Buscar loja</label>
+                        <input type="text" id="admin-search" class="admin-input admin-input--search" placeholder="Buscar por nome ou ID da loja" autocomplete="off">
+                        <button id="admin-search-clear" class="admin-search-clear" style="display:none;" aria-label="Limpar busca"><i class="fas fa-xmark"></i></button>
+                    </div>
+                    <div id="admin-shops-grid" class="admin-shops-grid"></div>
+                </div>
+
+                <!-- Tela 2: editar loja -->
+                <div id="admin-shop-edit" class="admin-edit-screen" style="display: none;">
+                    <div class="admin-edit-left">
+                        <div class="admin-form">
+                            <h3 class="admin-section-title">Loja</h3>
+                            <div class="admin-row">
+                                <div class="admin-col">
+                                    <label class="admin-label" for="admin-shop-id">ID</label>
+                                    <input type="text" id="admin-shop-id" class="admin-input" readonly>
+                                </div>
+                                <div class="admin-col admin-col--wide">
+                                    <label class="admin-label" for="admin-shop-name">Nome</label>
+                                    <input type="text" id="admin-shop-name" class="admin-input" placeholder="Nome que aparece no topo da loja">
+                                </div>
+                            </div>
+
+                            <label class="admin-label">Acesso <span class="admin-hint">vazio = pública</span></label>
+                            <div class="admin-job-select" id="admin-job-select">
+                                <button type="button" class="admin-job-toggle" id="admin-job-toggle">
+                                    <span class="admin-job-placeholder" id="admin-job-placeholder">Pública (sem restrição)</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="admin-job-dropdown" id="admin-job-dropdown" style="display:none;">
+                                    <input type="text" class="admin-input admin-job-search" id="admin-job-search" placeholder="Buscar emprego ou gangue">
+                                    <div class="admin-job-list" id="admin-job-list"></div>
+                                </div>
+                            </div>
+
+                            <h3 class="admin-section-title">Posição</h3>
+                            <div class="admin-row">
+                                <div class="admin-col"><label class="admin-label" for="admin-coord-x">X</label><input type="number" step="0.01" id="admin-coord-x" class="admin-input admin-input--num"></div>
+                                <div class="admin-col"><label class="admin-label" for="admin-coord-y">Y</label><input type="number" step="0.01" id="admin-coord-y" class="admin-input admin-input--num"></div>
+                                <div class="admin-col"><label class="admin-label" for="admin-coord-z">Z</label><input type="number" step="0.01" id="admin-coord-z" class="admin-input admin-input--num"></div>
+                                <div class="admin-col admin-col-btn"><button id="admin-use-pos-btn" class="admin-btn admin-btn-secondary" title="Usar minha posição"><i class="fas fa-location-crosshairs"></i> Minha posição</button></div>
+                            </div>
+
+                            <div class="admin-toggle-section">
+                                <h3 class="admin-section-title">Atendente <span class="admin-hint">substitui o marcador</span></h3>
+                                <label class="admin-toggle" aria-label="Atendente">
+                                    <input type="checkbox" id="admin-ped-enabled">
+                                    <span class="admin-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div id="admin-ped-fields" style="display: none;">
+                                <label class="admin-label" for="admin-ped-model">Modelo</label>
+                                <div class="admin-image-field">
+                                    <input type="text" id="admin-ped-model" class="admin-input" placeholder="mp_m_shopkeep_01">
+                                    <button id="admin-ped-picker-btn" class="admin-btn-small" title="Escolher modelo"><i class="fas fa-person"></i></button>
+                                </div>
+                                <div class="admin-row">
+                                    <div class="admin-col">
+                                        <label class="admin-label" for="admin-ped-heading">Direção <span class="admin-hint">0–360</span></label>
+                                        <div class="admin-image-field">
+                                            <input type="number" id="admin-ped-heading" class="admin-input admin-input--num" value="0" min="0" max="360" step="1">
+                                            <button id="admin-use-heading-btn" class="admin-btn-small" title="Usar minha direção"><i class="fas fa-compass"></i></button>
+                                        </div>
+                                    </div>
+                                    <div class="admin-col admin-col--wide">
+                                        <label class="admin-label" for="admin-ped-scenario">Animação <span class="admin-hint">opcional</span></label>
+                                        <input type="text" id="admin-ped-scenario" class="admin-input" placeholder="WORLD_HUMAN_STAND_IMPATIENT">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h3 class="admin-section-title">Mapa</h3>
+                            <div class="admin-row">
+                                <div class="admin-col admin-col--wide">
+                                    <label class="admin-label" for="admin-blip-name">Nome do blip <span class="admin-hint">vazio = sem blip</span></label>
+                                    <input type="text" id="admin-blip-name" class="admin-input" placeholder="Loja">
+                                </div>
+                                <div class="admin-col">
+                                    <label class="admin-label" for="admin-blip-sprite">Ícone</label>
+                                    <input type="number" id="admin-blip-sprite" class="admin-input admin-input--num" value="52">
+                                </div>
+                                <div class="admin-col">
+                                    <label class="admin-label" for="admin-blip-color">Cor</label>
+                                    <input type="number" id="admin-blip-color" class="admin-input admin-input--num" value="2">
+                                </div>
+                            </div>
+                            <div class="admin-row">
+                                <div class="admin-col">
+                                    <div class="admin-checkbox-row">
+                                        <label><input type="checkbox" id="admin-blip-minimap"> Só no minimapa</label>
+                                    </div>
+                                </div>
+                                <div class="admin-col">
+                                    <label class="admin-label" for="admin-marker-type">Marcador <span class="admin-hint">0 = nenhum</span></label>
+                                    <input type="number" id="admin-marker-type" class="admin-input admin-input--num" value="0">
+                                </div>
+                            </div>
+
+                            <div class="admin-toggle-section">
+                                <h3 class="admin-section-title">Preço dinâmico <span class="admin-hint">preço varia sozinho</span></h3>
+                                <label class="admin-toggle" aria-label="Preço dinâmico">
+                                    <input type="checkbox" id="admin-dynamic-enabled">
+                                    <span class="admin-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div id="admin-dynamic-fields" style="display: none;">
+                                <div class="admin-row">
+                                    <div class="admin-col">
+                                        <label class="admin-label" for="admin-dynamic-range">Variação <span class="admin-hint">± %</span></label>
+                                        <input type="number" id="admin-dynamic-range" class="admin-input admin-input--num" value="30" min="1" max="100">
+                                    </div>
+                                    <div class="admin-col">
+                                        <label class="admin-label" for="admin-dynamic-interval">Intervalo <span class="admin-hint">min, 0 = padrão</span></label>
+                                        <input type="number" id="admin-dynamic-interval" class="admin-input admin-input--num" value="0" min="0">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="admin-actions">
+                            <button id="admin-delete-btn" class="admin-btn admin-btn-danger" style="display:none;">Apagar loja</button>
+                            <button id="admin-reset-btn" class="admin-btn admin-btn-secondary" style="display:none;">Voltar à config</button>
+                            <button id="admin-save-btn" class="admin-btn admin-btn-primary">Salvar loja</button>
+                        </div>
+                    </div>
+                    <aside class="admin-edit-right">
+                        <h3 class="admin-items-title">Itens <span id="admin-item-count" class="admin-badge">0</span></h3>
+                        <div id="admin-items-list" class="admin-items-list"></div>
+                        <div class="admin-items-footer">
+                            <button id="admin-add-item-btn" class="admin-btn admin-btn-secondary admin-btn-full"><i class="fas fa-plus"></i> Adicionar item</button>
+                        </div>
+                    </aside>
+                </div>
+            </main>
+        </section>
+
+        <div class="store__keys" id="admin-keys">
+            <span class="store__key"><kbd>ESC</kbd><span class="admin-key-label">Fechar</span></span>
+        </div>
+
+        <!-- Janela: editar item -->
+        <div id="item-edit-modal" class="admin-modal" style="display: none;">
+            <div class="admin-modal__window admin-modal__window--wide">
+                <header class="admin-modal__header">
+                    <h2 id="item-modal-title" class="admin-modal__title">Editar item</h2>
+                    <button id="item-modal-close" class="admin-icon-btn" aria-label="Cancelar"><i class="fas fa-xmark"></i></button>
+                </header>
+                <div class="admin-modal__body">
+                    <div class="admin-item-head">
+                        <div id="item-image-preview" class="admin-image-preview"></div>
+                        <div class="admin-item-head__fields">
+                            <div class="admin-row">
+                                <div class="admin-col">
+                                    <label class="admin-label" for="item-edit-name">Item <span class="admin-hint">nome interno</span></label>
+                                    <div class="admin-image-field">
+                                        <input type="text" id="item-edit-name" class="admin-input" placeholder="water">
+                                        <button id="item-name-picker-btn" class="admin-btn-small" title="Escolher item"><i class="fas fa-box-open"></i></button>
+                                    </div>
+                                </div>
+                                <div class="admin-col">
+                                    <label class="admin-label" for="item-edit-label">Nome na loja</label>
+                                    <input type="text" id="item-edit-label" class="admin-input" placeholder="Água">
+                                </div>
+                            </div>
+                            <label class="admin-label" for="item-edit-image">Imagem</label>
+                            <div class="admin-image-field">
+                                <input type="text" id="item-edit-image" class="admin-input" placeholder="water.png">
+                                <button id="item-image-picker-btn" class="admin-btn-small" title="Escolher imagem"><i class="fas fa-images"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="admin-row">
+                        <div class="admin-col">
+                            <label class="admin-label" for="item-edit-price">Preço</label>
+                            <input type="number" id="item-edit-price" class="admin-input admin-input--num" value="0" min="0">
+                        </div>
+                        <div class="admin-col">
+                            <label class="admin-label" for="item-edit-maxqty">Máximo por compra</label>
+                            <input type="number" id="item-edit-maxqty" class="admin-input admin-input--num" value="999" min="1">
+                        </div>
+                        <div class="admin-col">
+                            <label class="admin-label" for="item-edit-grade">Cargo mínimo <span class="admin-hint">0 = qualquer</span></label>
+                            <input type="number" id="item-edit-grade" class="admin-input admin-input--num" value="0" min="0">
+                        </div>
+                    </div>
+                    <div class="admin-row" id="item-dynamic-price-row" style="display: none;">
+                        <div class="admin-col">
+                            <label class="admin-label" for="item-edit-minprice">Preço mínimo <span class="admin-hint">opcional</span></label>
+                            <input type="number" id="item-edit-minprice" class="admin-input admin-input--num" placeholder="auto" min="0">
+                        </div>
+                        <div class="admin-col">
+                            <label class="admin-label" for="item-edit-maxprice">Preço máximo <span class="admin-hint">opcional</span></label>
+                            <input type="number" id="item-edit-maxprice" class="admin-input admin-input--num" placeholder="auto" min="0">
+                        </div>
+                    </div>
+                    <div class="admin-row">
+                        <div class="admin-col">
+                            <label class="admin-label" for="item-edit-category">Categoria <span class="admin-hint">vira aba na loja</span></label>
+                            <input type="text" id="item-edit-category" class="admin-input" placeholder="Bebida">
+                        </div>
+                        <div class="admin-col">
+                            <label class="admin-label">Licença <span class="admin-hint">opcional</span></label>
+                            <div class="admin-job-select" id="item-license-select">
+                                <button type="button" class="admin-job-toggle" id="item-license-toggle">
+                                    <span class="admin-job-placeholder" id="item-license-placeholder">Nenhuma</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="admin-job-dropdown" id="item-license-dropdown" style="display:none;">
+                                    <div class="admin-job-list" id="item-license-list"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="admin-modal__footer">
+                    <button id="item-edit-cancel" class="admin-btn admin-btn-secondary">Cancelar</button>
+                    <button id="item-edit-save" class="admin-btn admin-btn-primary">Salvar item</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Janela: confirmar apagar loja -->
+        <div id="delete-confirm-modal" class="admin-modal" style="display: none;">
+            <div class="admin-modal__window" role="alertdialog" aria-labelledby="delete-confirm-title">
+                <header class="admin-modal__header">
+                    <h2 id="delete-confirm-title" class="admin-modal__title">Apagar loja</h2>
+                    <button id="delete-confirm-close" class="admin-icon-btn" aria-label="Cancelar"><i class="fas fa-xmark"></i></button>
+                </header>
+                <div class="admin-modal__body">
+                    <div class="admin-confirm-object">
+                        <span id="delete-confirm-name" class="admin-confirm-object__name">Loja</span>
+                        <span id="delete-confirm-id" class="admin-badge">id</span>
+                    </div>
+                    <p class="admin-modal__text">A loja sai do mapa para todos os jogadores, junto com o atendente e os itens. Não dá para desfazer.</p>
+                </div>
+                <div class="admin-modal__footer">
+                    <button id="delete-confirm-cancel" class="admin-btn admin-btn-secondary">Cancelar</button>
+                    <button id="delete-confirm-ok" class="admin-btn admin-btn-danger">Apagar loja</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Janela: escolher imagem -->
+        <div id="image-picker-modal" class="admin-modal" style="display: none;">
+            <div class="admin-modal__window admin-modal__window--large">
+                <header class="admin-modal__header">
+                    <h2 class="admin-modal__title">Escolher imagem</h2>
+                    <button id="image-picker-close" class="admin-icon-btn" aria-label="Cancelar"><i class="fas fa-xmark"></i></button>
+                </header>
+                <div class="admin-picker-search">
+                    <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                    <input type="text" id="image-picker-search" class="admin-input admin-input--search" placeholder="Buscar por nome do arquivo">
+                </div>
+                <div class="admin-picker-body">
+                    <div id="image-picker-grid" class="image-picker-grid"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Janela: nova loja -->
+        <div id="new-shop-modal" class="admin-modal" style="display: none;">
+            <div class="admin-modal__window">
+                <header class="admin-modal__header">
+                    <h2 class="admin-modal__title">Nova loja</h2>
+                    <button id="new-shop-modal-close" class="admin-icon-btn" aria-label="Cancelar"><i class="fas fa-xmark"></i></button>
+                </header>
+                <div class="admin-modal__body">
+                    <label class="admin-label" for="new-shop-id">ID da loja <span class="admin-hint">único, sem espaços</span></label>
+                    <input type="text" id="new-shop-id" class="admin-input" placeholder="247_nova">
+                    <p class="admin-modal__text">A loja é criada vazia na sua posição atual.</p>
+                </div>
+                <div class="admin-modal__footer">
+                    <button id="new-shop-cancel" class="admin-btn admin-btn-secondary">Cancelar</button>
+                    <button id="new-shop-create-btn" class="admin-btn admin-btn-primary">Criar loja</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Janela: escolher modelo do atendente -->
+        <div id="ped-picker-modal" class="admin-modal" style="display: none;">
+            <div class="admin-modal__window admin-modal__window--large">
+                <header class="admin-modal__header">
+                    <h2 class="admin-modal__title">Modelo do atendente</h2>
+                    <button id="ped-picker-close" class="admin-icon-btn" aria-label="Cancelar"><i class="fas fa-xmark"></i></button>
+                </header>
+                <div class="admin-picker-search">
+                    <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                    <input type="text" id="ped-picker-search" class="admin-input admin-input--search" placeholder="Buscar modelo">
+                </div>
+                <div class="admin-picker-body">
+                    <div id="ped-picker-list" class="admin-picker-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Janela: escolher item do inventário -->
+        <div id="item-picker-modal" class="admin-modal" style="display: none;">
+            <div class="admin-modal__window admin-modal__window--large">
+                <header class="admin-modal__header">
+                    <h2 class="admin-modal__title">Escolher item</h2>
+                    <button id="item-picker-close" class="admin-icon-btn" aria-label="Cancelar"><i class="fas fa-xmark"></i></button>
+                </header>
+                <div class="admin-picker-search">
+                    <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                    <input type="text" id="item-picker-search" class="admin-input admin-input--search" placeholder="Buscar por nome ou nome interno">
+                </div>
+                <div class="admin-picker-body">
+                    <div id="item-picker-list" class="admin-picker-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/ped_models.js"></script>
+    <script src="js/script.js"></script>
+</body>
+
+</html>
