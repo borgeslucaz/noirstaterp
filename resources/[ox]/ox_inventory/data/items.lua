@@ -2010,6 +2010,10 @@ return {
         label = 'AK47 Seed',
         rarity = 'common',
         weight = 1,
+        close = true,
+        consume = 0,
+        description = 'Planta num vaso: precisa de vaso e pá de jardim.',
+        client = { export = 'noir_weed.useSeed' },
     },
 
     ['weed_skunk'] = {
@@ -2022,6 +2026,10 @@ return {
         label = 'Skunk Seed',
         rarity = 'common',
         weight = 1,
+        close = true,
+        consume = 0,
+        description = 'Planta num vaso: precisa de vaso e pá de jardim.',
+        client = { export = 'noir_weed.useSeed' },
     },
 
     ['weed_amnesia'] = {
@@ -2034,6 +2042,10 @@ return {
         label = 'Amnesia Seed',
         rarity = 'common',
         weight = 1,
+        close = true,
+        consume = 0,
+        description = 'Planta num vaso: precisa de vaso e pá de jardim.',
+        client = { export = 'noir_weed.useSeed' },
     },
 
     ['weed_og-kush'] = {
@@ -2046,10 +2058,14 @@ return {
         label = 'OGKush Seed',
         rarity = 'common',
         weight = 1,
+        close = true,
+        consume = 0,
+        description = 'Planta num vaso: precisa de vaso e pá de jardim.',
+        client = { export = 'noir_weed.useSeed' },
     },
 
     ['weed_white-widow'] = {
-        label = 'OGKush 2g',
+        label = 'White Widow 2g',
         rarity = 'common',
         weight = 200,
     },
@@ -2058,6 +2074,10 @@ return {
         label = 'White Widow Seed',
         rarity = 'common',
         weight = 1,
+        close = true,
+        consume = 0,
+        description = 'Planta num vaso: precisa de vaso e pá de jardim.',
+        client = { export = 'noir_weed.useSeed' },
     },
 
     ['weed_purple-haze'] = {
@@ -2070,6 +2090,10 @@ return {
         label = 'Purple Haze Seed',
         rarity = 'common',
         weight = 1,
+        close = true,
+        consume = 0,
+        description = 'Planta num vaso: precisa de vaso e pá de jardim.',
+        client = { export = 'noir_weed.useSeed' },
     },
 
     ['weed_brick'] = {
@@ -2115,6 +2139,20 @@ return {
         client = {
             image = "wood_planks.png",
         }
+    },
+
+    ['weed_pot'] = {
+        label = 'Vaso de planta',
+        rarity = 'common',
+        weight = 800,
+        description = 'Vaso com terra. Use uma semente para plantar nele.',
+    },
+
+    ['herbicide'] = {
+        label = 'Herbicida',
+        rarity = 'common',
+        weight = 500,
+        description = 'Borrifador que recupera a saúde da planta.',
     },
 
     ['weed_nutrition'] = {

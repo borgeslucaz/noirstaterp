@@ -1,0 +1,16 @@
+CREATE TABLE IF NOT EXISTS noir_weed_plants (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    owner VARCHAR(60) NOT NULL,
+    seed VARCHAR(60) NOT NULL,
+    x DOUBLE NOT NULL,
+    y DOUBLE NOT NULL,
+    z DOUBLE NOT NULL,
+    heading FLOAT NOT NULL DEFAULT 0,
+    growth FLOAT NOT NULL DEFAULT 0,
+    health FLOAT NOT NULL DEFAULT 0,
+    water FLOAT NOT NULL DEFAULT 0,
+    fertilizer FLOAT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_noir_weed_plants_owner (owner)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
