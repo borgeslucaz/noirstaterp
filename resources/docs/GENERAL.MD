@@ -151,7 +151,7 @@ Comandos:
 Configuração principal:
 
 ```text
-[bgrz]/noir_multichar/shared.lua
+[noir]/noir_multichar/shared.lua
 ```
 
 Alterações de slots, cenas, datas, spawn, itens iniciais ou comandos devem ser feitas nesse arquivo e seguidas de `restart noir_multichar` em ambiente de manutenção. Não reinicie o multichar com jogadores no fluxo de seleção/criação.
@@ -196,7 +196,7 @@ TriggerClientEvent('chat:addMessage', source, {
 Configuração:
 
 ```text
-[standalone]/noir_chat/config.lua
+[noir]/noir_chat/config.lua
 ```
 
 O limite padrão é 500 caracteres e `Config.ToggleChatKey = false`. Não inicie o chat CFX original junto com o `noir_chat`.
@@ -362,8 +362,8 @@ Use `restart noir_multichar` somente sem jogadores criando ou escolhendo persona
 | Voz | `txData/Qbox_87A6E4.base/voice.cfg` |
 | OX/inventário/target | `txData/Qbox_87A6E4.base/ox.cfg` |
 | Core BGRZ | `[bgrz]/bgrz_core/shared/config.lua` |
-| Multichar | `[bgrz]/noir_multichar/shared.lua` |
-| Chat | `[standalone]/noir_chat/config.lua` |
+| Multichar | `[noir]/noir_multichar/shared.lua` |
+| Chat | `[noir]/noir_chat/config.lua` |
 | NPCs demonstrativos | `[bgrz]/bgrz_interact_examples/config.lua` |
 
 Nunca publique `server.cfg`, credenciais do banco, license key, webhooks ou tokens em documentação pública.

@@ -2,7 +2,7 @@
 
 ## Escopo
 
-A principal NUI própria da base é a interface React de `resources/[bgrz]/noir_multichar/ui`. O `noir_chat` usa outro frontend CFX compilado/adaptado e não compartilha componentes com o multicharacter. Não existe uma NUI `bgrz_identity` separada.
+A principal NUI própria da base é a interface React de `resources/[noir]/noir_multichar/ui`. O `noir_chat` usa outro frontend CFX compilado/adaptado e não compartilha componentes com o multicharacter. Não existe uma NUI `bgrz_identity` separada.
 
 A aparência do personagem não é implementada pelo multicharacter: após a criação, o fluxo é entregue ao `illenium-appearance` pelo evento compatível `qb-clothes:client:CreateFirstCharacter`.
 
@@ -19,7 +19,7 @@ A aparência do personagem não é implementada pelo multicharacter: após a cri
 
 ## Desenvolvimento e build
 
-Na pasta `resources/[bgrz]/noir_multichar/ui`:
+Na pasta `resources/[noir]/noir_multichar/ui`:
 
 ```bash
 npm run dev

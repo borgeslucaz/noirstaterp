@@ -2,7 +2,7 @@
 
 > Registrado em 2026-09-12, sobre o commit `22071c51`.
 >
-> Escopo: estado entregue de `resources/[bgrz]/noir_outposts`, confrontado com
+> Escopo: estado entregue de `resources/[noir]/noir_outposts`, confrontado com
 > `resources/docs/noir_outposts/OUTPOST_NPC_DRUGSELL.md` (especificação primária).
 >
 > Complementa `CODE_REVIEW_IMPROVEMENTS.md`, que detalha os riscos técnicos. Este documento

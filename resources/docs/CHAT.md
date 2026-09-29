@@ -21,7 +21,7 @@ L não é capturada, desabilitada nem remapeada.
 
 ## Configuração
 
-Em [standalone]/noir_chat/config.lua:
+Em [noir]/noir_chat/config.lua:
 
 - Config.ToggleChatKey = false: não registra keybind de visibilidade;
 - Config.MaxMessageLength = 500: limite validado no client e server.

@@ -1,6 +1,6 @@
 ---Harness mínimo para rodar os módulos puros deste resource em Lua puro.
 ---
----    cd resources/[bgrz]/noir_prettycrimes
+---    cd resources/[noir]/noir_prettycrimes
 ---    lua tests/unit/parkingmeter_rules_spec.lua
 ---
 ---O que ele resolve, e é a única coisa que precisava resolver: o `require` do

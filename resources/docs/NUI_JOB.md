@@ -2,7 +2,7 @@
 
 ## 1. Objetivo deste documento
 
-Este documento define como construir uma NUI de atividade compatível com a linguagem visual do Noir State, tomando como referência a janela da central existente em `resources/[standalone]/noir_taxijob/html` e a captura aprovada em 1920 × 1080.
+Este documento define como construir uma NUI de atividade compatível com a linguagem visual do Noir State, tomando como referência a janela da central existente em `resources/[noir]/noir_taxijob/html` e a captura aprovada em 1920 × 1080.
 
 O objetivo **não** é reproduzir o emprego de táxi, suas regras, seus veículos, sua progressão ou seu ranking. O objetivo é preservar o sistema visual e comportamental da interface: composição sobre o mundo do jogo, atmosfera escura e translúcida, hierarquia editorial, navegação, cards, estados, movimento, acessibilidade e integração segura com o FiveM.
 
@@ -15,11 +15,11 @@ Este arquivo deve orientar agentes futuros na criação de NUIs de outras ativid
 
 As referências de implementação são:
 
-- `resources/[standalone]/noir_taxijob/html/index.html` — anatomia semântica;
-- `resources/[standalone]/noir_taxijob/html/main.css` — tokens, escala, layout e movimento;
-- `resources/[standalone]/noir_taxijob/html/app.js` — estados visuais e interação;
-- `resources/[standalone]/noir_taxijob/client/ui.lua` — mensagens Lua → NUI;
-- `resources/[standalone]/noir_taxijob/client/central.lua` — foco, callbacks e fechamento seguro.
+- `resources/[noir]/noir_taxijob/html/index.html` — anatomia semântica;
+- `resources/[noir]/noir_taxijob/html/main.css` — tokens, escala, layout e movimento;
+- `resources/[noir]/noir_taxijob/html/app.js` — estados visuais e interação;
+- `resources/[noir]/noir_taxijob/client/ui.lua` — mensagens Lua → NUI;
+- `resources/[noir]/noir_taxijob/client/central.lua` — foco, callbacks e fechamento seguro.
 
 ---
 

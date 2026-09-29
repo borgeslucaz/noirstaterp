@@ -1,4 +1,4 @@
--- Rode de dentro de resources/[bgrz]/noir_fazenda:
+-- Rode de dentro de resources/[noir]/noir_fazenda:
 --   lua5.4 tests/integration/feed_spec.lua
 --
 -- Prova a corrente inteira sem servidor de pé:
@@ -117,7 +117,7 @@ exports = setmetatable({}, {
 -- Carrega os dois lados
 --------------------------------------------------------------------------------
 
-local BGRZ_PATH = '../bgrz_core/'
+local BGRZ_PATH = '../../[bgrz]/bgrz_core/'
 BGRZ = {}
 dofile(BGRZ_PATH .. 'shared/config.lua')
 dofile(BGRZ_PATH .. 'shared/provider.lua')

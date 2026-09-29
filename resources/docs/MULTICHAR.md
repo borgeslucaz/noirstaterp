@@ -162,7 +162,7 @@ Config.AdminGroup = admin existe, porém no adapter Qbox a autorização efetiva
 
 ## Configuração atual
 
-Arquivo [bgrz]/noir_multichar/shared.lua:
+Arquivo [noir]/noir_multichar/shared.lua:
 
 - framework detectado automaticamente;
 - ox_inventory habilitado;

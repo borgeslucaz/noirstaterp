@@ -266,7 +266,7 @@ diferente conforme a configuração do banco.
 ## Testes
 
 ```bash
-cd resources/[bgrz]/noir_fazenda
+cd resources/[noir]/noir_fazenda
 lua5.4 tests/unit/rules_spec.lua
 lua5.4 tests/unit/manifest_spec.lua
 lua5.4 tests/integration/feed_spec.lua

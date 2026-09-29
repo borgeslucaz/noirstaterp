@@ -1,6 +1,6 @@
 # Guia de design de interfaces — Noir State RP
 
-> Padrão visual para novas NUIs, menus, notificações, confirmações e outros componentes do servidor. A referência principal é a seleção de personagens atual em `[bgrz]/noir_multichar/ui/src/components/charDetails`.
+> Padrão visual para novas NUIs, menus, notificações, confirmações e outros componentes do servidor. A referência principal é a seleção de personagens atual em `[noir]/noir_multichar/ui/src/components/charDetails`.
 
 ## 1. Direção visual
 

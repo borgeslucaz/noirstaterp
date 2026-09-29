@@ -75,7 +75,7 @@ O código reafirma esse estado periodicamente para impedir que scripts de spawn/
 
 ### Atlas: migrado para `noir_hud`
 
-Os 80 assets do `neen-atlasmap-en2` foram migrados para `[hud]/noir_hud/stream_enhanced/`:
+Os 80 assets do `neen-atlasmap-en2` foram migrados para `[noir]/noir_hud/stream_enhanced/`:
 
 - 65 arquivos `minimap_*.ydd`;
 - 13 arquivos `minimap_*.ytd`;

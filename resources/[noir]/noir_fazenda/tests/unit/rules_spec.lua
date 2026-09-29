@@ -1,4 +1,4 @@
--- Rode de dentro de resources/[bgrz]/noir_fazenda:
+-- Rode de dentro de resources/[noir]/noir_fazenda:
 --   lua5.4 tests/unit/rules_spec.lua
 
 local Test = dofile('tests/testlib.lua')

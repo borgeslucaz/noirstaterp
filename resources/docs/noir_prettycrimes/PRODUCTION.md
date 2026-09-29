@@ -3,7 +3,7 @@
 O que conferir e o que mudar antes de subir. Escrito a partir do estado real dos
 arquivos, não de memória; os valores abaixo são os que estão no repositório agora.
 
-Resource: `resources/[bgrz]/noir_prettycrimes`
+Resource: `resources/[noir]/noir_prettycrimes`
 Crime ativo: **smashgrab** (objetos visíveis dentro de veículos estacionados)
 
 ---
@@ -219,7 +219,7 @@ Isto **não** é ruído — se aparecer, algo precisa de atenção.
 ## 6. Verificação antes de liberar
 
 ```bash
-cd resources/[bgrz]/noir_prettycrimes
+cd resources/[noir]/noir_prettycrimes
 for f in $(find . -name '*.lua'); do luac5.4 -p "$f" || echo "FALHOU $f"; done
 ```
 
@@ -238,7 +238,7 @@ Em jogo, com `debug = true` temporariamente:
 ### Suítes automatizadas
 
 Ficam fora do repositório (foram construídas durante o desenvolvimento). Se quiser
-mantê-las, o lugar natural é `resources/[bgrz]/noir_prettycrimes/tests/`.
+mantê-las, o lugar natural é `resources/[noir]/noir_prettycrimes/tests/`.
 
 ---
 

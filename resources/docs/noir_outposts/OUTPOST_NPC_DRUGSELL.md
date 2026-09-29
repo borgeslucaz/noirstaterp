@@ -21,7 +21,7 @@ A implementação recomendada aproveita esses conceitos, mas mantém regras, ban
 Implementar em:
 
 ```text
-resources/[bgrz]/noir_outposts/
+resources/[noir]/noir_outposts/
 ```
 
 Não alterar o core de `op-drugselling`. O resource existente continua responsável pelo loop ativo de rua (`/venderdrogas`), enquanto `noir_outposts` será responsável por:

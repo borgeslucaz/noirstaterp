@@ -2,7 +2,7 @@
 
 > Revisão registrada em 2026-09-12.
 >
-> Escopo: estado atual de `resources/[bgrz]/noir_outposts`, confrontado com
+> Escopo: estado atual de `resources/[noir]/noir_outposts`, confrontado com
 > `resources/docs/SCRIPT_GOOD_PRACTICES.md` e
 > `resources/docs/noir_outposts/OUTPOST_NPC_DRUGSELL.md`.
 
@@ -191,8 +191,8 @@ teste de configuração exige que `noir_illegal_core` não seja dependência.
 Arquivos relacionados:
 
 - `resources/docs/noir_outposts/OUTPOST_NPC_DRUGSELL.md`;
-- `resources/[bgrz]/noir_outposts/README.md`;
-- `resources/[bgrz]/noir_outposts/tests/unit/config_spec.lua`.
+- `resources/[noir]/noir_outposts/README.md`;
+- `resources/[noir]/noir_outposts/tests/unit/config_spec.lua`.
 
 Ação recomendada:
 

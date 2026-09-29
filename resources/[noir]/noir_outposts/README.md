@@ -666,7 +666,7 @@ Sem permissão o comando responde dizendo o que falta, em vez de não fazer nada
 ## Testes
 
 ```bash
-cd resources/[bgrz]/noir_outposts
+cd resources/[noir]/noir_outposts
 for spec in tests/unit/*_spec.lua tests/integration/*_spec.lua; do lua "$spec" || exit 1; done
 ```
 

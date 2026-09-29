@@ -290,7 +290,7 @@ Cada export novo tem teste de sucesso e de falha em `bgrz_core/tests/unit/`.
 
 ## Instalação
 
-1. Copie a pasta para `resources/[bgrz]/noir_prettycrimes`.
+1. Copie a pasta para `resources/[noir]/noir_prettycrimes`.
 2. Garanta a ordem de start no `server.cfg`:
 
 ```cfg
@@ -960,7 +960,7 @@ estado que for **seu**.
 ## Testes
 
 ```bash
-cd resources/[bgrz]/noir_prettycrimes
+cd resources/[noir]/noir_prettycrimes
 for spec in tests/unit/*_spec.lua; do lua "$spec" || exit 1; done
 ```
 

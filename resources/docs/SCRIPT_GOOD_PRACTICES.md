@@ -9,7 +9,7 @@ Ele se aplica especialmente a atividades com NUI, sessão de trabalho, veículos
 As normas foram construídas a partir de:
 
 - implementação instalada em `resources/[bgrz]/bgrz_core`;
-- padrões observados em `resources/[standalone]/noir_taxijob`;
+- padrões observados em `resources/[noir]/noir_taxijob`;
 - [Developer's Guide oficial do Qbox](https://docs.qbox.re/developers);
 - [Release Readiness oficial do Qbox](https://docs.qbox.re/release);
 - [convenções de contribuição do Qbox](https://docs.qbox.re/contributors);

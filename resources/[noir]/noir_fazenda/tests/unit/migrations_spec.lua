@@ -1,4 +1,4 @@
--- Rode de dentro de resources/[bgrz]/noir_fazenda:
+-- Rode de dentro de resources/[noir]/noir_fazenda:
 --   lua5.4 tests/unit/migrations_spec.lua
 --
 -- Este spec existe porque o runner rejeitou o próprio migration em produção: ele
