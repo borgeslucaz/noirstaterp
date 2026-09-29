@@ -135,9 +135,11 @@ end
 ---when player dies, set last stand mode, or if already in last stand mode, set player to dead mode.
 ---Polls the ped instead of listening to `gameEventTriggered`: on GTA V Enhanced that event never
 ---fires for the local player, so deaths went unhandled and the ped stayed in native death.
+---After SetPlayerModel (illenium on login, clothing shops) cache.ped keeps the deleted ped for up to
+---100 ms and IsEntityDead on a handle that no longer exists returns true: only trust the current ped.
 CreateThread(function()
     while true do
-        if plyState.isLoggedIn and IsEntityDead(cache.ped) then
+        if plyState.isLoggedIn and PlayerPedId() == cache.ped and IsEntityDead(cache.ped) then
             local attacker, weapon = GetPedSourceOfDeath(cache.ped), GetPedCauseOfDeath(cache.ped)
             if DeathState == sharedConfig.deathState.ALIVE then
                 StartLastStand(attacker, weapon)
