@@ -3,6 +3,8 @@
 return {
     ---Vasos por personagem, contando os que estão no mundo.
     maxPlants = 5,
+    ---Mesas de processamento por personagem.
+    maxTables = 1,
 
     ---Colheita pela saúde da planta: saúde 0 dá `min`, saúde 100 dá `max`.
     reward = { min = 2, max = 10 },
@@ -27,7 +29,8 @@ return {
     ---Status de uma planta recém-plantada.
     initial = { health = 30.0, water = 30.0, fertilizer = 30.0 },
 
-    ---Queimar planta alheia exige estar em serviço num dos `destroyJobs` do config shared.
+    ---Queimar planta e apreender mesa alheia exigem estar em serviço num dos `destroyJobs`
+    ---do config shared.
     destroyRequiresDuty = true,
 
     distance = {
@@ -37,12 +40,18 @@ return {
         place = 6.0,
         ---Espaço mínimo entre dois vasos.
         spacing = 1.0,
+        ---Espaço mínimo entre duas mesas.
+        tableSpacing = 2.0,
     },
 
-    ---Onde não se planta.
+    ---Onde não se planta nem se monta mesa.
     blacklistZones = {
         { coords = vec3(430.077, -1012.518, 30.705), radius = 50.0 }, -- Mission Row PD
     },
+
+    ---Mesa: ritmo esperado por unidade embalada. Não corta a entrega; quem embala mais
+    ---rápido que isso vira um registro `pack_fast` (server/logs.lua).
+    packSecondsPerUnit = 3.5,
 
     ---Folga (ms) na conferência do tempo da ação: latência não pode recusar quem esperou.
     durationSlackMs = 750,

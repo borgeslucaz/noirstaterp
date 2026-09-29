@@ -173,6 +173,26 @@ function BGRZ.GetItemList()
     return list
 end
 
+---Validade do item em minutos (`degrade` no provider), para quem cria o item gravar a
+---própria validade no metadata — arredondada, por exemplo, para itens do mesmo lote
+---empilharem. Item sem validade devolve nil sem código de erro.
+---@param item string
+---@return number? minutes
+---@return string? errorCode
+function BGRZ.GetItemDegrade(item)
+    if type(item) ~= 'string' or #item == 0 or #item > 64 then return nil, 'invalid_item' end
+    local provider = BGRZ.Provider.name('inventory')
+    if not BGRZ.Provider.isAvailable('inventory') then return nil, 'provider_unavailable' end
+
+    local called, data = pcall(function()
+        return exports[provider]:Items(item)
+    end)
+    if not called or type(data) ~= 'table' then return nil, 'unknown_item' end
+    local degrade = data.degrade
+    if not isFinite(degrade) or degrade <= 0 then return nil end
+    return degrade
+end
+
 -- Durabilidade de ferramenta ------------------------------------------------------------
 --
 -- A escala é a do ox_inventory: 0 a 100. Acima de 100 o provider guarda um instante de
@@ -256,6 +276,7 @@ exports('GetItemList', BGRZ.GetItemList)
 exports('HasItemDurability', BGRZ.HasItemDurability)
 exports('ConsumeItemDurability', BGRZ.ConsumeItemDurability)
 exports('GetItemLabel', BGRZ.GetItemLabel)
+exports('GetItemDegrade', BGRZ.GetItemDegrade)
 exports('AddItem', BGRZ.AddItem)
 exports('RemoveItem', BGRZ.RemoveItem)
 exports('GetItemCount', BGRZ.GetItemCount)

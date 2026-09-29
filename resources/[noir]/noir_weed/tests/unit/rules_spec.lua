@@ -3,7 +3,7 @@
 local T = dofile('tests/testlib.lua')
 local Rules = dofile('shared/rules.lua')
 
-local stages = { { from = 0 }, { from = 40 }, { from = 70 } }
+local stages = { 0, 40, 70 }
 T.equal(Rules.stageFor(stages, 0), 1, 'recém-plantada')
 T.equal(Rules.stageFor(stages, 39.9), 1, 'antes do segundo estágio')
 T.equal(Rules.stageFor(stages, 40), 2, 'no limite do segundo')
@@ -46,5 +46,24 @@ T.falsy(Rules.isPlacement({ x = 1, y = 2, z = 3 }), 'sem heading')
 T.falsy(Rules.isPlacement({ x = 0 / 0, y = 2, z = 3, w = 0 }), 'NaN')
 T.falsy(Rules.isPlacement({ x = math.huge, y = 2, z = 3, w = 0 }), 'infinito')
 T.falsy(Rules.isPlacement('1,2,3'), 'não é tabela')
+
+local stock = {}
+local function count(item) return stock[item] or 0 end
+
+local hour = 3600
+T.equal(Rules.expiry(0, 60, hour), 3600, 'uma hora exata não muda')
+T.equal(Rules.expiry(1000, 60, hour), 3600, 'arredonda para baixo na hora')
+T.equal(Rules.expiry(3599, 60, hour), 3600, 'mesmo lote que o anterior')
+T.equal(Rules.expiry(3600, 60, hour), 7200, 'hora seguinte é outro lote')
+T.equal(Rules.expiry(1790000000, 14400, hour) % hour, 0, 'sempre na hora cheia')
+T.truthy(Rules.expiry(1790000000, 14400, hour) > 1790000000 + 14400 * 60 - hour, 'perde menos de uma hora')
+
+stock = { weed_skunk = 7, empty_weed_bag = 3 }
+T.equal(Rules.maxBatch({ weed_skunk = 1, empty_weed_bag = 1 }, count), 3, 'lote limitado pelo ingrediente mais escasso')
+T.equal(Rules.maxBatch({ weed_skunk = 2 }, count), 3, 'quantidade por unidade divide o estoque')
+T.equal(Rules.maxBatch({ weed_ak47 = 1 }, count), 0, 'sem o ingrediente não dá nenhum')
+local scaled = Rules.scale({ weed_skunk = 1, empty_weed_bag = 2 }, 4)
+T.equal(scaled.weed_skunk, 4, 'escala o primeiro')
+T.equal(scaled.empty_weed_bag, 8, 'escala o segundo')
 
 print('rules_spec ok')

@@ -12,14 +12,14 @@ function Rules.clamp(value, min, max)
     return value
 end
 
----Índice do estágio para um crescimento: o último cujo `from` já foi alcançado.
----@param stages { from: number }[]
+---Índice do estágio para um crescimento: o último limiar já alcançado.
+---@param stageAt number[] crescimento (%) em que cada estágio começa
 ---@param growth number
 ---@return integer
-function Rules.stageFor(stages, growth)
+function Rules.stageFor(stageAt, growth)
     local stage = 1
-    for index = 1, #stages do
-        if growth >= stages[index].from then stage = index end
+    for index = 1, #stageAt do
+        if growth >= stageAt[index] then stage = index end
     end
     return stage
 end
@@ -74,6 +74,40 @@ function Rules.isPlacement(value)
         if type(n) ~= 'number' or n ~= n or n == math.huge or n == -math.huge then return false end
     end
     return true
+end
+
+---Instante de validade arredondado para baixo no múltiplo de `bucket` segundos. Itens
+---criados no mesmo intervalo saem com a mesma validade e empilham no inventário.
+---@param now integer os.time()
+---@param degradeMinutes number
+---@param bucket integer segundos
+---@return integer
+function Rules.expiry(now, degradeMinutes, bucket)
+    local exact = now + math.floor(degradeMinutes * 60)
+    return exact - exact % bucket
+end
+
+---Quantas vezes dá para fazer uma receita com o que o jogador tem.
+---@param ingredients table<string, integer>
+---@param count fun(item: string): integer
+---@return integer
+function Rules.maxBatch(ingredients, count)
+    local best
+    for item, amount in pairs(ingredients) do
+        local times = math.floor(count(item) / amount)
+        if not best or times < best then best = times end
+    end
+    return best or 0
+end
+
+---Ingredientes ou saídas de uma receita multiplicados por `times`.
+---@param items table<string, integer>
+---@param times integer
+---@return table<string, integer>
+function Rules.scale(items, times)
+    local scaled = {}
+    for item, amount in pairs(items) do scaled[item] = amount * times end
+    return scaled
 end
 
 return Rules

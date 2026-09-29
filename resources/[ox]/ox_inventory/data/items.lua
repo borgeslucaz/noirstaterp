@@ -2004,6 +2004,8 @@ return {
         label = 'AK47 2g',
         rarity = 'common',
         weight = 200,
+        degrade = 7200, -- 5 dias
+        decay = true,
     },
 
     ['weed_ak47_seed'] = {
@@ -2020,6 +2022,8 @@ return {
         label = 'Skunk 2g',
         rarity = 'common',
         weight = 200,
+        degrade = 7200, -- 5 dias
+        decay = true,
     },
 
     ['weed_skunk_seed'] = {
@@ -2036,6 +2040,8 @@ return {
         label = 'Amnesia 2g',
         rarity = 'common',
         weight = 200,
+        degrade = 7200, -- 5 dias
+        decay = true,
     },
 
     ['weed_amnesia_seed'] = {
@@ -2052,6 +2058,8 @@ return {
         label = 'OGKush 2g',
         rarity = 'common',
         weight = 200,
+        degrade = 7200, -- 5 dias
+        decay = true,
     },
 
     ['weed_og-kush_seed'] = {
@@ -2068,6 +2076,8 @@ return {
         label = 'White Widow 2g',
         rarity = 'common',
         weight = 200,
+        degrade = 7200, -- 5 dias
+        decay = true,
     },
 
     ['weed_white-widow_seed'] = {
@@ -2084,6 +2094,8 @@ return {
         label = 'Purple Haze 2g',
         rarity = 'common',
         weight = 200,
+        degrade = 7200, -- 5 dias
+        decay = true,
     },
 
     ['weed_purple-haze_seed'] = {
@@ -2100,6 +2112,48 @@ return {
         label = 'Weed Brick',
         rarity = 'rare',
         weight = 2000,
+    },
+
+    ['weed_og-kush_brick'] = {
+        label = 'Tijolo de OG Kush',
+        rarity = 'rare',
+        weight = 2000,
+        description = 'Erva prensada.',
+    },
+
+    ['weed_amnesia_brick'] = {
+        label = 'Tijolo de Amnesia',
+        rarity = 'rare',
+        weight = 2000,
+        description = 'Erva prensada.',
+    },
+
+    ['weed_skunk_brick'] = {
+        label = 'Tijolo de Skunk',
+        rarity = 'rare',
+        weight = 2000,
+        description = 'Erva prensada.',
+    },
+
+    ['weed_ak47_brick'] = {
+        label = 'Tijolo de AK47',
+        rarity = 'rare',
+        weight = 2000,
+        description = 'Erva prensada.',
+    },
+
+    ['weed_purple-haze_brick'] = {
+        label = 'Tijolo de Purple Haze',
+        rarity = 'rare',
+        weight = 2000,
+        description = 'Erva prensada.',
+    },
+
+    ['weed_white-widow_brick'] = {
+        label = 'Tijolo de White Widow',
+        rarity = 'rare',
+        weight = 2000,
+        description = 'Erva prensada.',
     },
 
     ["wood"] = {
@@ -2162,21 +2216,148 @@ return {
     },
 
     ['joint'] = {
-        label = 'Joint',
+        label = 'Baseado',
         rarity = 'common',
         weight = 200,
+        degrade = 21600, -- 15 dias
+        decay = true,
     },
 
     ['rolling_paper'] = {
-        label = 'Rolling Paper',
+        label = 'Seda',
         rarity = 'common',
         weight = 0,
     },
 
     ['empty_weed_bag'] = {
-        label = 'Empty Weed Bag',
+        label = 'Saquinho vazio',
         rarity = 'common',
         weight = 0,
+    },
+
+    ['weed_ak47_baggy'] = {
+        label = 'Saquinho de AK47',
+        rarity = 'uncommon',
+        weight = 210,
+        degrade = 14400, -- 10 dias
+        decay = true,
+        description = '2 g embalados, prontos para venda.',
+    },
+
+    ['weed_skunk_baggy'] = {
+        label = 'Saquinho de Skunk',
+        rarity = 'uncommon',
+        weight = 210,
+        degrade = 14400, -- 10 dias
+        decay = true,
+        description = '2 g embalados, prontos para venda.',
+    },
+
+    ['weed_amnesia_baggy'] = {
+        label = 'Saquinho de Amnesia',
+        rarity = 'uncommon',
+        weight = 210,
+        degrade = 14400, -- 10 dias
+        decay = true,
+        description = '2 g embalados, prontos para venda.',
+    },
+
+    ['weed_og-kush_baggy'] = {
+        label = 'Saquinho de OG Kush',
+        rarity = 'uncommon',
+        weight = 210,
+        degrade = 14400, -- 10 dias
+        decay = true,
+        description = '2 g embalados, prontos para venda.',
+    },
+
+    ['weed_white-widow_baggy'] = {
+        label = 'Saquinho de White Widow',
+        rarity = 'uncommon',
+        weight = 210,
+        degrade = 14400, -- 10 dias
+        decay = true,
+        description = '2 g embalados, prontos para venda.',
+    },
+
+    ['weed_purple-haze_baggy'] = {
+        label = 'Saquinho de Purple Haze',
+        rarity = 'uncommon',
+        weight = 210,
+        degrade = 14400, -- 10 dias
+        decay = true,
+        description = '2 g embalados, prontos para venda.',
+    },
+
+    ['grinder_crank'] = {
+        label = 'Dixavador Crank',
+        rarity = 'common',
+        weight = 150,
+        stack = false,
+        close = true,
+        consume = 0,
+        durability = true,
+        description = 'Use para bolar um baseado. Cada baseado gasta 10% da qualidade.',
+        client = { export = 'noir_weed.useGrinder' },
+    },
+
+    ['grinder_monster'] = {
+        label = 'Dixavador Monster',
+        rarity = 'common',
+        weight = 150,
+        stack = false,
+        close = true,
+        consume = 0,
+        durability = true,
+        description = 'Use para bolar um baseado. Cada baseado gasta 10% da qualidade.',
+        client = { export = 'noir_weed.useGrinder' },
+    },
+
+    ['grinder_slime'] = {
+        label = 'Dixavador Slime',
+        rarity = 'common',
+        weight = 150,
+        stack = false,
+        close = true,
+        consume = 0,
+        durability = true,
+        description = 'Use para bolar um baseado. Cada baseado gasta 10% da qualidade.',
+        client = { export = 'noir_weed.useGrinder' },
+    },
+
+    ['grinder_totem'] = {
+        label = 'Dixavador Totem',
+        rarity = 'common',
+        weight = 150,
+        stack = false,
+        close = true,
+        consume = 0,
+        durability = true,
+        description = 'Use para bolar um baseado. Cada baseado gasta 10% da qualidade.',
+        client = { export = 'noir_weed.useGrinder' },
+    },
+
+    ['grinder_ufo'] = {
+        label = 'Dixavador UFO',
+        rarity = 'common',
+        weight = 150,
+        stack = false,
+        close = true,
+        consume = 0,
+        durability = true,
+        description = 'Use para bolar um baseado. Cada baseado gasta 10% da qualidade.',
+        client = { export = 'noir_weed.useGrinder' },
+    },
+
+    ['weed_processing_table'] = {
+        label = 'Mesa de embalar',
+        rarity = 'rare',
+        weight = 8000,
+        stack = false,
+        close = true,
+        consume = 0,
+        description = 'Monte a mesa e embale os buds em saquinhos.',
+        client = { export = 'noir_weed.useTable' },
     },
 
     ['firstaid'] = {

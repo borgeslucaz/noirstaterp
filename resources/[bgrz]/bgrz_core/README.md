@@ -53,6 +53,12 @@ local ok, err, remaining = exports.bgrz_core:ConsumeItemDurability(holder, item,
 
 Durabilidade de ferramenta na escala 0–100 do provider. `cost = 0` só exige posse. Slot sem `durability` conta como 100; slot acima de 100 é item com `degrade` (o provider guarda ali um instante de validade) e é ignorado. Erros: `not_enough_items`, `low_durability`, `invalid_amount`, `provider_unavailable`.
 
+```lua
+local minutes, err = exports.bgrz_core:GetItemDegrade(item)                -- validade do item em minutos, ou nil
+```
+
+Para quem cria o item gravar a própria validade (`metadata = { durability = instante, degrade = minutes }`) — o `noir_weed` arredonda para a hora cheia, e itens do mesmo lote empilham. Item sem validade devolve `nil` sem erro. Erros: `invalid_item`, `unknown_item`, `provider_unavailable`.
+
 ## Target (client)
 
 ```lua

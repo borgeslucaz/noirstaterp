@@ -1,4 +1,4 @@
----Único ponto de SQL do resource. Só toca `noir_weed_plants`.
+---Único ponto de SQL do resource. Só toca `noir_weed_plants` e `noir_weed_tables`.
 ---
 ---O nome não é `weed_plants` de propósito: essa tabela existe no banco com o schema do
 ---qbx_weed.
@@ -73,6 +73,31 @@ function Storage.saveStatus(plants)
     end
     local ok, err = pcall(MySQL.transaction.await, queries)
     if not ok then lib.print.error(('gravação do status falhou: %s'):format(tostring(err))) end
+end
+
+-- Mesas -----------------------------------------------------------------------------
+
+---@return table[]
+function Storage.loadTables()
+    return MySQL.query.await('SELECT id, owner, type, x, y, z, heading FROM noir_weed_tables') or {}
+end
+
+---@param bench table
+---@return integer? id
+function Storage.insertTable(bench)
+    local ok, id = pcall(MySQL.insert.await,
+        'INSERT INTO noir_weed_tables (owner, type, x, y, z, heading) VALUES (?, ?, ?, ?, ?, ?)',
+        { bench.owner, bench.type, bench.x, bench.y, bench.z, bench.heading })
+    if not ok then
+        lib.print.error(('insert de mesa falhou: %s'):format(tostring(id)))
+        return nil
+    end
+    return id
+end
+
+---@param id integer
+function Storage.deleteTable(id)
+    MySQL.query('DELETE FROM noir_weed_tables WHERE id = ?', { id })
 end
 
 return Storage

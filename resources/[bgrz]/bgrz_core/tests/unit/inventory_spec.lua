@@ -122,6 +122,44 @@ T.equal(listErr, 'provider_unavailable', 'GetItemList sem provider sinaliza')
 state = 'started'
 
 -- ---------------------------------------------------------------------------
+-- GetItemDegrade
+-- ---------------------------------------------------------------------------
+provider.Items = function(_, item)
+    if item == 'weed_skunk_baggy' then return { label = 'Saquinho', degrade = 14400 } end
+    if item == 'water' then return { label = 'Agua' } end
+    if item == 'broken' then return { label = 'X', degrade = 0 / 0 } end
+    return nil
+end
+
+local degrade, degradeErr = BGRZ.GetItemDegrade('weed_skunk_baggy')
+T.equal(degrade, 14400, 'GetItemDegrade devolve os minutos do provider')
+T.equal(degradeErr, nil, 'GetItemDegrade sem erro no caminho feliz')
+
+degrade, degradeErr = BGRZ.GetItemDegrade('water')
+T.equal(degrade, nil, 'item sem validade devolve nil')
+T.equal(degradeErr, nil, 'item sem validade não é erro')
+
+degrade, degradeErr = BGRZ.GetItemDegrade('broken')
+T.equal(degrade, nil, 'validade não finita é ignorada')
+
+degrade, degradeErr = BGRZ.GetItemDegrade('item_que_nao_existe')
+T.equal(degrade, nil, 'item desconhecido sem validade')
+T.equal(degradeErr, 'unknown_item', 'item desconhecido é sinalizado')
+
+degrade, degradeErr = BGRZ.GetItemDegrade(42)
+T.equal(degradeErr, 'invalid_item', 'item não-string recusado')
+
+state = 'stopped'
+degrade, degradeErr = BGRZ.GetItemDegrade('weed_skunk_baggy')
+T.equal(degrade, nil, 'provider parado sem validade')
+T.equal(degradeErr, 'provider_unavailable', 'provider parado é sinalizado')
+state = 'started'
+
+provider.Items = function() error('provider exploded') end
+degrade, degradeErr = BGRZ.GetItemDegrade('weed_skunk_baggy')
+T.equal(degradeErr, 'unknown_item', 'exceção do provider vira código tratado')
+
+-- ---------------------------------------------------------------------------
 -- Durabilidade
 -- ---------------------------------------------------------------------------
 local slots = {

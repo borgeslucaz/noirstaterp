@@ -14,3 +14,16 @@ CREATE TABLE IF NOT EXISTS noir_weed_plants (
     PRIMARY KEY (id),
     KEY idx_noir_weed_plants_owner (owner)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS noir_weed_tables (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    owner VARCHAR(60) NOT NULL,
+    type VARCHAR(60) NOT NULL,
+    x DOUBLE NOT NULL,
+    y DOUBLE NOT NULL,
+    z DOUBLE NOT NULL,
+    heading FLOAT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_noir_weed_tables_owner (owner)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
