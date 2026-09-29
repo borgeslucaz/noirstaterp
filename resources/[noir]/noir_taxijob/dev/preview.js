@@ -15,6 +15,11 @@ function toast(message) {
 const nui = (action, data) => window.postMessage({ action, data }, '*');
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
+// Imagem de cada carro lida do config.lua, para o preview acompanhar o que o jogo mostra.
+const configText = await (await fetch('/config.lua')).text();
+const imageByModel = {};
+for (const [, model, image] of configText.matchAll(/model = '([\w]+)'[\s\S]*?image = '([^']+)'/g)) imageByModel[model] = image;
+
 const LEVEL = 4;
 const vehicles = [
   ['standard', 'taxi', 'Táxi Standard', 1, 'O clássico da cidade. Confiável e econômico.'],
@@ -27,7 +32,7 @@ const vehicles = [
 ].map(([id, model, label, requiredLevel, description]) => ({
   id, model, label, requiredLevel, description, rentalFee: 0,
   // No jogo o caminho é relativo a html/; aqui a página está em /dev.
-  image: `/html/img/vehicles/${model}.png`,
+  image: `/html/${imageByModel[model] || `img/vehicles/${model}.png`}`,
   status: requiredLevel <= LEVEL ? 'available' : 'locked',
 }));
 

@@ -31,7 +31,7 @@ Config.RentalVehicles = {
         class = 'standard',
         requiredLevel = 1,
         rentalFee = 0,
-        image = 'img/vehicles/taxi.png',
+        image = 'img/vehicles/taxi-fixed.png',
         -- Montado no qbx_customs e copiado do carro (dev/visuais/taxi.json): amarelo e
         -- sem o painel de propaganda. Extras: 0 = ligado, 1 = desligado.
         appearance = {
@@ -51,7 +51,7 @@ Config.RentalVehicles = {
         class = 'standard',
         requiredLevel = 2,
         rentalFee = 0,
-        image = 'img/vehicles/ingottaxi.png',
+        image = 'img/vehicles/ingottaxi-fixed.png',
         description = 'Perua de táxi com mais espaço. Mesmas corridas do Standard.',
         enabled = true,
     },
@@ -62,7 +62,7 @@ Config.RentalVehicles = {
         class = 'executive',
         requiredLevel = 3,
         rentalFee = 0,
-        image = 'img/vehicles/tailgater.png',
+        image = 'img/vehicles/tailgater-fixed.png',
         description = 'Passageiros executivos: exigentes com a temperatura, gorjeta de até 15%.',
         enabled = true,
     },
@@ -73,7 +73,7 @@ Config.RentalVehicles = {
         class = 'van',
         requiredLevel = 4,
         rentalFee = 0,
-        image = 'img/vehicles/imperialpas.png',
+        image = 'img/vehicles/imperialpas-fixed.png',
         -- Cara de táxi: placa de teto `imperial_taxi` (mod 10 = Roof, índice 4; só existe no modkit
         -- da versão de passageiros) e amarelo táxi (cor 88). Os desenhos na lataria são o mod 48
         -- (Livery) do kit, na ordem 0 = livery2, 1 = livery8, 2 = livery9, 3 = livery11,
@@ -89,7 +89,7 @@ Config.RentalVehicles = {
         class = 'suv',
         requiredLevel = 4,
         rentalFee = 0,
-        image = 'img/vehicles/granger.png',
+        image = 'img/vehicles/granger-fixed.png',
         -- O Granger não tem livery nem placa de táxi: só o amarelo táxi (cor 88).
         appearance = { color = 88 },
         description = 'Chamadas em Sandy Shores e Paleto Bay, com corridas mais longas.',
@@ -102,7 +102,7 @@ Config.RentalVehicles = {
         class = 'luxury',
         requiredLevel = 5,
         rentalFee = 0,
-        image = 'img/vehicles/cognoscenti.png',
+        image = 'img/vehicles/cognoscenti-fixed.png',
         description = 'Clientes VIP: bônus de calma maior para quem dirige com cuidado.',
         enabled = true,
     },
@@ -113,7 +113,7 @@ Config.RentalVehicles = {
         class = 'limousine',
         requiredLevel = 6,
         rentalFee = 0,
-        image = 'img/vehicles/stretch.png',
+        image = 'img/vehicles/stretch-fixed.png',
         description = 'Corridas de evento: longas, exigentes e com gorjeta alta.',
         enabled = true,
     },

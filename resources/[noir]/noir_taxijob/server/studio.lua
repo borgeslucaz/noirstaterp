@@ -1,3 +1,7 @@
+-- ESTÚDIO DESLIGADO (2026-09-29): as fotos da central já foram feitas (html/img/vehicles/*-fixed.png).
+-- Para refazer: tirar este bloco de comentário (aqui e no client/studio.lua), descomentar a linha no
+-- fxmanifest.lua, `ensure noir_taxijob`, rodar /taxifotos e depois `bash dev/fotos.sh`.
+--[==[
 -- Estúdio de fotos dos carros da central (/taxifotos). Ferramenta de admin: o client monta a
 -- cena (carro no alto, parede verde, câmera de lado) e avisa; o servidor captura a tela pelo
 -- `screencapture` e grava o PNG cru em `dev/fotos/<model>.png`. O recorte do verde e o PNG
@@ -106,3 +110,4 @@ RegisterNetEvent('noir_taxijob:server:studioInfo', function(index, info)
 end)
 
 AddEventHandler('playerDropped', function() sessions[source] = nil end)
+]==]

@@ -43,7 +43,7 @@
                         <div class="row"><span class="data-label">ESTIMATIVA</span><span class="value value--accent" id="offer-estimate">—</span></div>
                         <div class="row" id="offer-group-row" hidden><span class="data-label">PASSAGEIROS</span><span class="value" id="offer-group">—</span></div>
                         <div class="offer__accept">
-                            <span class="key-hint"><kbd id="key-accept">E</kbd> ACEITAR</span>
+                            <span class="data-label">EXPIRA EM</span>
                             <span class="countdown" id="offer-countdown">10 s</span>
                         </div>
                     </div>
@@ -88,14 +88,15 @@
                         <span class="passenger__fear-value" id="passenger-fear-label">TRANQUILO</span>
                     </div>
                 </section>
-
-                <!-- Dicas de tecla -->
-                <footer class="hints">
-                    <span class="hint"><kbd id="key-fan">G</kbd> para alterar a FAN</span>
-                    <span class="hint hint--secondary" id="hint-pause"><kbd id="key-pause">J</kbd> pausar chamadas</span>
-                </footer>
+                <!-- Teclas visíveis no estilo da v4 (§7), abaixo dos painéis: só as do estado atual. -->
+                <div class="hud-keys" id="hud-keys" aria-hidden="true">
+                    <span class="hud-key" id="hint-accept"><kbd id="key-accept">E</kbd>ACEITAR</span>
+                    <span class="hud-key" id="hint-pause"><kbd id="key-pause">J</kbd><span id="hint-pause-label">PAUSAR CHAMADAS</span></span>
+                    <span class="hud-key hud-key--fan"><kbd id="key-fan">G</kbd>FAN</span>
+                </div>
             </div>
         </aside>
+
 
         <!-- ═══════════════════════ Central do táxi (menu com foco) ═══════════════════════ -->
         <div class="menu" id="taxi-menu" hidden data-anim="idle" data-status="ready">

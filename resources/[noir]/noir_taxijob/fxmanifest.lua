@@ -31,7 +31,7 @@ client_scripts {
     'client/rental.lua',
     'client/central.lua',
     'client/client.lua',
-    'client/studio.lua',
+    -- 'client/studio.lua', -- estúdio de fotos desligado (ver o arquivo)
 }
 
 server_scripts {
@@ -46,7 +46,7 @@ server_scripts {
     'server/dispatch.lua',
     'server/meter.lua',
     'server/server.lua',
-    'server/studio.lua',
+    -- 'server/studio.lua', -- estúdio de fotos desligado (ver o arquivo)
 }
 
 dependencies {

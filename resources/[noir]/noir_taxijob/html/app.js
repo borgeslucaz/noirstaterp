@@ -99,7 +99,9 @@
         passengerLabel: $("passenger-label"),
         passengerFear: $("passenger-fear"),
         passengerFearLabel: $("passenger-fear-label"),
+        hintAccept: $("hint-accept"),
         hintPause: $("hint-pause"),
+        hintPauseLabel: $("hint-pause-label"),
         keyFan: $("key-fan"),
         keyAccept: $("key-accept"),
         keyPause: $("key-pause"),
@@ -198,7 +200,9 @@
         renderRoute(data.route)
         renderResult(data.result)
         renderKeys(data.keys)
+        show(hud.hintAccept, currentState === "OFFER")
         show(hud.hintPause, currentState === "AVAILABLE" || currentState === "PAUSED")
+        hud.hintPauseLabel.textContent = currentState === "PAUSED" ? "RETOMAR CHAMADAS" : "PAUSAR CHAMADAS"
     }
 
     function applyHudVisibility() {
