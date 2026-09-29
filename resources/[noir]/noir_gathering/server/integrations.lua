@@ -150,11 +150,45 @@ end
 ---@param source number
 ---@param model string
 ---@param placement { x: number, y: number, z: number, w: number }
+---@param plate string
 ---@return integer? netId
 ---@return integer? entity
-function Integrations.spawnVehicle(source, model, placement)
+function Integrations.spawnVehicle(source, model, placement, plate)
     if not coreReady() then return nil end
-    return exports[CORE]:SpawnVehicle(source, model, vector4(placement.x, placement.y, placement.z, placement.w))
+    return exports[CORE]:SpawnVehicle(source, model, vector4(placement.x, placement.y, placement.z, placement.w), false, plate)
+end
+
+---Metadata da chave como o mri_Qcarkeys lê: placa só com letras e números, em maiúsculas.
+---`noirHaul` marca a chave como da carga, para achar a que sobrou de uma carga interrompida.
+local function keyMetadata(plate)
+    return { label = 'CHAVE-' .. plate, plate = plate, noirHaul = true }
+end
+
+---@param source number
+---@param plate string
+---@return boolean ok
+---@return string? errorCode
+function Integrations.giveVehicleKey(source, plate)
+    if not coreReady() then return false, 'provider_unavailable' end
+    return exports[CORE]:AddItem(source, Config.vehicleKey.item, 1, keyMetadata(plate))
+end
+
+---Tira a chave que a rota deu. Se o jogador já não tem (largou, passou para alguém), não
+---há o que fazer: a chave abre um veículo que também está indo embora.
+---@param source number
+---@param plate string
+function Integrations.removeVehicleKey(source, plate)
+    if not coreReady() then return end
+    exports[CORE]:RemoveItem(source, Config.vehicleKey.item, 1, keyMetadata(plate))
+end
+
+---Recolhe toda chave de carga do inventário. Carga interrompida por queda ou restart não
+---tira a chave (o jogador já saiu), e ela seria salva com ele: no login e no start do
+---resource, qualquer chave de carga é de uma carga que não existe mais.
+---@param source number
+function Integrations.clearVehicleKeys(source)
+    if not coreReady() then return end
+    exports[CORE]:RemoveItemsWithMetadata(source, Config.vehicleKey.item, { noirHaul = true })
 end
 
 -- Progressão da gang (noir_illegal_core) ---------------------------------------------------

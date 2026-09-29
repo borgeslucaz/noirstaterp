@@ -243,6 +243,11 @@ local function normalizeHaul(input, limits, known)
         if not haul.dropoff then return nil, 'invalid_dropoff' end
     end
 
+    if input.driverSpawn ~= nil then
+        haul.driverSpawn = Rules.normalizePlacement(input.driverSpawn)
+        if not haul.driverSpawn then return nil, 'invalid_dropoff' end
+    end
+
     haul.cooldown = input.cooldown == nil and 0 or input.cooldown
     if not intBetween(haul.cooldown, 0, limits.haul.cooldownMinutes) then return nil, 'invalid_cooldown' end
 

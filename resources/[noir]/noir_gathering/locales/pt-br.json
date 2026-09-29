@@ -235,5 +235,11 @@
     "target_haul_load": "Guardar caixa",
     "target_haul_unload": "Tirar caixa",
     "target_haul_drop": "Deixar caixa",
-    "target_haul_pay": "Receber pagamento"
+    "target_haul_pay": "Receber pagamento",
+    "admin_haul_driver": "Motorista na entrega",
+    "admin_haul_driver_set": "Um NPC leva o veículo embora",
+    "admin_haul_driver_none": "Sem motorista: o veículo some quando ficar vazio",
+    "admin_haul_driver_needs_spawn": "Só quando a rota entrega o veículo (vaga definida)",
+    "admin_haul_driver_choice": "Onde o NPC aparece para entrar no veículo e sair dirigindo. Posicionar pela mira ou tirar o motorista?",
+    "admin_haul_driver_clear": "Sem motorista"
 }

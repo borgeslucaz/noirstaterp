@@ -1,6 +1,6 @@
 ---Harness mínimo para rodar os módulos deste resource em Lua puro.
 ---
----    cd resources/[bgrz]/noir_gathering
+---    cd resources/[noir]/noir_gathering
 ---    for f in tests/unit/*_spec.lua; do lua5.4 "$f" || break; done
 
 local Test = {}

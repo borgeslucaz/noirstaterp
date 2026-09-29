@@ -130,9 +130,20 @@ Na carga, com vaga definida, a rota entrega o veículo com a chave, e o apaga ao
 ninguém está dentro. Sem vaga, o primeiro veículo do model em que o jogador guardar uma
 caixa vira o da carga, e nenhum outro serve depois. O veículo do jogador nunca é apagado.
 
+A chave física da van (`vehiclekey` com a placa `CRG…` e a marca `noirHaul`) vai para o
+inventário ao pegar a carga e sai quando ela acaba. Carga interrompida por queda ou restart
+não consegue tirar a chave, porque o jogador já saiu. Essa chave é recolhida no próximo
+login e em todo start do resource (`RemoveItemsWithMetadata` do bridge).
+
+Com **motorista na entrega** (ponto posicionado no menu Carga), o veículo não some: na
+última caixa o servidor cria um NPC ali, que entra no veículo e sai dirigindo pela cidade,
+à vista de todos. O client de quem entregou dá as ordens; se o NPC não entrar em
+`haul.driverEnterMs`, o servidor o põe no banco. Depois de `haul.driveAwayMs` dirigindo,
+o servidor apaga o motorista e o veículo.
+
 ## Testes
 
 ```sh
-cd resources/[bgrz]/noir_gathering
+cd resources/[noir]/noir_gathering
 for f in tests/unit/*_spec.lua; do lua5.4 "$f" || break; done
 ```

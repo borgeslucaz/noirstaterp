@@ -135,13 +135,66 @@ end
 
 -- Veículo ---------------------------------------------------------------------------------
 
-local function progress(label)
-    return lib.progressBar({
+---@param label string
+---@param anim? { dict: string, clip: string } animação durante a barra, conferida antes
+local function progress(label, anim)
+    local playing = anim and DoesAnimDictExist(anim.dict) and { dict = anim.dict, clip = anim.clip, flag = 0 } or nil
+    if playing then Carry.suspend(true) end
+    local completed = lib.progressBar({
         duration = Config.haul.loadMs,
         label = label,
         canCancel = true,
         disable = { move = true, car = true, combat = true },
+        anim = playing,
     })
+    Carry.suspend(false)
+    return completed
+end
+
+-- Portas de carga -------------------------------------------------------------------------
+
+---Van (classe 12, como o burrito3) abre as duas portas traseiras; o resto abre o
+---porta-malas. Se o veículo não tem as portas da regra, tenta as da outra.
+---@param entity integer
+---@return integer[]
+local function cargoDoors(entity)
+    local rear, trunk = { 2, 3 }, { 5 }
+    local order = GetVehicleClass(entity) == 12 and { rear, trunk } or { trunk, rear }
+    for _, doors in ipairs(order) do
+        local valid = {}
+        for _, door in ipairs(doors) do
+            if GetIsDoorValid(entity, door) then valid[#valid + 1] = door end
+        end
+        if #valid > 0 then return valid end
+    end
+    return {}
+end
+
+---Porta de veículo de rede só obedece a quem tem o controle dele: pede antes, com prazo.
+local function takeControl(entity)
+    local deadline = GetGameTimer() + 500
+    while not NetworkHasControlOfEntity(entity) and GetGameTimer() < deadline do
+        NetworkRequestControlOfEntity(entity)
+        Wait(0)
+    end
+end
+
+---Abre as portas de carga e as deixa abertas enquanto houver caixa entrando ou saindo.
+local function openCargo(entity)
+    takeControl(entity)
+    for _, door in ipairs(cargoDoors(entity)) do
+        if GetVehicleDoorAngleRatio(entity, door) < 0.1 then SetVehicleDoorOpen(entity, door, false, false) end
+    end
+    run.openVehicle = entity
+end
+
+local function closeCargo()
+    local entity = run and run.openVehicle
+    if not entity then return end
+    run.openVehicle = nil
+    if not DoesEntityExist(entity) then return end
+    takeControl(entity)
+    for _, door in ipairs(cargoDoors(entity)) do SetVehicleDoorShut(entity, door, false) end
 end
 
 local function addVehicleTarget()
@@ -165,30 +218,11 @@ local function addVehicleTarget()
     })
 end
 
--- Marcador --------------------------------------------------------------------------------
-
-local function markerThread()
-    CreateThread(function()
-        while run do
-            local sleep = 500
-            -- Só na pilha. No destino não há seta: o ponto de entrega é achado pelo alvo.
-            if Config.marker.enabled and run.phase == 'LOAD' then
-                local target = toVector(run.route.haul.stack)
-                if #(GetEntityCoords(cache.ped) - target) <= Config.marker.distance then
-                    sleep = 0
-                    DrawMarker(2, target.x, target.y, target.z + 1.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                        0.3, 0.3, 0.3, 255, 255, 0, 80, false, true, 2, false, nil, nil, false)
-                end
-            end
-            Wait(sleep)
-        end
-    end)
-end
-
 -- Ciclo -----------------------------------------------------------------------------------
 
 local function cleanup()
     if not run then return end
+    closeCargo()
     Carry.stop()
     clearBlip()
     if run.vehicleBlip and DoesBlipExist(run.vehicleBlip) then RemoveBlip(run.vehicleBlip) end
@@ -230,7 +264,6 @@ function Haul.start(route)
     addVehicleTarget()
     markVehicle()
     guideTo(route.haul.stack, locale('blip_haul_stack'))
-    markerThread()
     Integrations.notify(locale('haul_started', result.count, Config.stopKey), 'inform')
 end
 
@@ -243,7 +276,8 @@ end
 ---@param entity integer veículo que o jogador mirou
 function Haul.load(entity)
     if not run or not DoesEntityExist(entity) then return end
-    if not progress(locale('progress_haul_load')) then return end
+    openCargo(entity)
+    if not progress(locale('progress_haul_load'), Config.haul.carry.load) then return end
     local result = ask('haulLoad', NetworkGetNetworkIdFromEntity(entity))
     if not result then return end
     Carry.stop()
@@ -252,6 +286,8 @@ function Haul.load(entity)
         return Integrations.notify(locale('haul_loaded', run.loaded, run.count), 'success')
     end
 
+    -- Carga completa: fecha para viajar.
+    closeCargo()
     run.phase = 'UNLOAD'
     removeStack()
     createDropoff()
@@ -262,11 +298,14 @@ end
 ---@param entity integer
 function Haul.unload(entity)
     if not run or not DoesEntityExist(entity) then return end
+    openCargo(entity)
     if not progress(locale('progress_haul_unload')) then return end
     local result = ask('haulUnload', NetworkGetNetworkIdFromEntity(entity))
     if not result then return end
     run.loaded = result.loaded
     Carry.start()
+    -- Última caixa fora: fecha.
+    if run.loaded == 0 then closeCargo() end
 end
 
 function Haul.drop()
@@ -318,6 +357,75 @@ end
 
 function Haul.reset()
     cleanup()
+end
+
+-- Motorista da entrega ----------------------------------------------------------------------
+
+---@param entity integer
+---@return boolean
+local function control(entity)
+    if NetworkHasControlOfEntity(entity) then return true end
+    NetworkRequestControlOfEntity(entity)
+    return pcall(lib.waitFor, function()
+        if NetworkHasControlOfEntity(entity) then return true end
+    end, false, 1500)
+end
+
+---O servidor criou o motorista; aqui ele entra no veículo e sai dirigindo pela cidade.
+---Quem apaga os dois depois é o servidor. Se ele não conseguir entrar, o servidor o põe no
+---banco, e o laço abaixo ainda dá a ordem de dirigir.
+---@param driverNet integer
+---@param vehicleNet integer
+function Haul.driveAway(driverNet, vehicleNet)
+    CreateThread(function()
+        local streamed = pcall(lib.waitFor, function()
+            if NetworkDoesEntityExistWithNetworkId(driverNet) and NetworkDoesEntityExistWithNetworkId(vehicleNet) then
+                return true
+            end
+        end, false, 6000)
+        if not streamed then return end
+        local driver, vehicle = NetToPed(driverNet), NetToVeh(vehicleNet)
+        if not DoesEntityExist(driver) or not DoesEntityExist(vehicle) then return end
+
+        control(driver)
+        SetBlockingOfNonTemporaryEvents(driver, true)
+        SetPedFleeAttributes(driver, 0, false)
+        SetPedKeepTask(driver, true)
+        if control(vehicle) then SetVehicleDoorsLocked(vehicle, 1) end
+        TaskEnterVehicle(driver, vehicle, 20000, -1, 1.0, 1, 0)
+
+        -- Espera o banco do MOTORISTA, não só estar dentro: com a porta dele obstruída o NPC
+        -- entra pelo passageiro, e a ordem de dirigir dada dali se perde quando ele troca de
+        -- banco. Entrou pelo lado errado: passa de banco. O servidor ainda o põe no banco se
+        -- nada disso der certo a tempo.
+        local deadline, shuffled = GetGameTimer() + 25000, false
+        while DoesEntityExist(driver) and DoesEntityExist(vehicle) and GetGameTimer() < deadline
+            and GetPedInVehicleSeat(vehicle, -1) ~= driver do
+            if not shuffled and GetVehiclePedIsIn(driver, false) == vehicle then
+                shuffled = true
+                control(driver)
+                TaskShuffleToNextVehicleSeat(driver, vehicle)
+            end
+            Wait(500)
+        end
+        if not DoesEntityExist(driver) or not DoesEntityExist(vehicle)
+            or GetPedInVehicleSeat(vehicle, -1) ~= driver then
+            return
+        end
+
+        -- Motor ligado por quem tem o controle da van; sem isso o NPC fica sentado nela.
+        -- Van ainda parada depois de alguns segundos: a ordem não pegou, e é dada de novo.
+        for _ = 1, 3 do
+            if control(vehicle) then
+                SetVehicleUndriveable(vehicle, false)
+                SetVehicleEngineOn(vehicle, true, true, false)
+            end
+            control(driver)
+            TaskVehicleDriveWander(driver, vehicle, 20.0, 786603)
+            Wait(4000)
+            if not DoesEntityExist(vehicle) or GetEntitySpeed(vehicle) > 1.0 then return end
+        end
+    end)
 end
 
 -- Olheiro ---------------------------------------------------------------------------------

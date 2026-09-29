@@ -28,6 +28,16 @@ GetAllVehicles = function()
     for entity in pairs(modelOf) do list[#list + 1] = entity end
     return list
 end
+IsPedAPlayer = function(ped) return ped == 101 or ped == 102 end
+local warped = {}
+TaskWarpPedIntoVehicle = function(ped, vehicle, seat) warped[#warped + 1] = { ped, vehicle, seat } end
+local nextPed = 500
+CreatePed = function(_, _, x, y, z)
+    nextPed = nextPed + 1
+    coordsOf[nextPed] = vector3(x, y, z)
+    return nextPed
+end
+NetworkGetNetworkIdFromEntity = function(entity) return entity + 1000 end
 local deleted = {}
 DeleteEntity = function(entity) deleted[entity] = true; coordsOf[entity] = nil; modelOf[entity] = nil end
 
@@ -49,6 +59,9 @@ lib.callback = { register = function(name, fn) handlers[name:gsub('^noir_gatheri
 -- Ponte e rotas falsas ------------------------------------------------------------------
 
 local given, reported, dispatched, phoned, scouted = {}, {}, 0, {}, 0
+local keys = {}
+local cleared = {}
+GetPlayers = function() return { '1', '2' } end
 local canCarry, requirementOk, nextVehicle = true, true, 900
 local Integrations = {
     coreReady = function() return true end,
@@ -65,6 +78,9 @@ local Integrations = {
     end,
     rivalsWithProduct = function(_, product) return product == 'drugs' and { 2 } or {} end,
     phoneMessage = function(target) phoned[#phoned + 1] = target end,
+    giveVehicleKey = function(source, plate) keys[source] = plate; return true end,
+    removeVehicleKey = function(source, plate) if keys[source] == plate then keys[source] = nil end end,
+    clearVehicleKeys = function(source) cleared[#cleared + 1] = source; keys[source] = nil end,
     progressionCatalog = function() return { categories = { { id = 'drug', product = 'drugs' } } } end,
     spawnVehicle = function(_, model, placement)
         nextVehicle = nextVehicle + 1
@@ -90,6 +106,8 @@ local Sessions = {
 require = T.require({ ['server.integrations'] = Integrations, ['server.routes'] = Routes, ['server.sessions'] = Sessions })
 local Hauls = require 'server.hauls'
 Hauls.register()
+table.remove(threads, 1)()
+T.equal(#cleared, 2, 'no start, a chave de carga de todo jogador online é recolhida')
 local watchdog = table.remove(threads, 1)
 
 local function point(x, y) return { x = x, y = y or 0, z = 0, w = 0 } end
@@ -154,6 +172,7 @@ T.truthy(started.ok, 'carga abre no NPC, com a vaga livre')
 T.equal(started.count, 2, 'o client sabe quantas caixas')
 local vehicle = netOf[started.netId]
 T.truthy(vehicle, 'a rota entregou o veículo')
+T.truthy(keys[1] and keys[1]:match('^CRG%d%d%d%d%d$'), 'e a chave física dele, no inventário')
 T.equal(call('haulStart', 1, 1).error, 'already_active', 'uma carga por vez')
 
 move(2, 0)
@@ -232,6 +251,7 @@ T.equal(given[1][3], 3, 'na quantidade sorteada no servidor')
 T.equal(reported[1].category, 'drug', 'a reputação vai para a categoria da rota')
 T.equal(reported[1].amount, 25, 'no valor da rota')
 T.equal(call('haulPay', 1).error, 'no_run', 'receber de novo não paga')
+T.equal(keys[1], nil, 'na entrega a chave sai do inventário')
 
 -- O veículo da rota some com a carga, mas não com alguém dentro.
 seats[vehicle] = { [-1] = 101 }
@@ -243,9 +263,39 @@ T.truthy(now >= deadline, 'e a limpeza desiste no prazo')
 move(1, 0)
 local spare = call('haulStart', 1, 1)
 local spareVehicle = netOf[spare.netId]
+T.truthy(keys[1], 'nova carga, nova chave')
 call('haulStop', 1)
+T.equal(keys[1], nil, 'desistir também tira a chave')
 table.remove(threads)()
 T.truthy(deleted[spareVehicle], 'vazio, o veículo entregue pela rota é apagado')
+
+-- Motorista na entrega: o veículo sai dirigindo em vez de sumir --------------------------
+
+routeTable[3] = haulRoute()
+routeTable[3].haul.count = 1
+routeTable[3].haul.driverSpawn = point(1005)
+move(1, 0)
+local driven = call('haulStart', 1, 3)
+local drivenVehicle = netOf[driven.netId]
+move(1, 10); call('haulTake', 1)
+moveEntity(drivenVehicle, 12); call('haulLoad', 1, driven.netId)
+moveEntity(drivenVehicle, 990); move(1, 992); call('haulUnload', 1, driven.netId)
+move(1, 1000)
+clientEvents = {}
+T.truthy(call('haulDrop', 1).finished, 'carga com motorista entregue')
+local order = clientEvents[#clientEvents]
+T.equal(order[1], 'noir_gathering:client:driveAway', 'quem entregou recebe a ordem de mandar o motorista')
+local driverPed = order[3] - 1000
+T.equal(order[4], driven.netId, 'para o veículo da rota')
+T.truthy(coordsOf[driverPed], 'o motorista foi criado pelo servidor')
+T.falsy(deleted[drivenVehicle], 'e o veículo não some na hora')
+
+local cleanupThread = table.remove(threads)
+local warpThread = table.remove(threads)
+warpThread()
+T.equal(warped[1][1], driverPed, 'motorista que não entrou a tempo vai direto para o banco')
+cleanupThread()
+T.truthy(deleted[driverPed] and deleted[drivenVehicle], 'depois de dirigir um tempo, motorista e veículo são apagados')
 
 -- Rota livre de novo, e agora sem veículo entregue ------------------------------------------
 
@@ -292,5 +342,19 @@ local rounds = 0
 Wait = function() rounds = rounds + 1; if rounds > 1 then error('uma volta') end end
 pcall(watchdog)
 T.equal(clientEvents[1][3], 'vehicle_lost', 'veículo perdido encerra a carga')
+
+-- Queda no meio da carga: a chave não é mexida (não há inventário), e sai no próximo login.
+move(1, 0)
+local interrupted = call('haulStart', 1, 1)
+T.truthy(interrupted.ok and keys[1], 'carga com chave')
+local handlers_ = {}
+AddEventHandler = function(name, fn) handlers_[name] = fn end
+Hauls.register()
+cleared = {}
+source = 1
+handlers_.playerDropped()
+T.truthy(keys[1], 'quem caiu fica com a chave no inventário salvo')
+handlers_['bgrz_core:server:playerLoaded'](1)
+T.equal(keys[1], nil, 'e no próximo login ela é recolhida')
 
 print('hauls_spec: ok')

@@ -42,12 +42,18 @@ return {
             rotation = { -145.0, 290.0, 0.0 },
             dict = 'anim@heists@box_carry@',
             clip = 'idle',
+            ---Levantar a caixa antes de passar a carregar (da pilha e do veículo).
+            lift = { dict = 'anim@heists@load_box', clip = 'lift_box', ms = 1800 },
+            ---Guardar a caixa no veículo, durante a barra.
+            load = { dict = 'anim@heists@load_box', clip = 'load_box_1' },
         },
         ---Tempo da barra ao guardar e ao tirar uma caixa do veículo.
-        loadMs = 1500,
+        loadMs = 2000,
         ---Por quanto tempo o olheiro deixa a área marcada no mapa de quem recebeu.
         scoutBlipSeconds = 120,
         npcScenario = 'WORLD_HUMAN_CLIPBOARD',
+        ---Motorista que leva embora o veículo da rota na entrega (se a rota tiver o ponto dele).
+        driverModel = 's_m_m_trucker_01',
     },
 
     ---Limites de uma rota. O servidor recusa o que passar disso ao salvar.

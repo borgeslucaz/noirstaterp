@@ -29,6 +29,10 @@ return {
         maxRunMs = 45 * 60 * 1000,
         ---O veículo da rota não é apagado com alguém dentro; tenta de novo por este tempo.
         vehicleCleanupMs = 5 * 60 * 1000,
+        ---Motorista da entrega: quanto tempo ele tem para entrar antes de ir direto para o
+        ---banco, e quanto tempo dirige até ele e o veículo serem apagados.
+        driverEnterMs = 20000,
+        driveAwayMs = 60000,
     },
 
     ---A coleta só é aceita depois desta fração do tempo configurado...
@@ -41,6 +45,11 @@ return {
 
     ---Intervalo mínimo entre pedidos do mesmo jogador para a mesma ação.
     rateLimitMs = 400,
+
+    ---Chave física do veículo da carga: o item do mri_Qcarkeys, com a placa no metadata. A
+    ---chave temporária não abria o veículo; o item vai para o inventário ao pegar a carga e
+    ---sai quando ela acaba (entregue, abandonada ou perdida).
+    vehicleKey = { item = 'vehiclekey', platePrefix = 'CRG' },
 
     ---Aviso do olheiro, no celular de quem é de outra gang com o mesmo produto.
     scout = { title = 'Olheiro' },

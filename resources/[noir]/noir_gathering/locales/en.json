@@ -235,5 +235,11 @@
     "target_haul_load": "Load box",
     "target_haul_unload": "Unload box",
     "target_haul_drop": "Drop box",
-    "target_haul_pay": "Collect payment"
+    "target_haul_pay": "Collect payment",
+    "admin_haul_driver": "Drop-off driver",
+    "admin_haul_driver_set": "An NPC drives the vehicle away",
+    "admin_haul_driver_none": "No driver: the vehicle vanishes once empty",
+    "admin_haul_driver_needs_spawn": "Only when the route provides the vehicle (spot set)",
+    "admin_haul_driver_choice": "Where the NPC appears to get in and drive away. Place it by aiming or remove the driver?",
+    "admin_haul_driver_clear": "No driver"
 }

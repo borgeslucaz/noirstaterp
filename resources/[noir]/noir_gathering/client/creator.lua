@@ -181,8 +181,19 @@ local function categoryLabel(id)
     return id
 end
 
+---Valor da opção "Nenhum" nos selects: escolher ela tira o que estava marcado. O `clearable`
+---do ox_lib nem sempre fica à vista, e sem ela não havia como voltar atrás.
+local NONE = '__none'
+
+---@param value string?
+---@return string?
+local function chosen(value)
+    if value == nil or value == NONE or value == '' then return nil end
+    return value
+end
+
 local function categoryOptions()
-    local options = {}
+    local options = { { value = NONE, label = locale('none') } }
     for _, category in ipairs(data.progression and data.progression.categories or {}) do
         options[#options + 1] = { value = category.id, label = category.label }
     end
@@ -646,6 +657,29 @@ function openHaul(draft)
             end,
         },
         {
+            title = locale('admin_haul_driver'),
+            description = not route.vehicleSpawn and locale('admin_haul_driver_needs_spawn')
+                or haul.driverSpawn and locale('admin_haul_driver_set') or locale('admin_haul_driver_none'),
+            icon = 'fa-solid fa-user-astronaut',
+            disabled = not route.vehicleSpawn,
+            onSelect = function()
+                local choice = lib.alertDialog({
+                    header = locale('admin_haul_driver'),
+                    content = locale('admin_haul_driver_choice'),
+                    centered = true,
+                    cancel = true,
+                    labels = { confirm = locale('admin_place_here'), cancel = locale('admin_haul_driver_clear') },
+                })
+                if choice == 'confirm' then
+                    local placed = Placement.run('ped', Config.haul.driverModel, haul.driverSpawn)
+                    if placed then haul.driverSpawn = placed; notifyUpdated() end
+                elseif choice == 'cancel' then
+                    haul.driverSpawn = nil
+                end
+                reopen()
+            end,
+        },
+        {
             title = locale('admin_rewards'),
             description = locale('admin_rewards_desc', rewardCount),
             icon = 'fa-solid fa-gift',
@@ -662,12 +696,12 @@ function openHaul(draft)
             icon = 'fa-solid fa-star',
             onSelect = function()
                 local input = lib.inputDialog(locale('admin_haul_reputation'), {
-                    { type = 'select', label = locale('admin_haul_category'), description = locale('admin_haul_category_desc'), options = categoryOptions(), clearable = true, default = haul.category },
+                    { type = 'select', label = locale('admin_haul_category'), description = locale('admin_haul_category_desc'), options = categoryOptions(), default = haul.category or NONE },
                     { type = 'number', label = locale('admin_haul_reputation_amount'), description = locale('admin_haul_reputation_cap', cap), default = haul.reputation, min = 0, max = cap, precision = 1 },
                 })
                 if input then
-                    haul.category = input[1]
-                    haul.reputation = input[1] and (input[2] or 0) or 0
+                    haul.category = chosen(input[1])
+                    haul.reputation = haul.category and (input[2] or 0) or 0
                     if not haul.category then haul.scout.enabled = false end
                 end
                 reopen()
@@ -892,18 +926,19 @@ function openRoute(draft)
             description = requirementSummary(route.requirement),
             icon = 'fa-solid fa-lock',
             onSelect = function()
-                local unlocks = {}
+                local unlocks = { { value = NONE, label = locale('none') } }
                 for _, key in ipairs(data.progression.unlocks) do unlocks[#unlocks + 1] = { value = key, label = key } end
                 local current = route.requirement or {}
                 local input = lib.inputDialog(locale('admin_requirement'), {
-                    { type = 'select', label = locale('admin_requirement_unlock'), description = locale('admin_requirement_unlock_desc'), options = unlocks, clearable = true, default = current.unlock },
-                    { type = 'select', label = locale('admin_requirement_category'), description = locale('admin_requirement_category_desc'), options = categoryOptions(), clearable = true, default = current.category },
+                    { type = 'select', label = locale('admin_requirement_unlock'), description = locale('admin_requirement_unlock_desc'), options = unlocks, default = current.unlock or NONE },
+                    { type = 'select', label = locale('admin_requirement_category'), description = locale('admin_requirement_category_desc'), options = categoryOptions(), default = current.category or NONE },
                     { type = 'number', label = locale('admin_requirement_min_level'), default = current.level or 1, min = 1, max = 20 },
                 })
                 if input then
                     local requirement = {}
-                    if input[1] then requirement.unlock = input[1] end
-                    if input[2] then requirement.category, requirement.level = input[2], math.floor(input[3] or 1) end
+                    requirement.unlock = chosen(input[1])
+                    local category = chosen(input[2])
+                    if category then requirement.category, requirement.level = category, math.floor(input[3] or 1) end
                     route.requirement = next(requirement) and requirement or nil
                 end
                 reopen()

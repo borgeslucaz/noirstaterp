@@ -22,6 +22,8 @@ local SCAN_DISTANCE = 60.0
 
 local settings = Config.haul.carry
 local carrying = false
+---Outra animação está tocando por cima (guardar a caixa no veículo): o laço não a corta.
+local suspended = false
 
 ---@type table<integer, { entity: integer, ped: integer }> serverId -> caixa na mão
 local boxes = {}
@@ -92,16 +94,33 @@ function Carry.isCarrying()
     return carrying
 end
 
-local function hasAnim()
-    return DoesAnimDictExist(settings.dict) and pcall(lib.requestAnimDict, settings.dict, 5000)
+---@param dict string
+---@return boolean
+local function loadAnim(dict)
+    return DoesAnimDictExist(dict) and pcall(lib.requestAnimDict, dict, 5000)
+end
+
+---Levanta a caixa (a pilha ou o veículo estão na frente) e só então passa a carregar. Os
+---controles já ficam travados durante o levantar.
+local function lift()
+    local anim = settings.lift
+    if not anim or not loadAnim(anim.dict) then return end
+    TaskPlayAnim(cache.ped, anim.dict, anim.clip, 8.0, -8.0, anim.ms + 200, 0, 0.0, false, false, false)
+    Wait(anim.ms)
+    RemoveAnimDict(anim.dict)
 end
 
 function Carry.start()
     if carrying then return end
     carrying = true
-    local animated = hasAnim()
 
     CreateThread(function()
+        local lifting = true
+        CreateThread(function()
+            lift()
+            lifting = false
+        end)
+        local animated = loadAnim(settings.dict)
         while carrying do
             DisableControlAction(0, 21, true) -- correr
             DisableControlAction(0, 22, true) -- pular
@@ -109,7 +128,11 @@ function Carry.start()
             DisableControlAction(0, 24, true) -- atacar
             DisableControlAction(0, 25, true) -- mirar
             DisableControlAction(0, 37, true) -- roda de armas
-            if animated and not IsEntityPlayingAnim(cache.ped, settings.dict, settings.clip, 3) then
+            if lifting then
+                DisableControlAction(0, 30, true) -- andar para os lados
+                DisableControlAction(0, 31, true) -- andar para frente e trás
+            end
+            if animated and not lifting and not suspended and not IsEntityPlayingAnim(cache.ped, settings.dict, settings.clip, 3) then
                 TaskPlayAnim(cache.ped, settings.dict, settings.clip, 8.0, 8.0, -1, 49, 0, false, false, false)
             end
             Wait(0)
@@ -122,6 +145,12 @@ function Carry.stop()
     carrying = false
     StopAnimTask(cache.ped, settings.dict, settings.clip, 1.0)
     RemoveAnimDict(settings.dict)
+end
+
+---Suspende a animação de carregar enquanto outra toca por cima.
+---@param value boolean
+function Carry.suspend(value)
+    suspended = value == true
 end
 
 ---Resource parando: nenhuma caixa local fica para trás.

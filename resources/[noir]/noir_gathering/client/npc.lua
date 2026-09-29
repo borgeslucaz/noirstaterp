@@ -45,7 +45,7 @@ local function spawn(key, entry)
         SetPedCanRagdoll(ped, false)
         TaskStartScenarioInPlace(ped, entry.npc.scenario or Config.haul.npcScenario, 0, true)
         entry.ped = ped
-        if #entry.options > 0 then Integrations.addEntityTarget(ped, entry.options) end
+        Integrations.addEntityTarget(ped, entry.options)
     end)
 end
 

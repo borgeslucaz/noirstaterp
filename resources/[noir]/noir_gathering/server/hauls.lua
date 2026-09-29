@@ -52,17 +52,23 @@ local function debugPrint(...)
     if SharedConfig.debug then lib.print.info('[hauls]', ...) end
 end
 
----Apaga o veículo que a rota entregou. Com alguém dentro não apaga: tenta de novo até
----o prazo, e depois desiste — veículo parado vira problema do reboque, não da rota.
+---Apaga o veículo que a rota entregou, e o motorista NPC que estiver nele. Com JOGADOR
+---dentro não apaga: tenta de novo até o prazo, e depois desiste — veículo parado vira
+---problema do reboque, não da rota.
 ---@param vehicle integer?
-local function removeVehicle(vehicle)
+---@param delayMs? integer espera antes da primeira tentativa (o motorista saindo dirigindo)
+---@param driver? integer motorista NPC criado para levar o veículo embora
+local function removeVehicle(vehicle, delayMs, driver)
     if not vehicle then return end
     CreateThread(function()
+        if delayMs then Wait(delayMs) end
+        if driver and DoesEntityExist(driver) then DeleteEntity(driver) end
         local deadline = GetGameTimer() + Config.haul.vehicleCleanupMs
         while DoesEntityExist(vehicle) and GetGameTimer() < deadline do
             local occupied = false
             for seat = -1, 6 do
-                if GetPedInVehicleSeat(vehicle, seat) ~= 0 then occupied = true break end
+                local ped = GetPedInVehicleSeat(vehicle, seat)
+                if ped ~= 0 and IsPedAPlayer(ped) then occupied = true break end
             end
             if not occupied then
                 DeleteEntity(vehicle)
@@ -73,16 +79,47 @@ local function removeVehicle(vehicle)
     end)
 end
 
+---Na entrega, um NPC nasce no ponto do motorista, entra no veículo da rota e sai
+---dirigindo — o veículo não some na frente de ninguém. O servidor cria e apaga as duas
+---entidades; o client de quem entregou só dá as ordens de entrar e dirigir, e se o
+---motorista não entrar a tempo, o servidor o põe direto no banco.
+---@return boolean started
+local function driveAway(source, run, route)
+    local spot, vehicle = route.haul.driverSpawn, run.vehicle
+    if not spot or not run.ownsVehicle or not vehicle or not DoesEntityExist(vehicle) then return false end
+    local driver = CreatePed(4, joaat(SharedConfig.haul.driverModel), spot.x, spot.y, spot.z - 1.0, spot.w, true, true)
+    local deadline = GetGameTimer() + 3000
+    while (not driver or driver == 0 or not DoesEntityExist(driver)) and GetGameTimer() < deadline do Wait(50) end
+    if not driver or driver == 0 or not DoesEntityExist(driver) then return false end
+
+    TriggerClientEvent('noir_gathering:client:driveAway', source,
+        NetworkGetNetworkIdFromEntity(driver), NetworkGetNetworkIdFromEntity(vehicle))
+    CreateThread(function()
+        Wait(Config.haul.driverEnterMs)
+        if DoesEntityExist(driver) and DoesEntityExist(vehicle) and GetPedInVehicleSeat(vehicle, -1) ~= driver
+            and GetPedInVehicleSeat(vehicle, -1) == 0 then
+            TaskWarpPedIntoVehicle(driver, vehicle, -1)
+        end
+    end)
+    removeVehicle(vehicle, Config.haul.driverEnterMs + Config.haul.driveAwayMs, driver)
+    return true
+end
+
 ---Fecha a corrida. `reason` vai para o client quando não foi ele quem pediu.
 ---@param source integer
 ---@param reason string?
-local function endRun(source, reason)
+---@param route table? rota concluída: com ponto de motorista, o veículo sai dirigindo
+---@param dropped? boolean o jogador saiu: não há inventário nem state para mexer
+local function endRun(source, reason, route, dropped)
     local run = runs[source]
     if not run then return end
-    if run.carrying then showCarry(source, false) end
+    if not dropped then
+        if run.carrying then showCarry(source, false) end
+        if run.keyPlate then Integrations.removeVehicleKey(source, run.keyPlate) end
+    end
     runs[source] = nil
     if routeOwner[run.routeId] == source then routeOwner[run.routeId] = nil end
-    if run.ownsVehicle then removeVehicle(run.vehicle) end
+    if run.ownsVehicle and not (route and driveAway(source, run, route)) then removeVehicle(run.vehicle) end
     if reason then TriggerClientEvent('noir_gathering:client:haulEnded', source, reason) end
     debugPrint(source, 'corrida encerrada', run.routeId, reason or 'pedido')
 end
@@ -205,7 +242,8 @@ local function start(source, routeId)
     routeOwner[routeId] = source
 
     if route.vehicleSpawn then
-        local netId, vehicle = Integrations.spawnVehicle(source, route.vehicle, route.vehicleSpawn)
+        local plate = ('%s%05d'):format(Config.vehicleKey.platePrefix, math.random(0, 99999))
+        local netId, vehicle = Integrations.spawnVehicle(source, route.vehicle, route.vehicleSpawn, plate)
         -- Jogador caiu ou a rota mudou durante o spawn: a corrida já foi fechada, e o
         -- veículo que chegou depois não tem dono.
         if runs[source] ~= run then
@@ -217,6 +255,12 @@ local function start(source, routeId)
             return fail('spawn_failed')
         end
         run.vehicle, run.netId, run.ownsVehicle = vehicle, netId, true
+        local keyed, keyErr = Integrations.giveVehicleKey(source, plate)
+        if keyed then
+            run.keyPlate = plate
+        else
+            lib.print.warn(('carga: chave %s não entregue a %d: %s'):format(plate, source, tostring(keyErr)))
+        end
     end
 
     routeReopensAt[routeId] = now + route.haul.cooldown * 60000
@@ -292,7 +336,7 @@ local function dropOff(source)
 
     run.phase = Phase.PAY
     if not pay(source, run, route) then return { ok = true, delivered = run.delivered, pending = true } end
-    endRun(source)
+    endRun(source, nil, route)
     return { ok = true, delivered = run.delivered, finished = true }
 end
 
@@ -303,7 +347,7 @@ local function collectPay(source)
     if run.phase ~= Phase.PAY then return fail('wrong_step') end
     if not near(Security.pedCoords(source), route.haul.dropoff, Config.distance.dropoff) then return fail('too_far') end
     if not pay(source, run, route) then return fail('inventory_full') end
-    endRun(source)
+    endRun(source, nil, route)
     return { ok = true, finished = true }
 end
 
@@ -351,9 +395,18 @@ function Hauls.register()
         routeReopensAt[routeId] = nil
     end)
 
-    AddEventHandler('playerDropped', function() endRun(source) end)
+    -- Quem saiu leva a chave da carga no inventário salvo; ela é recolhida no próximo login.
+    AddEventHandler('playerDropped', function() endRun(source, nil, nil, true) end)
     AddEventHandler('bgrz_core:server:playerUnloaded', function(playerId)
-        endRun(tonumber(playerId) or source)
+        endRun(tonumber(playerId) or source, nil, nil, true)
+    end)
+    AddEventHandler('bgrz_core:server:playerLoaded', function(playerId)
+        local target = tonumber(playerId) or source
+        if not runs[target] then Integrations.clearVehicleKeys(target) end
+    end)
+    -- Restart do resource: nenhuma carga sobreviveu, então nenhuma chave de carga vale.
+    CreateThread(function()
+        for _, id in ipairs(GetPlayers()) do Integrations.clearVehicleKeys(tonumber(id)) end
     end)
 
     -- Veículo perdido (explodiu, afundou, foi apagado) e corrida esquecida acabam aqui.
