@@ -132,7 +132,10 @@ Config.Fuel = 'LegacyFuel' -- Fuel resource name for vehicle fuel management
 -- phone resource once and both features use it, so they can never drift apart.
 -- Leave Resource = '' to use charinfo.phone for display and disable court SMS/mail.
 Config.Phone = {
-    Resource     = 'sd-phone',                    -- phone script resource name ('' = charinfo.phone only, no SMS/mail)
+    -- sky_phone: o número vem do telefone equipado (só jogador online; offline cai no charinfo).
+    -- Ele não tem SendMessage/GetEmailAddress/SendMail por export, então SMS e e-mail do tribunal
+    -- e do IA não saem (as chamadas estão em pcall e só retornam false).
+    Resource     = 'sky_phone',                   -- phone script resource name ('' = charinfo.phone only, no SMS/mail)
     NumberExport = 'GetEquippedPhoneNumber',      -- export returning a citizen's number for a citizenid
     UseCharinfoFallback = true,                   -- if the export returns nothing, fall back to charinfo.phone
 

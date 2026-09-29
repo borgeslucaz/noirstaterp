@@ -15,7 +15,7 @@ Config.favoriteVehicle = 'adder'
 Config.customVehiclePlate = '~DOLU~' -- leave empty to keep the default plate.
 
 -- Register Dolu's object-management options in ox_target.
-Config.enableOxTarget = false
+Config.enableOxTarget = true
 
 -- Permissions (ace based). Set usePermission to false to allow everyone.
 Config.usePermission = true
