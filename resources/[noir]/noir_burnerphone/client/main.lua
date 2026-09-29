@@ -5,7 +5,6 @@ local activeAnimName = 'cellphone_text_read_base'
 local readFlags = 1 | 8 | 16 | 32
 local phoneDisabled = false
 local inputThreadRunning = false
-local nextAvailabilityCheck = 0
 
 local function notify(message, kind)
     lib.notify({ description = message, type = kind or 'inform' })
@@ -50,12 +49,6 @@ local function startInputThread()
     inputThreadRunning = true
     CreateThread(function()
         while isOpen do
-            if GetGameTimer() >= nextAvailabilityCheck and GetResourceState('sd-phone') == 'started' then
-                nextAvailabilityCheck = GetGameTimer() + 500
-                local ok, disabled = pcall(function() return exports['sd-phone']:isDisabled() end)
-                if ok and disabled then closeBurnerPhone() break end
-            end
-
             local ped = PlayerPedId()
             if IsPauseMenuActive()
                 or (BurnerPhoneConfig.blockWhileDead and IsEntityDead(ped))
@@ -113,14 +106,12 @@ local function openBurnerPhone()
         return
     end
 
-    if GetResourceState('sd-phone') == 'started' then
-        local disabledOk, disabled = pcall(function() return exports['sd-phone']:isDisabled() end)
-        if disabledOk and disabled then
-            notify('Você não pode usar o telefone agora.', 'error')
-            return
+    -- Um telefone na mão de cada vez: o principal fecha quando o burner abre.
+    if GetResourceState('sky_phone') == 'started' then
+        local stateOk, state = pcall(function() return exports.sky_phone:GetPhoneState() end)
+        if stateOk and type(state) == 'table' and state.open then
+            pcall(function() exports.sky_phone:TogglePhone(false) end)
         end
-        local openOk, regularOpen = pcall(function() return exports['sd-phone']:isOpen() end)
-        if openOk and regularOpen then pcall(function() exports['sd-phone']:close() end) end
     end
 
     isOpen = true
@@ -249,7 +240,7 @@ AddEventHandler('ox_inventory:updateInventory', function()
     end
 end)
 
-AddEventHandler('sd-phone:client:openState', function(open)
+AddEventHandler('sky_phone:client:phoneToggled', function(open)
     if open and isOpen then closeBurnerPhone() end
 end)
 
