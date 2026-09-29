@@ -435,6 +435,33 @@ local function CreateShopPoint(shopId, shop)
     })
 end
 
+-- Zona do ox_target das lojas sem atendente. Criada com nome para poder ser trocada/removida
+-- depois (sem nome o removeZone não acha a zona e cada save deixava uma zona duplicada).
+local function SetShopZone(shopId, shop)
+    if Config.TargetSystem ~= 'ox-target' or GetResourceState('ox_target') ~= 'started' then return end
+    local zoneName = shopId .. '_smartshop'
+    exports.ox_target:removeZone(zoneName, true)
+    if not shop or (shop.PedModel and shop.PedModel ~= '') then return end
+
+    exports.ox_target:addSphereZone({
+        name = zoneName,
+        coords = shop.coords,
+        radius = 1.0,
+        debug = false,
+        options = {
+            {
+                name = zoneName,
+                icon = 'fas fa-shopping-cart',
+                label = _U('target_open_shop'),
+                groups = GetOxTargetGroups(shop),
+                onSelect = function()
+                    OpenShop(shopId)
+                end
+            }
+        }
+    })
+end
+
 function RefreshShopPeds()
     for shopId in pairs(ShopPoints) do
         RemoveShopPoint(shopId)
@@ -748,27 +775,7 @@ CreateThread(function()
             return
         end
         for shopId, shop in pairs(Config.Shops) do
-            -- Ped shops use entity target, skip sphere zone
-            if not shop.PedModel or shop.PedModel == '' then
-            pcall(function()
-                exports.ox_target:addSphereZone({
-                    coords = shop.coords,
-                    radius = 1.0,
-                    debug = false,
-                    options = {
-                        {
-                            name = shopId .. '_smartshop',
-                            icon = 'fas fa-shopping-cart',
-                            label = _U('target_open_shop'),
-                            groups = GetOxTargetGroups(shop),
-                            onSelect = function()
-                                OpenShop(shopId)
-                            end
-                        }
-                    }
-                })
-            end)
-            end
+            SetShopZone(shopId, shop)
         end
     end
 end)
@@ -816,8 +823,9 @@ RegisterNetEvent('noir_shops:client:registerShop', function(shopId, shop)
     Config.Shops[shopId] = shop
     RefreshBlips()
 
-    -- Ped spawn/cleanup
+    -- Ped spawn/cleanup; loja que ganhou atendente perde a zona
     CreateShopPoint(shopId, shop)
+    SetShopZone(shopId, shop)
     if shop.PedModel and shop.PedModel ~= '' then
         return -- ped has its own target
     end
@@ -850,28 +858,6 @@ RegisterNetEvent('noir_shops:client:registerShop', function(shopId, shop)
                 distance = 2.0
             })
         end)
-    elseif Config.TargetSystem == 'ox-target' and GetResourceState('ox_target') == 'started' then
-        pcall(function()
-            exports.ox_target:removeZone(shopId .. '_smartshop')
-        end)
-        pcall(function()
-            exports.ox_target:addSphereZone({
-                coords = shop.coords,
-                radius = 1.0,
-                debug = false,
-                options = {
-                    {
-                        name = shopId .. '_smartshop',
-                        icon = 'fas fa-shopping-cart',
-                        label = _U('target_open_shop'),
-                        groups = GetOxTargetGroups(shop),
-                        onSelect = function()
-                            OpenShop(shopId)
-                        end
-                    }
-                }
-            })
-        end)
     end
 end)
 
@@ -887,6 +873,7 @@ RegisterNetEvent('noir_shops:client:unregisterShop', function(shopId)
         ActiveBlips[shopId] = nil
     end
     RemoveShopPoint(shopId)
+    SetShopZone(shopId, nil)
     Config.Shops[shopId] = nil
 end)
 
@@ -946,10 +933,12 @@ RegisterNUICallback('adminCreateShop', function(data, cb)
     cb('ok')
 end)
 
+-- shop.coords é a altura dos pés do atendente (o CreatePed usa essa altura); o jogador tem a
+-- origem ~1 m acima do chão, como no createNewShop do servidor.
 RegisterNUICallback('adminGetPlayerCoords', function(data, cb)
     local ped = PlayerPedId()
     local coords = GetEntityCoords(ped)
-    cb({ x = coords.x, y = coords.y, z = coords.z })
+    cb({ x = coords.x, y = coords.y, z = coords.z - 1.0 })
 end)
 
 RegisterNUICallback('adminGetPlayerHeading', function(data, cb)
@@ -962,6 +951,113 @@ RegisterNUICallback('adminGotoShop', function(data, cb)
     local ped = PlayerPedId()
     SetEntityCoords(ped, data.x + 0.0, data.y + 0.0, data.z + 0.0, false, false, false, true)
     cb('ok')
+end)
+
+---Posicionar atendente, igual ao editor do noir_garage (DESIGN_v4 ML.7): sem gizmo, porque no
+---Enhanced o object_gizmo não pega o clique. Um PED de teste translúcido segue o chão para onde a
+---câmera mira, a roda do mouse gira (Shift = mais rápido), Enter confirma e Backspace cancela. O
+---resultado volta para a NUI pela mensagem 'adminPlacement', fora do callback.
+local function loadPedModel(name)
+    local model = joaat(name)
+    if not IsModelInCdimage(model) or not IsModelAPed(model) then
+        lib.notify({ description = ('Modelo inexistente: %s'):format(tostring(name)), type = 'error' })
+        return
+    end
+    if not pcall(lib.requestModel, model, 5000) then return end
+    return model
+end
+
+local function runPlacement(model, start)
+    SendNUIMessage({ action = 'adminPlacement', hidden = true })
+    SetNuiFocus(false, false)
+    Wait(250)
+
+    local entity = CreatePed(4, model, start.x, start.y, start.z, start.w, false, false)
+    SetModelAsNoLongerNeeded(model)
+
+    local result = false
+    if entity == 0 then
+        print('[noir_shops:posicionar] criar o PED de teste falhou')
+    else
+        SetEntityInvincible(entity, true)
+        SetEntityCollision(entity, false, false)
+        FreezeEntityPosition(entity, true)
+        SetEntityAlpha(entity, 200, false)
+        SetBlockingOfNonTemporaryEvents(entity, true)
+
+        -- Origem do PED fica ~1 m acima do chão; a loja guarda a altura dos pés.
+        local position = vec3(start.x, start.y, start.z + 1.0)
+        local heading = start.w
+        local placing = true
+
+        -- Mira em thread própria: o raycast do ox_lib espera um frame, e o laço abaixo precisa ler as
+        -- teclas em todo frame para não perder o Enter nem a roda do mouse.
+        CreateThread(function()
+            while placing do
+                local hit, _, coords = lib.raycast.fromCamera(1 | 16, 4, 25.0)
+                if hit and placing then position = vec3(coords.x, coords.y, coords.z + 1.0) end
+            end
+        end)
+
+        lib.showTextUI('[Mira] mover  \n[Roda do mouse] girar (Shift: rápido)  \n[Enter] confirmar  \n[Backspace] cancelar')
+        while placing do
+            DisableControlAction(0, 14, true)  -- roda: arma seguinte
+            DisableControlAction(0, 15, true)  -- roda: arma anterior
+            DisableControlAction(0, 16, true)
+            DisableControlAction(0, 17, true)
+            DisableControlAction(0, 24, true)  -- ataque
+            DisableControlAction(0, 25, true)  -- mirar
+            DisableControlAction(0, 177, true) -- Backspace não abre o menu de pausa
+            DisablePlayerFiring(cache.playerId, true)
+
+            local step = IsControlPressed(0, 21) and 15.0 or 5.0 -- Shift
+            if IsDisabledControlJustPressed(0, 14) or IsDisabledControlJustPressed(0, 16) then
+                heading = (heading - step) % 360
+            elseif IsDisabledControlJustPressed(0, 15) or IsDisabledControlJustPressed(0, 17) then
+                heading = (heading + step) % 360
+            end
+
+            SetEntityCoordsNoOffset(entity, position.x, position.y, position.z, false, false, false)
+            SetEntityHeading(entity, heading)
+
+            if IsControlJustPressed(0, 191) or IsControlJustPressed(0, 201) then -- Enter
+                local c = GetEntityCoords(entity)
+                result = { x = c.x, y = c.y, z = c.z - 1.0, w = heading }
+                placing = false
+            elseif IsDisabledControlJustReleased(0, 177) then -- Backspace
+                placing = false
+            end
+            Wait(0)
+        end
+        lib.hideTextUI()
+
+        if DoesEntityExist(entity) then
+            SetEntityAsMissionEntity(entity, true, true)
+            DeleteEntity(entity)
+        end
+    end
+
+    if AdminOpen then
+        SendNUIMessage({ action = 'adminPlacement', hidden = false, result = result })
+        SetNuiFocus(true, true)
+    end
+end
+
+-- data: { model, position? = { x, y, z (pés), w } }. Sem posição salva, começa à frente do admin,
+-- virado para ele.
+RegisterNUICallback('adminPlacePed', function(data, cb)
+    if not AdminOpen or type(data) ~= 'table' or type(data.model) ~= 'string' or data.model == '' then return cb(false) end
+    local model = loadPedModel(data.model)
+    if not model then return cb(false) end
+    cb(true)
+
+    local start = data.position
+    if type(start) ~= 'table' or type(start.x) ~= 'number' or (start.x == 0 and start.y == 0) then
+        local c = GetEntityCoords(cache.ped) + GetEntityForwardVector(cache.ped) * 1.5
+        start = { x = c.x, y = c.y, z = c.z - 1.0, w = (GetEntityHeading(cache.ped) + 180.0) % 360 }
+    end
+    start.w = tonumber(start.w) or 0.0
+    CreateThread(function() runPlacement(model, start) end)
 end)
 
 RegisterNetEvent('noir_shops:client:openAdminPanel', function()

@@ -30,6 +30,13 @@ window.fetch = async (url, opts) => {
   const json = (v) => new Response(JSON.stringify(v), { headers: { 'Content-Type': 'application/json' } });
   if (m[1] === 'adminGetPlayerCoords') return json({ x: 25.71, y: -1345.02, z: 29.5 });
   if (m[1] === 'adminGetPlayerHeading') return json({ heading: 271.6 });
+  if (m[1] === 'adminPlacePed') {
+    // No jogo o painel some enquanto o admin mira; aqui volta depois de 1,5 s com uma posição.
+    window.postMessage({ action: 'adminPlacement', hidden: true }, '*');
+    toast(`posicionando ${body.model}…`);
+    setTimeout(() => window.postMessage({ action: 'adminPlacement', hidden: false, result: { x: 26.12, y: -1345.87, z: 28.52, w: 268 } }, '*'), 1500);
+    return json(true);
+  }
   if (m[1].startsWith('admin')) toast(`${m[1]} · ${JSON.stringify(body).slice(0, 160)}`);
   if (m[1] === 'checkoutCart') {
     const total = body.cart.reduce((s, it) => s + it.price * it.qty, 0);

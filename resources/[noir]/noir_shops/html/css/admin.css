@@ -124,6 +124,8 @@
 }
 
 .admin-col { flex: 1; min-width: 0; }
+
+.admin-row--buttons > .admin-btn { flex: 1; }
 .admin-col--wide { flex: 2; }
 
 .admin-col-btn {

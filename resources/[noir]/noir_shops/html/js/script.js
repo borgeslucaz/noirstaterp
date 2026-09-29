@@ -670,6 +670,47 @@ document.getElementById('admin-use-pos-btn').addEventListener('click', function(
     });
 });
 
+// Posicionar atendente: o client.lua esconde o painel, o admin posiciona um PED de teste com a mira e
+// o resultado volta pela mensagem 'adminPlacement'.
+const DEFAULT_PED_MODEL = 'mp_m_shopkeep_01';
+
+document.getElementById('admin-place-btn').addEventListener('click', function() {
+    const model = document.getElementById('admin-ped-model').value.trim() || DEFAULT_PED_MODEL;
+    const x = parseFloat(document.getElementById('admin-coord-x').value);
+    const y = parseFloat(document.getElementById('admin-coord-y').value);
+    const z = parseFloat(document.getElementById('admin-coord-z').value);
+    const w = parseFloat(document.getElementById('admin-ped-heading').value) || 0;
+    const position = [x, y, z].every(Number.isFinite) ? { x, y, z, w } : null;
+    fetch('https://noir_shops/adminPlacePed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+        body: JSON.stringify({ model, position })
+    });
+});
+
+window.addEventListener('message', function(event) {
+    const data = event.data;
+    if (!data || data.action !== 'adminPlacement') return;
+
+    document.getElementById('admin-app').style.visibility = data.hidden ? 'hidden' : '';
+    if (data.hidden || !data.result) return;
+
+    const r = data.result;
+    document.getElementById('admin-coord-x').value = r.x.toFixed(2);
+    document.getElementById('admin-coord-y').value = r.y.toFixed(2);
+    document.getElementById('admin-coord-z').value = r.z.toFixed(2);
+    document.getElementById('admin-ped-heading').value = r.w.toFixed(1);
+
+    // Posicionou o atendente: a loja passa a ter atendente (com o modelo usado no teste).
+    const pedToggle = document.getElementById('admin-ped-enabled');
+    const modelInput = document.getElementById('admin-ped-model');
+    if (!modelInput.value.trim()) modelInput.value = DEFAULT_PED_MODEL;
+    if (!pedToggle.checked) {
+        pedToggle.checked = true;
+        document.getElementById('admin-ped-fields').style.display = '';
+    }
+});
+
 // --- Items List ---
 function renderAdminItems() {
     const list = document.getElementById('admin-items-list');
