@@ -30,14 +30,6 @@ return {
             price = math.random(50, 100)
         },
         {
-            item = 'iphone',
-            price = math.random(50, 100)
-        },
-        {
-            item = 'samsungphone',
-            price = math.random(50, 100)
-        },
-        {
             item = 'laptop',
             price = math.random(50, 100)
         }

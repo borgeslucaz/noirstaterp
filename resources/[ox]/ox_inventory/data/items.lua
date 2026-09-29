@@ -1958,6 +1958,18 @@ return {
         weight = 1500,
     },
 
+    ['10kgoldchain'] = {
+        label = '10k Gold Chain',
+        rarity = 'rare',
+        weight = 1500,
+    },
+
+    ['diamond'] = {
+        label = 'Loose Diamond',
+        rarity = 'epic',
+        weight = 200,
+    },
+
     ['crack_baggy'] = {
         label = 'Crack Baggy',
         rarity = 'uncommon',

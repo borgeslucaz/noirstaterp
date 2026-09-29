@@ -149,12 +149,8 @@ RegisterNetEvent('qbx_storerobbery:server:safeCracked', function()
     if not closestSafeIndex then return end
     if not startedSafe[source] then return end
 
-    local billsMeta = {
-        worth = worthMarkedBills,
-        description = locale('text.value', { value = worthMarkedBills })
-    }
-
-    player.Functions.AddItem('markedbills', numMarkedBills, false, billsMeta)
+    -- markedbills não existe no ox_inventory; dinheiro sujo do servidor é black_money.
+    player.Functions.AddItem('black_money', numMarkedBills * worthMarkedBills)
 
     if config.safeReward.chanceAtSpecial > math.random(0, 100) then
         player.Functions.AddItem('rolex', math.random(config.safeReward.rolexAmount.min, config.safeReward.rolexAmount.max))
