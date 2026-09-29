@@ -1388,21 +1388,26 @@ end
 
 -- Catálogo V2 plano. Os metadados são deliberadamente declarados aqui, para que
 -- a progressão não dependa de textos ou de agrupamentos antigos.
+-- {tier, estimatedMinutes, baseXP, reqLevel, cargoType}
+-- estimatedMinutes: rotas cujo prazo era menor que o trajeto (ida à coleta,
+-- entrega e volta) foram esticadas para ~1,2 min/km em linha reta + 3 min, com 20% de folga.
+-- reqLevel low espalhado (1/1/5/5/10) para o novato disputar mais de uma carga.
+-- route_16/17 só aceitam o bison (nível 35), então o nível delas acompanha o caminhão.
 local noirRoutes = {
-  {'low',30,520,10,'madeira'}, {'low',32,560,14,'madeira'}, {'low',30,540,10,'madeira'},
-  {'low',14,320,1,'equipamentos_tv'}, {'low',18,380,5,'equipamentos_tv'},
+  {'low',30,520,5,'madeira'}, {'low',32,560,10,'madeira'}, {'low',30,540,5,'madeira'},
+  {'low',14,320,1,'equipamentos_tv'}, {'low',18,380,1,'equipamentos_tv'},
   {'medium',32,820,30,'cigarros_embalados'}, {'medium',33,840,30,'cigarros_embalados'},
   {'medium',28,780,20,'tabaco_embalado'}, {'medium',30,800,25,'tabaco_embalado'},
   {'medium',28,760,20,'graos_fardos'}, {'medium',34,860,30,'graos_fardos'}, {'medium',29,780,25,'graos_fardos'},
   {'medium',28,760,20,'alimentos_uvas'}, {'medium',24,700,15,'moveis_ferramentas'}, {'medium',25,720,15,'moveis_ferramentas'},
-  {'medium',29,800,25,'caixas_manuais'}, {'medium',30,820,25,'caixas_manuais'},
-  {'high',11,620,35,'veiculos_luxo'}, {'high',13,660,35,'veiculos_luxo'}, {'high',16,760,40,'barcos'},
+  {'medium',29,800,35,'caixas_manuais'}, {'medium',30,820,35,'caixas_manuais'},
+  {'high',22,620,35,'veiculos_luxo'}, {'high',25,660,35,'veiculos_luxo'}, {'high',18,760,40,'barcos'},
   {'high',21,860,45,'barcos'}, {'high',23,900,45,'jet_ski'}, {'high',26,980,50,'computadores'},
-  {'high',18,820,40,'computadores'}, {'high',12,700,35,'computadores'}, {'high',14,760,35,'chips'},
+  {'high',34,820,40,'computadores'}, {'high',33,700,35,'computadores'}, {'high',16,760,35,'chips'},
   {'high',17,820,40,'chips'}, {'high',34,1200,60,'petroleo'}, {'high',34,1200,60,'petroleo'},
-  {'high',16,800,40,'petroleo'}, {'high',13,740,35,'petroleo'}, {'high',22,920,45,'petroleo'},
+  {'high',30,800,40,'petroleo'}, {'high',23,740,35,'petroleo'}, {'high',25,920,45,'petroleo'},
   {'high',25,1100,50,'veiculos_militares'}, {'high',31,1250,55,'veiculos_militares'}, {'high',24,1080,50,'veiculos_militares'},
-  {'high',25,1150,50,'carga_militar_especial'}, {'high',25,1150,50,'carga_militar_especial'},
+  {'high',29,1150,50,'carga_militar_especial'}, {'high',30,1150,50,'carga_militar_especial'},
 }
 
 Config.Routes = {}

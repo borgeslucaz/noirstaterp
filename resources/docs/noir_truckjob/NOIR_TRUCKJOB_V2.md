@@ -240,26 +240,26 @@ Cada rotação gera exatamente:
 
 | Tier | Ofertas |
 |---|---:|
-| low | 4 |
+| low | 5 |
 | medium | 5 |
 | high | 7 |
-| Total | 16 |
+| Total | 17 |
+
+O low oferta as 5 rotas do catálogo toda hora: a carga é disputada na rotação global, e o novato precisa conseguir a primeira entrega (ela, com as diárias, já o leva perto do nível 10).
 
 Não duplicar routeId dentro da mesma rotação. Rotas usadas nas duas rotações anteriores podem receber peso menor, mantendo o comportamento determinístico atual.
 
 ### 6.3 Faixas cumulativas
 
-Os tiers possuem apenas nível mínimo:
-
 ~~~lua
 levelBands = {
-    low = { min = 1 },
+    low = { min = 1, max = 34 },
     medium = { min = 15 },
     high = { min = 35 },
 }
 ~~~
 
-Não existe max. Um jogador de nível 35 pode iniciar ofertas low, medium ou high, desde que atenda também ao reqLevel da rota e ao nível do caminhão.
+O low fecha no nível 35: carga low é de quem ainda não chegou ao high. Medium e high não têm max. Além da faixa, valem o reqLevel da rota e o nível do caminhão.
 
 ### 6.4 Concorrência e estados
 
@@ -315,6 +315,18 @@ Portanto, o preview assume nota B, multiplicador 1,00, e não inclui carga ilega
 | B | 1,00 |
 | C | 0,75 |
 | D | 0,40 |
+
+Curva: `Config.XP[i] = i × 110` para i de 1 a 60; o nível máximo é 60. Com 2 tentativas de carga por dia disputando a rotação, o 60 fica em ~4 semanas.
+
+Pagamento:
+
+~~~text
+basePay = floor((basePerDelivery[tier] + targetIncomePerHour × estimatedMinutes / 60 × difficultyMultiplier[tier])
+                × (1 + levelPayStep.percent × floor(nível / levelPayStep.every)))
+total   = basePay + marketBonus + ajusteDaNota − penalidadeDeDano + bonusIlegal
+~~~
+
+O nível é o do início do contrato, o mesmo que o quadro usou no paymentPreview. Referência com nota S: ~$1.100 no nível 1, ~$1.400 no 15, ~$1.750 no 35, ~$2.000 no 60. O valor por entrega é alto porque a carga é disputada: ele compensa as horas em que o motorista não consegue carga.
 
 A conclusão concede pagamento, XP, histórico e estatísticas. Não concede empresa, confiança, reputação ou pontos.
 

@@ -15,12 +15,13 @@ Config.VersionURL = 'https://raw.githubusercontent.com/Peak-Studios/noir-truckjo
 Config.AdminGroups = { 'group.admin', 'admin', 'god', 'superadmin' }
 Config.AdminAce    = 'admin'
 
--- XP thresholds — one entry per level (100 levels total).
--- Each value is the XP required to reach that level.
+-- XP thresholds — uma entrada por nível (60 níveis; o tamanho da tabela é o nível máximo).
+-- Config.XP[i] é o XP para passar do nível i ao i+1. i × 110 fecha o 60 em ~4 semanas
+-- com 2 tentativas de carga por dia disputando a rotação global.
 Config.XP = {}
 
 CreateThread(function()
-    for i = 1, 100 do
-        table.insert(Config.XP, i * 1000)
+    for i = 1, 60 do
+        table.insert(Config.XP, i * 110)
     end
 end)

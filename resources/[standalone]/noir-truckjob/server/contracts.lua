@@ -101,6 +101,10 @@ function Contracts.CheckEligibility(profile, identifier, offer, activeSession)
     if level < bandMin then
         block({ key = 'lock_level_band_min', args = { bandMin }, err = 'err_level_band_min', errArgs = { bandMin } })
     end
+    local bandMax = tonumber(band.max)
+    if bandMax and level > bandMax then
+        block({ key = 'lock_level_band_max', args = { bandMax }, err = 'err_level_band_max', errArgs = { bandMax } })
+    end
 
     local okRoute, routeBlock = RouteAvailable(profile, route)
     if not okRoute then block(routeBlock) end
@@ -257,6 +261,8 @@ function Contracts.Start(src, data)
         result = nil,
         estimatedMinutes = tonumber(meta.estimatedMinutes) or 20,
         baseXP = tonumber(meta.baseXP) or 400,
+        -- O pagamento usa o nível do início: é o valor que o quadro mostrou.
+        level = tonumber(profile.level) or 1,
     }
 
     ActiveJobs[src] = session
@@ -440,7 +446,7 @@ function Contracts.Evaluate(session, integrityPct, returnDistance, vehicleIntact
 end
 
 function Contracts.ComputeReward(session, evaluation)
-    local basePay = Rotation.BasePay(session.routeId, session.tier)
+    local basePay = Rotation.BasePay(session.routeId, session.tier, session.level)
     local bonuses = Rotation.Bonuses(session.tier)
 
     local marketBonus = math.floor(basePay * bonuses.money)

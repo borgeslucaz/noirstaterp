@@ -25,23 +25,25 @@ Config.ContractBoard = {
     -- Fração mínima de estimatedMinutes que precisa ter decorrido antes de
     -- uma conclusão ser aceita (anti pagamento instantâneo).
     -- 0 = desligado (modo de teste). Em produção usar 0.20–0.25.
-    minCompletionRatio = 0,
+    minCompletionRatio = 0.25,
 
     -- Missões sempre disponíveis (sem requisito de nível/reputação).
     starterMissions = { [1] = true },
 
     global = {
-        -- Quantidade por tier e rotação (total = 16). O catálogo tem
-        -- 5 rotas low, 12 medium e 20 high; low repete entre horas.
-        low    = { min = 4, max = 4 },
+        -- Quantidade por tier e rotação (total = 17). O catálogo tem
+        -- 5 rotas low, 12 medium e 20 high; o low oferta as 5 toda hora
+        -- para o novato conseguir a primeira entrega na disputa.
+        low    = { min = 5, max = 5 },
         medium = { min = 5, max = 5 },
         high   = { min = 7, max = 7 },
         capacityPerOffer = 1,
         maxStartsPerPlayerPerRotation = 1,
         reservationEnabled = false, -- decisão de produto; a NUI nunca expõe reserva
 
+        -- max: acima dele o tier fica fechado (carga low é de quem ainda não chegou ao high).
         levelBands = {
-            low    = { min = 1 },
+            low    = { min = 1, max = 34 },
             medium = { min = 15 },
             high   = { min = 35, max = nil },
         },
@@ -73,21 +75,35 @@ Config.ContractBoard = {
 
 -- ============================================================
 -- ECONOMIA
--- basePay = targetIncomePerHour × estimatedMinutes / 60 × difficultyMultiplier
+-- basePay = (basePerDelivery[tier] + targetIncomePerHour × estimatedMinutes / 60
+--            × difficultyMultiplier) × (1 + levelPayStep.percent × ⌊nível / every⌋)
 -- finalPay = basePay × (1 + marketBonus) × gradeMultiplier − penalidades
+-- Referência (nota S): ~$1.100 no nível 1, ~$1.400 no 15, ~$1.750 no 35,
+-- ~$2.000 no 60. A carga é disputada na rotação global, então o valor por
+-- entrega compensa as horas em que o motorista não consegue carga.
 -- ============================================================
 Config.Economy = {
-    targetIncomePerHour = 9000,
+    -- Piso fixo por entrega: com 1 carga por rotação, a rota curta e a longa
+    -- ocupam a mesma vaga, então a maior parte do valor não depende do tempo.
+    basePerDelivery = {
+        low    = 740,
+        medium = 760,
+        high   = 790,
+    },
+    targetIncomePerHour = 410,
     difficultyMultiplier = {
         low    = 1.00,
-        medium = 1.45,
-        high   = 2.10,
+        medium = 1.10,
+        high   = 1.20,
     },
+    -- Degrau de pagamento por nível do motorista (nível no início do contrato).
+    levelPayStep = { every = 5, percent = 0.03 },
     -- Fração da perda de integridade convertida em penalidade financeira
     -- (percentual de dano × basePay × damagePenaltyRate).
     damagePenaltyRate = 0.25,
-    -- extraPayment das rotas do catálogo continua somando ao basePay.
-    includeRouteExtraPayment = true,
+    -- extraPayment das rotas do catálogo (+250/+450) desligado: nos valores
+    -- atuais ele desequilibraria rotas do mesmo tier.
+    includeRouteExtraPayment = false,
 }
 
 -- ============================================================

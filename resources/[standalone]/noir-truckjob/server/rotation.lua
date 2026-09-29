@@ -359,13 +359,23 @@ end
 -- Economia / preview
 -- ------------------------------------------------------------
 
+--- Multiplicador de pagamento pelo nível do motorista (degraus de levelPayStep).
+function Rotation.LevelPayMultiplier(level)
+    local step = Config.Economy.levelPayStep
+    if not step then return 1.0 end
+    local every = tonumber(step.every) or 5
+    local capped = math.min(tonumber(level) or 1, #Config.XP)
+    return 1.0 + (tonumber(step.percent) or 0) * math.floor(capped / every)
+end
+
 --- basePay da rota segundo Config.Economy (sem bônus, sem nota).
-function Rotation.BasePay(routeId, tier)
+function Rotation.BasePay(routeId, tier, level)
     local meta = GetRoute(routeId) or {}
     local eco = Config.Economy
     local minutes = tonumber(meta.estimatedMinutes) or 20
     local mult = (eco.difficultyMultiplier or {})[tier] or 1.0
-    local base = (tonumber(eco.targetIncomePerHour) or 9000) * minutes / 60 * mult
+    local floorPay = tonumber((eco.basePerDelivery or {})[tier]) or 0
+    local base = floorPay + (tonumber(eco.targetIncomePerHour) or 9000) * minutes / 60 * mult
 
     if eco.includeRouteExtraPayment then
         local _, route = ResolveCatalogRoute(routeId)
@@ -373,7 +383,7 @@ function Rotation.BasePay(routeId, tier)
             base = base + (tonumber(route.extraPayment) or 0)
         end
     end
-    return math.floor(base)
+    return math.floor(base * Rotation.LevelPayMultiplier(level))
 end
 
 function Rotation.Bonuses(tier)
@@ -401,9 +411,9 @@ function Rotation.ProjectOffer(offer, profile, identifier, activeSession)
     local _, route = ResolveCatalogRoute(offer.routeId)
     local meta = GetRoute(offer.routeId) or {}
     local bonuses = Rotation.Bonuses(offer.tier)
-    local basePay = Rotation.BasePay(offer.routeId, offer.tier)
-    local baseXP = tonumber(meta.baseXP) or 400
     local level = tonumber(profile.level) or 1
+    local basePay = Rotation.BasePay(offer.routeId, offer.tier, level)
+    local baseXP = tonumber(meta.baseXP) or 400
 
     local compatible = {}
     for _, name in ipairs(route.vehicle or {}) do
