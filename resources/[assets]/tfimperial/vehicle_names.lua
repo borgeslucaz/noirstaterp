@@ -1,0 +1,5 @@
+Citizen.CreateThread(function()
+	AddTextEntryByHash(`IMPERIAL`, "Imperial")
+	AddTextEntryByHash(`IMPERIALPAS`, "Imperial Passenger")
+	AddTextEntryByHash(`IMPERIALEV`, "Imperial EV")
+end)
