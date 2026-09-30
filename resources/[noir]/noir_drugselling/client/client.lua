@@ -220,7 +220,8 @@ function sellDrugMenu(entity)
     if math.random(100) <= pedCfg.refuseChance then
         dealMenuOpen = false
         soldPedsList[entity] = true
-        if Config.dispatchScript ~= "none" and pedCfg.dispatchCall then
+        local callsPolice = Config.dispatchScript ~= "none" and pedCfg.dispatchCall
+        if callsPolice then
             sendDispatchAlert(TranslateIt('drugdeal_dispatch_title'), TranslateIt('drugdeal_dispatch_message'), Config.DrugSelling.blipData)
         end
 
@@ -232,7 +233,10 @@ function sellDrugMenu(entity)
             end)
         end
 
-        return sendNotify(TranslateIt('notify_refuse_2'), "error", 5)
+        if callsPolice then
+            return pedSpeak(entity, 'refuseCallPolice', 'notify_refuse_2', 'alert')
+        end
+        return pedSpeak(entity, 'refuse', 'notify_refuse')
     end
 
     getLVL(function(lvl)
@@ -337,6 +341,7 @@ function sellDrugForPedFinalize(drug_name, price)
             end)
 
             playerLVL = sold.newLevel
+            pedSpeak(dealingPed, 'sold')
             FaceEachOtherAndPlayGive(dealingPed, drugCfg.handPropName)
             if not sold.isRivalry then 
                 --sendNotify(TranslateIt('notify_success', sold.amount, sold.label, sold.price), "success", 5)
@@ -368,13 +373,13 @@ function sellDrugForPedFinalize(drug_name, price)
                 removeTargetEntity(deleteData)
             end, dealingPed)
 
+            pedSpeak(dealingPed, 'steal', 'notify_steal', 'alert')
             MakePedRunAway()
-            sendNotify(TranslateIt('notify_steal'), "error", 5)
         elseif sold.refused then
             soldPedsList[dealingPed] = true
             local dumpPed = dealingPed
+            pedSpeak(dumpPed, 'refuse', 'notify_refuse')
             stopDealFunc()
-            sendNotify(TranslateIt('notify_refuse'), "error", 5)
             Citizen.CreateThread(function()
                 Wait(25 * 1000)
                 releaseCornerCustomer(dumpPed)

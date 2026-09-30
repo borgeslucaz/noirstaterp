@@ -445,6 +445,67 @@ Config.PedsList = {
 }
 
 
+-- Falas do comprador, num balão acima da cabeça (noir_lib PedSay). Cada reação sorteia uma
+-- da lista; todas dizem a mesma coisa que a notificação que substituem. Sem o noir_lib, volta
+-- a notificação. Até 140 caracteres por fala.
+Config.PedSpeech = {
+    -- Recusou (sem chamar a polícia).
+    refuse = {
+        'Tô de boa, valeu.',
+        'Não uso essa parada não.',
+        'Hoje não, parceiro.',
+        'Sai fora, não curto isso.',
+        'Passo. Procura outro.',
+        'Tô limpo, mano. Vaza.',
+        'Não é minha praia, desculpa.',
+        'Nem rola, tô de saída.',
+        'Tô sem grana, mano.',
+        'Valeu, mas tô tranquilo.',
+        'Não mexo com isso não, parça.',
+        'Vou ver e te aviso.',
+        'Na volta eu compro.',
+    },
+    -- Recusou e vai chamar a polícia.
+    refuseCallPolice = {
+        'Quero essa merda não, vou chamar a polícia!',
+        'Tá maluco? Vou ligar pros homi agora.',
+        'Some daqui antes que eu chame a viatura!',
+        'Vou denunciar você, vagabundo!',
+        'Alô, polícia? Tem um cara vendendo droga aqui!',
+        'Tu é doido? Já tô ligando pro 190.',
+        'Tá achando que eu sou o quê? Vou chamar os canas!',
+        'Vou gravar tua cara e mandar pra polícia!',
+        'Isso aqui é bairro de família! Vou ligar pra polícia!',
+        'Sai de perto de mim! Polícia!',
+        'Vai vender isso na casa do caralho, vou chamar a viatura!',
+    },
+    -- Comprou.
+    sold = {
+        'Valeu, parceiro.',
+        'Fechou. Tamo junto.',
+        'Boa, depois eu volto.',
+        'Tá na mão. Valeu!',
+        'Show, era disso que eu precisava.',
+        'Salvou meu dia.',
+        'Coisa boa, hein? Valeu.',
+        'Deixa comigo, some daqui.',
+        'Se for da boa, eu volto amanhã.',
+        'Firmeza, parceiro.',
+    },
+    -- Pegou a droga e saiu correndo.
+    steal = {
+        'Valeu, otário!',
+        'Perdeu, playboy!',
+        'Isso aqui agora é meu!',
+        'Corre atrás, se conseguir!',
+        'Obrigado pelo presente!',
+        'Tchau, trouxa!',
+        'Vacilou, dançou!',
+        'Essa foi fácil demais!',
+        'Na próxima presta atenção, mané!',
+    },
+}
+
 -- Black list peds
 Config.BlackListPeds = {
     [`a_m_m_skidrow_01`] = true,
