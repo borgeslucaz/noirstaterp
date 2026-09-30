@@ -1,185 +1,167 @@
-import React, { useMemo, useState } from "react";
-import { motion, Variants } from "framer-motion";
+import React, { useMemo, useRef, useState } from "react";
 import "./Main.scss";
-import { useDealingData } from "../../../data/DrugDealingData";
+import { useDealingData, Item } from "../../../data/DrugDealingData";
 import { useLocaleState } from "../../../utils/locale";
-import { useTypewriter } from "../../../utils/typeWritter";
-import { Item } from "../../../data/DrugDealingData";
 import { fetchNui } from "../../../utils/fetchNui";
-import RangeInput from "./Addon/RangeInput";
 import { useFormatMoney } from "../../../utils/formatMoney";
 
+// Negociação: uma faixa baixa embaixo e no centro, para o comprador e a cena continuarem à
+// vista. A fala dele, as miniaturas do que o vendedor tem no bolso, o preço do produto
+// escolhido e as duas saídas.
+const WELCOME_LINES = 20;
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
 const Main: React.FC = () => {
-    const Locale = useLocaleState();
-    const dealingData = useDealingData();
-    const randomIndex = useMemo(() => Math.floor(Math.random() * 19) + 1, []);
-    const [selectedDrug, selectDrug] = useState<Item>(dealingData.playerDrugs[0])
-    const [secondPart, setSecondPart] = useState<boolean>(false)
-    const [drugPrice, setDrugPrice] = useState<number>(0)
-    const formatMoney = useFormatMoney()
+  const Locale = useLocaleState();
+  const dealingData = useDealingData();
+  const formatMoney = useFormatMoney();
+  const drugs = dealingData.playerDrugs;
 
-    const welcomeText = Locale["dealing_welcometext_" + randomIndex] || "";
-    const typedText = useTypewriter(welcomeText, 40);
-    const done = typedText.length === welcomeText.length && welcomeText.length > 0;
+  const lineIndex = useMemo(() => Math.floor(Math.random() * WELCOME_LINES) + 1, []);
+  const [selected, setSelected] = useState(0);
+  const drug: Item | undefined = drugs[selected];
+  const [price, setPrice] = useState<number>(drug ? drug.normalPrice : 0);
+  const [sending, setSending] = useState(false);
+  const listRef = useRef<HTMLUListElement>(null);
+  const dealRef = useRef<HTMLElement>(null);
 
-    const menuInner: Variants = {
-        visible: {
-            opacity: 1,
-            scale: 1,
-            y: 0,
-            transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
-        }
-    };
+  // O tooltip mora fora da grade (que rola e cortaria), posicionado sobre a miniatura.
+  const [tip, setTip] = useState<{ index: number; left: number; top: number } | null>(null);
+  const showTip = (index: number, el: HTMLElement) => {
+    const box = dealRef.current?.getBoundingClientRect();
+    const tile = el.getBoundingClientRect();
+    if (!box) return;
+    setTip({ index, left: tile.left - box.left, top: tile.top - box.top });
+  };
+  const tipDrug = tip ? drugs[tip.index] : undefined;
 
-    const btnsContainer: Variants = {
-        hidden: { opacity: 0, height: 0 },
-        visible: {
-            opacity: 1,
-            height: "auto",
-            transition: { delayChildren: 0.05, staggerChildren: 0.12 },
-        },
-    };
+  const choose = (index: number) => {
+    const next = clamp(index, 0, drugs.length - 1);
+    setSelected(next);
+    setPrice(drugs[next].normalPrice);
+    listRef.current?.children[next]?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  };
 
-    const performDrugSell = () => {
-        fetchNui('drugSell', {name: selectedDrug.spawn_name, price: drugPrice})
-    }
+  const close = () => fetchNui("hideFrame");
 
-    return (
-        <div id="wrapper">
-            <div id="drugSellingMenu">
-                <motion.div
-                    className="menuInner"
-                    variants={menuInner}
-                    initial="hidden"
-                    animate="visible"
-                >
-                    <div className="Header">
-                        <h1>
-                            {dealingData.pedName} <span style={{border: `1px solid ${dealingData.pedBorder}`, backgroundColor: dealingData.pedBg}}>{dealingData.pedType}</span>
-                        </h1>
-                        <p>{Locale['loyality'] ? Locale['loyality'].replace("%a", String(dealingData.playerLevel)).replace("%b", String(dealingData.playerBoost)) : ""}</p>
-                    </div>
+  const sell = () => {
+    if (!drug || sending) return;
+    setSending(true);
+    fetchNui("drugSell", { name: drug.spawn_name, price });
+  };
 
-                    <div id="questionBox">
-                        {!secondPart && (
-                            <h1>
-                                {typedText}
-                                {!done && <span className="cursor">|</span>}
-                            </h1>
-                        )}
+  const loyalty = Locale["loyality"]
+    ? Locale["loyality"].replace("%a", String(dealingData.playerLevel)).replace("%b", String(dealingData.playerBoost)).replace(" | ", " · ")
+    : "";
+  const line = Locale["dealing_welcometext_" + lineIndex] || "";
 
-                        {(done && !secondPart) && (
-                            <motion.div id="btns" variants={btnsContainer} initial="hidden" animate="visible">
-                                <button
-                                    className="success"
-                                    onClick={() => { setDrugPrice(selectedDrug.normalPrice); setSecondPart(true) }}
-                                >
-                                    {Locale["dealing_answertext_" + randomIndex]}
-                                </button>
+  const range = drug ? drug.priceRangeMax - drug.priceRangeMin : 0;
+  const fill = drug && range > 0 ? ((price - drug.priceRangeMin) / range) * 100 : 0;
+  const ideal = drug && range > 0 ? ((drug.normalPrice - drug.priceRangeMin) / range) * 100 : 50;
+  // O servidor paga preço × bônus do nível × grau (vende primeiro o melhor grau).
+  const topGrade = drug && drug.grades && drug.grades.length > 0 ? drug.grades[0] : null;
+  const gradeMult = topGrade ? topGrade.multiplier : 1;
+  const receives = drug && (gradeMult !== 1 || dealingData.playerBoost > 0)
+    ? Math.floor(price * (1 + dealingData.playerBoost / 100) * gradeMult)
+    : null;
+  const verdict = !drug ? "" : price > drug.normalPrice ? "above" : price < drug.normalPrice ? "below" : "ideal";
 
-                                <button
-                                    className="error"
-                                    onClick={() => { fetchNui('hideFrame') }}
-                                >
-                                    {Locale["dealing_nvw"]}
-                                </button>
-                            </motion.div>
-                        )}
+  return (
+    <>
+      <section className="deal" aria-labelledby="deal-name" ref={dealRef}>
+        <header className="deal__head">
+          <h1 id="deal-name" className="deal__name">{dealingData.pedName}</h1>
+          <span className="deal__tag" style={{ "--tag": dealingData.pedBorder } as React.CSSProperties} title={loyalty}>
+            {dealingData.pedType}
+          </span>
+          <button className="deal__close" aria-label="Fechar" onClick={close}>✕</button>
+        </header>
 
-                        {secondPart && (
-                            <motion.div
-                                id="inputBox"
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.22 }}
-                            >
-                                <motion.div
-                                    id="topBox"
-                                    initial={{ opacity: 0, y: 6 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.22, delay: 0.05 }}
-                                >
-                                    <img src={selectedDrug.icon}></img>
-                                    <h2>{Locale['pricepergram']}</h2> 
-                                    <p>{formatMoney(drugPrice)}</p>
-                                </motion.div>
-
-                                <motion.div
-                                    className="rangeWrapper"
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    transition={{ duration: 0.18, delay: 0.08 }}
-                                >
-                                    <RangeInput
-                                        id="range2"
-                                        name="range2"
-                                        min={selectedDrug.priceRangeMin}
-                                        max={selectedDrug.priceRangeMax}
-                                        step={1}
-                                        initial={drugPrice}
-                                        onChange={(v) => {
-                                            setDrugPrice(v);
-                                        }}
-                                    />
-                                </motion.div>
-
-                                <motion.div
-                                    id="btns"
-                                    initial="hidden"
-                                    animate="visible"
-                                    variants={{
-                                        hidden: { opacity: 0, y: 6 },
-                                        visible: { opacity: 1, y: 0, transition: { staggerChildren: 0.09 } },
-                                    }}
-                                >
-                                    <button className="success2" onClick={() => { performDrugSell() }}>
-                                        {Locale["hereyougo"]}
-                                    </button>
-
-                                    <button className="error2" onClick={() => { fetchNui('hideFrame') }}>
-                                        {Locale["dealing_nvw"]}
-                                    </button>
-                                </motion.div>
-                            </motion.div>
-                        )}
-
-                    </div>
-                </motion.div>
-            </div>
-
-            {(done && !secondPart) && (
-                <motion.div
-                    id="itemsList"
-                    initial="hidden"
-                    animate="visible"
-                    variants={{
-                        hidden: { opacity: 0, y: 10 },
-                        visible: {
-                            opacity: 1,
-                            y: 0,
-                            transition: { staggerChildren: 0.1 }
-                        }
-                    }}
-                >
-                    {dealingData.playerDrugs.map((drug, index) => (
-                        <motion.div
-                            key={drug.label ?? index}
-                            className={selectedDrug.label === drug.label ? "item selectedItem" : "item"}
-                            variants={{
-                                hidden: { opacity: 0, y: 8 },
-                                visible: { opacity: selectedDrug.label === drug.label ? 1 : 0.5, y: 0 }
-                            }}
-                            onClick={() => { selectDrug(drug) }}
-                        >
-                            <img src={drug.icon} alt={drug.label ?? "drug"} />
-                            <p>x{drug.amount}</p>
-                        </motion.div>
-                    ))}
-                </motion.div>
+        {tipDrug && tip && (
+          <div className="deal__tip" role="tooltip" style={{ left: tip.left, top: tip.top }}>
+            <b>{tipDrug.label}</b>
+            <span>{tipDrug.amount} no bolso · {formatMoney(tipDrug.priceRangeMin)} a {formatMoney(tipDrug.priceRangeMax)}</span>
+            <span>Ideal {formatMoney(tipDrug.normalPrice)}</span>
+            {tipDrug.grades && tipDrug.grades.length > 0 && (
+              <span className="deal__tip-grades">
+                {tipDrug.grades.map((g) => `Grau ${g.grade} ×${g.amount}`).join(" · ")}
+              </span>
             )}
+          </div>
+        )}
 
+        {line && <p className="deal__line">“{line}”</p>}
+
+        <div className="deal__body">
+          <ul className="deal__list" role="listbox" aria-label="Produtos" ref={listRef} onScroll={() => setTip(null)}
+            style={{ "--cols": Math.min(Math.max(drugs.length, 1), 4) } as React.CSSProperties}>
+            {drugs.map((item, index) => (
+              <li
+                key={item.spawn_name}
+                role="option"
+                aria-selected={index === selected}
+                aria-label={`${item.label}, ${item.amount} un.`}
+                tabIndex={-1}
+                className="deal__item"
+                onClick={() => choose(index)}
+                onMouseEnter={(e) => showTip(index, e.currentTarget)}
+                onMouseLeave={() => setTip(null)}
+              >
+                <img src={item.icon} alt="" />
+                {item.grades && item.grades.length > 0 && <span className="deal__grade">{item.grades[0].grade}</span>}
+                <span className="deal__qty">{item.amount}</span>
+              </li>
+            ))}
+          </ul>
+
+          {drug && (
+            <div className="deal__price">
+              <div className="deal__price-line">
+                <span className="deal__label">{drug.label}</span>
+                <strong>{formatMoney(price)}</strong>
+              </div>
+              <div className="deal__range" style={{ "--fill": `${fill}%`, "--ideal": `${ideal}%` } as React.CSSProperties}>
+                <input
+                  type="range"
+                  min={drug.priceRangeMin}
+                  max={drug.priceRangeMax}
+                  step={1}
+                  value={price}
+                  aria-label={(Locale["pricepergram"] || "Preço por unidade").replace(/:$/, "")}
+                  onChange={(e) => setPrice(Number(e.target.value))}
+                />
+                <span className="deal__ideal" aria-hidden="true" />
+              </div>
+              <div className={`deal__verdict deal__verdict--${verdict}`}>
+                {verdict === "ideal" && `Preço ideal`}
+                {verdict === "above" && `Acima do ideal (${formatMoney(drug.normalPrice)}): vende menos`}
+                {verdict === "below" && `Abaixo do ideal (${formatMoney(drug.normalPrice)}): vende mais`}
+              </div>
+              {receives !== null && (
+                <div className="deal__receive">
+                  Recebe {formatMoney(receives)}/un.
+                  {topGrade && <> · grau {topGrade.grade} ×{String(topGrade.multiplier).replace(".", ",")}</>}
+                  {dealingData.playerBoost > 0 && <> · +{dealingData.playerBoost}% do nível</>}
+                </div>
+              )}
+            </div>
+          )}
         </div>
-    );
+
+        <footer className="deal__foot">
+          <button className="btn btn--secondary" onClick={close}>{Locale["dealing_nvw"] || "Deixa pra lá"}</button>
+          <button className="btn btn--confirm" onClick={sell} disabled={!drug || sending} aria-busy={sending}>
+            {Locale["hereyougo"] || "Fechar negócio"}
+          </button>
+        </footer>
+      </section>
+
+      <div className="keys" aria-hidden="true">
+        <span className="key"><kbd>Esc</kbd>Fechar</span>
+      </div>
+    </>
+  );
 };
 
 export default Main;

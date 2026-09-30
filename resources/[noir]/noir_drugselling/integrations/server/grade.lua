@@ -13,7 +13,7 @@ local function coreReady()
 end
 
 local function multiplierOf(grade)
-    local cfg = ServerConfig.Grades
+    local cfg = Config.Grades
     return cfg.multiplier[grade] or cfg.multiplier[cfg.default] or 1.0
 end
 
@@ -30,8 +30,8 @@ function NoirDrugGrade.pick(source, item)
     local best, bestValue, bestExpiry
     for _, entry in ipairs(slots) do
         local metadata = entry.metadata or {}
-        local graded = ServerConfig.Grades.multiplier[metadata.grade] ~= nil
-        local grade = graded and metadata.grade or ServerConfig.Grades.default
+        local graded = Config.Grades.multiplier[metadata.grade] ~= nil
+        local grade = graded and metadata.grade or Config.Grades.default
         local value = multiplierOf(grade)
         local expiry = tonumber(metadata.durability) or math.huge
         if not best or value > bestValue or (value == bestValue and expiry < bestExpiry) then
@@ -45,7 +45,7 @@ end
 ---@param lot? { grade: string }
 ---@return number
 function NoirDrugGrade.multiplier(lot)
-    return multiplierOf(lot and lot.grade or ServerConfig.Grades.default)
+    return multiplierOf(lot and lot.grade or Config.Grades.default)
 end
 
 ---@param source number

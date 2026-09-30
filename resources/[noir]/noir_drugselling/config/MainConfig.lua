@@ -62,7 +62,7 @@ Config.DrugSelling = {
         -- 2 = Skunk e Amnesia (Head Shop, $20), 3 = Purple Haze e White Widow (black market, $40).
         -- Os valores já contam a lavagem de ~25%: a venda paga dinheiro sujo, e o lucro depois de
         -- lavar é o da tabela de economia. O grau do saquinho multiplica por cima
-        -- (ServerConfig.Grades). O tijolo (10 buds) vale ~30% a mais que 10 saquinhos, sai 1 por
+        -- (Config.Grades). O tijolo (10 buds) vale ~30% a mais que 10 saquinhos, sai 1 por
         -- comprador e chama a polícia com mais frequência (`dispatchCallChance`).
         ["weed_og-kush_baggy"] = {
             itemName = "weed_og-kush_baggy",
@@ -444,6 +444,15 @@ Config.PedsList = {
     [`csb_undercover`] = 'undercover'
 }
 
+
+-- Grau da droga (noir_weed grava `grade` no metadata do saquinho). O grau multiplica o
+-- preço da venda; a venda sai do slot de melhor grau. Droga sem grau conta como `default`.
+-- Fica no config compartilhado porque a tela mostra quanto o vendedor recebe por unidade.
+Config.Grades = {
+    multiplier = { C = 0.8, B = 1.0, A = 1.25, S = 1.5 },
+    order = { 'S', 'A', 'B', 'C' }, -- do melhor para o pior, a ordem em que vende
+    default = 'B',
+}
 
 -- Falas do comprador, num balão acima da cabeça (noir_lib PedSay). Cada reação sorteia uma
 -- da lista; todas dizem a mesma coisa que a notificação que substituem. Sem o noir_lib, volta

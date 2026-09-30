@@ -1,6 +1,14 @@
 import { atom, useAtomValue, useAtom } from "jotai";
 
+export interface Grade {
+    grade: string,
+    amount: number,
+    multiplier: number,
+}
+
 export interface Item {
+    /** Graus que o vendedor tem, do melhor para o pior (a ordem em que vende). Vazio = sem grau. */
+    grades?: Grade[],
     spawn_name: string,
     label: string,
     amount: number,

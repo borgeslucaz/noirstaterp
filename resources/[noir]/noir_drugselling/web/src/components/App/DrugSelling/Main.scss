@@ -1,252 +1,314 @@
-.cursor {
-    display: inline-block;
-    width: 1px;
-    background: currentColor;
-    margin-left: 2px;
-    animation: blink 1s infinite;
+/* Negociação compacta (DESIGN_v4): faixa baixa embaixo e no centro, para não tomar a cena.
+   Painel com gradiente, sem borda nem sombra; seleção branca; confirmar verde; metades iguais
+   no rodapé; teclas no canto inferior direito. */
+
+.deal {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  width: min(560px, calc(100vw - 48px));
+  transform: translateX(-50%);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(12, 14, 18, 0.94), rgba(12, 14, 18, 0.80));
+  animation: deal-in 240ms var(--ease-out);
 }
 
-@keyframes blink {
-
-    0%,
-    50% {
-        opacity: 1;
-    }
-
-    51%,
-    100% {
-        opacity: 0;
-    }
+@keyframes deal-in {
+  from { opacity: 0; transform: translate(-50%, 16px); }
 }
 
-#itemsList {
-    margin-left: 10px;
-    margin-top: 10px;
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-
-    .item {
-        width: 48px;
-        height: 56px;
-        border-radius: 8px;
-        border: 2px solid #2c2c2c;
-        background-color: rgb(19, 19, 19);
-        -webkit-box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.432);
-        -moz-box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.432);
-        box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.432);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        position: relative;
-
-        transition: all ease 0.3s;
-
-        img {
-            width: 30px;
-            height: 30px;
-            margin-bottom: 8px;
-        }
-
-        opacity: 0.5;
-
-        p {
-            position: absolute;
-            color: #fff;
-            font-size: 8px;
-            left: 50%;
-            transform: translateX(-50%);
-            bottom: -8px;
-        }
-    }
-
-    .selectedItem {
-        opacity: 1;
-    }
-
-    .item:hover {
-        opacity: 1 !important;
-    }
+/* Nome e tipo numa linha. */
+.deal__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 0 16px;
 }
 
-#wrapper {
-    position: fixed;
-    bottom: 50px;
-    left: 50%;
-    transform: translate(-50%, 0);
+.deal__name {
+  min-width: 0;
+  overflow: hidden;
+  font: 500 18px/1.2 var(--font-display);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--noir-text-strong);
 }
 
-#drugSellingMenu {
-
-    overflow: hidden;
-    width: 600px;
-    border-radius: 16px;
-    border: 3px solid #2c2c2c;
-    background-color: rgb(19, 19, 19);
-
-    -webkit-box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.432);
-    -moz-box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.432);
-    box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.432);
-
-    .Header {
-        background-color: #1a1a1a;
-        padding: 15px 20px;
-        border-bottom: 2px solid #2c2c2c;
-        margin-bottom: 10px;
-
-        p {
-            color: #ffffff88;
-            font-size: 10px;
-            line-height: 1.5;
-        }
-
-        h1 {
-            color: #fff;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-
-            font-family: 'Montserrat';
-            font-weight: 600;
-            font-size: 20px;
-            line-height: 1;
-
-            span {
-                font-size: 14px;
-                padding: 2px 14px;
-                border-radius: 10px;
-                font-family: 'Work Sans';
-                font-weight: 500;
-            }
-        }
-    }
-
-    #questionBox h1 {
-        will-change: transform, opacity;
-    }
-
-    #btns {
-        display: flex;
-        gap: .75rem;
-        margin-top: 1rem;
-    }
-
-
-    #questionBox {
-        padding: 5px 20px 20px 20px;
-
-        #topBox {
-            margin-bottom: 14px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-
-            img {
-                width: 32px;
-                height: auto;
-                margin-right: -8px;
-            }
-
-            h2 {
-                color: #fff;
-                line-height: 1;
-
-                font-weight: 500;
-                font-family: 'Montserrat';
-            }
-
-            p {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                margin: 0;
-                padding: 0;
-                color: #fff;
-                line-height: 1;
-
-                font-family: 'Work Sans';
-                font-size: 26px;
-                font-weight: 800;
-
-                background-color: #fff;
-                color: black;
-                border-radius: 6px;
-
-                width: 90px;
-            }
-        }
-
-        h1 {
-            font-family: 'Work Sans';
-            font-weight: 600;
-            color: #fff;
-            font-size: 15px;
-            line-height: 1;
-        }
-
-        #btns {
-            margin-top: 20px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-
-            button {
-                color: #fff;
-                outline: 0;
-                border: 0;
-                background-color: transparent;
-                border-radius: 8px;
-                font-family: 'Montserrat';
-                font-weight: 500;
-                padding: 5px 15px;
-
-                transition: all ease 0.2s;
-                cursor: pointer;
-            }
-
-            button:hover {
-                opacity: 0.8 !important;
-            }
-
-            .success {
-                background-color: rgba(25, 207, 64, 0.322);
-                border: 2px solid #10b31e;
-
-                -webkit-box-shadow: 0px 0px 24px 0px rgba(25, 207, 64, 0.18);
-                -moz-box-shadow: 0px 0px 24px 0px rgba(25, 207, 64, 0.18);
-                box-shadow: 0px 0px 24px 0px rgba(25, 207, 64, 0.18);
-            }
-
-            .success2 {
-                background-color: rgba(110, 25, 207, 0.322);
-                border: 2px solid #710be6;
-
-                -webkit-box-shadow: 0px 0px 24px 0px rgba(110, 25, 207, 0.192);
-                -moz-box-shadow: 0px 0px 24px 0px rgba(110, 25, 207, 0.192);
-                box-shadow: 0px 0px 24px 0px rgba(110, 25, 207, 0.192);
-            }
-
-            .error {
-                background-color: rgba(207, 25, 25, 0.322);
-                border: 2px solid #b31010;
-                padding: 5px 25px;
-
-                -webkit-box-shadow: 0px 0px 24px 0px rgba(207, 25, 25, 0.199);
-                -moz-box-shadow: 0px 0px 24px 0px rgba(207, 25, 25, 0.199);
-                box-shadow: 0px 0px 24px 0px rgba(207, 25, 25, 0.199);
-            }
-
-            .error2 {
-                background-color: rgba(116, 116, 116, 0.322);
-                border: 2px solid #5c5c5c;
-                padding: 5px 25px;
-
-                -webkit-box-shadow: 0px 0px 24px 0px rgba(116, 116, 116, 0.178);
-                -moz-box-shadow: 0px 0px 24px 0px rgba(116, 116, 116, 0.178);
-                box-shadow: 0px 0px 24px 0px rgba(116, 116, 116, 0.178);
-            }
-        }
-    }
+/* Tipo do comprador: etiqueta de borda fina; a cor do tipo fica só no ponto. */
+.deal__tag {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 7px;
+  border: 1px solid var(--noir-border);
+  border-radius: var(--radius);
+  font: 600 11.5px/1.4 var(--font-ui);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--noir-text);
+}
+.deal__tag::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tag, #fff);
 }
 
+.deal__close {
+  flex: none;
+  margin-left: auto;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  font: 700 16px var(--font-display);
+  color: var(--noir-text);
+  cursor: pointer;
+}
+.deal__close:hover { background: rgba(255, 255, 255, 0.08); }
+
+/* A fala do comprador, uma linha. */
+.deal__line {
+  padding: 2px 16px 0;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--noir-text);
+}
+
+/* Miniaturas à esquerda, preço à direita. */
+.deal__body {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px 0;
+}
+
+/* Grade de até 4 por linha e 2 linhas à vista (8 drogas); da 9ª em diante rola na vertical. */
+.deal__list {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 4), 48px);
+  grid-auto-rows: 48px;
+  gap: 6px;
+  max-height: calc(48px * 2 + 6px);
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.deal__item {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+.deal__item img { width: 36px; height: 36px; object-fit: contain; }
+.deal__item:hover { background: rgba(255, 255, 255, 0.10); }
+.deal__item[aria-selected="true"] { background: var(--noir-select); }
+
+/* Grau e quantidade em pílulas escuras: legíveis sobre qualquer ícone e sobre a seleção. */
+.deal__qty,
+.deal__grade {
+  position: absolute;
+  padding: 1px 4px;
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+}
+.deal__qty {
+  right: 2px;
+  bottom: 2px;
+  min-width: 16px;
+  font: 700 11px/1.2 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.deal__grade {
+  left: 2px;
+  top: 2px;
+  font: 700 11px/1.2 var(--font-display);
+  letter-spacing: 0.03em;
+}
+
+/* Tooltip da miniatura: nome, quantidade, faixa de preço e graus. Fica no nível da janela
+   (a grade rola e cortaria), acima da miniatura e alinhado pela esquerda dela. */
+.deal__tip {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  gap: 1px;
+  width: max-content;
+  max-width: 240px;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  background: var(--noir-panel-raised);
+  box-shadow: inset 0 0 0 1px var(--noir-border), 0 8px 20px rgba(0, 0, 0, 0.45);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--noir-text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  transform: translateY(calc(-100% - 8px));
+  animation: tip-in 120ms ease;
+  pointer-events: none;
+}
+@keyframes tip-in { from { opacity: 0; } }
+.deal__tip b {
+  font: 500 15px/1.2 var(--font-display);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--noir-text-strong);
+}
+
+.deal__price { flex: 1; min-width: 0; }
+
+.deal__price-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.deal__label {
+  min-width: 0;
+  overflow: hidden;
+  font: 500 15px/1.2 var(--font-display);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--noir-text-strong);
+}
+.deal__price-line strong {
+  flex: none;
+  font: 700 22px/1 var(--font-display);
+  letter-spacing: 0.01em;
+  color: var(--noir-text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.deal__range {
+  position: relative;
+  height: 20px;
+  margin-top: 2px;
+}
+.deal__range input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+.deal__range input::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--radius);
+  background: linear-gradient(90deg, var(--noir-select) var(--fill), rgba(255, 255, 255, 0.12) var(--fill));
+}
+.deal__range input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: var(--radius);
+  background: var(--noir-select);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+/* Marca do preço ideal, embaixo da barra. */
+.deal__ideal {
+  position: absolute;
+  left: calc(6px + (100% - 12px) * var(--ideal) / 100%);
+  top: 14px;
+  width: 2px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.56);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.deal__tip-grades { color: var(--noir-text); }
+
+.deal__receive {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12.5px;
+  color: var(--noir-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.deal__verdict {
+  font-size: 12.5px;
+  color: var(--noir-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.deal__verdict--above { color: var(--noir-warning); }
+
+.deal__foot {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 12px 16px 14px;
+}
+
+.btn {
+  height: 40px;
+  border: 0;
+  border-radius: var(--radius);
+  font: 700 15px var(--font-display);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: filter 150ms ease;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn--confirm { background: var(--noir-success); color: var(--noir-on-light); }
+.btn--secondary { background: var(--noir-panel-raised); box-shadow: inset 0 0 0 1px var(--noir-border); color: var(--noir-text-strong); }
+
+/* Teclas visíveis (§7). */
+.keys {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  gap: 8px;
+}
+.key {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 6px;
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.72);
+  font: 700 14px var(--font-display);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #fff;
+}
+.key kbd {
+  min-width: 22px;
+  padding: 1px 5px;
+  border-radius: var(--radius);
+  background: var(--noir-select);
+  font: 700 11px/1.4 var(--font-ui);
+  text-align: center;
+  color: var(--noir-on-light);
+}

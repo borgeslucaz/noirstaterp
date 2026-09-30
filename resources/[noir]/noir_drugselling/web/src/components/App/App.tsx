@@ -5,12 +5,11 @@ import { useNuiEvent } from "../../hooks/useNuiEvent";
 import { useLocale } from "../../utils/locale";
 import { SetCurrencyData } from "../../data/CurrencyData";
 import { CurrencyData } from "../../data/CurrencyData";
-import { AnimatePresence, motion } from "framer-motion";
 import Main from "./DrugSelling/Main";
 import { DrugDealingData, SetDealingData } from "../../data/DrugDealingData";
 
 import "./App.scss";
-import "../../demo/demo"
+import { PRESETS, dealingFor } from "../../demo/demo"
 
 const App: React.FC = () => {
   const [drugSellingVisible, setDrugSellingVisible] = useState(false);
@@ -58,29 +57,27 @@ const App: React.FC = () => {
 
   return (
     <>
-      {isEnvBrowser() ? <div style={{ position: 'fixed', zIndex: 500000 }}>
-        <button onClick={toggleVisibility(setDrugSellingVisible)}>DRUGSELLING</button>
-      </div> : ""}
-
-      <div id="mainWrapper">
-        <div id="displayElementsLayout" style={drugSellingVisible ? { zIndex: 7000 } : { zIndex: 0 }}>
-          <AnimatePresence>
-            {drugSellingVisible && (
-              <motion.div
-                id="displayElementsLayout"
-                style={drugSellingVisible ? { zIndex: 5000 } : { zIndex: 0 }}
-                initial={{ opacity: 0, y: 300, scale: 0.8 }}
-                animate={{ opacity: 1, y: 0, scale: 1.0 }}
-                exit={{ opacity: 0, y: 300, scale: 0.8 }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-              >
-                <Main></Main>
-              </motion.div>
-            )}
-          </AnimatePresence>
+      {isEnvBrowser() && (
+        <div className="preview">
+          <button onClick={toggleVisibility(setDrugSellingVisible)}>
+            {drugSellingVisible ? "Fechar negociação" : "Abrir negociação"}
+          </button>
+          {PRESETS.map((count) => (
+            <button
+              key={count}
+              onClick={() => {
+                setDrugSellingVisible(false);
+                setDealingData(dealingFor(count));
+                setTimeout(() => setDrugSellingVisible(true), 0);
+              }}
+            >
+              {count} {count === 1 ? "droga" : "drogas"}
+            </button>
+          ))}
         </div>
-      </div>
+      )}
 
+      {drugSellingVisible && <Main />}
     </>
   );
 };
