@@ -3,7 +3,7 @@ game 'gta5'
 
 name 'noir_lib'
 author 'Noir State'
-description 'Componentes compartilhados da Noir State (teclas visíveis do DESIGN_v4)'
+description 'Componentes compartilhados da Noir State (teclas visíveis e fala de ped do DESIGN_v4)'
 version '1.0.0'
 
 ui_page 'web/index.html'
@@ -12,6 +12,7 @@ shared_script '@ox_lib/init.lua'
 
 client_scripts {
     'client/keyhints.lua',
+    'client/pedspeech.lua',
 }
 
 files {

@@ -9,6 +9,14 @@
 
 @font-face {
   font-family: "Rajdhani";
+  src: url("./fonts/Rajdhani-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Rajdhani";
   src: url("./fonts/Rajdhani-700.woff2") format("woff2");
   font-weight: 700;
   font-style: normal;
@@ -94,6 +102,48 @@ html, body {
   color: rgba(255, 255, 255, 0.7);
 }
 
+/* ---- Fala do ped ---- */
+
+/* O ponto (left, top) é a ponta do rabinho, acima da cabeça: o balão cresce para cima. */
+.speech { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
+
+.speech__bubble {
+  position: absolute;
+  max-width: 360px;
+  width: max-content;
+  padding: 9px 15px;
+  border-radius: 2px;
+  background: rgba(12, 14, 18, 0.90);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  font: 600 21px/1.25 var(--font-ui);
+  color: rgba(255, 255, 255, 0.92);
+  text-align: center;
+  text-wrap: balance;
+  opacity: 0;
+  transform: translate(-50%, calc(-100% - 11px)) scale(calc(var(--scale, 1) * 0.94));
+  transform-origin: 50% 100%;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.speech__bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  border: 8px solid transparent;
+  border-bottom: 0;
+  border-top-color: rgba(12, 14, 18, 0.90);
+  transform: translateX(-50%);
+}
+
+.speech__bubble.is-visible {
+  opacity: 1;
+  transform: translate(-50%, calc(-100% - 11px)) scale(var(--scale, 1));
+}
+
+/* Ameaça, polícia: a mesma peça, com a borda de alerta. */
+.speech__bubble[data-tone="alert"] { box-shadow: inset 3px 0 0 #e5484d, 0 6px 18px rgba(0, 0, 0, 0.35); }
+
 @media (prefers-reduced-motion: reduce) {
-  .keyhints { transition: none; }
+  .keyhints, .speech__bubble { transition: none; }
 }

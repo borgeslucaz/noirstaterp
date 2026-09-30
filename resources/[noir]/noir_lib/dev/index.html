@@ -20,6 +20,9 @@
     <button data-pos="direita">Direita</button>
     <button data-set="curto">Só ESC</button>
     <button data-hide>Esconder</button>
+    <button data-say="neutral">Fala</button>
+    <button data-say="alert">Fala (alerta)</button>
+    <button data-say="longe">Fala longe</button>
   </div>
   <script>
     const sets = {
@@ -41,7 +44,24 @@
       if (b.dataset.pos) { position = b.dataset.pos; show(); }
       else if (b.dataset.set) { keys = sets[b.dataset.set]; show(); }
       else if ('hide' in b.dataset) send({ action: 'keyhints:hide' });
+      else if (b.dataset.say) say(b.dataset.say);
     });
+
+    // Fala do ped: o Lua manda add, depois a posição da cabeça a cada frame e o remove.
+    const lines = {
+      neutral: ['Tô de boa, valeu.', 'Sai fora, não uso essa parada não.', 'Hoje não, parceiro.'],
+      alert: ['Quero essa merda não, vou chamar a polícia!', 'Tá maluco? Vou ligar pros homi agora.', 'Some daqui antes que eu chame a viatura!'],
+    };
+    let speechId = 0;
+    function say(kind) {
+      const id = ++speechId;
+      const tone = kind === 'alert' ? 'alert' : 'neutral';
+      const list = lines[tone];
+      send({ action: 'speech:add', id, text: list[id % list.length], tone });
+      const far = kind === 'longe';
+      send({ action: 'speech:frame', items: [{ id, x: far ? 0.62 : 0.5, y: far ? 0.42 : 0.38, scale: far ? 0.8 : 1, visible: true }] });
+      setTimeout(() => send({ action: 'speech:remove', id }), 4000);
+    }
     nui.addEventListener('load', show);
   </script>
 </body>
