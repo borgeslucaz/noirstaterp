@@ -81,6 +81,14 @@ T.equal(pay, 275, 'industry 19 passageiros: pagamento do banco')
 T.equal(xp, 165, 'industry 19 passageiros: XP do banco')
 
 local timing = settings.timing
+T.equal(Rules.roadDistance(1000, 1400, timing), 1400, 'traçado em dia: distância da estrada')
+T.equal(Rules.roadDistance(1000, nil, timing), 1000 * timing.roadFactor, 'sem traçado: linha reta × fator')
+T.equal(Rules.roadDistance(1000, 0, timing), 1000 * timing.roadFactor, 'traçado vazio conta como sem traçado')
+do
+    local old = { secondsPerKm = 80, secondsPerStop = 35, tolerance = 1.15, minFraction = 0.35 }
+    local migrated = assert(Rules.normalizeSettings({ timing = old }, settings))
+    T.equal(migrated.timing.roadFactor, Rules.ROAD_FACTOR, 'ajuste gravado antes do fator ganha o padrão')
+end
 T.equal(Rules.punctuality(100, 100, timing), 100, 'no tempo')
 T.equal(Rules.punctuality(115, 100, timing), 100, 'dentro da tolerância')
 T.equal(Rules.punctuality(200, 100, timing), 60, 'no dobro')

@@ -128,6 +128,12 @@
             previous = stop.dock
         }
         distance += Math.hypot(depot.ped.x - previous.x, depot.ped.y - previous.y)
+        // Mesma conta do Rules.roadDistance: traçado em dia (paradas iguais às salvas) ou linha
+        // reta × fator.
+        const saved = (state.catalog.routes || []).find((route) => route.id === draft.id)
+        const sameStops = saved && JSON.stringify(saved.stops) === JSON.stringify(draft.stops)
+        const traced = sameStops && draft.road && draft.road.current
+        distance = traced ? draft.road.meters : distance * (settings.timing.roadFactor || 1.3)
         const seconds = (distance / 1000) * settings.timing.secondsPerKm + draft.stops.length * settings.timing.secondsPerStop
         const vehicle = vehicleByModel(draft.vehicles[0])
         const capacity = vehicle ? vehicle.capacity : 10
@@ -141,6 +147,7 @@
         const minutes = seconds / 60 + 1
         return {
             km: distance / 1000,
+            traced: !!traced,
             minutes,
             perHour: minutes > 0 ? (pay / minutes) * 60 : 0,
             xpPerHour: minutes > 0 ? (xp / minutes) * 60 : 0,
@@ -976,7 +983,7 @@
                     field(col, "baseXp", "XP base", draft, "baseXp", { number: true }),
                     info("estimate", "Estimativa", {
                         description: draft.stops.length >= 2
-                            ? `${fmt(estimate.km, 1)} km em linha reta · ~${fmt(estimate.minutes)} min · ~$${fmt(estimate.perHour)}/h · ~${fmt(estimate.xpPerHour)} XP/h`
+                            ? `${fmt(estimate.km, 1)} km ${estimate.traced ? "pela estrada" : "estimados (sem traçado)"} · ~${fmt(estimate.minutes)} min · ~$${fmt(estimate.perHour)}/h · ~${fmt(estimate.xpPerHour)} XP/h`
                             : "Adicione paradas para estimar tempo e ganho",
                     }),
                     info("road", "Pela estrada", {
@@ -1403,7 +1410,8 @@
                         field(inner, "xcap", "Teto do XP de passageiro (× base)", draft.payout, "xpCap", { number: true, dirtyCol: parent }),
                     ]),
                     leaf("timing", "Tempo", "Pontualidade e volta mínima", (inner, parent) => [
-                        field(inner, "km", "Segundos por km (linha reta)", draft.timing, "secondsPerKm", { number: true, dirtyCol: parent }),
+                        field(inner, "km", "Segundos por km de estrada", draft.timing, "secondsPerKm", { number: true, dirtyCol: parent, description: "Distância do traçado (/onibusrota)" }),
+                        field(inner, "factor", "Fator estrada/reta (sem traçado)", draft.timing, "roadFactor", { number: true, dirtyCol: parent, description: "Linha sem traçado: linha reta × isto" }),
                         field(inner, "stop", "Segundos por parada", draft.timing, "secondsPerStop", { number: true, dirtyCol: parent }),
                         field(inner, "tol", "Tolerância (× esperado)", draft.timing, "tolerance", { number: true, dirtyCol: parent, description: "Pontualidade 100 até aqui" }),
                         field(inner, "min", "Volta mínima (× esperado)", draft.timing, "minFraction", { number: true, dirtyCol: parent, description: "Mais rápido que isso não paga" }),

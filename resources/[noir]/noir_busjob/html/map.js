@@ -152,7 +152,7 @@
             if (state.showLoose) state.data.stops.filter((stop) => !route.stops.includes(stop.id)).forEach(addLooseStop)
             addRoute(route, routeColor(index), true)
             legend.push([routeColor(index), `${route.code} · ${route.stops.length} paradas`])
-            subtitleEl.textContent = `${route.code} · ${fmt(route.distance / 1000, 1)} km em linha reta · ~${fmt(route.expected / 60)} min`
+            subtitleEl.textContent = `${route.code} · ${fmt(route.distance / 1000, 1)} km ${route.road && route.road.current ? "pela estrada" : "estimados"} · ~${fmt(route.expected / 60)} min`
         }
         addDepot()
         addPlayer()

@@ -38,11 +38,12 @@ return {
     -- do basePay (até scoreCap). XP: xpPerPassenger por passageiro, até xpCap × baseXp.
     payout = { perPassenger = 5, passengerCap = 0.25, scoreCap = 0.20, xpPerPassenger = 2, xpCap = 0.15 },
 
-    -- Tempo esperado de uma volta = km em linha reta × secondsPerKm + paradas × secondsPerStop
+    -- Tempo esperado de uma volta = km pela estrada × secondsPerKm + paradas × secondsPerStop. Km pela
+    -- estrada = traçado da linha (/onibusrota) ou, sem ele, linha reta × roadFactor.
     -- (35 s por parada fecha com as voltas medidas: M01 em 327 s, I02 em 376–547 s).
     -- Pontualidade 100 até esperado × tolerance; volta mais rápida que minFraction × esperado
     -- não é paga (anti-teleporte).
-    timing = { secondsPerKm = 80, secondsPerStop = 35, tolerance = 1.15, minFraction = 0.35 },
+    timing = { secondsPerKm = 60, secondsPerStop = 35, tolerance = 1.15, minFraction = 0.35, roadFactor = 1.3 },
 
     -- Horário de pico (hora do servidor): a demanda máxima por parada é multiplicada.
     peak = { enabled = true, windows = { { from = 7, to = 9 }, { from = 17, to = 19 } }, demandMultiplier = 1.5 },
@@ -122,14 +123,14 @@ return {
     -- em linha reta + 25 s por parada). A07, V08, T09 e P10 ainda sem tempo medido.
     routes = {
         { id = 'small_metro', code = 'M01', name = 'Linha M01 · Centro', minLevel = 1, stops = { 3, 5, 6, 8, 38 }, vehicles = { 'rentalbus', 'bus' }, basePay = 40, baseXp = 105 },
-        { id = 'industry', code = 'I02', name = 'Linha I02 · Industrial', minLevel = 1, stops = { 50, 25, 24, 22, 18, 16, 38 }, vehicles = { 'rentalbus', 'bus' }, basePay = 70, baseXp = 180 },
-        { id = 'medium_metro', code = 'M03', name = 'Linha M03 · Metropolitana', minLevel = 2, stops = { 5, 31, 32, 36, 12, 13, 11, 10, 38 }, vehicles = { 'bus' }, basePay = 85, baseXp = 210 },
-        { id = 'long_beach', code = 'C04', name = 'Linha C04 · Costa Oeste', minLevel = 3, stops = { 27, 28, 29, 30, 36, 37, 49, 14, 8, 38 }, vehicles = { 'bus' }, basePay = 95, baseXp = 240 },
-        { id = 'airport', code = 'A07', name = 'Linha A07 · Aeroporto', minLevel = 4, stops = { 38, 1, 15, 47, 48, 17, 38 }, vehicles = { 'airbus', 'bus' }, basePay = 90, baseXp = 235 },
-        { id = 'sandy_express', code = 'X05', name = 'Expresso X05 · Sandy Shores', minLevel = 5, stops = { 38, 40, 38 }, vehicles = { 'coach' }, basePay = 120, baseXp = 325 },
-        { id = 'vinewood', code = 'V08', name = 'Linha V08 · Vinewood', minLevel = 6, stops = { 38, 26, 39, 50, 9, 38 }, vehicles = { 'bus' }, basePay = 75, baseXp = 185 },
-        { id = 'long_rural', code = 'R06', name = 'Regional R06 · Route 68', minLevel = 7, stops = { 38, 40, 41, 46, 45, 38 }, vehicles = { 'coach' }, basePay = 180, baseXp = 495 },
+        { id = 'industry', code = 'I02', name = 'Linha I02 · Industrial', minLevel = 1, stops = { 50, 25, 24, 22, 18, 16, 38 }, vehicles = { 'rentalbus', 'bus' }, basePay = 70, baseXp = 175 },
+        { id = 'medium_metro', code = 'M03', name = 'Linha M03 · Metropolitana', minLevel = 2, stops = { 5, 31, 32, 36, 12, 13, 11, 10, 38 }, vehicles = { 'bus' }, basePay = 80, baseXp = 200 },
+        { id = 'long_beach', code = 'C04', name = 'Linha C04 · Costa Oeste', minLevel = 3, stops = { 27, 28, 29, 30, 36, 37, 49, 14, 8, 38 }, vehicles = { 'bus' }, basePay = 90, baseXp = 225 },
+        { id = 'airport', code = 'A07', name = 'Linha A07 · Aeroporto', minLevel = 4, stops = { 38, 1, 15, 47, 48, 17, 38 }, vehicles = { 'airbus', 'bus' }, basePay = 80, baseXp = 210 },
+        { id = 'sandy_express', code = 'X05', name = 'Expresso X05 · Sandy Shores', minLevel = 5, stops = { 38, 40, 38 }, vehicles = { 'coach' }, basePay = 110, baseXp = 300 },
+        { id = 'vinewood', code = 'V08', name = 'Linha V08 · Vinewood', minLevel = 6, stops = { 38, 26, 39, 50, 9, 38 }, vehicles = { 'bus' }, basePay = 80, baseXp = 200 },
+        { id = 'long_rural', code = 'R06', name = 'Regional R06 · Route 68', minLevel = 7, stops = { 38, 40, 41, 46, 45, 38 }, vehicles = { 'coach' }, basePay = 175, baseXp = 485 },
         { id = 'tour', code = 'T09', name = 'Turismo T09 · Oeste', minLevel = 8, stops = { 38, 50, 35, 34, 30, 33, 37, 7, 38 }, vehicles = { 'tourbus' }, basePay = 105, baseXp = 265 },
-        { id = 'paleto', code = 'P10', name = 'Regional P10 · Paleto Bay', minLevel = 9, stops = { 38, 41, 42, 43, 45, 46, 38 }, vehicles = { 'coach' }, basePay = 235, baseXp = 635 },
+        { id = 'paleto', code = 'P10', name = 'Regional P10 · Paleto Bay', minLevel = 9, stops = { 38, 41, 42, 43, 45, 46, 38 }, vehicles = { 'coach' }, basePay = 265, baseXp = 720 },
     },
 }

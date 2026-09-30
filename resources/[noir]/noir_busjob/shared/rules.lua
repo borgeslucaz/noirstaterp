@@ -329,8 +329,10 @@ function Rules.normalizeSettings(input, current)
         secondsPerStop = number(timingIn.secondsPerStop, 0.0, 300.0),
         tolerance = number(timingIn.tolerance, 1.0, 3.0),
         minFraction = number(timingIn.minFraction, 0.0, 0.9),
+        -- Linha sem traçado pela estrada: linha reta × fator. Ajuste gravado antes do fator ganha 1,3.
+        roadFactor = number(timingIn.roadFactor == nil and Rules.ROAD_FACTOR or timingIn.roadFactor, 1.0, 2.5),
     }
-    if missing(result.timing, { 'secondsPerKm', 'secondsPerStop', 'tolerance', 'minFraction' }) then return nil, 'invalid_timing' end
+    if missing(result.timing, { 'secondsPerKm', 'secondsPerStop', 'tolerance', 'minFraction', 'roadFactor' }) then return nil, 'invalid_timing' end
 
     local peakIn = type(input.peak) == 'table' and input.peak or current.peak
     local windows = {}
@@ -380,7 +382,20 @@ function Rules.routeDistance(route, stops, depot)
     return total + planar(previous, depot.ped)
 end
 
----Tempo esperado de uma volta, na mesma conta usada para calibrar o pagamento.
+-- Média estrada/linha reta dos traçados das 10 linhas (2026-09-30: de 1,13 a 1,55).
+Rules.ROAD_FACTOR = 1.3
+
+---Distância pela estrada: a do traçado gravado (/onibusrota) ou, sem ele, a linha reta × fator.
+---@param straightMeters number
+---@param roadMeters? number traçado em dia com as paradas da linha
+---@return number meters
+function Rules.roadDistance(straightMeters, roadMeters, timing)
+    if roadMeters and roadMeters > 0 then return roadMeters end
+    return straightMeters * (timing.roadFactor or Rules.ROAD_FACTOR)
+end
+
+---Tempo esperado de uma volta (distância pela estrada), na mesma conta usada para calibrar o
+---pagamento.
 ---@return number seconds
 function Rules.expectedSeconds(distanceMeters, stopCount, timing)
     return distanceMeters / 1000 * timing.secondsPerKm + stopCount * timing.secondsPerStop

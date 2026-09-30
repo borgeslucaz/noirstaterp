@@ -204,12 +204,16 @@ function Catalog.levelFor(xp)
     return Rules.levelFor(Catalog.levels, xp)
 end
 
----Distância em linha reta e tempo esperado da linha.
----@return number meters
+---Distância pela estrada (traçado em dia, ou linha reta × fator), tempo esperado e a linha reta.
+---@return number meters pela estrada
 ---@return number seconds
+---@return number straight metros em linha reta
 function Catalog.routeTiming(route)
-    local distance = Rules.routeDistance(route, Catalog.stops, Catalog.settings.depot)
-    return distance, Rules.expectedSeconds(distance, #route.stops, Catalog.settings.timing)
+    local timing = Catalog.settings.timing
+    local straight = Rules.routeDistance(route, Catalog.stops, Catalog.settings.depot)
+    local trace = Catalog.traceFor(route)
+    local distance = Rules.roadDistance(straight, trace and trace.roadMeters, timing)
+    return distance, Rules.expectedSeconds(distance, #route.stops, timing), straight
 end
 
 ---A linha só roda se todas as paradas existem, estão ativas e há veículo ativo.
@@ -278,11 +282,11 @@ function Catalog.adminView()
             usage[stopId] = usage[stopId] or {}
             usage[stopId][#usage[stopId] + 1] = route.code
         end
-        local distance, expected = Catalog.routeTiming(route)
+        local distance, expected, straight = Catalog.routeTiming(route)
         routes[#routes + 1] = {
             id = id, code = route.code, name = route.name, minLevel = route.minLevel, basePay = route.basePay, baseXp = route.baseXp,
             stops = route.stops, vehicles = route.vehicles, access = route.access, enabled = route.enabled,
-            distance = math.floor(distance), expected = math.floor(expected), usable = Catalog.routeUsable(route),
+            distance = math.floor(distance), straight = math.floor(straight), expected = math.floor(expected), usable = Catalog.routeUsable(route),
             road = Catalog.traces[id] and {
                 meters = Catalog.traces[id].roadMeters, failedLegs = Catalog.traces[id].failedLegs,
                 current = Catalog.traceFor(route) ~= nil,
