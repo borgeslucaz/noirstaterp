@@ -132,6 +132,15 @@ local function HasLevel(source, skill, level)
     return GetLevel(source, skill) >= level
 end
 
+---Título do nível atual (`titles` no config), ou nil.
+---@param source number
+---@param skill string
+---@return string?
+local function GetTitle(source, skill)
+    if not checkSkill('GetTitle', skill) then return nil end
+    return Xp.titleFor(skill, GetLevel(source, skill))
+end
+
 ---Estado completo, já com nível e progresso calculados.
 ---@param source number
 ---@return table<string, { level: number, maxLevel: number, xp: number, need: number|nil, totalXp: number, ratio: number }>
@@ -201,6 +210,7 @@ end
 exports('GetXp', GetXp)
 exports('GetLevel', GetLevel)
 exports('HasLevel', HasLevel)
+exports('GetTitle', GetTitle)
 exports('GetAll', GetAll)
 exports('AddXp', AddXp)
 exports('RemoveXp', RemoveXp)

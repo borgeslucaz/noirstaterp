@@ -39,6 +39,21 @@ arrombamento = {
 },
 ```
 
+`titles` é opcional e dá um nome a cada faixa de nível:
+
+```lua
+titles = {
+    { level = 1, title = 'Curioso' },
+    { level = 5, title = 'Jardineiro' },
+    { level = 15, title = 'Mestre do Cultivo' },
+},
+```
+
+O título vale do nível indicado até o próximo. O painel mostra o título atual embaixo do
+nome da habilidade e, embaixo da barra, o próximo a alcançar com o nível em que ele chega. O
+aviso de subida de nível anuncia o título novo. Níveis fora de ordem, acima do `maxLevel` ou
+título vazio derrubam o start como qualquer outro erro de config.
+
 O painel lista **só o que o personagem já treinou**: habilidade com 0 de XP não aparece, e
 entra na lista sozinha no primeiro ganho. Quem não treinou nada vê o estado vazio em vez de um
 catálogo de barras zeradas.
@@ -74,6 +89,7 @@ exports.noir_skills:ResetSkill(source, 'mecanica')
 exports.noir_skills:GetXp(source, 'arrombamento')        --> XP bruto acumulado
 exports.noir_skills:GetLevel(source, 'arrombamento')     --> nível
 exports.noir_skills:HasLevel(source, 'arrombamento', 5)  --> portão de conteúdo
+exports.noir_skills:GetTitle(source, 'cultivo')          --> título do nível atual, ou nil
 exports.noir_skills:GetAll(source)                       --> tudo, já com nível e progresso
 ```
 
@@ -84,6 +100,7 @@ calcula com a mesma curva (`shared/xp.lua` é shared por isso). Pode chamar dent
 -- cliente
 exports.noir_skills:GetLevel('arrombamento')
 exports.noir_skills:HasLevel('arrombamento', 5)
+exports.noir_skills:GetTitle('cultivo')
 exports.noir_skills:GetAll()
 exports.noir_skills:Open()   -- abre o painel (usado pelo radial, em Cidadão → Habilidades)
 ```

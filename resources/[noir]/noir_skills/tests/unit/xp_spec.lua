@@ -84,6 +84,49 @@ Xp.build({
 T.equal(#Xp.configErrors, 4, 'cada habilidade quebrada reporta o seu erro')
 T.falsy(Xp.exists('corRuim'), 'habilidade inválida não entra na tabela')
 
+-- Títulos ---------------------------------------------------------------------------------
+Xp.build({
+    titulada = {
+        label = 'Titulada', icon = 'box', color = '#FFFFFF', baseXp = 100, growth = 1.1, maxLevel = 10,
+        titles = { { level = 1, title = 'Novato' }, { level = 5, title = 'Veterano' }, { level = 10, title = 'Mestre' } },
+    },
+    semTitulo = { label = 'Sem', icon = 'box', color = '#FFFFFF', baseXp = 100, growth = 1.1, maxLevel = 5 },
+    tardia = {
+        label = 'Tardia', icon = 'box', color = '#FFFFFF', baseXp = 100, growth = 1.1, maxLevel = 5,
+        titles = { { level = 3, title = 'Primeiro' } },
+    },
+})
+T.equal(#Xp.configErrors, 0, 'títulos válidos passam')
+T.equal(Xp.titleFor('titulada', 1), 'Novato', 'título do primeiro nível')
+T.equal(Xp.titleFor('titulada', 7), 'Veterano', 'título vale até a próxima faixa')
+T.equal(Xp.titleFor('titulada', 10), 'Mestre', 'título do topo')
+T.equal(Xp.titleFor('semTitulo', 3), nil, 'sem títulos, nil')
+T.equal(Xp.titleFor('tardia', 2), nil, 'abaixo do primeiro título, nil')
+T.equal(Xp.nextTitle('titulada', 1).level, 5, 'próximo título e o nível dele')
+T.equal(Xp.nextTitle('titulada', 5).title, 'Mestre', 'no nível do título, o próximo é o seguinte')
+T.equal(Xp.nextTitle('titulada', 10), nil, 'no topo não há próximo')
+T.equal(Xp.titleUnlockedAt('titulada', 5), 'Veterano', 'nível 5 abre título')
+T.equal(Xp.titleUnlockedAt('titulada', 6), nil, 'nível 6 não abre')
+local titled = Xp.progress('titulada', Xp.totalForLevel('titulada', 6))
+T.equal(titled.title, 'Veterano', 'progresso traz o título')
+T.equal(titled.nextTitle.title, 'Mestre', 'progresso traz o próximo título')
+
+Xp.build({
+    foraDeOrdem = {
+        label = 'X', icon = 'box', color = '#FFFFFF', baseXp = 100, growth = 1.1, maxLevel = 5,
+        titles = { { level = 3, title = 'B' }, { level = 2, title = 'A' } },
+    },
+    acimaDoTopo = {
+        label = 'X', icon = 'box', color = '#FFFFFF', baseXp = 100, growth = 1.1, maxLevel = 5,
+        titles = { { level = 6, title = 'A' } },
+    },
+    semTexto = {
+        label = 'X', icon = 'box', color = '#FFFFFF', baseXp = 100, growth = 1.1, maxLevel = 5,
+        titles = { { level = 2, title = '' } },
+    },
+})
+T.equal(#Xp.configErrors, 3, 'título fora de ordem, acima do topo ou vazio é erro de config')
+
 -- Devolve o config real para quem rodar outro spec no mesmo processo.
 Xp.build(Config.Skills)
 

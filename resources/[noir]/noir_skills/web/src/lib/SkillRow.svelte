@@ -16,6 +16,7 @@
 
   <span class="body">
     <span class="label">{skill.label}</span>
+    {#if skill.title}<span class="title">{skill.title}</span>{/if}
     <span class="description">
       {#if maxed}
         Habilidade completa
@@ -43,6 +44,10 @@
   >
     <span class="fill" style="width: {percent}%"></span>
   </span>
+
+  {#if skill.nextTitle}
+    <span class="next">Próximo título: {skill.nextTitle.title} · nível {skill.nextTitle.level}</span>
+  {/if}
 </li>
 
 <style>
@@ -83,6 +88,13 @@
     color: var(--noir-text-strong);
   }
 
+  .title {
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--noir-text);
+  }
+
   .description {
     font-size: 12.5px;
     font-weight: 500;
@@ -113,6 +125,16 @@
     overflow: hidden;
     border-radius: var(--radius);
     background: rgba(255, 255, 255, 0.08);
+  }
+
+  /* O próximo título fica embaixo da barra: é o que a barra está buscando. */
+  .next {
+    grid-column: 2 / 4;
+    margin-top: -2px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.3;
+    color: var(--noir-text-muted);
   }
 
   .fill {

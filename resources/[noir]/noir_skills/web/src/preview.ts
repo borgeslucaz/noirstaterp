@@ -10,12 +10,15 @@ const skill = (
   maxLevel: number,
   xp: number,
   need: number | null,
-): Skill => ({ name, label, icon, color, level, maxLevel, xp, need, ratio: need ? xp / need : 1 });
+  title: string | null = null,
+  nextTitle: Skill['nextTitle'] = null,
+): Skill => ({ name, label, icon, color, level, maxLevel, xp, need, ratio: need ? xp / need : 1, title, nextTitle });
 
 const NORMAL: Skill[] = [
-  skill('arrombamento', 'Arrombamento', 'key', '#FFC96B', 15, 15, 0, null),
-  skill('mecanica', 'Mecânica', 'wrench', '#9BE8FF', 11, 20, 240, 341),
-  skill('trafico', 'Tráfico', 'leaf', '#C48BFF', 3, 15, 44, 113),
+  skill('arrombamento', 'Arrombamento', 'key', '#FFC96B', 15, 15, 0, null, 'Mão Leve'),
+  skill('mecanica', 'Mecânica', 'wrench', '#9BE8FF', 11, 20, 240, 341, 'Mecânico Sênior', { level: 15, title: 'Chefe de Oficina' }),
+  skill('trafico', 'Tráfico', 'leaf', '#C48BFF', 3, 15, 44, 113, 'Aviãozinho', { level: 5, title: 'Vapor' }),
+  skill('cultivo', 'Cultivo', 'leaf', '#7BD88F', 9, 15, 120, 459, 'Cultivador', { level: 11, title: 'Botânico' }),
 ];
 
 const LONG: Skill[] = [

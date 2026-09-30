@@ -31,6 +31,8 @@ local function buildPayload()
                 xp = progress.xp,
                 need = progress.need,
                 ratio = progress.ratio,
+                title = progress.title,
+                nextTitle = progress.nextTitle,
             }
         end
     end
@@ -65,6 +67,12 @@ local function HasLevel(skill, level)
     return GetLevel(skill) >= level
 end
 
+---Título do nível atual, ou nil.
+local function GetTitle(skill)
+    if not Xp.exists(skill) then return nil end
+    return Xp.titleFor(skill, GetLevel(skill))
+end
+
 local function GetAll()
     local all = {}
     for _, skill in ipairs(Xp.list()) do
@@ -76,6 +84,7 @@ end
 exports('GetXp', GetXp)
 exports('GetLevel', GetLevel)
 exports('HasLevel', HasLevel)
+exports('GetTitle', GetTitle)
 exports('GetAll', GetAll)
 
 -- ---------------------------------------------------------------------------
@@ -95,9 +104,13 @@ RegisterNetEvent('noir_skills:client:update', function(skill, xp, leveledUp)
 
     if leveledUp then
         local conf = Config.Skills[skill]
-        TriggerEvent('noir_skills:client:levelUp', skill, Xp.levelFor(skill, xp))
+        local level = Xp.levelFor(skill, xp)
+        TriggerEvent('noir_skills:client:levelUp', skill, level)
         if Config.NotifyLevelUp and conf then
-            core:Notify(('%s subiu para o nível %d.'):format(conf.label, Xp.levelFor(skill, xp)), 'success')
+            local title = Xp.titleUnlockedAt(skill, level)
+            local message = ('%s subiu para o nível %d.'):format(conf.label, level)
+            if title then message = ('%s Novo título: %s.'):format(message, title) end
+            core:Notify(message, 'success')
         end
     end
 end)
