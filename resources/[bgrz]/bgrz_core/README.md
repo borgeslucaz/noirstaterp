@@ -156,6 +156,30 @@ Remove todo slot do item, inclusive os de equipamento, cujo metadata contém os 
 pedidos. Os demais campos do slot não importam. Uma marca vazia é recusada, porque
 removeria todos os slots do item.
 
+## Metadata no tooltip (client)
+
+```lua
+local ok, err = exports.bgrz_core:DisplayItemMetadata('grade', 'Grau')
+```
+
+Mostra o campo do metadata no tooltip de todo item que o tiver ("Grau: A"). Item sem o campo
+não ganha linha. Chamar de novo com o mesmo rótulo não duplica. Erros: `invalid_key`,
+`invalid_label`, `provider_unavailable`.
+
+## Por slot (server)
+
+```lua
+local slots, err = exports.bgrz_core:GetItemSlots(source, 'weed_skunk_baggy') -- { { slot, count, metadata } }, por slot
+local ok, err = exports.bgrz_core:RemoveItemFromSlot(source, 'weed_skunk_baggy', amount, slot)
+```
+
+Para item cujo metadata separa lotes que o resource distingue, como o grau da droga do
+`noir_weed`. O `RemoveItem` do provider só casa metadata idêntico, e a validade gravada no
+slot muda de lote para lote. Por isso o resource lê os slots, escolhe e tira de um deles.
+O metadata devolvido é uma cópia. `RemoveItemFromSlot` recusa com `not_enough_items_in_slot` quando
+o slot não tem a quantidade inteira. Erros: `invalid_item`, `invalid_slot`,
+`provider_unavailable`.
+
 ## Veículo (server)
 
 ```lua

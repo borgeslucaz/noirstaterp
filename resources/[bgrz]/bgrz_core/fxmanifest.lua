@@ -19,7 +19,8 @@ client_scripts {
     'client/qbox_bridge.lua',
     'client/target.lua',
     'client/phone.lua',
-    'client/medical.lua'
+    'client/medical.lua',
+    'client/inventory.lua'
 }
 
 server_scripts {

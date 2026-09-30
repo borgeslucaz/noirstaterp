@@ -312,6 +312,67 @@ function BGRZ.RemoveItemsWithMetadata(holder, item, match)
     return true, removed
 end
 
+-- Por slot --------------------------------------------------------------------------------
+--
+-- Para item cujo metadata separa lotes que o resource precisa distinguir (o grau da droga,
+-- por exemplo). O `RemoveItem` do provider só casa metadata idêntico, e a validade gravada
+-- no slot muda de lote para lote; aqui o resource lê os slots, escolhe e tira de um deles.
+
+---Slots do item com a quantidade e uma cópia do metadata.
+---@param holder number|string
+---@param item string
+---@return { slot: integer, count: integer, metadata: table }[]? slots
+---@return string? errorCode
+function BGRZ.GetItemSlots(holder, item)
+    local valid, validationError = validateItemArguments(holder, item)
+    if not valid then return nil, validationError end
+    local provider = BGRZ.Provider.name('inventory')
+    if not BGRZ.Provider.isAvailable('inventory') then return nil, 'provider_unavailable' end
+
+    local called, slots = pcall(function()
+        return exports[provider]:Search(holder, 'slots', item)
+    end)
+    if not called then return nil, 'provider_unavailable' end
+
+    local list = {}
+    for _, slot in ipairs(type(slots) == 'table' and slots or {}) do
+        local count = type(slot) == 'table' and tonumber(slot.count) or nil
+        if count and type(slot.slot) == 'number' and isFinite(count) and count > 0 then
+            local metadata = {}
+            for key, value in pairs(type(slot.metadata) == 'table' and slot.metadata or {}) do
+                metadata[key] = value
+            end
+            list[#list + 1] = { slot = slot.slot, count = math.floor(count), metadata = metadata }
+        end
+    end
+    table.sort(list, function(a, b) return a.slot < b.slot end)
+    return list
+end
+
+---Tira `amount` do item de um slot só; recusa se o slot não tem tudo.
+---@param holder number|string
+---@param item string
+---@param amount integer
+---@param slot integer
+---@return boolean ok
+---@return string? errorCode
+function BGRZ.RemoveItemFromSlot(holder, item, amount, slot)
+    local valid, validationError = validateItemArguments(holder, item, amount)
+    if not valid then return false, validationError end
+    if not isFinite(slot) or slot < 1 or slot % 1 ~= 0 then return false, 'invalid_slot' end
+    local provider = BGRZ.Provider.name('inventory')
+    if not BGRZ.Provider.isAvailable('inventory') then return false, 'provider_unavailable' end
+
+    local called, ok, result = pcall(function()
+        return exports[provider]:RemoveItem(holder, item, amount, nil, slot)
+    end)
+    if not called then return false, 'provider_unavailable' end
+    if ok ~= true then return false, providerError(result, 'operation_failed') end
+    return true
+end
+
+exports('GetItemSlots', BGRZ.GetItemSlots)
+exports('RemoveItemFromSlot', BGRZ.RemoveItemFromSlot)
 exports('RemoveItemsWithMetadata', BGRZ.RemoveItemsWithMetadata)
 exports('GetItemList', BGRZ.GetItemList)
 exports('HasItemDurability', BGRZ.HasItemDurability)

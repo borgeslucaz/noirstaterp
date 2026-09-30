@@ -225,4 +225,36 @@ T.equal(calls[2][6], 9, 'e o slot comum')
 T.equal(#calls, 2, 'a chave do carro próprio fica')
 T.equal(select(2, BGRZ.RemoveItemsWithMetadata(12, 'vehiclekey', {})), 'invalid_metadata', 'marca vazia removeria tudo: recusada')
 
+-- Por slot ---------------------------------------------------------------------------------
+
+provider.Search = function(_, holder, search, item)
+    return {
+        { slot = 7, count = 3, metadata = { grade = 'A', durability = 1700000000 } },
+        { slot = 2, count = 5, metadata = { durability = 1700003600 } },
+        { slot = 5, count = 0, metadata = { grade = 'S' } },
+    }
+end
+local slots, slotsErr = BGRZ.GetItemSlots(12, 'weed_skunk_baggy')
+T.equal(slotsErr, nil, 'GetItemSlots sem erro')
+T.equal(#slots, 2, 'slot vazio fica de fora')
+T.equal(slots[1].slot, 2, 'ordenado pelo slot')
+T.equal(slots[2].metadata.grade, 'A', 'metadata vem junto')
+slots[2].metadata.grade = 'X'
+T.equal(BGRZ.GetItemSlots(12, 'weed_skunk_baggy')[2].metadata.grade, 'A', 'metadata é cópia')
+T.equal(select(2, BGRZ.GetItemSlots(12, '')), 'invalid_item', 'item vazio recusado')
+
+calls = {}
+local fromSlot, fromSlotErr = BGRZ.RemoveItemFromSlot(12, 'weed_skunk_baggy', 2, 7)
+T.truthy(fromSlot, 'remove do slot')
+T.equal(fromSlotErr, nil, 'sem erro')
+T.equal(calls[1][5], nil, 'sem metadata: o slot decide')
+T.equal(calls[1][6], 7, 'slot repassado')
+T.equal(select(2, BGRZ.RemoveItemFromSlot(12, 'weed_skunk_baggy', 9, 7)), 'not_enough_items', 'recusa do provider normalizada')
+T.equal(select(2, BGRZ.RemoveItemFromSlot(12, 'weed_skunk_baggy', 1, 1.5)), 'invalid_slot', 'slot fracionado recusado')
+
+state = 'stopped'
+T.equal(select(2, BGRZ.GetItemSlots(12, 'weed_skunk_baggy')), 'provider_unavailable', 'GetItemSlots sem provider')
+T.equal(select(2, BGRZ.RemoveItemFromSlot(12, 'weed_skunk_baggy', 1, 7)), 'provider_unavailable', 'RemoveItemFromSlot sem provider')
+state = 'started'
+
 print('inventory_spec: ok')
