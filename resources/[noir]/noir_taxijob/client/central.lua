@@ -49,7 +49,7 @@ end
 function Central.open()
     if Central.state ~= 'CLOSED' then return end
     if cache.vehicle then return end
-    if not exports.bgrz_core:IsLoggedIn() then return end
+    if not Integrations.isLoggedIn() then return end
 
     Central.state = 'OPENING'
     local res = lib.callback.await('noir_taxijob:server:openCentral', false)

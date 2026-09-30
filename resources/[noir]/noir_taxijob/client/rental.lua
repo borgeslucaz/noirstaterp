@@ -46,9 +46,22 @@ local function applyAppearance(veh, appearance)
     SetVehicleModKit(veh, 0)
     -- Visual copiado de um carro montado no qbx_customs (dev/visuais): pintura, peças, rodas,
     -- película e extras de uma vez. Os campos abaixo continuam valendo por cima.
-    if appearance and appearance.props then lib.setVehicleProperties(veh, appearance.props) end
+    if appearance and appearance.props then
+        local props = appearance.props
+        if props.extras then
+            local extras = {}
+            for id, off in pairs(props.extras) do extras[tonumber(id)] = off end
+            local copy = {}
+            for key, value in pairs(props) do copy[key] = value end
+            copy.extras = extras
+            props = copy
+        end
+        lib.setVehicleProperties(veh, props)
+    end
+    -- O catálogo vem do banco com chave de texto ("10" = 4): converte de volta.
     for modType, index in pairs(appearance.mods or {}) do
-        if GetNumVehicleMods(veh, modType) > index then SetVehicleMod(veh, modType, index, false) end
+        modType, index = tonumber(modType), tonumber(index)
+        if modType and index and GetNumVehicleMods(veh, modType) > index then SetVehicleMod(veh, modType, index, false) end
     end
     if appearance.color then SetVehicleColours(veh, appearance.color, appearance.color) end
     if appearance.livery and GetVehicleLiveryCount(veh) > appearance.livery then SetVehicleLivery(veh, appearance.livery) end
@@ -124,8 +137,21 @@ end)
 
 -- ───────────────────────── atendente, blip e target ─────────────────────────
 
-CreateThread(function()
-    lib.requestModel(D.pedModel, 10000)
+function Depot.despawn()
+    if Depot.ped ~= 0 and DoesEntityExist(Depot.ped) then DeleteEntity(Depot.ped) end
+    if Depot.blip then RemoveBlip(Depot.blip) end
+    Depot.ped, Depot.blip = 0, nil
+end
+
+---Cria o atendente, o blip e o alvo. Chamado no start e quando o editor muda a Central.
+function Depot.spawn()
+    Depot.despawn()
+    -- Modelo ausente derruba o cliente no Enhanced: confere antes de pedir.
+    local model = joaat(D.pedModel)
+    if not IsModelInCdimage(model) or not IsModelAPed(model) or not pcall(lib.requestModel, model, 10000) then
+        print(('[noir_taxijob] atendente: modelo %s não existe neste build'):format(D.pedModel))
+        return
+    end
     local ped = CreatePed(4, joaat(D.pedModel), D.coords.x, D.coords.y, D.coords.z - 1.0, D.coords.w, false, true)
     SetModelAsNoLongerNeeded(joaat(D.pedModel))
     FreezeEntityPosition(ped, true)
@@ -147,7 +173,7 @@ CreateThread(function()
         Depot.blip = blip
     end
 
-    exports.ox_target:addLocalEntity(ped, {
+    Integrations.addEntityTarget(ped, {
         {
             name = 'noir_taxijob_central',
             icon = 'fa-solid fa-taxi',
@@ -170,10 +196,11 @@ CreateThread(function()
             onSelect = function() Rental.returnVehicle() end,
         },
     })
-end)
+end
+
+CreateThread(Depot.spawn)
 
 AddEventHandler('onResourceStop', function(resource)
     if resource ~= GetCurrentResourceName() then return end
-    if Depot.ped ~= 0 and DoesEntityExist(Depot.ped) then DeleteEntity(Depot.ped) end
-    if Depot.blip then RemoveBlip(Depot.blip) end
+    Depot.despawn()
 end)

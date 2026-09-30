@@ -7,7 +7,8 @@ Config.Locale = 'pt-br'
 -- Atividade autônoma: o Taxi V2 é renda extra e não altera emprego, grade ou duty.
 -- A autorização para trabalhar vem da sessão interna de aluguel (server-side), nunca de PlayerData.job.
 
--- Modelos que ativam o taxímetro quando o taxista senta no banco do motorista.
+-- Modelos que ativam o taxímetro quando o taxista senta no banco do motorista. Com o catálogo no
+-- banco, a lista passa a ser a dos modelos dos carros da central (server/catalog.lua).
 -- Todo model do catálogo (Config.RentalVehicles) precisa constar aqui; o servidor valida na inicialização.
 Config.AllowedVehicles = {
     'taxi',
@@ -23,6 +24,8 @@ Config.AllowedVehicles = {
 -- O browser envia somente o `id`; model, nível, taxa e spawn são resolvidos pelo servidor.
 -- `class` escolhe o tipo de passageiro (Config.VehicleClasses): o carro muda a corrida, não só o visual.
 -- Imagem ausente não quebra a central: o card aparece sem foto.
+-- SEMENTE DO BANCO: vale só no primeiro start (tabelas taxijob_* vazias). Depois disso quem manda
+-- é o /editortaxi; mudar aqui não muda o jogo.
 Config.RentalVehicles = {
     {
         id = 'standard',
@@ -170,6 +173,7 @@ Config.Keybinds = {
 }
 
 -- Central (dispatcher) de chamadas NPC
+-- Tempo da oferta, intervalos e distâncias são semente do banco (/editortaxi → Ajustes).
 Config.Dispatch = {
     OfferTimeout = 10000,        -- ms para aceitar a chamada
     MinDelay = 10000,            -- intervalo mínimo entre chamadas
@@ -214,6 +218,7 @@ Config.Passenger = {
 }
 
 -- Taxímetro (server-authoritative)
+-- Bandeirada, preço por km e tarifa máxima são semente do banco (/editortaxi → Ajustes).
 Config.Meter = {
     StartingFare = 15,           -- bandeirada
     PricePerKm = 12,
@@ -277,7 +282,8 @@ Config.Fear = {
     },
 }
 
--- Pagamento (multiplicadores por satisfação, aplicados no servidor)
+-- Pagamento (multiplicadores por satisfação, aplicados no servidor). Semente do banco: depois do
+-- primeiro start, edite em /editortaxi → Ajustes.
 Config.Payout = {
     SatisfiedTipPercent = 10,    -- gorjeta quando satisfação ≥ SatisfiedThreshold
     NeutralMultiplier = 0.85,    -- satisfação entre Unhappy e Satisfied
@@ -285,7 +291,8 @@ Config.Payout = {
     CalmBonusPercent = 35,       -- bônus ao entregar com ar confortável (faixa do passageiro) e sentimento TRANQUILO
 }
 
--- Central de táxi (ped, blip e vagas do veículo)
+-- Central de táxi (ped, blip e vagas do veículo). Atendente, vagas, distâncias e blip são semente do
+-- banco: depois do primeiro start, edite em /editortaxi → Central.
 Config.Depot = {
     coords = vec4(894.9, -179.17, 74.7, 242.89),
     pedModel = 'a_m_m_eastsa_02',
@@ -303,7 +310,9 @@ Config.Depot = {
     },
 }
 
--- Pontos de coleta/destino (mantidos do resource original)
+-- Pontos de coleta/destino (mantidos do resource original).
+-- SEMENTE DO BANCO: vale só no primeiro start (tabelas taxijob_* vazias). Depois disso quem manda
+-- é o /editortaxi; mudar aqui não muda o jogo.
 Config.Points = {
     ['downtown'] = {
         vec4(413.85, 133.6, 101.43, 205.55),

@@ -66,16 +66,17 @@ local function tickFare(src, driver, fare, now, dtSec)
 
     -- Conforto do passageiro (temperatura sincronizada pelo client e validada em server.lua)
     -- Cada passageiro tem uma faixa de conforto própria, gerada no aceite da chamada.
+    -- Sem temperatura recente conta como fora da faixa: antes o conforto ficava congelado em 100
+    -- e um client que nunca sincronizasse garantia nota máxima e bônus de calma.
     if npcInside then
         local climate = driver.climate
-        if climate and (now - climate.at) <= ServerConfig.ClimateStaleMs then
-            local prefMin = fare.comfortMin or C.ComfortMin
-            local prefMax = fare.comfortMax or C.ComfortMax
-            if climate.temp >= prefMin and climate.temp <= prefMax then
-                fare.comfort = math.min(100.0, fare.comfort + C.ComfortGain * dtSec)
-            else
-                fare.comfort = math.max(0.0, fare.comfort - C.ComfortLoss * dtSec)
-            end
+        local fresh = climate and (now - climate.at) <= ServerConfig.ClimateStaleMs
+        local prefMin = fare.comfortMin or C.ComfortMin
+        local prefMax = fare.comfortMax or C.ComfortMax
+        if fresh and climate.temp >= prefMin and climate.temp <= prefMax then
+            fare.comfort = math.min(100.0, fare.comfort + C.ComfortGain * dtSec)
+        else
+            fare.comfort = math.max(0.0, fare.comfort - C.ComfortLoss * dtSec)
         end
     end
 
@@ -211,14 +212,14 @@ lib.callback.register('noir_taxijob:server:completeFare', function(src, fareId)
         confidenceDelta = 0
         if ServerConfig.Progression.PayWhenPersistFails then
             print(('[noir_taxijob] progressão não persistida src=%s fare=%s (pagamento mantido)'):format(src, fare.id))
-            exports.bgrz_core:Notify(src, locale('notify.progress_not_saved'), 'error')
+            Integrations.notify(src, locale('notify.progress_not_saved'), 'error')
         else
             finalFare = 0
-            exports.bgrz_core:Notify(src, locale('notify.progress_not_saved'), 'error')
+            Integrations.notify(src, locale('notify.progress_not_saved'), 'error')
         end
     end
     if finalFare > 0 then
-        exports.bgrz_core:AddMoney(src, 'cash', finalFare, 'taxi-npc-fare')
+        Integrations.addMoney(src, 'cash', finalFare, 'taxi-npc-fare')
     end
 
     Sessions.debug('fare_progress cid=%s fareId=%s confidence=+%s earned=%s satisfaction=%.0f', character.citizenId, fare.id, confidenceDelta, finalFare, satisfaction)

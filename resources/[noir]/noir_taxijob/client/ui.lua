@@ -66,7 +66,7 @@ function UI.updateMeter(fareValue, distanceMeters)
 end
 
 function UI.updateClimate(temperature, fan)
-    send('taxi:updateClimate', { temperature = temperature, fan = fan, mode = Climate.mode() })
+    send('taxi:updateClimate', { temperature = temperature, fan = fan, mode = Climate.mode(), outside = Climate.outside })
 end
 
 function UI.updatePassenger(mood, comfort, fear)

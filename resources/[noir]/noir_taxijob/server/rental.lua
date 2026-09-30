@@ -24,7 +24,7 @@ end
 
 local function refund(src, amount)
     if amount > 0 then
-        exports.bgrz_core:AddMoney(src, CC.RentalAccount, amount, 'taxi-rental-refund')
+        Integrations.addMoney(src, CC.RentalAccount, amount, 'taxi-rental-refund')
     end
 end
 
@@ -93,7 +93,7 @@ local function doRent(src, token, vehicleId)
     if fee > 0 then
         local balance = character.money and character.money[CC.RentalAccount] or 0
         if balance < fee then return { ok = false, code = 'insufficient_funds' } end
-        if not exports.bgrz_core:RemoveMoney(src, CC.RentalAccount, fee, 'taxi-rental-fee') then
+        if not Integrations.removeMoney(src, CC.RentalAccount, fee, 'taxi-rental-fee') then
             return { ok = false, code = 'insufficient_funds' }
         end
     end
@@ -112,7 +112,7 @@ local function doRent(src, token, vehicleId)
     ActiveRentals[src] = rental
     Sessions.debug('rental_started src=%s vehicleId=%s fee=%s', src, id, fee)
 
-    local netId = exports.bgrz_core:SpawnVehicle(src, entry.model, point, D.warpIntoVehicle, plate)
+    local netId = Integrations.spawnVehicle(src, entry.model, point, D.warpIntoVehicle, plate)
     local veh = netId and NetworkGetEntityFromNetworkId(netId) or 0
     if not netId or veh == 0 or not DoesEntityExist(veh) then
         ActiveRentals[src] = nil

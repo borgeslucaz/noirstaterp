@@ -12,6 +12,12 @@ files {
     'html/index.html',
     'html/main.css',
     'html/app.js',
+    'html/editor.js',
+    'html/editor.css',
+    'html/map.js',
+    'html/map.css',
+    'html/vendor/leaflet.js',
+    'html/vendor/leaflet.css',
     'html/fonts/*.woff2',
     'html/img/vehicles/*.png',
     'locales/*.json',
@@ -23,6 +29,8 @@ shared_scripts {
 }
 
 client_scripts {
+    'client/integrations.lua',
+    'client/catalog.lua',
     'client/state.lua',
     'client/ui.lua',
     'client/dispatch.lua',
@@ -31,6 +39,8 @@ client_scripts {
     'client/rental.lua',
     'client/central.lua',
     'client/client.lua',
+    'client/placement.lua',
+    'client/editor.lua',
     -- 'client/studio.lua', -- estúdio de fotos desligado (ver o arquivo)
 }
 
@@ -38,8 +48,11 @@ server_scripts {
     '@oxmysql/lib/MySQL.lua',
     'serverConfig.lua',
     'server/00_security.lua',
+    'server/integrations.lua',
     'server/sessions.lua',
     'server/progression.lua',
+    'server/catalog.lua',
+    'server/editor.lua',
     'server/ranking.lua',
     'server/central.lua',
     'server/rental.lua',

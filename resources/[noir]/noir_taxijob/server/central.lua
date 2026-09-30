@@ -22,7 +22,7 @@ end
 ---@param src number
 ---@return table|nil character { citizenId, name.full, job.name, money }
 function Central.identity(src)
-    local character = exports.bgrz_core:GetCharacter(src)
+    local character = Integrations.character(src)
     if not character or not character.citizenId then return nil end
     return character
 end

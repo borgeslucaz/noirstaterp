@@ -7,6 +7,9 @@
     <!-- Transparência crítica da NUI: evita o canvas preto antes do CSS externo carregar. -->
     <style>html,body,#root{background:rgba(0,0,0,0)!important}</style>
     <link rel="stylesheet" href="main.css" />
+    <link rel="stylesheet" href="editor.css" />
+    <link rel="stylesheet" href="vendor/leaflet.css" />
+    <link rel="stylesheet" href="map.css" />
 </head>
 <body>
     <div id="root" data-mode="closed">
@@ -65,7 +68,7 @@
 
                 <!-- Ar-condicionado -->
                 <section class="taxi-panel climate" id="climate">
-                    <span class="climate__temp"><span class="climate__icon" id="climate-icon" aria-hidden="true">❄</span> <span id="climate-value">21°C</span></span>
+                    <span class="climate__temp"><span class="climate__icon" id="climate-icon" aria-hidden="true">❄</span> <span id="climate-value">21°C</span> <span class="climate__mode" id="climate-mode"></span></span>
                     <span class="climate__fan">
                         <span class="data-label">FAN</span>
                         <span class="fan-dots" id="fan-dots" aria-label="FAN nível 0">
@@ -284,6 +287,36 @@
             <li><kbd>ESC</kbd> encerrar</li>
         </ul>
     </aside>
+    <!-- ═══════════════════════ Editor (/editortaxi): Menu Lateral v4 ═══════════════════════ -->
+    <div class="ed" id="taxi-editor" hidden>
+        <div class="ed-menus" id="ed-menus"></div>
+        <div class="ed-keys" id="ed-keys" aria-hidden="true"></div>
+        <div class="ed-backdrop" id="ed-modal" hidden></div>
+    </div>
+
+    <!-- ═══════════════════════ Mapa de debug dos pontos (editor) ═══════════════════════ -->
+    <div class="bm" id="taxi-map" hidden>
+        <div class="bm__panel" role="dialog" aria-modal="true" aria-label="Mapa dos pontos do táxi">
+            <aside class="bm__side">
+                <header class="bm__header">
+                    <h2 class="bm__title">Mapa</h2>
+                    <div class="bm__subtitle" id="bm-subtitle">Pontos do táxi</div>
+                    <button class="bm__close" id="bm-close" type="button" aria-label="Fechar mapa">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                    </button>
+                </header>
+                <div class="bm__list" id="bm-list"></div>
+            </aside>
+            <div class="bm__map">
+                <div id="bm-map" style="width:100%;height:100%"></div>
+                <div class="bm__legend" id="bm-legend"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="vendor/leaflet.js"></script>
     <script src="app.js"></script>
+    <script src="editor.js"></script>
+    <script src="map.js"></script>
 </body>
 </html>

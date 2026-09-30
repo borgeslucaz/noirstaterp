@@ -24,7 +24,7 @@ ServerConfig = {
     PickupSpawnTolerance = 60.0,    -- além de Passenger.SpawnDistance
     DropoffTolerance = 10.0,        -- além de Passenger.DropoffDistance
     ClimateMaxDeltaPerSecond = 0.6, -- variação máxima plausível de temperatura enviada pelo client
-    ClimateStaleMs = 15000,         -- sem sincronização há mais que isto → conforto não muda
+    ClimateStaleMs = 15000,         -- sem sincronização há mais que isto → conforto cai (conta como fora da faixa)
 
     -- Central (NUI) e aluguel
     Central = {
@@ -41,6 +41,7 @@ ServerConfig = {
     Progression = {
         -- ~13 de Confiança por corrida e ~15 corridas por hora: o nível 6 fica em ~25 dias com
         -- 2 h de jogo por dia (rampa de 4 semanas, como caminhão e ônibus).
+        -- Semente do banco: depois do primeiro start, os níveis mudam em /editortaxi → Níveis.
         Levels = {
             { level = 1, min = 0,     label = 'Iniciante' },
             { level = 2, min = 150,   label = 'Motorista' },
@@ -78,6 +79,14 @@ ServerConfig = {
 
     -- Estúdio de fotos da central (/taxifotos): carro parado no alto, parede verde e câmera de
     -- lado; o PNG cru vai para dev/fotos e o `dev/fotos.sh` recorta para html/img/vehicles.
+    -- Editor in-game (/editortaxi): pontos, carros, níveis, Central e ajustes, no banco.
+    Editor = {
+        Command = 'editortaxi',
+        AdminAce = 'noir.taxijob.admin',
+        SaveIntervalMs = 400,       -- rate limit das gravações por admin
+        TeleportNear = 80.0,        -- teleporte livre só perto de um ponto ou da Central
+    },
+
     Studio = {
         Command = 'taxifotos',
         AdminAce = 'noir.taxijob.admin',

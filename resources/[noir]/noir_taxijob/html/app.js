@@ -94,6 +94,8 @@
         resultRating: $("result-rating"),
         climate: $("climate"),
         climateValue: $("climate-value"),
+        climateMode: $("climate-mode"),
+        climateIcon: $("climate-icon"),
         fanDots: $("fan-dots"),
         passenger: $("passenger"),
         passengerLabel: $("passenger-label"),
@@ -131,6 +133,13 @@
         for (let i = 0; i < dots.length; i++) dots[i].classList.toggle("on", i < fan)
         hud.fanDots.setAttribute("aria-label", "FAN nível " + fan)
         if (typeof data.mode === "string") hud.climate.dataset.mode = data.mode
+        // O que a FAN está fazendo agora; desligada, a cabine vai para a temperatura de fora (sem
+        // isso, desligar e ver a cabine esfriar parecia defeito).
+        hud.climate.dataset.fan = String(fan > 0)
+        hud.climateIcon.textContent = hud.climate.dataset.mode === "heat" ? "☀" : "❄"
+        hud.climateMode.textContent = fan > 0
+            ? (hud.climate.dataset.mode === "heat" ? "AQUECENDO" : "RESFRIANDO")
+            : (data.outside !== undefined ? "FORA " + temperature(data.outside) : "")
     }
 
     function renderPassenger(data) {

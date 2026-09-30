@@ -63,17 +63,33 @@ end
 -- ───────────────────────── níveis ─────────────────────────
 
 local levels = {}
+
+---Troca a tabela de níveis (config no start, editor depois). Mesmas regras de antes: começa em
+---0 e a confiança mínima cresce a cada nível.
+---@param list { level: integer, min: integer, label: string }[]
+---@return boolean ok
+---@return string? code
+function Progression.setLevels(list)
+    local sorted = {}
+    for _, l in ipairs(list) do sorted[#sorted + 1] = { level = l.level, min = l.min, label = l.label } end
+    table.sort(sorted, function(a, b) return a.min < b.min end)
+    if #sorted == 0 or sorted[1].min ~= 0 then return false, 'first_level_zero' end
+    for i = 2, #sorted do
+        if sorted[i].min <= sorted[i - 1].min then return false, 'levels_order' end
+    end
+    for i, l in ipairs(sorted) do l.level = i end
+    levels = sorted
+    return true
+end
+
 do
-    for _, l in ipairs(PG.Levels) do levels[#levels + 1] = { level = l.level, min = l.min, label = l.label } end
-    table.sort(levels, function(a, b) return a.min < b.min end)
-    for i = 2, #levels do
-        if levels[i].min <= levels[i - 1].min then
-            error(('[noir_taxijob] Progression.Levels inválido: nível %s não é maior que o anterior'):format(levels[i].level))
-        end
-    end
-    if #levels == 0 or levels[1].min ~= 0 then
-        error('[noir_taxijob] Progression.Levels precisa começar em 0')
-    end
+    local ok, code = Progression.setLevels(PG.Levels)
+    if not ok then error(('[noir_taxijob] Progression.Levels inválido (%s)'):format(code)) end
+end
+
+---@return { level: integer, min: integer, label: string }[]
+function Progression.levels()
+    return levels
 end
 
 ---O nível é o maior cuja confiança mínima seja ≤ à Confiança do jogador.

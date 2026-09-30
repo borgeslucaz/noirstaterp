@@ -6,7 +6,7 @@ local RL = ServerConfig.RateLimits
 local C = Config.Climate
 
 local function notify(src, key, ntype, ...)
-    exports.bgrz_core:Notify(src, locale(key, ...), ntype or 'inform')
+    Integrations.notify(src, locale(key, ...), ntype)
 end
 
 -- ───────────────────────── validação de configuração ─────────────────────────

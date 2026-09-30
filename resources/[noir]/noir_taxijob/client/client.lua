@@ -8,7 +8,7 @@ local awaySince = nil
 ---@param key string chave do locale
 ---@param ntype? string
 function Notify(key, ntype, ...)
-    exports.bgrz_core:Notify(locale(key, ...), ntype or 'inform')
+    Integrations.notify(locale(key, ...), ntype)
 end
 
 ---Reflete a sessão de aluguel devolvida pelo servidor.
