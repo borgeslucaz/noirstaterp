@@ -7,6 +7,7 @@ local Actions = require 'server.actions'
 local Plants = require 'server.plants'
 local Tables = require 'server.tables'
 require 'server.rolling'
+require 'server.manual'
 
 lib.callback.register('noir_weed:server:sync', function(source)
     if not Actions.ready then return { plants = {}, mine = {}, tables = {}, tablesMine = {} } end

@@ -99,5 +99,6 @@
     "menu_quality": "Qualidade",
     "menu_quality_hint": "Cuidado médio %s%% — colhida agora sai %s",
     "success_seed_back": "Você recuperou %sx semente.",
-    "tooltip_grade": "Grau"
+    "tooltip_grade": "Grau",
+    "error_no_manual": "Você não tem o guia."
 }

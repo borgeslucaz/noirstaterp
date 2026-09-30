@@ -7,6 +7,7 @@ local Integrations = require 'client.integrations'
 local Plants = require 'client.plants'
 local Tables = require 'client.tables'
 require 'client.grinder'
+require 'client.manual'
 
 local function clearAll()
     Plants.clear()

@@ -2361,6 +2361,17 @@ return {
         client = { export = 'noir_weed.useGrinder' },
     },
 
+    ['weed_manual'] = {
+        label = 'Guia de Cultivo',
+        rarity = 'common',
+        weight = 300,
+        stack = false,
+        close = true,
+        consume = 0,
+        description = 'Livreto da Head Shop: do vaso à colheita.',
+        client = { export = 'noir_weed.useManual' },
+    },
+
     ['weed_processing_table'] = {
         label = 'Mesa de embalar',
         rarity = 'rare',

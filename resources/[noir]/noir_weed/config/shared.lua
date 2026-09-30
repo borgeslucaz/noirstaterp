@@ -12,6 +12,7 @@ local config = {
         paper = 'rolling_paper',
         joint = 'joint',
         bag = 'empty_weed_bag',
+        manual = 'weed_manual',
     },
 
     ---Semente -> planta. `product` é o bud entregue na colheita; `baggy`, o saquinho que a

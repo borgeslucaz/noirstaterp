@@ -35,10 +35,13 @@ files {
     'client/tables.lua',
     'client/grinder.lua',
     'client/packing.lua',
+    'client/manual.lua',
     'locales/*.json',
     'web/index.html',
     'web/style.css',
     'web/app.js',
+    'web/manual.js',
+    'web/manual.css',
     'web/fonts/*.woff2',
     'web/sounds/*.ogg',
 }

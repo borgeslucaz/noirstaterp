@@ -86,6 +86,17 @@ Para abrir a tela no navegador, sirva a pasta `resources/` e abra
 As receitas ficam em `config/shared.lua` (`tables`), prontas para outras mesas: os
 modelos de coca e meth já estão em `stream_enhanced/`.
 
+## Guia de Cultivo
+
+O item `weed_manual` ("Guia de Cultivo", $100 na Head Shop) abre um livro na NUI
+(`web/manual.js` e `manual.css`), escrito como um livreto da loja: texto de RP, sem tecla,
+inventário ou nível. A progressão aparece pelos títulos do Cultivo. Os números (tempo de
+crescimento, faixas de grau, vantagens) vêm do servidor na hora de abrir
+(`server/manual.lua`), então mexer no `config/server.lua` já atualiza o guia. A última página
+traz um artigo provisório do código penal (tráfico de cannabis, 5 a 30 meses). Setas ou
+botões viram a página; Esc fecha. No preview do navegador, o botão "Abrir guia" usa os
+números de hoje.
+
 ## Validade
 
 Do ox_inventory (`degrade` + `decay` no item): bud 5 dias, saquinho 10, baseado 15. Na

@@ -99,5 +99,6 @@
     "menu_quality": "Quality",
     "menu_quality_hint": "Average care %s%% — harvested now: %s",
     "success_seed_back": "You recovered %sx seed.",
-    "tooltip_grade": "Grade"
+    "tooltip_grade": "Grade",
+    "error_no_manual": "You don't have the guide."
 }
