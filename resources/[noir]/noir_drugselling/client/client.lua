@@ -177,7 +177,8 @@ end, function(entity)
     if dealMenuOpen then return false end
     if isDrugDealing then return false end
     local pedModel = GetEntityModel(entity)
-    if Config.BlackListPeds[pedModel] then return end
+    if Config.BlackListPeds[pedModel] or Config.DenyPedList[pedModel] then return false end
+    if not IsPedHuman(entity) then return false end
     -- NPC fixo de outro script (noir-truckjob, noir_outposts) continua marcado como mission
     -- entity, porque quem cria com CreatePed não solta com SetEntityAsNoLongerNeeded. Blacklist
     -- por modelo não resolveria: eles usam modelo comum, que o jogo também spawna na rua.
@@ -576,7 +577,8 @@ local function isEligibleCornerCustomer(ped, playerPed, playerCoords, minDistanc
     if ped == playerPed or not DoesEntityExist(ped) or not IsPedHuman(ped) then return false end
     if IsPedAPlayer(ped) or IsPedInAnyVehicle(ped, false) or IsPedDeadOrDying(ped, true) then return false end
     if IsPedInCombat(ped, playerPed) or IsPedFleeing(ped) or IsPedRagdoll(ped) then return false end
-    if IsEntityAMissionEntity(ped) or Config.BlackListPeds[GetEntityModel(ped)] or soldPedsList[ped] then return false end
+    local model = GetEntityModel(ped)
+    if IsEntityAMissionEntity(ped) or Config.BlackListPeds[model] or Config.DenyPedList[model] or soldPedsList[ped] then return false end
 
     local distance = #(playerCoords - GetEntityCoords(ped))
     return distance >= minDistance and distance <= maxDistance

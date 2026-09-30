@@ -90,6 +90,7 @@ local function resolveCustomer(source, netId)
     if not ped or ped == 0 or not DoesEntityExist(ped) then return nil, 'entidade não existe no servidor' end
     if GetEntityType(ped) ~= 1 then return nil, ('não é ped (tipo %s)'):format(GetEntityType(ped)) end
     if IsPedAPlayer(ped) then return nil, 'é jogador' end
+    if Config.DenyPedList[GetEntityModel(ped)] then return nil, 'ped na DenyPedList' end
 
     local at = dealtPeds[ped]
     if at and os.time() - at <= DEALT_TTL then return nil, 'já negociou' end
