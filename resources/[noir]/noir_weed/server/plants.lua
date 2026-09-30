@@ -20,11 +20,34 @@ local Actions = require 'server.actions'
 ---@field health number
 ---@field water number
 ---@field fertilizer number
+---@field careSum number soma do cuidado de cada ciclo (Rules.tick)
+---@field careTicks integer
+---@field level integer nível de `cultivo` do dono ao plantar (vantagens do ciclo)
 
 local Plants = {}
 
 ---@type table<integer, WeedPlant>
 local plants = {}
+
+local skill = Config.skill
+
+---Nível de `cultivo`; sem o noir_skills no ar, conta como 1.
+---@param source number
+---@return integer
+local function levelOf(source)
+    return Integrations.skillLevel(source, skill.name) or 1
+end
+
+---Grau que a planta daria colhida agora: o do cuidado, cortado pelo teto do nível.
+---@param plant WeedPlant
+---@param level integer
+---@return string
+local function gradeOf(plant, level)
+    local byCare = Rules.gradeFor(Config.gradeByCare, Rules.careAverage(plant))
+    local cap = Rules.levelBand(skill.gradeCapByLevel, level)
+    if not cap then return byCare end
+    return Rules.minGrade(Shared.grades.order, byCare, cap.grade)
+end
 
 -- Visões --------------------------------------------------------------------------------
 
@@ -41,7 +64,8 @@ local function publicView(plant)
 end
 
 ---@param plant WeedPlant
-local function statusView(plant)
+---@param level integer nível de quem olha (o dono)
+local function statusView(plant, level)
     return {
         id = plant.id,
         seed = plant.seed,
@@ -49,6 +73,8 @@ local function statusView(plant)
         health = plant.health,
         water = plant.water,
         fertilizer = plant.fertilizer,
+        care = Rules.careAverage(plant),
+        grade = gradeOf(plant, level),
     }
 end
 
@@ -90,12 +116,16 @@ Actions.register('plant', {
         if type(payload) ~= 'table' then return false, 'invalid_request' end
         local seed = payload.seed
         if type(seed) ~= 'string' or not Shared.strains[seed] then return false, 'invalid_request' end
-        if World.ownedCount(plants, citizenId) >= Config.maxPlants then return false, 'max_plants' end
+        local level = levelOf(source)
+        local limit = Config.maxPlants
+        if Rules.perkActive(skill.perks.extraPot, level) then limit = limit + skill.perks.extraPot.amount end
+        if World.ownedCount(plants, citizenId) >= limit then return false, 'max_plants' end
         if Integrations.count(source, seed) < 1 then return false, 'no_seed' end
         if Integrations.count(source, Shared.items.pot) < 1 then return false, 'no_pot' end
         if Integrations.count(source, Shared.items.shovel) < 1 then return false, 'no_shovel' end
         local ok, code = World.checkSpot(source, payload.placement, plants, Config.distance.spacing)
         if not ok then return false, code end
+        payload.level = level
         return true, nil, payload
     end,
     apply = function(source, citizenId, payload)
@@ -115,6 +145,9 @@ Actions.register('plant', {
             health = Config.initial.health,
             water = Config.initial.water,
             fertilizer = Config.initial.fertilizer,
+            careSum = 0.0,
+            careTicks = 0,
+            level = payload.level,
         }
         local id = Storage.insert(plant)
         if not id then
@@ -145,9 +178,28 @@ for action, stat in pairs(CARE_STAT) do
         apply = function(source, _, plant)
             if not Integrations.removeItem(source, Shared.items[action], 1) then return false, 'no_' .. action end
             plant[stat] = Rules.clamp(plant[stat] + Config.care[action], 0, 100)
-            return true, nil, { status = statusView(plant) }
+            return true, nil, { status = statusView(plant, levelOf(source)) }
         end,
     })
+end
+
+---Colheita: a saúde dá a quantidade base, o nível de `cultivo` ajusta por faixa, e o
+---cuidado ao longo do crescimento dá o grau (com teto pelo nível). O XP sai da base, para o
+---nível não acelerar a própria subida.
+---@param source number
+---@param plant WeedPlant
+---@return { base: integer, amount: integer, grade: string, seeds: integer }
+local function harvestOf(source, plant)
+    local level = levelOf(source)
+    local base = Rules.reward(Config.reward, plant.health)
+    local band = Rules.levelBand(skill.yieldByLevel, level)
+    local seedBack = skill.perks.seedBack
+    return {
+        base = base,
+        amount = Rules.applyPercent(base, band and band.percent or 0),
+        grade = gradeOf(plant, level),
+        seeds = Rules.perkActive(seedBack, level) and seedBack.amount or 0,
+    }
 end
 
 Actions.register('harvest', {
@@ -156,21 +208,25 @@ Actions.register('harvest', {
         if not plant then return false, code end
         if plant.growth < Shared.harvestAt then return false, 'not_ready' end
         if Integrations.count(source, Shared.items.shovel) < 1 then return false, 'no_shovel' end
-        local amount = Rules.reward(Config.reward, plant.health)
-        if not Integrations.canCarry(source, Shared.strains[plant.seed].product, amount) then return false, 'inventory_full' end
+        local harvest = harvestOf(source, plant)
+        if not Integrations.canCarry(source, Shared.strains[plant.seed].product, harvest.amount) then return false, 'inventory_full' end
+        if harvest.seeds > 0 and not Integrations.canCarry(source, plant.seed, harvest.seeds) then return false, 'inventory_full' end
         return true, nil, plant
     end,
     apply = function(source, _, plant)
-        local amount = Rules.reward(Config.reward, plant.health)
+        local harvest = harvestOf(source, plant)
         -- Remove antes de entregar: com duas colheitas no mesmo tick, a segunda não acha
         -- mais a planta no check e para ali.
         removePlant(plant)
-        local ok, code = Integrations.addItem(source, Shared.strains[plant.seed].product, amount)
+        local product = Shared.strains[plant.seed].product
+        local ok, code = Integrations.addItem(source, product, harvest.amount, harvest.grade)
         if not ok then
             lib.print.error(('colheita %d: AddItem falhou para %d (%s)'):format(plant.id, source, tostring(code)))
             return false, 'operation_failed'
         end
-        return true, nil, { amount = amount, seed = plant.seed }
+        if harvest.seeds > 0 then Integrations.addItem(source, plant.seed, harvest.seeds) end
+        Integrations.addSkillXp(source, skill.name, skill.xpPerHarvest + skill.xpPerBud * harvest.base)
+        return true, nil, { amount = harvest.amount, seed = plant.seed, grade = harvest.grade, seeds = harvest.seeds }
     end,
 })
 
@@ -217,7 +273,7 @@ lib.callback.register('noir_weed:server:status', function(source, id)
     if not citizenId then return { ok = false, code = 'not_loaded' } end
     local plant, code = reachPlant(source, citizenId, id, true)
     if not plant then return { ok = false, code = code } end
-    return { ok = true, status = statusView(plant) }
+    return { ok = true, status = statusView(plant, levelOf(source)) }
 end)
 
 -- Boot, sync e ciclo --------------------------------------------------------------------
@@ -225,6 +281,8 @@ end)
 function Plants.load()
     for _, row in ipairs(Storage.loadAll()) do
         if Shared.strains[row.seed] then
+            row.careTicks = math.floor(row.careTicks or 0)
+            row.level = math.floor(row.level or 1)
             plants[row.id] = row
         else
             lib.print.warn(('planta %d com semente desconhecida (%s): ignorada'):format(row.id, tostring(row.seed)))
@@ -250,13 +308,26 @@ function Plants.save()
     Storage.saveStatus(list)
 end
 
+---Taxas do ciclo por nível do dono, calculadas uma vez.
+local ratesByLevel = {}
+
+---@param level integer
+local function ratesFor(level)
+    local rates = ratesByLevel[level]
+    if not rates then
+        rates = Rules.growthFor(Config.growth, level, skill.perks)
+        ratesByLevel[level] = rates
+    end
+    return rates
+end
+
 function Plants.run()
     local ticks = 0
     while true do
         Wait(Config.growth.interval)
         for _, plant in pairs(plants) do
             local before = Rules.stageFor(Shared.stageAt, plant.growth)
-            Rules.tick(plant, Config.growth, Shared.harvestAt)
+            Rules.tick(plant, ratesFor(plant.level), Shared.harvestAt)
             if Rules.stageFor(Shared.stageAt, plant.growth) ~= before then broadcast(plant) end
         end
         ticks += 1

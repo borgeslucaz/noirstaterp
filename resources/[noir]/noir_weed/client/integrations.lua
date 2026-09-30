@@ -19,6 +19,18 @@ function Integrations.notify(message, kind)
     exports[CORE]:Notify(message, kind or 'inform')
 end
 
+---Grau do bud e do saquinho no tooltip do inventário ("Grau: A"). A UI do inventário
+---guarda a lista de campos extras: vale uma vez por sessão, e de novo se o inventário ou a
+---ponte reiniciarem.
+function Integrations.showGradeInTooltip()
+    if not coreReady() then return end
+    exports[CORE]:DisplayItemMetadata('grade', locale('tooltip_grade'))
+end
+
+AddEventHandler('onClientResourceStart', function(resource)
+    if resource == 'ox_inventory' or resource == CORE then Integrations.showGradeInTooltip() end
+end)
+
 ---@return boolean
 function Integrations.isLoggedIn()
     return coreReady() and exports[CORE]:IsLoggedIn() == true

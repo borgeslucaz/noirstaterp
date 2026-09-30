@@ -5,19 +5,37 @@
 
 local Storage = {}
 
----Roda as migrations. Só `CREATE TABLE IF NOT EXISTS` é aceito: migration destrutiva
----não roda sozinha no boot.
-function Storage.migrate()
-    local sql = LoadResourceFile(GetCurrentResourceName(), 'migrations/001_initial.sql')
-    if not sql or sql == '' then error('migrations/001_initial.sql não encontrada') end
+---Migrations em ordem. Só comando que não destrói nada roda sozinho no boot: criar tabela
+---que não existe e acrescentar coluna que não existe.
+local MIGRATIONS = { '001_initial.sql', '002_care_grade.sql' }
+local ALLOWED = {
+    '^CREATE%s+TABLE%s+IF%s+NOT%s+EXISTS%s+',
+    '^ALTER%s+TABLE%s+[%w_]+%s+ADD%s+COLUMN%s+IF%s+NOT%s+EXISTS%s+',
+}
 
-    for raw in sql:gmatch('([^;]+);') do
-        local statement = raw:match('^%s*(.-)%s*$')
-        if statement ~= '' then
-            if not statement:upper():match('^CREATE%s+TABLE%s+IF%s+NOT%s+EXISTS%s+') then
-                error(('comando não permitido na migration: %s'):format(statement:sub(1, 80)))
+---@param statement string
+---@return boolean
+local function allowed(statement)
+    local upper = statement:upper()
+    for index = 1, #ALLOWED do
+        if upper:match(ALLOWED[index]) then return true end
+    end
+    return false
+end
+
+function Storage.migrate()
+    for _, file in ipairs(MIGRATIONS) do
+        local sql = LoadResourceFile(GetCurrentResourceName(), 'migrations/' .. file)
+        if not sql or sql == '' then error(('migrations/%s não encontrada'):format(file)) end
+
+        for raw in sql:gmatch('([^;]+);') do
+            local statement = raw:match('^%s*(.-)%s*$')
+            if statement ~= '' then
+                if not allowed(statement) then
+                    error(('comando não permitido na migration: %s'):format(statement:sub(1, 80)))
+                end
+                MySQL.query.await(statement)
             end
-            MySQL.query.await(statement)
         end
     end
 end
@@ -25,7 +43,8 @@ end
 ---@return table[]
 function Storage.loadAll()
     return MySQL.query.await([[
-        SELECT id, owner, seed, x, y, z, heading, growth, health, water, fertilizer
+        SELECT id, owner, seed, x, y, z, heading, growth, health, water, fertilizer,
+            care_sum AS careSum, care_ticks AS careTicks, skill_level AS level
         FROM noir_weed_plants
     ]]) or {}
 end
@@ -34,11 +53,12 @@ end
 ---@return integer? id
 function Storage.insert(plant)
     local ok, id = pcall(MySQL.insert.await, [[
-        INSERT INTO noir_weed_plants (owner, seed, x, y, z, heading, growth, health, water, fertilizer)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO noir_weed_plants
+            (owner, seed, x, y, z, heading, growth, health, water, fertilizer, care_sum, care_ticks, skill_level)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ]], {
         plant.owner, plant.seed, plant.x, plant.y, plant.z, plant.heading,
-        plant.growth, plant.health, plant.water, plant.fertilizer,
+        plant.growth, plant.health, plant.water, plant.fertilizer, plant.careSum, plant.careTicks, plant.level,
     })
     if not ok then
         lib.print.error(('insert falhou: %s'):format(tostring(id)))
@@ -67,8 +87,12 @@ function Storage.saveStatus(plants)
     for index = 1, #plants do
         local plant = plants[index]
         queries[index] = {
-            query = 'UPDATE noir_weed_plants SET growth = ?, health = ?, water = ?, fertilizer = ? WHERE id = ?',
-            values = { plant.growth, plant.health, plant.water, plant.fertilizer, plant.id },
+            query = [[
+                UPDATE noir_weed_plants
+                SET growth = ?, health = ?, water = ?, fertilizer = ?, care_sum = ?, care_ticks = ?
+                WHERE id = ?
+            ]],
+            values = { plant.growth, plant.health, plant.water, plant.fertilizer, plant.careSum, plant.careTicks, plant.id },
         }
     end
     local ok, err = pcall(MySQL.transaction.await, queries)

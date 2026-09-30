@@ -124,6 +124,25 @@ local function roundOf(extra, qty)
     return done, wasted
 end
 
+---Grau pedido pela tela, se for um grau.
+---@param payload table
+---@return string?
+local function gradeOf(payload)
+    return Rules.gradeRank(Shared.grades.order, payload.grade) and payload.grade or nil
+end
+
+---Quanto o jogador tem de um item. O item arrastado (o bud) conta só o grau escolhido: o
+---saquinho sai com o grau do bud.
+---@param source number
+---@param item string
+---@param drag string
+---@param grade string
+---@return integer
+local function haveOf(source, item, drag, grade)
+    if item ~= drag then return Integrations.count(source, item) end
+    return Rules.gradeCounts(Shared.grades, Integrations.slots(source, item))[grade] or 0
+end
+
 ---O que sai do inventário: a receita vezes `done` e o item arrastado vezes `wasted`.
 ---@param recipe table
 ---@param done integer
@@ -144,7 +163,8 @@ Actions.register('pack', {
         if not bench then return false, code end
         local recipe = recipeOf(bench, payload.recipe)
         local qty = packQty(payload)
-        if not recipe or not recipe.minigame or not qty then return false, 'invalid_request' end
+        local grade = gradeOf(payload)
+        if not recipe or not recipe.minigame or not qty or not grade then return false, 'invalid_request' end
 
         -- No begin confere o lote pedido; no finish, o que foi feito e o que foi perdido.
         local done, wasted = qty, 0
@@ -152,17 +172,18 @@ Actions.register('pack', {
             done, wasted = roundOf(extra, qty)
             if not done then return false, 'invalid_request' end
         end
+        local drag = recipe.minigame.drag
         for item, amount in pairs(consumption(recipe, done, wasted)) do
-            if Integrations.count(source, item) < amount then return false, 'missing_ingredients' end
+            if haveOf(source, item, drag, grade) < amount then return false, 'missing_ingredients' end
         end
         for item, amount in pairs(Rules.scale(recipe.outputs, done)) do
             if not Integrations.canCarry(source, item, amount) then return false, 'inventory_full' end
         end
-        return true, nil, { recipe = recipe, done = done, wasted = wasted }
+        return true, nil, { recipe = recipe, done = done, wasted = wasted, grade = grade }
     end,
     duration = function() return 0 end,
     apply = function(source, _, context, _, elapsed)
-        local done, wasted, recipe = context.done, context.wasted, context.recipe
+        local done, wasted, recipe, grade = context.done, context.wasted, context.recipe, context.grade
         if done == 0 and wasted == 0 then return true, nil, { done = 0, wasted = 0 } end
         local expected = done * Config.packSecondsPerUnit * 1000
         if done > 0 and elapsed < expected then
@@ -171,27 +192,38 @@ Actions.register('pack', {
                 elapsed_s = ('%.1f'):format(elapsed / 1000), expected_s = ('%.1f'):format(expected / 1000),
             })
         end
-        -- Tira item por item; se um falhar, devolve os que já saíram.
-        local taken = {}
+        -- Tira item por item; se um falhar, devolve os que já saíram. O bud sai dos slots do
+        -- grau escolhido, o que vence antes primeiro.
+        local drag, taken = recipe.minigame.drag, {}
+        local function undo()
+            for index = 1, #taken do Integrations.addItem(source, taken[index][1], taken[index][2], taken[index][3]) end
+        end
         for item, amount in pairs(consumption(recipe, done, wasted)) do
             if amount > 0 then
-                if not Integrations.removeItem(source, item, amount) then
-                    for index = 1, #taken do Integrations.addItem(source, taken[index][1], taken[index][2]) end
+                local removed
+                if item == drag then
+                    local plan = Rules.pickSlots(Shared.grades, Integrations.slots(source, item), amount, grade)
+                    removed = plan ~= nil and Integrations.removePlan(source, item, plan)
+                else
+                    removed = Integrations.removeItem(source, item, amount)
+                end
+                if not removed then
+                    undo()
                     return false, 'missing_ingredients'
                 end
-                taken[#taken + 1] = { item, amount }
+                taken[#taken + 1] = { item, amount, item == drag and grade or nil }
             end
         end
         for item, amount in pairs(Rules.scale(recipe.outputs, done)) do
             if amount > 0 then
-                local ok, code = Integrations.addItem(source, item, amount)
+                local ok, code = Integrations.addItem(source, item, amount, grade)
                 if not ok then
                     lib.print.error(('mesa: AddItem %s x%d falhou para %d (%s)'):format(item, amount, source, tostring(code)))
                     return false, 'operation_failed'
                 end
             end
         end
-        return true, nil, { done = done, wasted = wasted, label = recipe.label }
+        return true, nil, { done = done, wasted = wasted, label = recipe.label, grade = grade }
     end,
 })
 
@@ -230,20 +262,33 @@ Actions.register('seizeTable', {
     end,
 })
 
----Receitas que o jogador consegue fazer agora, com o máximo de cada uma. O que ele não
----tem no bolso não aparece.
+---Receitas que o jogador consegue fazer agora, uma entrada por grau do bud que ele tem,
+---com o máximo de cada uma. O que ele não tem no bolso não aparece.
 lib.callback.register('noir_weed:server:tableRecipes', function(source, id)
     local bench, code = reachBench(source, { id = id })
     if not bench then return { ok = false, code = code } end
-    local count = function(item) return Integrations.count(source, item) end
     local list = {}
     for key, recipe in pairs(Shared.tables[bench.type].recipes) do
-        local max = math.min(Rules.maxBatch(recipe.ingredients, count), Shared.packGame.maxBatch)
-        if max > 0 then
-            list[#list + 1] = { key = key, max = max, have = count(recipe.minigame and recipe.minigame.drag or '') }
+        local drag = recipe.minigame and recipe.minigame.drag
+        if drag then
+            local byGrade = Rules.gradeCounts(Shared.grades, Integrations.slots(source, drag))
+            for grade, have in pairs(byGrade) do
+                local count = function(item)
+                    if item == drag then return have end
+                    return Integrations.count(source, item)
+                end
+                local max = math.min(Rules.maxBatch(recipe.ingredients, count), Shared.packGame.maxBatch)
+                if max > 0 then
+                    list[#list + 1] = { key = key, grade = grade, max = max, have = have }
+                end
+            end
         end
     end
-    table.sort(list, function(a, b) return a.key < b.key end)
+    local order = Shared.grades.order
+    table.sort(list, function(a, b)
+        if a.key ~= b.key then return a.key < b.key end
+        return Rules.gradeRank(order, a.grade) > Rules.gradeRank(order, b.grade)
+    end)
     return { ok = true, recipes = list }
 end)
 

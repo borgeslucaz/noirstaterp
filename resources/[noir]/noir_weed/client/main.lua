@@ -30,6 +30,8 @@ AddEventHandler('onClientResourceStart', function(resource)
     if resource == cache.resource then resync() end
 end)
 
+Integrations.showGradeInTooltip()
+
 AddEventHandler('onResourceStop', function(resource)
     if resource ~= cache.resource then return end
     Plants.despawnAll()

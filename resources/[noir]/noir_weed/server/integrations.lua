@@ -4,6 +4,8 @@
 local Rules = require 'shared.rules'
 
 local CORE = 'bgrz_core'
+-- Skill de cultivo. Dependência leve: sem o noir_skills a colheita segue neutra e sem XP.
+local SKILLS = 'noir_skills'
 
 local Integrations = {}
 
@@ -77,11 +79,48 @@ end
 ---@param source number
 ---@param item string
 ---@param amount integer
+---@param grade? string grau do bud ou do saquinho, gravado no metadata
 ---@return boolean ok
 ---@return string? errorCode
-function Integrations.addItem(source, item, amount)
+function Integrations.addItem(source, item, amount, grade)
     if not coreReady() then return false, 'provider_unavailable' end
-    return exports[CORE]:AddItem(source, item, amount, expiryMetadata(item))
+    local metadata = expiryMetadata(item)
+    if grade then
+        metadata = metadata or {}
+        metadata.grade = grade
+    end
+    return exports[CORE]:AddItem(source, item, amount, metadata)
+end
+
+---Slots do item com quantidade e metadata; vazio se a ponte falhar.
+---@param source number
+---@param item string
+---@return { slot: integer, count: integer, metadata: table }[]
+function Integrations.slots(source, item)
+    if not coreReady() then return {} end
+    local slots = exports[CORE]:GetItemSlots(source, item)
+    return type(slots) == 'table' and slots or {}
+end
+
+---Tira do inventário o que `Rules.pickSlots` escolheu. Se um slot falhar, devolve os que
+---já saíram, com o mesmo grau (a validade recomeça: é o caso raro de o slot mudar entre a
+---leitura e a remoção).
+---@param source number
+---@param item string
+---@param plan { slot: integer, count: integer, grade: string }[]
+---@return boolean ok
+function Integrations.removePlan(source, item, plan)
+    if not coreReady() then return false end
+    for index = 1, #plan do
+        local step = plan[index]
+        if not exports[CORE]:RemoveItemFromSlot(source, item, step.count, step.slot) then
+            for undo = 1, index - 1 do
+                Integrations.addItem(source, item, plan[undo].count, plan[undo].grade)
+            end
+            return false
+        end
+    end
+    return true
 end
 
 ---@param source number
@@ -114,6 +153,24 @@ function Integrations.useDurability(source, item, cost)
     if not coreReady() then return false, 'provider_unavailable' end
     local ok, err = exports[CORE]:ConsumeItemDurability(source, item, cost)
     return ok == true, err
+end
+
+---Nível da skill, ou nil com o noir_skills fora do ar.
+---@param source number
+---@param skill string
+---@return integer?
+function Integrations.skillLevel(source, skill)
+    if GetResourceState(SKILLS) ~= 'started' then return nil end
+    local ok, level = pcall(function() return exports[SKILLS]:GetLevel(source, skill) end)
+    return ok and tonumber(level) or nil
+end
+
+---@param source number
+---@param skill string
+---@param xp integer
+function Integrations.addSkillXp(source, skill, xp)
+    if xp <= 0 or GetResourceState(SKILLS) ~= 'started' then return end
+    pcall(function() exports[SKILLS]:AddXp(source, skill, xp) end)
 end
 
 return Integrations

@@ -42,6 +42,16 @@ local config = {
     ---Crescimento a partir do qual a colheita abre.
     harvestAt = 100,
 
+    ---Grau do bud, do pior para o melhor. Sai do cuidado com a planta (média de água,
+    ---fertilizante e saúde ao longo do crescimento) e vai no metadata (`grade`) do bud e do
+    ---saquinho; o noir_drugselling paga pelo grau. Grau é faixa e não número para os lotes
+    ---empilharem: mesma variedade, mesmo grau e mesma validade ficam num slot só. Item sem
+    ---grau (de antes do sistema) conta como `default`.
+    grades = {
+        order = { 'C', 'B', 'A', 'S' },
+        default = 'B',
+    },
+
     ---Dixavadores: todos iguais na função, muda a aparência. Cada baseado bolado gasta
     ---`grinderCost` pontos de qualidade (de 100); em 0 o dixavador fica gasto no
     ---inventário e para de funcionar.

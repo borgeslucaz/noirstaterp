@@ -45,15 +45,15 @@ local function fetchRecipes(tableId, def)
         if game then
             list[#list + 1] = {
                 key = entry.key,
-                label = recipe.label,
+                grade = entry.grade,
+                label = ('%s · %s'):format(recipe.label, locale('grade', entry.grade)),
                 max = entry.max,
                 have = entry.have,
                 images = { drag = image(game.drag), target = image(game.target), result = image(game.result) },
             }
         end
     end
-    table.sort(list, function(a, b) return a.label < b.label end)
-    return list
+    return list -- o servidor já ordena: variedade, depois o melhor grau primeiro
 end
 
 local function close()
@@ -117,12 +117,13 @@ RegisterNUICallback('start', function(data, cb)
     if not current or round then return cb({ ok = false }) end
     local qty = tonumber(data and data.qty)
     local key = data and data.recipe
+    local grade = data and data.grade
     local recipe = type(key) == 'string' and current.def.recipes[key]
-    if not recipe or not qty or qty < 1 or qty > Shared.packGame.maxBatch or qty % 1 ~= 0 then
+    if not recipe or type(grade) ~= 'string' or not qty or qty < 1 or qty > Shared.packGame.maxBatch or qty % 1 ~= 0 then
         return cb({ ok = false })
     end
 
-    local began = Actions.begin('pack', { id = current.tableId, recipe = key, qty = qty })
+    local began = Actions.begin('pack', { id = current.tableId, recipe = key, grade = grade, qty = qty })
     if not began then return cb({ ok = false }) end
     round = { qty = qty }
     playAnimation()

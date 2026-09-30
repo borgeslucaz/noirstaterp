@@ -94,5 +94,10 @@
     "pack_max": "máx. %s",
     "pack_have": "Você tem %s buds",
     "pack_wasted": "Buds perdidos: %s",
-    "pack_volume": "Volume"
+    "pack_volume": "Volume",
+    "grade": "Grau %s",
+    "menu_quality": "Qualidade",
+    "menu_quality_hint": "Cuidado médio %s%% — colhida agora sai %s",
+    "success_seed_back": "Você recuperou %sx semente.",
+    "tooltip_grade": "Grau"
 }

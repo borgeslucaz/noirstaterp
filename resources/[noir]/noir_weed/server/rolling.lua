@@ -1,7 +1,9 @@
 ---Bolar baseado com o dixavador: um bud e duas sedas viram dois baseados, e o dixavador
 ---perde `grinderCost` de qualidade. Em 0 ele fica gasto no inventário (sem `decay`).
+---O baseado não tem grau: o bud sai do pior grau para o melhor, e o melhor fica para vender.
 
 local Shared = require 'config.shared'
+local Rules = require 'shared.rules'
 local Integrations = require 'server.integrations'
 local Actions = require 'server.actions'
 
@@ -42,14 +44,18 @@ Actions.register('roll', {
     end,
     apply = function(source, _, context)
         local product, paper = context.strain.product, Shared.items.paper
-        if not Integrations.removeItem(source, product, roll.buds) then return false, 'no_bud' end
+        local plan = Rules.pickSlots(Shared.grades, Integrations.slots(source, product), roll.buds)
+        if not plan or not Integrations.removePlan(source, product, plan) then return false, 'no_bud' end
+        local function giveBudsBack()
+            for index = 1, #plan do Integrations.addItem(source, product, plan[index].count, plan[index].grade) end
+        end
         if not Integrations.removeItem(source, paper, roll.papers) then
-            Integrations.addItem(source, product, roll.buds)
+            giveBudsBack()
             return false, 'no_paper'
         end
         local used, err = Integrations.useDurability(source, context.grinder, Shared.grinderCost)
         if not used then
-            Integrations.addItem(source, product, roll.buds)
+            giveBudsBack()
             Integrations.addItem(source, paper, roll.papers)
             return false, GRINDER_CODES[err] or 'operation_failed'
         end

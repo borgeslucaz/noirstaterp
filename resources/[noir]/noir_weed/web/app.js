@@ -180,7 +180,7 @@
   async function start() {
     const btn = app.querySelector('#start');
     btn.disabled = true;
-    const res = await nui('start', { recipe: pick.key, qty });
+    const res = await nui('start', { recipe: pick.key, grade: pick.grade, qty });
     if (!res || !res.ok) { btn.disabled = false; return; }
     startGame();
   }
@@ -405,7 +405,7 @@
     const res = await nui('again');
     if (!res || !res.ok) return hide();
     data.recipes = res.recipes;
-    pick = data.recipes.find((r) => pick && r.key === pick.key) || data.recipes[0];
+    pick = data.recipes.find((r) => pick && r.key === pick.key && r.grade === pick.grade) || data.recipes[0];
     renderSetup();
   }
 
@@ -437,12 +437,12 @@
 
   function mockData() {
     const img = (n) => `../../../[ox]/ox_inventory/web/images/${n}.png`;
-    const strains = [['og-kush', 'OG Kush', 12], ['purple-haze', 'Purple Haze', 6], ['skunk', 'Skunk', 30]];
+    const strains = [['og-kush', 'OG Kush', 'A', 12], ['og-kush', 'OG Kush', 'B', 4], ['purple-haze', 'Purple Haze', 'S', 6], ['skunk', 'Skunk', 'C', 30]];
     return {
       title: 'Mesa de embalar',
       game: { seal: 2.0, radius: 70, slots: 6, volume: 0.35, wasteOnMiss: true },
-      recipes: strains.map(([id, label, n]) => ({
-        key: `pack_weed_${id}`, label, max: n, have: n,
+      recipes: strains.map(([id, label, grade, n]) => ({
+        key: `pack_weed_${id}`, grade, label: `${label} · Grau ${grade}`, max: n, have: n,
         images: { drag: img(`weed_${id}`), target: img('empty_weed_bag'), result: img(`weed_${id}_baggy`) },
       })),
       locale: {

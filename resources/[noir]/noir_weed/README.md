@@ -17,6 +17,36 @@ reescritos sobre o `bgrz_core`. Substitui o `qbx_weed`, que está em `disabled_r
    quantidade vai de `reward.min` a `reward.max` conforme a saúde.
 5. O dono pode mudar o vaso de lugar ou destruir. Polícia em serviço queima planta alheia.
 
+**Grau (C, B, A, S):** cada ciclo soma o cuidado da planta (a média de água, fertilizante
+e saúde naquele momento). Na colheita, a média do crescimento inteiro vira o grau pelas
+faixas de `gradeByCare`: C abaixo de 50, B a partir de 50, A a partir de 70 e S a partir de
+85. Completar tudo ao plantar e voltar a cada ~10 min dá S; a cada ~15 min, A; só evitar
+que morra, C. O grau vai no metadata (`grade`) do bud, passa para o saquinho na mesa e
+multiplica o preço no `noir_drugselling` (`ServerConfig.Grades`: C ×0,8, B ×1,0, A ×1,25,
+S ×1,5). O ox_inventory empilha só metadata igual: mesma variedade, grau e validade ficam
+num slot, e graus diferentes ficam separados. Item de antes do sistema conta como B. O
+baseado não tem grau: bolar gasta o bud de pior grau primeiro.
+
+**Skill `cultivo` (noir_skills):** a colheita dá XP (`10 + 2 × buds` da colheita base), e
+o primeiro ciclo de 5 plantas bem cuidadas já leva ao nível 2. A cada dois níveis, mais ou
+menos, entra algo que muda o jogo:
+
+| Nível | Colheita | Grau máximo | Vantagem |
+|---:|---:|:--:|---|
+| 1 | 0% | B | — |
+| 3 | +5% | B | planta perde 20% menos água e fertilizante |
+| 5 | +10% | A | libera o grau A |
+| 7 | +10% | A | cresce 25% mais por ciclo (25 min viram 20) |
+| 9 | +15% | A | toda colheita devolve 1 semente |
+| 11 | +20% | S | libera o grau S |
+| 13 | +20% | S | 1 vaso a mais |
+| 15 | +25% | S | — |
+
+Perder menos água e crescer mais rápido valem pelo nível do dono na hora de plantar (a
+planta cresce com ele offline). Colheita, grau e semente valem pelo nível na hora de colher.
+Sem o noir_skills no ar, o jogador conta como nível 1 e não ganha XP. Tudo em `skill` e
+`gradeByCare`, no `config/server.lua`.
+
 Estágios: vaso (0%), pequena (10%), média (40%), grande (70%). Cada variedade usa um
 conjunto de modelos (`look`): Purple Haze roxa, White Widow branca, Amnesia amarela,
 Skunk azul; OG Kush e AK47 com a planta vanilla.
@@ -38,7 +68,7 @@ O item `weed_processing_table` é posicionado pela mira e salvo no banco. Na mes
 serviço apreende (a mesa é destruída). Uma mesa por personagem (`maxTables`).
 
 "Usar mesa" abre o minigame (NUI em `web/`): a tela lista só as variedades que o
-jogador tem no bolso, ele escolhe a quantidade e arrasta cada bud até um saquinho vazio.
+jogador tem no bolso, uma linha por grau (o saquinho sai com o grau do bud), ele escolhe a quantidade e arrasta cada bud até um saquinho vazio.
 Errar o saquinho perde o bud (`wasteOnMiss`; desligado, o bud volta). Ajustes em
 `packGame` (selagem, folga da mira, saquinhos na mesa, teto por rodada, volume inicial).
 Sons CC0 da Kenney em `web/sounds/` (pegar, soltar, selar, errar); o jogador ajusta o
@@ -58,7 +88,8 @@ modelos de coca e meth já estão em `stream_enhanced/`.
 
 ## Validade
 
-Do ox_inventory (`degrade` + `decay` no item): bud 5 dias, saquinho 10, baseado 15.
+Do ox_inventory (`degrade` + `decay` no item): bud 5 dias, saquinho 10, baseado 15. Na
+mesa e no baseado, o bud que vence antes sai antes.
 Corre em qualquer inventário, também com o jogador offline. O dixavador não tem validade.
 
 ## Diferenças para os upstreams
@@ -79,7 +110,8 @@ Corre em qualquer inventário, também com o jogador offline. O dixavador não t
 
 - `config/shared.lua` — itens, variedades, modelos, dixavadores, receitas, durações. Vai
   para o client.
-- `config/server.lua` — recompensa, taxas do ciclo, limites de vaso e mesa, zonas proibidas.
+- `config/server.lua` — recompensa, grau, skill, taxas do ciclo, limites de vaso e mesa,
+  zonas proibidas.
 
 ## Testes
 

@@ -51,7 +51,8 @@ data_file 'DLC_ITYP_REQUEST' 'stream_enhanced/freeze_it-drugs_table.ytyp'
 data_file 'DLC_ITYP_REQUEST' 'stream_enhanced/mushroom_base.ytyp'
 
 -- `qbx_core` e `ox_inventory` são providers do bgrz_core e não aparecem aqui (§6.2).
--- `ox_target` é chamado direto (§2.5) e por isso está declarado.
+-- `ox_target` é chamado direto (§2.5) e por isso está declarado. O `noir_skills` (skill
+-- `cultivo`) é opcional e fica de fora: sem ele a colheita segue neutra e não dá XP.
 dependencies {
     '/onesync',
     'ox_lib',

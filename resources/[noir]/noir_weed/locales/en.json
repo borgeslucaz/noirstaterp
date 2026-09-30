@@ -94,5 +94,10 @@
     "pack_max": "max. %s",
     "pack_have": "You have %s buds",
     "pack_wasted": "Buds lost: %s",
-    "pack_volume": "Volume"
+    "pack_volume": "Volume",
+    "grade": "Grade %s",
+    "menu_quality": "Quality",
+    "menu_quality_hint": "Average care %s%% — harvested now: %s",
+    "success_seed_back": "You recovered %sx seed.",
+    "tooltip_grade": "Grade"
 }

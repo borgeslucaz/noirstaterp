@@ -66,4 +66,82 @@ local scaled = Rules.scale({ weed_skunk = 1, empty_weed_bag = 2 }, 4)
 T.equal(scaled.weed_skunk, 4, 'escala o primeiro')
 T.equal(scaled.empty_weed_bag, 8, 'escala o segundo')
 
+local bands = { { level = 1, percent = 0 }, { level = 3, percent = 5 }, { level = 5, percent = 10 },
+    { level = 9, percent = 15 }, { level = 11, percent = 20 }, { level = 15, percent = 25 } }
+T.equal(Rules.levelBand(bands, 1).percent, 0, 'iniciante colhe a base')
+T.equal(Rules.levelBand(bands, 4).percent, 5, 'faixa vale até a próxima')
+T.equal(Rules.levelBand(bands, 15).percent, 25, 'mestre colhe mais')
+T.equal(Rules.levelBand(bands, nil), nil, 'sem nível não há faixa')
+T.equal(Rules.levelBand({ { level = 5, grade = 'A' } }, 2), nil, 'abaixo da primeira faixa não há faixa')
+T.equal(Rules.applyPercent(10, 25), 13, '10 buds no nível 15 viram 13 (12,5 arredonda)')
+T.equal(Rules.applyPercent(2, 5), 2, 'colheita pequena arredonda')
+T.equal(Rules.applyPercent(1, -60), 1, 'nunca abaixo de 1')
+
+-- Vantagens do nível
+local perks = { thirst = { level = 3, factor = 0.8 }, fastGrowth = { level = 7, factor = 1.25 } }
+T.falsy(Rules.perkActive(perks.thirst, 2), 'vantagem desligada abaixo do nível')
+T.truthy(Rules.perkActive(perks.thirst, 3), 'vantagem ligada no nível')
+T.falsy(Rules.perkActive(nil, 15), 'vantagem que não existe')
+local base = Rules.growthFor(growth, 1, perks)
+T.equal(base.loseWater, 1.5, 'nível 1 perde o normal')
+local thirsty = Rules.growthFor(growth, 3, perks)
+T.equal(thirsty.loseWater, 1.5 * 0.8, 'nível 3 perde menos água')
+T.equal(thirsty.loseFertilizer, 1.5 * 0.8, 'e menos fertilizante')
+T.equal(thirsty.loseHealth, 1.0, 'saúde não muda')
+T.equal(thirsty.gain, 2.0, 'ainda cresce no ritmo normal')
+T.equal(Rules.growthFor(growth, 7, perks).gain, 2.5, 'nível 7 cresce 25% mais por ciclo')
+T.equal(growth.loseWater, 1.5, 'a config não é alterada')
+
+-- Cuidado e grau
+local cared = { growth = 0, health = 90, water = 90, fertilizer = 90 }
+Rules.tick(cared, growth, 100)
+T.equal(cared.careTicks, 1, 'ciclo conta')
+T.equal(cared.careSum, (88.5 + 88.5 + 89) / 3, 'soma a média dos três depois das perdas')
+T.equal(Rules.careAverage({}), 0, 'sem ciclo, cuidado 0')
+T.equal(Rules.careAverage({ careSum = 150, careTicks = 2 }), 75, 'média dos ciclos')
+local ready = { growth = 100, health = 90, water = 90, fertilizer = 90, careSum = 10, careTicks = 1 }
+Rules.tick(ready, growth, 100)
+T.equal(ready.careTicks, 1, 'planta pronta não soma mais cuidado')
+
+local order = { 'C', 'B', 'A', 'S' }
+local byCare = { { care = 0, grade = 'C' }, { care = 50, grade = 'B' }, { care = 70, grade = 'A' }, { care = 85, grade = 'S' } }
+T.equal(Rules.gradeFor(byCare, 10), 'C', 'descuido dá C')
+T.equal(Rules.gradeFor(byCare, 50), 'B', 'limiar é inclusivo')
+T.equal(Rules.gradeFor(byCare, 84.9), 'A', 'quase S ainda é A')
+T.equal(Rules.gradeFor(byCare, 100), 'S', 'cuidado máximo dá S')
+T.equal(Rules.minGrade(order, 'S', 'B'), 'B', 'teto corta o grau')
+T.equal(Rules.minGrade(order, 'C', 'A'), 'C', 'teto não sobe o grau')
+T.equal(Rules.gradeRank(order, 'X'), nil, 'grau desconhecido')
+
+local grades = { order = order, default = 'B' }
+T.equal(Rules.slotGrade(grades, { grade = 'A' }), 'A', 'grau do metadata')
+T.equal(Rules.slotGrade(grades, { durability = 1 }), 'B', 'item antigo conta como padrão')
+T.equal(Rules.slotGrade(grades, { grade = 'Z' }), 'B', 'grau inválido conta como padrão')
+T.equal(Rules.slotGrade(grades, nil), 'B', 'sem metadata conta como padrão')
+
+local slots = {
+    { slot = 1, count = 4, metadata = { grade = 'A', durability = 2000 } },
+    { slot = 2, count = 3, metadata = { durability = 1000 } },
+    { slot = 3, count = 5, metadata = { grade = 'A', durability = 1000 } },
+    { slot = 4, count = 2, metadata = { grade = 'C' } },
+}
+local counts = Rules.gradeCounts(grades, slots)
+T.equal(counts.A, 9, 'soma os slots do mesmo grau')
+T.equal(counts.B, 3, 'item antigo soma no padrão')
+T.equal(counts.C, 2, 'grau C')
+T.equal(counts.S, nil, 'grau que não tem fica de fora')
+
+local plan = Rules.pickSlots(grades, slots, 7, 'A')
+T.equal(#plan, 2, 'usa dois slots')
+T.equal(plan[1].slot, 3, 'o que vence antes sai antes')
+T.equal(plan[1].count, 5, 'esvazia o primeiro')
+T.equal(plan[2].slot, 1, 'completa com o próximo')
+T.equal(plan[2].count, 2, 'só o que falta')
+T.equal(plan[2].grade, 'A', 'plano leva o grau')
+T.equal(Rules.pickSlots(grades, slots, 10, 'A'), nil, 'sem o bastante do grau, nada')
+local worst = Rules.pickSlots(grades, slots, 3)
+T.equal(worst[1].slot, 4, 'sem grau pedido, começa pelo pior')
+T.equal(worst[1].count, 2, 'esvazia o C')
+T.equal(worst[2].grade, 'B', 'depois o B')
+
 print('rules_spec ok')

@@ -110,6 +110,14 @@ local function statusMenu(status)
                 colorScheme = 'green',
                 readOnly = true,
             },
+            {
+                title = locale('menu_quality'),
+                description = locale('menu_quality_hint', math.floor(status.care or 0), locale('grade', status.grade or '?')),
+                icon = 'star',
+                progress = status.care or 0,
+                colorScheme = 'yellow',
+                readOnly = true,
+            },
             careOption('herbicide', 'health', 'spray-can'),
             careOption('water', 'water', 'droplet'),
             careOption('fertilizer', 'fertilizer', 'flask'),
@@ -121,8 +129,12 @@ local function statusMenu(status)
                 onSelect = function()
                     local response = Actions.perform('harvest', { id = status.id })
                     if response and response.result then
-                        local label = strain and strain.label or status.seed
-                        Integrations.notify(locale('success_harvest', response.result.amount, label), 'success')
+                        local result = response.result
+                        local label = ('%s · %s'):format(strain and strain.label or status.seed, locale('grade', result.grade))
+                        Integrations.notify(locale('success_harvest', result.amount, label), 'success')
+                        if (result.seeds or 0) > 0 then
+                            Integrations.notify(locale('success_seed_back', result.seeds), 'success')
+                        end
                     end
                 end,
             },
