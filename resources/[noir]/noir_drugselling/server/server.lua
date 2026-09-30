@@ -24,7 +24,9 @@ RegisterServerEvent('op-drugselling:getBackDrugs', function()
     local drugsCf = stolenDrugs[tostring(source)]
     if drugsCf then
         local xPlayer = Fr.getPlayerFromId(source)
-        Fr.addItem(xPlayer, drugsCf.drugName, drugsCf.amount)
+        if not (drugsCf.grade and NoirDrugGrade.give(source, drugsCf.drugName, drugsCf.amount, drugsCf.grade)) then
+            Fr.addItem(xPlayer, drugsCf.drugName, drugsCf.amount)
+        end
         stolenDrugs[tostring(source)] = nil
     end
 end)
@@ -79,20 +81,26 @@ CreateThread(function()
     end
 end)
 
----O ped da negociação, resolvido pelo servidor: existe, é ped, não é jogador, está ao alcance
+---O ped da negociação, resolvido pelo servidor: existe, é ped, não é jogador, está na área
 ---do vendedor e ainda não negociou. Tipo do ped sai do modelo, não do que o cliente diz.
+---Na recusa, o segundo retorno diz qual conferência falhou, para o log.
 local function resolveCustomer(source, netId)
-    if type(netId) ~= 'number' or netId <= 0 then return end
+    if type(netId) ~= 'number' or netId <= 0 then return nil, 'sem netId' end
     local ped = NetworkGetEntityFromNetworkId(netId)
-    if not ped or ped == 0 or not DoesEntityExist(ped) or GetEntityType(ped) ~= 1 then return end
-    if IsPedAPlayer(ped) then return end
+    if not ped or ped == 0 or not DoesEntityExist(ped) then return nil, 'entidade não existe no servidor' end
+    if GetEntityType(ped) ~= 1 then return nil, ('não é ped (tipo %s)'):format(GetEntityType(ped)) end
+    if IsPedAPlayer(ped) then return nil, 'é jogador' end
 
     local at = dealtPeds[ped]
-    if at and os.time() - at <= DEALT_TTL then return end
+    if at and os.time() - at <= DEALT_TTL then return nil, 'já negociou' end
 
-    -- Folga sobre o limite do cliente: a posição que o servidor vê chega com atraso.
-    local maxDistance = (tonumber(Config.DealLimits and Config.DealLimits.MaxDistance) or 3.0) + 2.0
-    if #(GetEntityCoords(GetPlayerPed(source)) - GetEntityCoords(ped)) > maxDistance then return end
+    -- O servidor não sabe onde o ped de rua está de verdade (ver ServerConfig): confere só
+    -- que ele é da área. O alcance da negociação fica no cliente.
+    local maxDistance = tonumber(ServerConfig.CustomerMaxDistance) or 200.0
+    local distance = #(GetEntityCoords(GetPlayerPed(source)) - GetEntityCoords(ped))
+    if distance > maxDistance then
+        return nil, ('longe: %.1f m (máx. %.1f)'):format(distance, maxDistance)
+    end
 
     return ped, Config.PedsList[GetEntityModel(ped)] or 'normal'
 end
@@ -103,9 +111,10 @@ Fr.RegisterServerCallback('op-drugselling:sellDrug', function(source, cb, drugNa
 
     local customer, pedType = resolveCustomer(source, customerNetId)
     if not customer then
+        local reason = pedType
         -- Recusa em vez de erro: o cliente solta o ped e segue para o próximo, como numa
         -- recusa comum. O log fica para medir se ped legítimo cai aqui (ped fora da rede).
-        print(('[op-drugselling] venda recusada, ped inválido: src=%s netId=%s'):format(source, tostring(customerNetId)))
+        print(('[op-drugselling] venda recusada, ped inválido: src=%s netId=%s motivo=%s'):format(source, tostring(customerNetId), tostring(reason)))
         return cb({ refused = true })
     end
 
@@ -142,14 +151,24 @@ Fr.RegisterServerCallback('op-drugselling:sellDrug', function(source, cb, drugNa
     end
     pricePerGram = clamped
 
+    -- A venda sai de um slot só, o de melhor grau (integrations/server/grade.lua); sem a
+    -- ponte, de qualquer slot, como antes.
+    local lot = NoirDrugGrade.pick(source, drugName)
+    local available = lot and lot.count or hasItem.amount
+
     local maxPerPed = cfgDrug.maxAmountPedTransaction or 1
-    local maxCanSell = math.max(1, math.min(hasItem.amount, maxPerPed))
+    local maxCanSell = math.max(1, math.min(available, maxPerPed))
     local amountSell = math.random(1, maxCanSell)
 
     local playerLevel = getDrugLevel(source)
 
-    local multiplier = 1.0 + (GetLevelBoost(playerLevel) / 100.0)
+    local multiplier = (1.0 + (GetLevelBoost(playerLevel) / 100.0)) * NoirDrugGrade.multiplier(lot)
     local finalPrice = math.floor((pricePerGram or 0) * amountSell * multiplier)
+
+    local function takeDrug()
+        if lot then return NoirDrugGrade.remove(source, drugName, amountSell, lot) end
+        return Fr.removeItem(xPlayer, drugName, amountSell) ~= false
+    end
 
     local sellChance, stealChance, refuseChance
 
@@ -171,14 +190,19 @@ Fr.RegisterServerCallback('op-drugselling:sellDrug', function(source, cb, drugNa
     local sellBandEnd  = stealBandEnd + sellChance
 
     if roll <= stealBandEnd then
-        Fr.removeItem(xPlayer, drugName, amountSell)
+        if not takeDrug() then return cb(false) end
         stolenDrugs[tostring(source)] = {
             amount = amountSell,
-            drugName = drugName, 
+            drugName = drugName,
+            grade = lot and lot.graded and lot.grade or nil,
         }
         return cb({ steal = true, amount = amountSell })
     elseif roll <= sellBandEnd then
+        -- A droga sai antes de qualquer efeito (XP, território, dinheiro): se o slot mudou
+        -- desde a leitura, a venda para aqui sem ter dado nada.
+        if not takeDrug() then return cb(false) end
         local label = (cfgDrug.label or drugName)
+        if lot and lot.graded then label = ('%s (%s)'):format(label, lot.grade) end
 
         local isRivalry = false
         local zoneOwner = false
@@ -203,7 +227,6 @@ Fr.RegisterServerCallback('op-drugselling:sellDrug', function(source, cb, drugNa
 
         finalPrice = math.floor(finalPrice)
 
-        Fr.removeItem(xPlayer, drugName, amountSell)
         Fr.ManageDirtyMoney(xPlayer, "add", finalPrice)
 
         NoirDrugTerritory.onSale(source)
@@ -216,6 +239,7 @@ Fr.RegisterServerCallback('op-drugselling:sellDrug', function(source, cb, drugNa
             drug = drugName,
             amount = amountSell,
             price = finalPrice,
+            grade = lot and lot.graded and lot.grade or nil,
             cornerSelling = cornerSelling == true,
         })
 

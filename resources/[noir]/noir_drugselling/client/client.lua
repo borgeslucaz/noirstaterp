@@ -307,7 +307,7 @@ function sellDrugForPedFinalize(drug_name, price)
 
         local pedCfg = Config.PedTypes[pedType]
         local nextCustomerDelay = Config.CornerDealing.SellTimeout
-        if math.random(100) <= Config.DrugSelling.dispatchCallChance then
+        if math.random(100) <= (drugCfg.dispatchCallChance or Config.DrugSelling.dispatchCallChance) then
             if Config.dispatchScript ~= "none" and pedCfg.dispatchCall then
                 sendDispatchAlert(TranslateIt('drugdeal_dispatch_title'), TranslateIt('drugdeal_dispatch_message'), Config.DrugSelling.blipData)
             end
