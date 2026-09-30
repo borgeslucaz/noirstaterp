@@ -291,6 +291,14 @@ Config.Payout = {
     CalmBonusPercent = 35,       -- bônus ao entregar com ar confortável (faixa do passageiro) e sentimento TRANQUILO
 }
 
+-- Táxi largado: o taxista fora do carro e longe dele por este tempo encerra o aluguel e o carro
+-- some (sem reembolso). Compartilhado porque o aviso ao descer mostra a regra.
+Config.Abandon = {
+    Distance = 50.0,     -- metros entre o taxista e o táxi
+    TimeMs = 180000,     -- 3 min longe
+    WarnMs = 60000,      -- aviso quando falta este tempo
+}
+
 -- Central de táxi (ped, blip e vagas do veículo). Atendente, vagas, distâncias e blip são semente do
 -- banco: depois do primeiro start, edite em /editortaxi → Central.
 Config.Depot = {

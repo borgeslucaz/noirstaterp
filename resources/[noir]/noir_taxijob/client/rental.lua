@@ -125,6 +125,16 @@ local function hasVehicleNearby()
     return #(GetEntityCoords(cache.ped) - GetEntityCoords(veh)) <= 10.0
 end
 
+-- Toda vez que o taxista desce do táxi alugado, lembra a regra do táxi largado (server/rental.lua).
+local lastVehicle = cache.vehicle
+lib.onCache('vehicle', function(vehicle)
+    local left = lastVehicle
+    lastVehicle = vehicle
+    if vehicle or not left or not Rental.isRentalVehicle(left) then return end
+    local rule = Config.Abandon
+    Notify('notify.rental_left', 'inform', math.floor(rule.Distance), math.floor(rule.TimeMs / 60000 + 0.5))
+end)
+
 RegisterNetEvent('noir_taxijob:client:rentalEnded', function(reason)
     Rental.clear()
     if not Taxi.is(TAXI_STATE.HIDDEN) then Taxi.deactivateLocal(reason) end

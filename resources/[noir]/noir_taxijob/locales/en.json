@@ -27,7 +27,11 @@
         "rental_returned": "Taxi returned to the depot.",
         "rental_not_near": "Get close to your taxi to return it.",
         "rental_not_yours": "This taxi is not from your rental.",
-        "rental_lost": "Your depot taxi was lost. The rental has ended."
+        "rental_lost": "Your depot taxi was lost. The rental has ended.",
+        "rental_away": "You walked away from your taxi. Return within %s min or it will be sent back to the depot.",
+        "rental_away_warning": "Your taxi will be returned in %s s. Get back to it.",
+        "rental_abandoned": "You left the taxi behind: the rental has ended and the car went back to the depot.",
+        "rental_left": "Stay near your taxi: more than %s m away for %s min and it goes back to the depot."
     },
     "target": {
         "open_central": "Taxi depot",

@@ -31,6 +31,7 @@ ServerConfig = {
         SessionTtlMs = 120000,      -- validade do token da central
         SweepIntervalMs = 30000,    -- varredura de sessões expiradas e alugueis órfãos
         RentalAccount = 'cash',     -- conta cobrada quando rentalFee > 0
+        AbandonCheckMs = 5000,      -- checagem do táxi largado (regra em Config.Abandon)
         -- Denylist opcional de atividade por emprego (desligada por padrão).
         -- Ex.: Denylist = { police = true }
         DenylistEnabled = false,

@@ -27,7 +27,11 @@
         "rental_returned": "Táxi devolvido à central.",
         "rental_not_near": "Aproxime-se do seu táxi para devolvê-lo.",
         "rental_not_yours": "Este táxi não é do seu aluguel.",
-        "rental_lost": "Seu táxi da central foi perdido. O aluguel foi encerrado."
+        "rental_lost": "Seu táxi da central foi perdido. O aluguel foi encerrado.",
+        "rental_away": "Você se afastou do táxi. Volte em até %s min ou ele será devolvido à central.",
+        "rental_away_warning": "Seu táxi será devolvido em %s s. Volte para perto dele.",
+        "rental_abandoned": "Você largou o táxi: o aluguel foi encerrado e o carro voltou para a central.",
+        "rental_left": "Não se afaste do táxi: a mais de %s m por %s min, ele volta para a central."
     },
     "target": {
         "open_central": "Central de táxi",

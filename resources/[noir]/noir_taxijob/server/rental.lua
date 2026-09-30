@@ -228,6 +228,43 @@ CreateThread(function()
     end
 end)
 
+-- Táxi largado (Config.Abandon): o taxista fora do carro, longe dele por tempo demais, encerra o
+-- aluguel, como se tivesse devolvido (sem reembolso). Descer para comprar algo não perde o carro:
+-- voltar para perto dele zera a contagem.
+local function notifyKey(src, key, ntype, ...)
+    Integrations.notify(src, locale(key, ...), ntype)
+end
+
+CreateThread(function()
+    while true do
+        Wait(CC.AbandonCheckMs)
+        local now = Sessions.now()
+        for src, rental in pairs(ActiveRentals) do
+            if rental.state == 'active' then
+                local ped = GetPlayerPed(src)
+                local veh = NetworkGetEntityFromNetworkId(rental.netId)
+                if ped ~= 0 and veh ~= 0 and DoesEntityExist(veh) then
+                    local inside = GetVehiclePedIsIn(ped, false) == veh
+                    local far = not inside and #(GetEntityCoords(ped) - GetEntityCoords(veh)) > Config.Abandon.Distance
+                    if not far then
+                        rental.awaySince, rental.awayWarned = nil, nil
+                    elseif not rental.awaySince then
+                        rental.awaySince = now
+                        notifyKey(src, 'notify.rental_away', 'warning', math.floor(Config.Abandon.TimeMs / 60000 + 0.5))
+                    elseif now - rental.awaySince >= Config.Abandon.TimeMs then
+                        Rental.cleanup(src, 'abandoned')
+                        TriggerClientEvent('noir_taxijob:client:rentalEnded', src, 'abandoned')
+                        notifyKey(src, 'notify.rental_abandoned', 'error')
+                    elseif not rental.awayWarned and now - rental.awaySince >= Config.Abandon.TimeMs - Config.Abandon.WarnMs then
+                        rental.awayWarned = true
+                        notifyKey(src, 'notify.rental_away_warning', 'warning', math.floor(Config.Abandon.WarnMs / 1000 + 0.5))
+                    end
+                end
+            end
+        end
+    end
+end)
+
 ---Avisa o servidor que o veículo quebrou (motor morto) ou foi destruído, detectado no client.
 ---Encerra o trabalho: cancela a corrida, desativa o duty e limpa o aluguel.
 RegisterNetEvent('noir_taxijob:server:vehicleBroken', function()
