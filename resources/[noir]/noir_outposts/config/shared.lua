@@ -197,7 +197,12 @@ return {
 
     -- Catálogo público (labels). Preço e quantidade real ficam server-side.
     products = {
-        { id = 'weed_brick', label = 'Tijolo de maconha' },
+        { id = 'weed_og-kush_brick', label = 'Tijolo de OG Kush' },
+        { id = 'weed_ak47_brick', label = 'Tijolo de AK47' },
+        { id = 'weed_skunk_brick', label = 'Tijolo de Skunk' },
+        { id = 'weed_amnesia_brick', label = 'Tijolo de Amnesia' },
+        { id = 'weed_purple-haze_brick', label = 'Tijolo de Purple Haze' },
+        { id = 'weed_white-widow_brick', label = 'Tijolo de White Widow' },
         { id = 'meth', label = 'Metanfetamina' },
         { id = 'cokebaggy', label = 'Pacote de cocaína' },
     },

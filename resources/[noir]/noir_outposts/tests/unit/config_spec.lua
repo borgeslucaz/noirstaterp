@@ -94,8 +94,20 @@ for index = 1, #shared.products do
 end
 
 -- Venda passiva deve render menos que a venda ativa do op-drugselling ------------------------
--- Referência do op-drugselling: weed_brick 50-100, meth 150-250, cokebaggy 450-700.
-local activeFloor = { weed_brick = 50, meth = 150, cokebaggy = 450 }
+-- Tijolo de maconha: abaixo do mínimo da rua (435 / 625 / 805 por semente). Meth e coca:
+-- perto do piso da rua (150-250 e 450-700).
+local streetBrickFloor = {
+    ['weed_og-kush_brick'] = 435, ['weed_ak47_brick'] = 435,
+    ['weed_skunk_brick'] = 625, ['weed_amnesia_brick'] = 625,
+    ['weed_purple-haze_brick'] = 805, ['weed_white-widow_brick'] = 805,
+}
+for id, floorPrice in pairs(streetBrickFloor) do
+    local rule = server.products[id]
+    assert(rule, id .. ' needs a passive price')
+    assert(rule.unitPrice < floorPrice, id .. ' passive price must stay below the street minimum')
+end
+
+local activeFloor = { meth = 150, cokebaggy = 450 }
 for id, floorPrice in pairs(activeFloor) do
     local rule = server.products[id]
     if rule then

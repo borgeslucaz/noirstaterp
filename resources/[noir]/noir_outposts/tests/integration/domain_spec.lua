@@ -798,22 +798,22 @@ T.equal(State.dealerModel({ profile_key = 'smokey' }), 'g_m_y_famdnf_01', 'a run
 
 -- Depósito -----------------------------------------------------------------------------------------
 
-players[2].inventory.weed_brick = 50
+players[2].inventory['weed_skunk_brick'] = 50
 
 resetRateLimits()
-local deposit = Services.Stock.deposit(member, OUTPOST, 'weed_brick', 20, 'req-dep-00001')
+local deposit = Services.Stock.deposit(member, OUTPOST, 'weed_skunk_brick', 20, 'req-dep-00001')
 T.equal(deposit.ok, true, 'member deposits stock')
-T.equal(players[2].inventory.weed_brick, 30, 'exactly the deposited items were removed')
-T.equal(db.stock[OUTPOST].weed_brick, 20, 'stock increased by the deposit')
+T.equal(players[2].inventory['weed_skunk_brick'], 30, 'exactly the deposited items were removed')
+T.equal(db.stock[OUTPOST]['weed_skunk_brick'], 20, 'stock increased by the deposit')
 
 resetRateLimits()
-local depositReplay = Services.Stock.deposit(member, OUTPOST, 'weed_brick', 20, 'req-dep-00001')
+local depositReplay = Services.Stock.deposit(member, OUTPOST, 'weed_skunk_brick', 20, 'req-dep-00001')
 T.equal(depositReplay.ok, false, 'replayed deposit is refused')
 T.equal(depositReplay.code, 'already_processed', 'replayed deposit code')
-T.equal(players[2].inventory.weed_brick, 30, 'replay did not remove items again')
+T.equal(players[2].inventory['weed_skunk_brick'], 30, 'replay did not remove items again')
 
 resetRateLimits()
-local tooMuch = Services.Stock.deposit(member, OUTPOST, 'weed_brick', 500, 'req-dep-00002')
+local tooMuch = Services.Stock.deposit(member, OUTPOST, 'weed_skunk_brick', 500, 'req-dep-00002')
 T.equal(tooMuch.ok, false, 'oversized deposit refused')
 T.equal(tooMuch.code, 'amount_too_large', 'oversized deposit code')
 
@@ -826,17 +826,17 @@ T.equal(missing.code, 'not_enough_items', 'missing item code')
 local realDeposit = N.Repositories.Stock.deposit
 N.Repositories.Stock.deposit = function() return false end
 resetRateLimits()
-local compensated = Services.Stock.deposit(member, OUTPOST, 'weed_brick', 10, 'req-dep-00004')
+local compensated = Services.Stock.deposit(member, OUTPOST, 'weed_skunk_brick', 10, 'req-dep-00004')
 N.Repositories.Stock.deposit = realDeposit
 T.equal(compensated.ok, false, 'failed deposit reports an error')
 T.equal(compensated.code, 'stock_full', 'failed deposit code')
-T.equal(players[2].inventory.weed_brick, 30, 'inventory compensated after the failure')
-T.equal(db.stock[OUTPOST].weed_brick, 20, 'stock unchanged after the failure')
+T.equal(players[2].inventory['weed_skunk_brick'], 30, 'inventory compensated after the failure')
+T.equal(db.stock[OUTPOST]['weed_skunk_brick'], 20, 'stock unchanged after the failure')
 
 -- Venda passiva ---------------------------------------------------------------------------------------
 
 local dealer = State.dealer(dealerId)
-local stockBefore = db.stock[OUTPOST].weed_brick
+local stockBefore = db.stock[OUTPOST]['weed_skunk_brick']
 local sold, reason = Services.Sale.process(dealer)
 T.equal(sold, true, 'dealer sells from the stock: ' .. tostring(reason))
 local saleEvent = lastServerEvent('noir_outposts:server:saleCommitted')
@@ -846,8 +846,8 @@ T.equal(saleEvent.dealerId, dealerId, 'sale event carries the dealer')
 T.truthy(saleEvent.operationId and saleEvent.operationId ~= claimEvent.operationId,
     'sale event carries its own operation id')
 T.truthy(saleEvent.quantity > 0 and saleEvent.item ~= nil, 'sale event carries what was sold')
-T.truthy(db.stock[OUTPOST].weed_brick < stockBefore, 'stock decreased after the sale')
-T.truthy(db.stock[OUTPOST].weed_brick >= 0, 'stock never goes negative')
+T.truthy(db.stock[OUTPOST]['weed_skunk_brick'] < stockBefore, 'stock decreased after the sale')
+T.truthy(db.stock[OUTPOST]['weed_skunk_brick'] >= 0, 'stock never goes negative')
 T.truthy(db.outposts[OUTPOST].purse_available > 0, 'purse received the net amount')
 
 local saleOperation
@@ -860,7 +860,7 @@ T.truthy(saleOperation.net < saleOperation.gross, 'the dealer keeps a commission
 T.equal(N.Services.Notification.sales, 1, 'the sale was queued for notification')
 
 -- Estoque zerado não gera dinheiro.
-db.stock[OUTPOST].weed_brick = 0
+db.stock[OUTPOST]['weed_skunk_brick'] = 0
 State.reload(OUTPOST)
 local purseBefore = db.outposts[OUTPOST].purse_available
 local emptySold, emptyReason = Services.Sale.process(State.dealer(dealerId))
@@ -869,7 +869,7 @@ T.equal(emptyReason, 'no_stock', 'empty stock reason')
 T.equal(db.outposts[OUTPOST].purse_available, purseBefore, 'purse unchanged without stock')
 
 -- Owner expirado não vende.
-db.stock[OUTPOST].weed_brick = 50
+db.stock[OUTPOST]['weed_skunk_brick'] = 50
 db.outposts[OUTPOST].expires_at = os.time() - 10
 State.reload(OUTPOST)
 local expiredSold, expiredReason = Services.Sale.process(State.dealer(dealerId))
@@ -920,7 +920,7 @@ T.equal(db.outposts[OUTPOST].purse_pending, 0, 'no pending amount left behind')
 
 -- Roubo ---------------------------------------------------------------------------------------------------
 
-db.stock[OUTPOST].weed_brick = 100
+db.stock[OUTPOST]['weed_skunk_brick'] = 100
 State.reload(OUTPOST)
 local netId = dealerId * 1000
 
@@ -1416,7 +1416,7 @@ end
 T.truthy(downOperation, 'the takedown was written to the ledger')
 T.equal(downOperation.dealerId, 2, 'ledger points at the runner')
 
-db.stock[OUTPOST].weed_brick = 50
+db.stock[OUTPOST]['weed_skunk_brick'] = 50
 State.reload(OUTPOST)
 local downSold, downReason = Services.Sale.process(State.dealer(2))
 T.equal(downSold, false, 'a downed runner stops selling')
@@ -1525,7 +1525,7 @@ T.equal(Security.consumeRateLimit(1, 'deposit'), true, 'rate limit clears after 
 
 pedCoords[2 * 10] = vector3(computer.x + 50.0, computer.y, computer.z)
 resetRateLimits()
-local farDeposit = Services.Stock.deposit(member, OUTPOST, 'weed_brick', 5, 'req-dep-00010')
+local farDeposit = Services.Stock.deposit(member, OUTPOST, 'weed_skunk_brick', 5, 'req-dep-00010')
 T.equal(farDeposit.ok, false, 'a distant player cannot deposit')
 T.equal(farDeposit.code, 'too_far', 'distance check code')
 
@@ -1539,7 +1539,7 @@ T.equal(Security.expectedBucket('nao_existe'), 0, 'an unknown outpost falls back
 pedCoords[2 * 10] = vector3(computer.x, computer.y, computer.z)
 playerBuckets[2] = 9999
 resetRateLimits()
-local otherBucketDeposit = Services.Stock.deposit(member, OUTPOST, 'weed_brick', 5, 'req-dep-00011')
+local otherBucketDeposit = Services.Stock.deposit(member, OUTPOST, 'weed_skunk_brick', 5, 'req-dep-00011')
 T.equal(otherBucketDeposit.ok, false, 'another instance cannot deposit')
 T.equal(otherBucketDeposit.code, 'invalid_bucket', 'deposit bucket check code')
 
@@ -1560,7 +1560,7 @@ playerBuckets[1] = nil
 playerBuckets[2] = nil
 pedCoords[1 * 10] = vector3(computer.x, computer.y, computer.z)
 resetRateLimits()
-local sameBucketDeposit = Services.Stock.deposit(member, OUTPOST, 'weed_brick', 5, 'req-dep-00012')
+local sameBucketDeposit = Services.Stock.deposit(member, OUTPOST, 'weed_skunk_brick', 5, 'req-dep-00012')
 T.equal(sameBucketDeposit.ok, true, 'the same deposit passes from the shared world')
 
 -- Feed de notificações --------------------------------------------------------------------------

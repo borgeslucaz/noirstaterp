@@ -53,10 +53,33 @@ return {
         capacityLotDivisor = 20,
     },
 
-    -- Valores iniciais; calibrar junto com op-drugselling. Passivo rende menos por unidade.
+    -- Valores iniciais; calibrar junto com op-drugselling. Passivo rende menos por unidade: o
+    -- tijolo de maconha paga menos aqui que o mínimo da venda na rua (é seguro e sem esforço).
+    -- Já conta a lavagem de ~25% do dinheiro sujo. Semente 1 = OG Kush e AK47, 2 = Skunk e
+    -- Amnesia, 3 = Purple Haze e White Widow.
     products = {
-        weed_brick = {
-            unitPrice = 55,
+        ['weed_og-kush_brick'] = {
+            unitPrice = 335,
+            quantity = { min = 1, max = 2 },
+        },
+        ['weed_ak47_brick'] = {
+            unitPrice = 335,
+            quantity = { min = 1, max = 2 },
+        },
+        ['weed_skunk_brick'] = {
+            unitPrice = 460,
+            quantity = { min = 1, max = 2 },
+        },
+        ['weed_amnesia_brick'] = {
+            unitPrice = 460,
+            quantity = { min = 1, max = 2 },
+        },
+        ['weed_purple-haze_brick'] = {
+            unitPrice = 600,
+            quantity = { min = 1, max = 2 },
+        },
+        ['weed_white-widow_brick'] = {
+            unitPrice = 600,
             quantity = { min = 1, max = 2 },
         },
         meth = {
