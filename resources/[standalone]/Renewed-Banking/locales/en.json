@@ -90,5 +90,18 @@
     "trans_not_found": "No transactions found",
     "export_data": "Export Transaction Data",
     "account_search": "Account Search...",
-    "account_not_found": "No accounts found"
+    "account_not_found": "No accounts found",
+    "invoice_new": "New invoice from %s: $%s",
+    "invoice_new_fine": "You received a fine from %s: $%s. Pay at the bank or in the Invoices app.",
+    "invoice_paid": "Invoice paid: $%s",
+    "fines_block": "You have unpaid fines ($%s). Pay them before withdrawing or transferring.",
+    "invoice_insufficient_funds": "Not enough balance to pay the invoice",
+    "invoice_invoice_not_found": "Invoice not found",
+    "invoice_invoice_already_paid": "This invoice is already paid",
+    "invoice_invoice_not_payable": "This invoice cannot be paid",
+    "invoice_payment_in_progress": "Payment in progress",
+    "invoice_invalid_account": "Invalid destination account",
+    "invoice_not_ready": "Bank still loading",
+    "invoice_invalid_player": "Invalid player",
+    "invoice_failed": "Could not pay"
 }

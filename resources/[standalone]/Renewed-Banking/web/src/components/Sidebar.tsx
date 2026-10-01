@@ -23,6 +23,8 @@ interface SidebarProps {
     scheduledEnabled?: boolean
     loansEnabled?: boolean
     cardsEnabled?: boolean
+    /** Faturas em aberto na conta pessoal; aparece como contador ao lado da aba. */
+    invoiceCount?: number
 }
 
 /**
@@ -37,7 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     activeTab, setActiveTab, onClose, currentBank, currentBankType,
     bankManagementEnabled, directDebitsEnabled, checksEnabled,
     transferRequestsEnabled, contactsEnabled,
-    savingsEnabled, scheduledEnabled, loansEnabled, cardsEnabled,
+    savingsEnabled, scheduledEnabled, loansEnabled, cardsEnabled, invoiceCount = 0,
 }) => {
     const { t } = useLocale()
 
@@ -51,10 +53,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     : undefined
             : t("sidebar.bankSubtitle")
 
-    const menuItems = [
+    const menuItems: Array<{ id: string; label: string; icon: React.ReactNode; count?: number }> = [
         { id: "accounts", label: t("sidebar.accounts"), icon: <Wallet size={18} /> },
         ...(cardsEnabled ? [{ id: "cards", label: t("sidebar.cards"), icon: <CreditCard size={18} /> }] : []),
         { id: "transactions", label: t("sidebar.transactions"), icon: <History size={18} /> },
+        { id: "invoices", label: t("sidebar.invoices"), icon: <Receipt size={18} />, count: invoiceCount },
         ...(loansEnabled ? [{ id: "loans", label: t("sidebar.loans"), icon: <Banknote size={18} /> }] : []),
         ...(savingsEnabled ? [{ id: "savings", label: t("sidebar.savings"), icon: <PiggyBank size={18} /> }] : []),
         ...(scheduledEnabled ? [{ id: "scheduled", label: t("sidebar.scheduled"), icon: <Repeat size={18} /> }] : []),
@@ -127,7 +130,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             className="nav-rail__item"
                         >
                             <span className="shrink-0 grid place-items-center">{item.icon}</span>
-                            <span className="truncate">{item.label}</span>
+                            <span className="truncate flex-1 text-left">{item.label}</span>
+                            {item.count ? (
+                                <span className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full grid place-items-center text-[11px] font-bold"
+                                      style={{ background: "var(--noir-danger)", color: "#fff" }}>
+                                    {item.count}
+                                </span>
+                            ) : null}
                         </button>
                     )
                 })}

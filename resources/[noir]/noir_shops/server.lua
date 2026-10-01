@@ -46,7 +46,11 @@ end
 local Log = {}
 
 function Log.Send(title, message, color, plainMsg)
-    if Config.LogType == 'discord' and Config.WebhookURL ~= '' then
+    if Config.LogType == 'ox' then
+        -- lib.logger manda para o provider do ox:logger (hoje fivemanage).
+        local cleanMsg = plainMsg or string.gsub(string.gsub(message, "%*%*", ""), "\n+", " | ")
+        lib.logger(0, 'noir_shops', ('%s | %s'):format(title, cleanMsg))
+    elseif Config.LogType == 'discord' and Config.WebhookURL ~= '' then
         local embed = {
             {
                 ["color"] = color or 16711680,
@@ -93,6 +97,14 @@ local function GetInventorySystem()
     return InventorySystem
 end
 
+-- Quantidade do item que o jogador já carrega (limite de posse do arsenal).
+local function InventoryItemCount(src, itemName)
+    if GetInventorySystem() == 'ox_inventory' then
+        return tonumber(exports.ox_inventory:Search(src, 'count', itemName)) or 0
+    end
+    return 0
+end
+
 -- Returns true if the player can carry the item. Falls back to true if no check is available.
 local function InventoryCanCarry(src, itemName, qty, xPlayer)
     local inv = GetInventorySystem()
@@ -106,12 +118,43 @@ local function InventoryCanCarry(src, itemName, qty, xPlayer)
     return true -- no pre-check available for this inventory, assume can carry
 end
 
+-- noir: arma comprada em loja civil entra no registro de armas do ps-mdt (dono = quem
+-- comprou, serial = o que o ox gerou). Arsenal da polícia (DutyRequired) fica de fora.
+local function RegisterBoughtWeapon(src, itemName, slotData, shop)
+    if not shop or shop.DutyRequired then return end
+    if type(itemName) ~= 'string' or not itemName:upper():find('^WEAPON_') then return end
+    if type(slotData) ~= 'table' or GetResourceState('ps-mdt') ~= 'started' or GetResourceState('bgrz_core') ~= 'started' then return end
+    local cid = exports.bgrz_core:GetCitizenId(src)
+    if not cid then return end
+    -- O ox devolve o slot direto ou, para item que não empilha (arma), a lista de slots criados.
+    local slots = slotData.metadata and { slotData } or slotData
+    for _, slot in ipairs(slots) do
+        local serial = type(slot) == 'table' and slot.metadata and slot.metadata.serial
+        if serial then
+            local ok, err = pcall(exports['ps-mdt'].registerWeapon, exports['ps-mdt'], cid, itemName, serial,
+                ('Comprada em %s'):format(shop.label or shop.name or 'loja'))
+            if not ok then print('^1[noir_shops] registro da arma no ps-mdt falhou: ' .. tostring(err) .. '^0') end
+        end
+    end
+end
+
 -- Adds item to inventory with optional metadata
 -- 'player' = QBCore/QBox player object, 'xPlayer' = ESX player object
-local function InventoryAddItem(src, itemName, qty, metadata, player, xPlayer)
+local function InventoryAddItem(src, itemName, qty, metadata, player, xPlayer, shop)
     local inv = GetInventorySystem()
     if inv == 'ox_inventory' then
-        exports.ox_inventory:AddItem(src, itemName, qty, metadata)
+        -- Item que não empilha (arma, container) sai um por chamada: numa chamada só com
+        -- quantidade > 1, o ox copia o mesmo metadata (serial, container, id) para todos.
+        local data = exports.ox_inventory:Items(itemName)
+        if qty > 1 and data and data.stack == false then
+            for _ = 1, qty do
+                local ok, slotData = exports.ox_inventory:AddItem(src, itemName, 1, metadata)
+                if ok then RegisterBoughtWeapon(src, itemName, slotData, shop) end
+            end
+            return true
+        end
+        local ok, slotData = exports.ox_inventory:AddItem(src, itemName, qty, metadata)
+        if ok then RegisterBoughtWeapon(src, itemName, slotData, shop) end
         return true
     elseif inv == 'qs-inventory' then
         local ok = exports['qs-inventory']:AddItem(src, itemName, qty, metadata)
@@ -399,6 +442,7 @@ RegisterNetEvent('noir_shops:server:checkoutCart', function(shopId, cart, paymen
     local PlayerJobName = 'unemployed'
     local PlayerJobGrade = 0
     local PlayerGangName = 'none'
+    local PlayerOnDuty = false
 
     if Framework == 'esx' then
         local xPlayer = ESX.GetPlayerFromId(src)
@@ -419,6 +463,7 @@ RegisterNetEvent('noir_shops:server:checkoutCart', function(shopId, cart, paymen
             PlayerJobName = Player.PlayerData.job.name
             PlayerJobGrade = GetGradeValue(Player.PlayerData.job)
             PlayerGangName = Player.PlayerData.gang and Player.PlayerData.gang.name or 'none'
+            PlayerOnDuty = Player.PlayerData.job.onduty == true
         end
     end
 
@@ -428,10 +473,17 @@ RegisterNetEvent('noir_shops:server:checkoutCart', function(shopId, cart, paymen
             return
     end
 
+    -- Loja de serviço (arsenal): fora de serviço não retira nada.
+    if shop.DutyRequired and not PlayerOnDuty then
+        TriggerClientEvent('noir_shops:client:notify', src, _U('duty_required'), 'error', shop.name)
+        return
+    end
+
     local totalCost = 0
     local validatedItems = {}
     local hasLicenseFailure = false
     local missingLicenseLabel = nil
+    local heldLimitHit = nil
 
     for _, cartItem in ipairs(cart) do
         local itemData = nil
@@ -456,9 +508,20 @@ RegisterNetEvent('noir_shops:server:checkoutCart', function(shopId, cart, paymen
                     local maxQ = itemData.maxQty or 999
                     if pQty > maxQ then pQty = maxQ end
 
-                    local actualPrice = shop.DynamicPricing and GetDynamicPrice(shopId, itemData.name, itemData.price) or itemData.price
-                    totalCost = totalCost + (actualPrice * pQty)
-                    table.insert(validatedItems, { name = itemData.name, label = itemData.label, qty = pQty, price = actualPrice, metadata = itemData.metadata, license = itemData.license })
+                    -- Limite de posse: com item de graça, o maxQty por carrinho não segura
+                    -- quem repete o checkout. Conta o que o jogador já carrega.
+                    if itemData.maxHeld then
+                        local held = InventoryItemCount(src, itemData.name)
+                        local allowed = itemData.maxHeld - held
+                        if allowed < pQty then pQty = allowed end
+                        if pQty <= 0 then heldLimitHit = itemData.label or itemData.name end
+                    end
+
+                    if pQty > 0 then
+                        local actualPrice = shop.DynamicPricing and GetDynamicPrice(shopId, itemData.name, itemData.price) or itemData.price
+                        totalCost = totalCost + (actualPrice * pQty)
+                        table.insert(validatedItems, { name = itemData.name, label = itemData.label, qty = pQty, price = actualPrice, metadata = itemData.metadata, license = itemData.license })
+                    end
                 end
             else
                 Log.Send("Grade Restricted", "Player " .. GetPlayerName(src) .. " tried to buy ["..itemData.name.."] but lacks grade "..tostring(reqGrade)..".", 16711680)
@@ -466,11 +529,23 @@ RegisterNetEvent('noir_shops:server:checkoutCart', function(shopId, cart, paymen
         end
     end
 
+    if heldLimitHit and #validatedItems == 0 then
+        TriggerClientEvent('noir_shops:client:notify', src, _U('held_limit', heldLimitHit), 'error', shop.name)
+        return
+    end
+
     if hasLicenseFailure then
         TriggerClientEvent('noir_shops:client:notify', src, _U('no_license', missingLicenseLabel or '?'), 'error', shop.name)
     end
 
-    if totalCost <= 0 or #validatedItems == 0 then return end
+    -- Total zero é válido: o arsenal da polícia não cobra. Só não há o que entregar
+    -- quando nenhum item passou na validação (e aí o jogador precisa saber).
+    if #validatedItems == 0 then
+        if not heldLimitHit and not hasLicenseFailure then
+            TriggerClientEvent('noir_shops:client:notify', src, _U('nothing_to_checkout'), 'error', shop.name)
+        end
+        return
+    end
 
     local success = false
 
@@ -492,7 +567,7 @@ RegisterNetEvent('noir_shops:server:checkoutCart', function(shopId, cart, paymen
                 local refundedCost = 0
                 xPlayer.removeAccountMoney(account, totalCost)
                 for _, item in ipairs(validatedItems) do
-                    if InventoryAddItem(src, item.name, item.qty, item.metadata, nil, xPlayer) then
+                    if InventoryAddItem(src, item.name, item.qty, item.metadata, nil, xPlayer, shop) then
                         table.insert(successfulItems, item)
                     else
                         refundedCost = refundedCost + (item.price * item.qty)
@@ -538,7 +613,7 @@ RegisterNetEvent('noir_shops:server:checkoutCart', function(shopId, cart, paymen
                 if canCarryAll then
                     Player.Functions.RemoveMoney(paymentType, totalCost, "smartshop-checkout")
                     for _, item in ipairs(validatedItems) do
-                        InventoryAddItem(src, item.name, item.qty, item.metadata, Player, nil)
+                        InventoryAddItem(src, item.name, item.qty, item.metadata, Player, nil, shop)
                     end
                     success = true
                 else
@@ -551,7 +626,7 @@ RegisterNetEvent('noir_shops:server:checkoutCart', function(shopId, cart, paymen
                 local refundedCost = 0
 
                 for _, item in ipairs(validatedItems) do
-                    if InventoryAddItem(src, item.name, item.qty, item.metadata, Player, nil) then
+                    if InventoryAddItem(src, item.name, item.qty, item.metadata, Player, nil, shop) then
                         table.insert(successfulItems, item)
                         TriggerClientEvent('inventory:client:ItemBox', src, QBCore.Shared.Items[item.name], "add", item.qty)
                     else
@@ -595,11 +670,11 @@ RegisterNetEvent('noir_shops:server:checkoutCart', function(shopId, cart, paymen
 
             if not canCarryAll then
                 TriggerClientEvent('noir_shops:client:notify', src, _U('inventory_full'), 'error', shop.name)
-            elseif not Player.Functions.RemoveMoney(paymentType, totalCost, "smartshop-checkout") then
+            elseif totalCost > 0 and not Player.Functions.RemoveMoney(paymentType, totalCost, "smartshop-checkout") then
                 TriggerClientEvent('noir_shops:client:notify', src, _U('not_enough_money'), 'error', shop.name)
             else
                 for _, item in ipairs(validatedItems) do
-                    InventoryAddItem(src, item.name, item.qty, item.metadata, Player, nil)
+                    InventoryAddItem(src, item.name, item.qty, item.metadata, Player, nil, shop)
                 end
                 success = true
             end
@@ -1089,6 +1164,23 @@ RegisterNetEvent('noir_shops:server:saveShop', function(shopId, shopData)
     if not shopId or not shopData then return end
 
     shopData = DeserializeVectors(shopData)
+
+    -- A tela do editor não conhece os campos do arsenal (noir_police). Mantém o que a
+    -- loja já tinha: sem isso, reposicionar o arsenal apagaria a exigência de serviço, o
+    -- limite de posse e o registro/serial das armas.
+    local previous = Config.Shops[shopId]
+    if previous then
+        if shopData.DutyRequired == nil then shopData.DutyRequired = previous.DutyRequired end
+        local byName = {}
+        for _, item in ipairs(previous.items or {}) do byName[item.name] = item end
+        for _, item in ipairs(shopData.items or {}) do
+            local old = byName[item.name]
+            if old then
+                if item.maxHeld == nil then item.maxHeld = old.maxHeld end
+                if item.metadata == nil then item.metadata = old.metadata end
+            end
+        end
+    end
 
     if ConfigShopIds[shopId] then
         shopData._override = true

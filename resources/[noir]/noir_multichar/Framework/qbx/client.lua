@@ -6,8 +6,9 @@ option = {}
 
 
 GetPlayerCharactersArray = function()
-    local characters, amount = lib.callback.await('qbx_core:server:getCharacters')
-    local maxslots = GetPlayerMaxSlots('src') 
+    -- Quem recusa a criação acima do limite é o qbx_core; mostrar mais vagas do que ele aceita
+    -- deixava um slot vazio que travava a tela ao criar.
+    local characters, maxslots = lib.callback.await('qbx_core:server:getCharacters')
 
     option = {}
 
@@ -185,7 +186,14 @@ Createcharacter = function(payload)
     })
 
     if not newData then
+        -- A cena de criação já foi desmontada: remonta a seleção em vez de clarear sobre o nada.
+        lib.notify({ description = 'Não foi possível criar o personagem.', type = 'error' })
+        local option = GetPlayerCharactersArray()
+        CreateCamScene(option[1])
         DoScreenFadeIn(500)
+        Nuimessage('characterselection', option)
+        Nuimessage('visible', true)
+        Nuicontrol(true)
         return
     end
 

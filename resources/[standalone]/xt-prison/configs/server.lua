@@ -21,6 +21,8 @@ return {
     PoliceJobs = {                              -- Police jobs
         'police',
         'lspd',
+        'bcso',
+        'sasp',
     },
 
     Lifers = {                                  -- Lifer identifiers

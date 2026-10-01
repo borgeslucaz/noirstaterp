@@ -189,7 +189,7 @@ RegisterNetEvent('radialmenu:client:deadradial', function(isDead)
             icon = 'circle-exclamation',
             onSelect = function()
                 if ispolice then
-                    TriggerEvent('police:client:SendPoliceEmergencyAlert')
+                    TriggerEvent('noir_police:client:officerDown')
                 elseif isems then
                     TriggerServerEvent('hospital:server:emergencyAlert')
                 end

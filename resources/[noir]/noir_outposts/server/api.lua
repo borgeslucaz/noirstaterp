@@ -56,12 +56,13 @@ function Api.buildPanelSnapshot(source, outpostId)
     if not atComputer then return nil, placeError end
 
     local permissions = Security.permissionMap(actor)
-    local online, police, cooldownUntil = Services.Claim.requirements(actor)
+    local online, police, cooldownUntil, minPolice = Services.Claim.requirements(actor)
     local isOwner = Security.isOwner(actor, entry.row)
 
     return State.panelSnapshot(entry, actor, permissions, {
         online = online,
         police = police,
+        minPolice = minPolice,
         cooldownUntil = cooldownUntil,
         carried = isOwner and permissions.stock and Services.Stock.carriedProducts(source) or nil,
         history = isOwner and permissions.view

@@ -22,7 +22,8 @@ client_scripts {
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
     'server/framework.lua',
-    'server/main.lua'
+    'server/main.lua',
+    'server/invoices.lua', -- PATCH NOIR: faturas e multas (usa NoirBankInternal do main)
 }
 
 ui_page 'web/public/index.html'

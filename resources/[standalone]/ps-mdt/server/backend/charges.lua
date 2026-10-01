@@ -81,16 +81,9 @@ ps.registerCallback(resourceName .. ':server:processFine', function(source, payl
         return { success = false, message = 'Fine processing on cooldown' }
     end
 
-    -- Try to get online player first
-    local Player = ps.getPlayerByIdentifier(citizenId)
-    if not Player then
-        return { success = false, message = 'Player must be online to process fine' }
-    end
-
-    -- Remove money from bank
-    local removed = ps.removeMoney(Player.source or Player.PlayerData.source, 'bank', fine, 'mdt-fine')
+    -- PATCH NOIR: vira multa pendente no banco (server/noir_fines.lua); não precisa estar online.
+    local removed, err = NoirIssueMdtFine(src, citizenId, fine, reportId)
     if removed then
-        ps.notify(Player.source or Player.PlayerData.source, '$' .. fine .. ' fine deducted from your bank account', 'error')
 
         -- Anti-spam cooldown
         fineCooldowns[src] = os.time() * 1000
@@ -104,9 +97,9 @@ ps.registerCallback(resourceName .. ':server:processFine', function(source, payl
             })
         end
 
-        return { success = true, message = 'Fine of $' .. fine .. ' processed' }
+        return { success = true, message = 'Multa de $' .. fine .. ' registrada no banco' }
     else
-        return { success = false, message = 'Failed to remove money - insufficient funds?' }
+        return { success = false, message = err }
     end
 end)
 

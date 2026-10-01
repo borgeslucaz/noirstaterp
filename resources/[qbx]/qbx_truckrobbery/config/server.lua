@@ -1,5 +1,5 @@
 return {
-    numRequiredPolice = 0, -- Minimum required police to activate mission
+    -- O mínimo de policiais é da tabela pública do noir_scoreboard (`truckrobbery`).
     activationCost = 500, -- How much is the activation of the mission (clean from the bank)
     missionCooldown = 2700 * 1000, -- Timer every how many missions you can do, default is 600 seconds
 

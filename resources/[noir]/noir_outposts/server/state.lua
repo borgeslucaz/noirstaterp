@@ -297,7 +297,7 @@ function State.panelSnapshot(entry, actor, permissions, extra)
                 and (extra.cooldownUntil or 0) <= now,
             requirements = {
                 minOnlinePlayers = config.claim.minOnlinePlayers,
-                minPolice = config.claim.minPolice,
+                minPolice = extra.minPolice or '?',
                 online = extra.online or 0,
                 police = extra.police or 0,
                 cooldownUntil = extra.cooldownUntil,

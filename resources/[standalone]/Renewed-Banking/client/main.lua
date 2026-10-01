@@ -66,7 +66,8 @@ end)
 
 RegisterCommand('closeBankUI', function() nuiHandler(false) end, false)
 
-local bankActions = {'deposit', 'withdraw', 'transfer'}
+-- PATCH NOIR: payInvoice paga fatura/multa (server/invoices.lua) e devolve as contas atualizadas.
+local bankActions = {'deposit', 'withdraw', 'transfer', 'payInvoice'}
 CreateThread(function ()
     for k=1, #bankActions do
         RegisterNUICallback(bankActions[k], function(data, cb)

@@ -8,14 +8,14 @@ BGRZConfig = {
         target = 'ox_target',
         phone = 'sd-phone',
         dispatch = 'sd-phone',
-        dispatchFallback = 'qbx_police',
+        dispatchFallback = 'noir_police',
     },
 }
 local states = {
     ox_inventory = 'started',
     ox_target = 'started',
     ['sd-phone'] = 'stopped',
-    qbx_police = 'started',
+    noir_police = 'started',
 }
 exports = T.exports()
 GetResourceState = function(resource) return states[resource] or 'missing' end
@@ -31,7 +31,7 @@ T.equal(capabilities.inventory.maxItemAmount, 100000, 'inventory operation limit
 T.equal(capabilities.target.available, true, 'target available')
 T.equal(capabilities.phone.available, false, 'optional phone unavailable')
 T.equal(capabilities.dispatch.available, true, 'dispatch fallback available')
-T.equal(capabilities.dispatch.provider, 'qbx_police', 'dispatch fallback selected')
+T.equal(capabilities.dispatch.provider, 'noir_police', 'dispatch fallback selected')
 
 capabilities.inventory.available = false
 T.equal(BGRZ.GetCapabilities().inventory.available, true, 'capabilities are fresh values')

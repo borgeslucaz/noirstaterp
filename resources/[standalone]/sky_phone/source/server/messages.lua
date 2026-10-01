@@ -643,4 +643,64 @@ Bridge.Callbacks.Register("sky_phone:messages:send", function(source, data)
     return { success = true, data = message }
 end)
 
+-- PATCH NOIR: SMS de sistema pela linha de serviço de uma empresa (ex.: a polícia avisando
+-- que os pertences foram liberados). Sai do número da linha (911 da LSPD), fica salvo na
+-- conversa e chega mesmo com o destinatário offline: vai para os chips registrados no nome
+-- dele. Servidor apenas (export); o cliente não chama.
+---@param company_id string id da empresa em Config.Companies.Definitions (ex.: "police")
+---@param recipient { identifier?: string, phoneNumber?: string, source?: number }
+---@param body string
+---@return integer? sent quantos chips receberam
+---@return string? error_code
+local function send_service_message(company_id, recipient, body)
+    local line = SkyPhoneCompanies.GetServiceLineForCompany(company_id)
+    if not line then
+        return nil, "invalid_company"
+    end
+    body = trim(body)
+    if not body or body == "" or #body > Config.Messages.BodyMaxLength then
+        return nil, "invalid_message"
+    end
+    if type(recipient) ~= "table" then
+        return nil, "invalid_recipient"
+    end
+
+    local sims
+    if type(recipient.identifier) == "string" and recipient.identifier ~= "" then
+        sims = Bridge.Database.Query([[
+            SELECT `id`, `phone_number` FROM `sky_phone_sims`
+            WHERE `owner_identifier` = ? AND `sim_type` = 'registered'
+        ]], { recipient.identifier })
+    else
+        local number = recipient.phoneNumber
+        if not number and tonumber(recipient.source) then
+            number = SkyPhone.GetEquippedPhoneNumber(tonumber(recipient.source))
+        end
+        number = SkyPhoneSimNumber.Normalize(number, Config.Sim.NumberLength, Config.Sim.NumberPrefix)
+        if not number then
+            return nil, "invalid_recipient"
+        end
+        sims = Bridge.Database.Query("SELECT `id`, `phone_number` FROM `sky_phone_sims` WHERE `phone_number` = ? LIMIT 1", { number })
+    end
+    if not sims or not sims[1] then
+        return 0, "no_sim"
+    end
+
+    for _, sim in ipairs(sims) do
+        Bridge.Database.Query([[
+            INSERT INTO `sky_phone_sms_messages`
+                (`id`, `sender_sim_id`, `recipient_sim_id`, `sender_number`, `recipient_number`, `message_type`, `body`)
+            VALUES (?, NULL, ?, ?, ?, 'text', ?)
+        ]], { uuid(), sim.id, line.number, sim.phone_number, body })
+        notify_sim(sim.id, "sky_phone:messages:new", {
+            phoneNumber = line.number,
+            sender = line.name,
+            voice = false,
+        })
+    end
+    return #sims
+end
+
+exports("SendServiceMessage", send_service_message)
+
 end)

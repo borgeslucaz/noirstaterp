@@ -64,7 +64,7 @@ local function applyBleedEffects()
     local randX = math.random() + math.random(-1, 1)
     local randY = math.random() + math.random(-1, 1)
     local coords = GetOffsetFromEntityInWorldCoords(cache.ped, randX, randY, 0)
-    TriggerServerEvent('evidence:server:CreateBloodDrop', QBX.PlayerData.citizenid, QBX.PlayerData.metadata.bloodtype, coords)
+    TriggerServerEvent('noir_police:server:bloodDrop', coords)
 
     if AdvanceBleedTimer >= config.advanceBleedTimer then
         ApplyBleed(1)

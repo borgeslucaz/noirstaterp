@@ -49,7 +49,8 @@ Config.IllegalNPC = {
   coords = vector4(975.97, -2358.37, 30.82, 175.48),
   model = `s_m_y_dealer_01`,
   boardLocation = vector3(897.32, -3267.95, 5.5),
-  money = 10000,
+  -- Pago à parte, em black_money, fora do total limpo da entrega.
+  money = 2000,
   xp_bonus = 1000,
   item_name = "illegal_box",
 }

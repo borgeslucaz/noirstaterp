@@ -76,7 +76,7 @@ function Loot.describe(granted)
     for index = 1, #granted do
         local reward = granted[index]
         parts[#parts + 1] = reward.kind == 'money'
-            and ('$%d'):format(reward.amount)
+            and ('$%d%s'):format(reward.amount, reward.account == 'black_money' and ' sujo' or '')
             or ('%dx %s'):format(reward.amount, Integrations.itemLabel(reward.item))
     end
     return table.concat(parts, ', ')

@@ -115,6 +115,9 @@ local function getBankData(source)
         amount = funds.bank,
         cash = funds.cash,
         transactions = cachedPlayers[cid].transactions,
+        -- PATCH NOIR: faturas e multas da conta pessoal (server/invoices.lua).
+        invoices = NoirBankInvoices and NoirBankInvoices.summary(cid) or nil,
+        openInvoices = NoirBankInvoices and NoirBankInvoices.list(cid, { filter = 'open', pageSize = 50 }).invoices or nil,
     }
 
     local jobs = GetJobs(Player)
@@ -318,6 +321,15 @@ lib.callback.register('Renewed-Banking:server:withdraw', function(source, data)
         Notify(source, {title = locale("bank_name"), description = locale("invalid_amount", "withdraw"), type = "error"})
         return false
     end
+
+    -- PATCH NOIR: com multa em aberto, a conta pessoal não saca nem transfere.
+    if not cachedAccounts[data.fromAccount] and NoirBankInvoices then
+        local debt = NoirBankInvoices.blockingDebt(GetIdentifier(Player))
+        if debt > 0 then
+            Notify(source, {title = locale("bank_name"), description = locale("fines_block", debt), type = "error"})
+            return false
+        end
+    end
     local name = GetCharacterName(Player)
     local funds = GetFunds(Player)
     if not data.comment or data.comment == "" then data.comment = locale("comp_transaction", name, "withdrawed", amount) else sanitizeMessage(data.comment) end
@@ -347,6 +359,15 @@ lib.callback.register('Renewed-Banking:server:transfer', function(source, data)
     if not amount or amount < 1 then
         Notify(source, {title = locale("bank_name"), description = locale("invalid_amount", "transfer"), type = "error"})
         return false
+    end
+
+    -- PATCH NOIR: com multa em aberto, a conta pessoal não saca nem transfere.
+    if not cachedAccounts[data.fromAccount] and NoirBankInvoices then
+        local debt = NoirBankInvoices.blockingDebt(GetIdentifier(Player))
+        if debt > 0 then
+            Notify(source, {title = locale("bank_name"), description = locale("fines_block", debt), type = "error"})
+            return false
+        end
     end
     local name = GetCharacterName(Player)
     if not data.comment or data.comment == "" then data.comment = locale("comp_transaction", name, "transfered", amount) else sanitizeMessage(data.comment) end
@@ -781,3 +802,10 @@ local createTables = {
 }
 
 assert(MySQL.transaction.await(createTables), "Failed to create tables")
+
+-- PATCH NOIR: o que server/invoices.lua precisa daqui (as tabelas e funções são locais).
+NoirBankInternal = {
+    handleTransaction = handleTransaction,
+    getBankData = getBankData,
+    account = function(id) return cachedAccounts[id] end,
+}

@@ -164,6 +164,7 @@ Fr.RegisterServerCallback('op-drugselling:sellDrug', function(source, cb, drugNa
     local playerLevel = getDrugLevel(source)
 
     local multiplier = (1.0 + (GetLevelBoost(playerLevel) / 100.0)) * NoirDrugGrade.multiplier(lot)
+        * NoirDrugPolice.multiplier()
     local finalPrice = math.floor((pricePerGram or 0) * amountSell * multiplier)
 
     local function takeDrug()

@@ -20,6 +20,18 @@ local function getClosestRegister(coords)
     return closestRegisterIndex
 end
 
+---Policiamento mínimo da tabela pública (noir_scoreboard). Sem resposta, não libera.
+---@param source? integer avisa o jogador quando falta polícia
+---@return boolean
+local function hasMinimumPolice(source)
+    local ok, result, code, minimum = pcall(function() return exports.noir_scoreboard:CheckPolice('storerobbery') end)
+    if ok and result then return true end
+    if source and sharedConfig.notEnoughCopsNotify then
+        exports.qbx_core:Notify(source, locale('error.no_police', ok and minimum or '?'), 'error')
+    end
+    return false
+end
+
 local function getClosestSafe(coords)
     local closestSafeIndex
     for i = 1, #sharedConfig.safes do
@@ -34,6 +46,7 @@ RegisterNetEvent('qbx_storerobbery:server:checkStatus', function()
     local coords = GetEntityCoords(GetPlayerPed(source))
     local closestRegisterIndex = getClosestRegister(coords)
     if not closestRegisterIndex then return end
+    if not hasMinimumPolice(source) then return end
 
     local hasLockpick = exports.ox_inventory:Search(source, 'count', 'lockpick') > 0
     local hasAdvanced = exports.ox_inventory:Search(source, 'count', 'advancedlockpick') > 0
@@ -89,7 +102,8 @@ RegisterNetEvent('qbx_storerobbery:server:registerOpened', function(isDone)
     if #(coords - sharedConfig.registers[closestRegisterIndex].coords) > 2 then return end
     if not startedRegister[source] then return end
 
-    player.Functions.AddMoney('cash', math.random(config.registerReward.min, config.registerReward.max))
+    -- Dinheiro de crime é sujo: black_money, como os marked bills do cofre.
+    player.Functions.AddItem('black_money', math.random(config.registerReward.min, config.registerReward.max))
 
     TriggerClientEvent('qbx_storerobbery:client:updatedRobbables', -1, sharedConfig.registers, sharedConfig.safes)
     if config.registerReward.chanceAtSticky > math.random(0, 100) then
@@ -119,13 +133,9 @@ RegisterNetEvent('qbx_storerobbery:server:trySafe', function()
     local src = GetPlayerPed(source)
     local playerCoords = GetEntityCoords(src)
     local closestSafeIndex = getClosestSafe(playerCoords)
-    local leoCount = exports.qbx_core:GetDutyCountType('leo')
 
     if not closestSafeIndex then return end
-    if leoCount < sharedConfig.minimumCops and sharedConfig.notEnoughCopsNotify then
-        exports.qbx_core:Notify(source, locale('error.no_police', {Required = config.minimumCops}), 'error')
-        return
-    end
+    if not hasMinimumPolice(source) then return end
 
     sharedConfig.safes[closestSafeIndex].robbed = true
     startedSafe[source] = true
@@ -170,8 +180,8 @@ AddEventHandler('playerJoining', function()
     TriggerClientEvent('qbx_storerobbery:client:updatedRobbables', source, sharedConfig.registers, sharedConfig.safes)
 end)
 
-lib.callback.register('qbx_storerobbery:server:leoCount', function()
-    return exports.qbx_core:GetDutyCountType('leo')
+lib.callback.register('qbx_storerobbery:server:hasMinimumPolice', function()
+    return hasMinimumPolice()
 end)
 
 CreateThread(function()

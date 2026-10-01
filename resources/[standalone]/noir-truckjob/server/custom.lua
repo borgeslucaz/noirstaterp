@@ -84,6 +84,20 @@ function Open.AddMoney(source, amount, moneyType)
     return nil
 end
 
+--- Dinheiro sujo é o item black_money, entregue pelo bgrz_core.
+--- @param source number
+--- @param amount number
+--- @return boolean
+function Open.AddDirtyMoney(source, amount)
+    if not HasBgrzCore() then return false end
+    local ok, res = pcall(function()
+        return exports.bgrz_core:AddItem(source, 'black_money', amount)
+    end)
+    if ok then return res == true end
+    Peak.Utils.Warn('bgrz_core:AddItem black_money failed:', res)
+    return false
+end
+
 --- Override to remove money using a custom system.
 --- @param source number
 --- @param amount number

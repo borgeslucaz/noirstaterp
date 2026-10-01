@@ -178,7 +178,7 @@ function prisonModules.enterPrison(setTime)
 
         FreezeEntityPosition(cache.ped, false)
 
-        config.PlayJailSound()
+        CreateThread(config.PlayJailSound) -- PATCH NOIR: som não segura a entrada na prisão
 
         config.Emote(RandomSpawn.emote)
         prisonModules.createCheckoutLocation()

@@ -1,5 +1,5 @@
 return {
-    minimumCops = 0,
+    -- O mínimo de policiais é da tabela pública do noir_scoreboard (`storerobbery`).
     notEnoughCopsNotify = true,
     registers = {
         [1] = {coords = vec3(-706.08, -915.42, 19.21), robbed = false, time = 0, safeKey = 1, camId = 1},

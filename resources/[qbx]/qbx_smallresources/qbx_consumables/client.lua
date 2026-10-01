@@ -240,10 +240,11 @@ lib.callback.register('consumables:client:DrinkAlcohol', function(alcoholLevel, 
         }
     }) then -- if completed
         alcoholCount += alcoholLevel or 1
-        if alcoholCount > 1 and alcoholCount < 4 then
-            TriggerEvent('evidence:client:SetStatus', 'alcohol', 200)
+        -- noir_police: qualquer dose deixa cheiro (a cerveja vale 0,25; com `> 1` eram 5 cervejas).
+        if alcoholCount > 0 and alcoholCount < 4 then
+            TriggerEvent('noir_police:client:setEvidenceStatus', 'alcohol', 200)
         elseif alcoholCount >= 4 then
-            TriggerEvent('evidence:client:SetStatus', 'heavyalcohol', 200)
+            TriggerEvent('noir_police:client:setEvidenceStatus', 'heavyalcohol', 200)
         end
         return true
     else -- if canceled
@@ -273,7 +274,7 @@ RegisterNetEvent('consumables:client:Cokebaggy', function()
         local used = lib.callback.await('consumables:server:usedItem', false, 'cokebaggy')
         if not used then return end
 
-        TriggerEvent('evidence:client:SetStatus', 'widepupils', 200)
+        TriggerEvent('noir_police:client:setEvidenceStatus', 'widepupils', 200)
         cokeBaggyEffect()
     else -- if canceled
         exports.qbx_core:Notify(locale('error.canceled'), 'error')
@@ -301,7 +302,7 @@ RegisterNetEvent('consumables:client:Crackbaggy', function()
         local used = lib.callback.await('consumables:server:usedItem', false, 'crack_baggy')
         if not used then return end
 
-        TriggerEvent('evidence:client:SetStatus', 'widepupils', 300)
+        TriggerEvent('noir_police:client:setEvidenceStatus', 'widepupils', 300)
         crackBaggyEffect()
     else -- if canceled
         exports.qbx_core:Notify(locale('error.canceled'), 'error')
@@ -384,8 +385,8 @@ RegisterNetEvent('consumables:client:meth', function()
         local used = lib.callback.await('consumables:server:usedItem', false, 'meth')
         if not used then return end
 
-        TriggerEvent('evidence:client:SetStatus', 'widepupils', 300)
-        TriggerEvent('evidence:client:SetStatus', 'agitated', 300)
+        TriggerEvent('noir_police:client:setEvidenceStatus', 'widepupils', 300)
+        TriggerEvent('noir_police:client:setEvidenceStatus', 'agitated', 300)
         methBagEffect()
     else -- if canceled
         exports.qbx_core:Notify(locale('error.canceled'), 'error')
@@ -409,7 +410,7 @@ RegisterNetEvent('consumables:client:UseJoint', function()
         if not used then return end
 
         exports.scully_emotemenu:playEmoteByCommand('joint')
-        TriggerEvent('evidence:client:SetStatus', 'weedsmell', 300)
+        TriggerEvent('noir_police:client:setEvidenceStatus', 'weedsmell', 300)
         smokeWeed()
     else -- if canceled
         exports.qbx_core:Notify(locale('error.canceled'), 'error')

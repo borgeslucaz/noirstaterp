@@ -22,7 +22,7 @@
         "completed_hack": "Você completou o hack!",
         "failed_hack": "Você falhou no hack!",
         "escaped": "Você escapou da prisão!",
-        "checkout": "Seu tempo acabou! Vá para a saída!"
+        "checkout": "Seu tempo acabou! Faça o checkout no balcão da recepção."
     },
 
     "commands": {

@@ -59,3 +59,28 @@ function BGRZ.SendPhoneNotification(source, payload)
 end
 
 exports('SendPhoneNotification', BGRZ.SendPhoneNotification)
+
+---SMS de sistema pela linha de serviço de uma empresa do telefone (ex.: 911 da LSPD).
+---Fica salvo na conversa e chega mesmo com o destinatário offline (vai para os chips
+---registrados no nome do personagem).
+---@param companyId string id da empresa no sky_phone (Config.Companies.Definitions)
+---@param citizenId string
+---@param body string
+---@return boolean ok
+---@return string|integer? errorCodeOrSent
+function BGRZ.SendPhoneServiceMessage(companyId, citizenId, body)
+    if type(companyId) ~= 'string' or companyId == '' then return false, 'invalid_company' end
+    if type(citizenId) ~= 'string' or citizenId == '' then return false, 'invalid_recipient' end
+    if type(body) ~= 'string' or body == '' or #body > 2000 then return false, 'invalid_message' end
+    if not BGRZ.Provider.isAvailable('phone') then return false, 'provider_unavailable' end
+    local resource = BGRZ.Provider.name('phone')
+    local called, sent, err = pcall(function()
+        return exports[resource]:SendServiceMessage(companyId, { identifier = citizenId }, body)
+    end)
+    if not called then return false, 'provider_unavailable' end
+    if not sent then return false, err or 'operation_failed' end
+    if sent == 0 then return false, err or 'no_sim' end
+    return true, sent
+end
+
+exports('SendPhoneServiceMessage', BGRZ.SendPhoneServiceMessage)

@@ -29,3 +29,10 @@ end
 
 exports('IsPlayerDowned', BGRZ.Medical.IsDowned)
 exports('RevivePlayer', BGRZ.Medical.Revive)
+
+-- Re-emite o respawn do provider médico com nome próprio: quem precisa soltar algema,
+-- escolta ou sessão ao renascer escuta `bgrz_core:server:playerRespawned`.
+AddEventHandler('qbx_medical:server:playerRespawned', function(source)
+    if type(source) ~= 'number' or source <= 0 then return end
+    TriggerEvent('bgrz_core:server:playerRespawned', source)
+end)

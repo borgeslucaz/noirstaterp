@@ -8,9 +8,8 @@ RegisterNetEvent('qb-trunk:server:setTrunkBusy', function(plate, busy)
     trunkBusy[plate] = busy
 end)
 
-RegisterNetEvent('qb-trunk:server:KidnapTrunk', function(targetId, closestVehicle)
-    TriggerClientEvent('qb-trunk:client:KidnapGetIn', targetId, closestVehicle)
-end)
+-- noir_police: 'qb-trunk:server:KidnapTrunk' saiu; aceitava qualquer alvo e qualquer carro.
+-- O porta-malas é pelo callback noir_police:server:putInTrunk.
 
 lib.callback.register('qb-trunk:server:getTrunkBusy', function(_, plate)
     return trunkBusy[plate]

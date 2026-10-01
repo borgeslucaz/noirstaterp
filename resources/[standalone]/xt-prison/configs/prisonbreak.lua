@@ -22,7 +22,10 @@ return {
         success = 50
     },
 
-    HackZones = {                                   -- Gate = Name of door in ox_doorlock database
+    -- PATCH NOIR: nenhum portão da prisão está cadastrado no ox_doorlock, então o hack não
+    -- teria o que abrir. Zonas desligadas até as portas existirem; os originais seguem abaixo.
+    HackZones = {},
+    HackZonesOriginal = {                           -- Gate = Name of door in ox_doorlock database
         { coords = vec3(1846.05, 2604.7, 45.65), gate = 'prison 1', radius = 0.4 },
         { coords = vec3(1819.55, 2604.7, 45.6),  gate = 'prison 2', radius = 0.4 },
         { coords = vec3(1817.4, 2602.7, 45.65),  gate = 'prison 2', radius = 0.4 },

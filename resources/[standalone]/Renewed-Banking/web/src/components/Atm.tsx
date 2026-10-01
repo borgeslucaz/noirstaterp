@@ -3,7 +3,8 @@
 import type React from "react"
 import { ArrowDownLeft, ArrowUpRight, Building2, Landmark, LogOut, Send, Wallet } from "lucide-react"
 import { useLocale } from "../hooks/useLocale"
-import { splitAccounts, type RenewedAccount } from "../types"
+import { splitAccounts, type RenewedAccount, type RenewedInvoice, type RenewedInvoiceSummary } from "../types"
+import { AtmInvoices } from "./Invoices"
 import type { BankAction } from "./ActionModal"
 
 const money = (n: number) => `$${Number(n || 0).toLocaleString("pt-BR")}`
@@ -16,6 +17,10 @@ interface AtmProps {
     onSelect: (id: string) => void
     onAction: (action: BankAction) => void
     onClose: () => void
+    invoiceSummary?: RenewedInvoiceSummary
+    invoices: RenewedInvoice[]
+    busy: boolean
+    onPayInvoice: (id: string) => void
 }
 
 /**
@@ -27,7 +32,9 @@ interface AtmProps {
  *
  * Extrato completo e estatísticas ficam na agência, que é onde faz sentido sentar e olhar.
  */
-export const Atm: React.FC<AtmProps> = ({ accounts, selectedId, onSelect, onAction, onClose }) => {
+export const Atm: React.FC<AtmProps> = ({
+    accounts, selectedId, onSelect, onAction, onClose, invoiceSummary, invoices, busy, onPayInvoice,
+}) => {
     const { t } = useLocale()
 
     const selected = accounts.find((a) => a.id === selectedId) ?? accounts[0] ?? null
@@ -120,6 +127,8 @@ export const Atm: React.FC<AtmProps> = ({ accounts, selectedId, onSelect, onActi
                             })}
                         </div>
                     )}
+
+                    <AtmInvoices summary={invoiceSummary} invoices={invoices} busy={busy} onPay={onPayInvoice} />
 
                     <div className="grid grid-cols-3 gap-3 shrink-0">
                         {actions.map(([id, label, icon]) => (

@@ -1,6 +1,6 @@
 return {
     timeOut = 2700000,
-    minimumPolice = 0,
+    -- O mínimo de policiais é da tabela pública do noir_scoreboard (`jewellery`).
     notEnoughPoliceNotify = true,
     reward = {
         minAmount = 1,

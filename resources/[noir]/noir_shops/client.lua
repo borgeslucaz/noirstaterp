@@ -124,20 +124,6 @@ local function GetQBTargetGang(shop)
     return nil
 end
 
-local function GetOxTargetGroups(shop)
-    local restriction = GetShopRestrictions(shop)
-    if not restriction then return nil end
-    local groups = {}
-    if type(restriction) == 'table' then
-        for _, jobName in ipairs(restriction) do
-            groups[jobName] = 0
-        end
-    else
-        groups[restriction] = 0
-    end
-    return groups
-end
-
 local function GetGangGradeValue(gang)
     if not gang then return 0 end
     local grade = gang.grade
@@ -154,7 +140,7 @@ end
 
 local function ApplyJobUpdate(job)
     if not job then return end
-    PlayerJob = { name = job.name or 'unemployed', grade = GetJobGradeValue(job) }
+    PlayerJob = { name = job.name or 'unemployed', grade = GetJobGradeValue(job), onduty = job.onduty == true }
 end
 
 local function ApplyGangUpdate(gang)
@@ -193,8 +179,8 @@ function RefreshBlips()
             end
         end
     end
-    -- Also refresh peds when access restrictions change
-    if RefreshShopPeds then RefreshShopPeds() end
+    -- Os NPCs não dependem de job: mudar de cargo não mexe neles (antes eram todos
+    -- recriados e o atendente piscava). O acesso é o `canInteract` do target.
 end
 
 -- Receive saved shops (dynamic + overrides) from server on connect
@@ -251,6 +237,9 @@ elseif GetResourceState('qbx_core') == 'started' then
         ApplyGangUpdate(gang)
         RefreshBlips()
     end)
+    RegisterNetEvent('QBCore:Client:SetDuty', function(onDuty)
+        PlayerJob.onduty = onDuty == true
+    end)
 elseif GetResourceState('qb-core') == 'started' then
     Framework = 'qbcore'
     QBCore = exports['qb-core']:GetCoreObject()
@@ -290,7 +279,7 @@ CreateThread(function()
             end
         elseif Framework == 'qbox' then
             local pd = exports.qbx_core:GetPlayerData()
-            if pd and pd.job then newJob = { name = pd.job.name, grade = GetJobGradeValue(pd.job) } end
+            if pd and pd.job then newJob = { name = pd.job.name, grade = GetJobGradeValue(pd.job), onduty = pd.job.onduty == true } end
             if pd and pd.gang then
                 newGang = { name = pd.gang.name, grade = GetGangGradeValue(pd.gang) }
             end
@@ -300,6 +289,7 @@ CreateThread(function()
             newGang = { name = 'none', grade = 0 }
         end
         if not newGang then newGang = { name = 'none', grade = 0 } end
+        if newJob then PlayerJob.onduty = newJob.onduty end
         if newJob and (newJob.name ~= PlayerJob.name or newJob.grade ~= PlayerJob.grade or newGang.name ~= PlayerGang.name or newGang.grade ~= PlayerGang.grade) then
             PlayerJob = newJob
             PlayerGang = newGang
@@ -312,9 +302,17 @@ end)
 -- O NPC só existe enquanto o jogador está dentro do raio do ponto da loja (lib.points).
 local ShopPoints = {}
 
+-- O NPC é do mundo: todo mundo por perto vê, de qualquer job ou gang. O que depende de
+-- acesso é a opção de abrir a loja no target (`CanUseShop`), conferida na hora da mira,
+-- e o checkout, conferido de novo no servidor.
+local function CanUseShop(shop)
+    if not HasShopAccess(shop) then return false end
+    if shop.DutyRequired and not PlayerJob.onduty then return false end
+    return true
+end
+
 function SpawnShopPed(shopId, shop)
     if not shop.PedModel or shop.PedModel == '' then return end
-    if not HasShopAccess(shop) then return end
 
     local modelHash = GetHashKey(shop.PedModel)
     RequestModel(modelHash)
@@ -383,7 +381,7 @@ function SpawnShopPed(shopId, shop)
                     name = shopId .. '_smartshop_ped',
                     icon = 'fas fa-shopping-cart',
                     label = _U('target_open_shop'),
-                    groups = GetOxTargetGroups(shop),
+                    canInteract = function() return CanUseShop(Config.Shops[shopId] or shop) end,
                     onSelect = function()
                         OpenShop(shopId)
                     end
@@ -453,7 +451,7 @@ local function SetShopZone(shopId, shop)
                 name = zoneName,
                 icon = 'fas fa-shopping-cart',
                 label = _U('target_open_shop'),
-                groups = GetOxTargetGroups(shop),
+                canInteract = function() return CanUseShop(Config.Shops[shopId] or shop) end,
                 onSelect = function()
                     OpenShop(shopId)
                 end
@@ -569,6 +567,12 @@ function OpenShop(shopId)
         return
     end
 
+    -- Loja de serviço (arsenal): só abre em serviço. O servidor confere de novo no checkout.
+    if shop.DutyRequired and not PlayerJob.onduty then
+        TriggerEvent('noir_shops:client:notify', _U('duty_required'), 'error')
+        return
+    end
+
     -- ESX: licenses live in DB, check server-side then continue async
     if Framework == 'esx' then
         CurrentShop = shopId
@@ -671,7 +675,7 @@ if Config.TargetSystem == 'none' then
                 local pos = GetEntityCoords(ped)
 
                 for shopId, shop in pairs(Config.Shops) do
-                    if HasShopAccess(shop) then
+                    if CanUseShop(shop) then
                         -- Ped shops use direct interaction instead of marker
                         local hasPed = shop.PedModel and shop.PedModel ~= ''
 

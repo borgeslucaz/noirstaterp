@@ -18,6 +18,32 @@ export interface RenewedTransaction {
     time: number
 }
 
+/** Fatura ou multa (server/invoices.lua). Datas em milissegundos. */
+export interface RenewedInvoice {
+    id: string
+    title: string
+    description: string
+    amount: number
+    issuerLabel: string
+    status: "open" | "processing" | "paid" | "disputed" | "cancelled"
+    kind: "fine" | "invoice"
+    isFine: boolean
+    blocking: boolean
+    isOverdue: boolean
+    dueAt?: number
+    issuedAt: number
+    canPay: boolean
+}
+
+export interface RenewedInvoiceSummary {
+    openCount: number
+    openTotal: number
+    overdueCount: number
+    /** Soma das multas que bloqueiam saque e transferência. */
+    blockingTotal: number
+    blockingCount: number
+}
+
 export interface RenewedAccount {
     /** citizenid na conta pessoal; nome do job/gang nas de organização. É a chave nas operações. */
     id: string
@@ -29,6 +55,9 @@ export interface RenewedAccount {
     cash?: number
     frozen?: boolean | number
     transactions?: RenewedTransaction[]
+    /** Só na conta pessoal (PATCH NOIR): resumo e faturas em aberto. */
+    invoices?: RenewedInvoiceSummary
+    openInvoices?: RenewedInvoice[]
 }
 
 /**

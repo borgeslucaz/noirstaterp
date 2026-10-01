@@ -9,7 +9,6 @@ local ITEMS = exports.ox_inventory:Items()
 lib.callback.register('qbx_jewelery:callback:electricalbox', function(source)
     local player = exports.qbx_core:GetPlayer(source)
     local playerCoords = GetEntityCoords(GetPlayerPed(source))
-    local amount = exports.qbx_core:GetDutyCountType('leo')
 
     if electricalBusy then
         exports.qbx_core:Notify(source, locale('notify.busy'))
@@ -20,9 +19,11 @@ lib.callback.register('qbx_jewelery:callback:electricalbox', function(source)
         exports.qbx_core:Notify(source, locale('notify.noitem', ITEMS[sharedConfig.doorlock.requiredItem].label), 'error')
         return
     end
-    if amount < config.minimumPolice then
+    -- Policiamento mínimo da tabela pública (noir_scoreboard). Sem resposta, não libera.
+    local called, hasPolice, _, minimum = pcall(function() return exports.noir_scoreboard:CheckPolice('jewellery') end)
+    if not (called and hasPolice) then
         if config.notEnoughPoliceNotify then
-            exports.qbx_core:Notify(source, locale('notify.nopolice', config.minimumPolice), 'error')
+            exports.qbx_core:Notify(source, locale('notify.nopolice', called and minimum or '?'), 'error')
         end
         return
     end
@@ -76,7 +77,7 @@ end)
 local function fireAlarm()
     if alarmFired then return end
 
-    TriggerEvent('police:server:policeAlert', locale('notify.police'), 1, source)
+    pcall(function() exports.noir_police:Alert(source, locale('notify.police')) end)
     TriggerEvent('qb-scoreboard:server:SetActivityBusy', 'jewellery', true)
     TriggerClientEvent('qbx_jewelery:client:alarm', -1)
     alarmFired = true

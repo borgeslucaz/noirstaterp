@@ -27,12 +27,13 @@ local function currentJob()
     return {
         name = job.name,
         label = job.label,
+        type = job.type,
         grade = job.grade and job.grade.level or 0,
         onDuty = job.onduty == true,
     }
 end
 
----@return table|nil job { name, label, grade, onDuty }
+---@return table|nil job { name, label, type, grade, onDuty }
 function BGRZ.GetJob()
     return currentJob()
 end

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>noir_scoreboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside id="board" class="board" aria-live="polite" hidden>
+    <header class="board__header">
+      <h1 class="board__title">Cidade</h1>
+      <p class="board__subtitle" id="players"></p>
+    </header>
+    <section class="board__crimes" id="crimes" hidden>
+      <h2 class="board__section">Policiamento mínimo</h2>
+      <ul class="crimes" id="crime-list"></ul>
+      <p class="board__note" id="crime-note"></p>
+    </section>
+  </aside>
+  <script src="app.js"></script>
+</body>
+</html>

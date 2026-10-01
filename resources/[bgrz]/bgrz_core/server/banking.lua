@@ -186,6 +186,10 @@ function BGRZ.Banking.EnsureOrgAccount(accountId, label, initialBalance)
         return false, 'invalid_amount'
     end
 
+    -- Antes da carga do cache o provider não vê a conta que já existe no banco de dados
+    -- e tenta criar de novo (Duplicate entry). Quem chama espera `bgrz_core:bankingReady`.
+    if not BGRZ.Banking.IsReady() then return false, 'provider_not_ready' end
+
     local called, account = callProvider('CreateJobAccount',
         { name = accountId, label = label }, math.floor(initialBalance or 0))
     if not called then return false, account end
@@ -258,6 +262,64 @@ function BGRZ.Banking.RecordStatementEntry(accountId, entry)
     return true
 end
 
+--------------------------------------------------------------------------------
+-- Faturas e multas (Renewed-Banking, patch NOIR item 9)
+--------------------------------------------------------------------------------
+-- Cobrança pendente: o dinheiro só sai quando o devedor paga (banco ou app Faturas do
+-- celular) e cai em `issuerAccount`, que precisa ser conta de organização. Multa
+-- (`kind = 'fine'`) bloqueia saque e transferência da conta pessoal até ser paga.
+
+---Como `callProvider`, mas repassa os dois retornos do provider (valor, erro).
+local function callProvider2(method, ...)
+    local resource = provider()
+    if not BGRZ.Provider.isAvailable('banking') then return false, nil, 'provider_unavailable' end
+
+    local called, result, err = pcall(function(...)
+        return exports[resource][method](exports[resource], ...)
+    end, ...)
+    if not called then return false, nil, 'provider_unavailable' end
+    return true, result, err
+end
+
+---@param data { silent?: boolean, recipientSource?: integer, recipientCid?: string, issuerAccount: string, issuerLabel?: string, issuerSource?: integer, issuerCid?: string, kind?: 'fine'|'invoice', blocking?: boolean, title: string, description?: string, amount: integer, dueDays?: integer }
+---@return string? invoiceId
+---@return string? errorCode
+function BGRZ.Banking.CreateInvoice(data)
+    if type(data) ~= 'table' then return nil, 'invalid_request' end
+    if type(data.issuerAccount) ~= 'string' or data.issuerAccount == '' then return nil, 'invalid_account' end
+    if type(data.title) ~= 'string' or data.title == '' then return nil, 'invalid_request' end
+    if not isFinite(data.amount) or data.amount < 1 or data.amount % 1 ~= 0 then return nil, 'invalid_amount' end
+    if not tonumber(data.recipientSource) and (type(data.recipientCid) ~= 'string' or data.recipientCid == '') then
+        return nil, 'invalid_recipient'
+    end
+    if not BGRZ.Banking.IsReady() then return nil, 'provider_not_ready' end
+
+    local called, id, err = callProvider2('CreateInvoice', data)
+    if not called then return nil, err end
+    if type(id) ~= 'string' then return nil, err or 'operation_failed' end
+    return id
+end
+
+---@param invoiceId string
+---@param actor? string citizenid de quem cancelou
+---@return boolean ok
+function BGRZ.Banking.CancelInvoice(invoiceId, actor)
+    if type(invoiceId) ~= 'string' or invoiceId == '' then return false end
+    local called, ok = callProvider('CancelInvoice', invoiceId, actor)
+    return called and ok == true
+end
+
+---Soma e quantidade das multas que travam saque e transferência.
+---@param citizenId string
+---@return integer total
+---@return integer count
+function BGRZ.Banking.GetBlockingDebt(citizenId)
+    if type(citizenId) ~= 'string' or citizenId == '' then return 0, 0 end
+    local called, total, count = callProvider2('GetBlockingDebt', citizenId)
+    if not called then return 0, 0 end
+    return tonumber(total) or 0, tonumber(count) or 0
+end
+
 exports('IsBankingAvailable', BGRZ.Banking.IsAvailable)
 exports('IsBankingReady', BGRZ.Banking.IsReady)
 exports('GetBankingProvider', BGRZ.Banking.GetProvider)
@@ -266,3 +328,6 @@ exports('GetOrgMoney', BGRZ.Banking.GetOrgMoney)
 exports('AddOrgMoney', BGRZ.Banking.AddOrgMoney)
 exports('RemoveOrgMoney', BGRZ.Banking.RemoveOrgMoney)
 exports('RecordStatementEntry', BGRZ.Banking.RecordStatementEntry)
+exports('CreateInvoice', BGRZ.Banking.CreateInvoice)
+exports('CancelInvoice', BGRZ.Banking.CancelInvoice)
+exports('GetBlockingDebt', BGRZ.Banking.GetBlockingDebt)

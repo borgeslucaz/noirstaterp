@@ -1,6 +1,6 @@
 return {
     maxPlayers = 1,
-    minimumPolice = 0,
+    -- O mínimo de policiais é da tabela pública do noir_scoreboard (`houserobbery`).
     requiredItems = { basic = 'lockpick', advanced = 'advancedlockpick' },
     maxExteriorDistance = 3.0,
     maxInteriorDistance = 3.0,

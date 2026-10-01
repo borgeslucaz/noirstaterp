@@ -6,7 +6,7 @@ local defaults = {
     target = 'ox_target',
     phone = 'sky_phone',
     -- Sem MDT com chamado na base: o dispatch vai direto para o dispatchFallback.
-    dispatchFallback = 'qbx_police',
+    dispatchFallback = 'noir_police',
     banking = 'Renewed-Banking',
     gangs = 'noir_gangs',
     medical = 'qbx_medical',

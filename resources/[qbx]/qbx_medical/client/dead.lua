@@ -59,10 +59,7 @@ local function respawn()
     respawnRequested = false
     local success = lib.callback.await('qbx_medical:server:respawn')
     if not success then return end
-    if QBX.PlayerData.metadata.ishandcuffed then
-        TriggerEvent('police:client:GetCuffed', -1)
-    end
-    TriggerEvent('police:client:DeEscort')
+    -- Algema e escolta são soltas no servidor pelo noir_police (bgrz_core:server:playerRespawned).
     plyState.invBusy = false
     TriggerEvent('qbx_medical:client:onPlayerRespawned')
 end

@@ -72,43 +72,43 @@ Shared.RadioNames = {
 Shared.RestrictedChannels = {
     [1] = { -- channel id
         type = 'job', -- job/gang
-        name = {"police", "ambulance"}
+        name = {"police", "bcso", "sasp", "ambulance"}
     },
     [2] = { -- channel id
         type = 'job', -- job/gang
-        name = {"police", "ambulance"}
+        name = {"police", "bcso", "sasp", "ambulance"}
     },
     [3] = { -- channel id
         type = 'job', -- job/gang
-        name = {"police", "ambulance"}
+        name = {"police", "bcso", "sasp", "ambulance"}
     },
     [4] = { -- channel id
         type = 'job', -- job/gang
-        name = {"police", "ambulance"}
+        name = {"police", "bcso", "sasp", "ambulance"}
     },
     [5] = { -- channel id
         type = 'job', -- job/gang
-        name = {"police", "ambulance"}
+        name = {"police", "bcso", "sasp", "ambulance"}
     },
     [6] = { -- channel id
         type = 'job', -- job/gang
-        name = {"police", "ambulance"}
+        name = {"police", "bcso", "sasp", "ambulance"}
     },
     [7] = { -- channel id
         type = 'job', -- job/gang
-        name = {"police", "ambulance"}
+        name = {"police", "bcso", "sasp", "ambulance"}
     },
     [8] = { -- channel id
         type = 'job', -- job/gang
-        name = {"police", "ambulance"}
+        name = {"police", "bcso", "sasp", "ambulance"}
     },
     [9] = { -- channel id
         type = 'job', -- job/gang
-        name = {"police", "ambulance"}
+        name = {"police", "bcso", "sasp", "ambulance"}
     },
     [10] = { -- channel id
         type = 'job', -- job/gang
-        name = {"police", "ambulance"}
+        name = {"police", "bcso", "sasp", "ambulance"}
     },
     [420] = { -- channel id
         type = 'gang', -- job/gang

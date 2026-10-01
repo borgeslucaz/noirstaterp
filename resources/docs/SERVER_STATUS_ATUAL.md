@@ -34,7 +34,7 @@ Depois valide pelo console/txAdmin quais resources estão `started`. Nunca deixe
 | Camada | Recursos | Papel |
 |---|---|---|
 | Banco e utilitários | `oxmysql`, `ox_lib` | Banco MySQL e biblioteca comum. |
-| Qbox | `qbx_core`, `qbx_spawn`, `qbx_smallresources`, `qbx_density`, `qbx_radialmenu`, `qbx_adminmenu`, `qbx_scoreboard`, `qbx_idcard`, `qbx_management` | Personagens, permissões, spawn, qualidade de vida, administração e empresas. |
+| Qbox | `qbx_core`, `qbx_spawn`, `qbx_smallresources`, `qbx_density`, `qbx_radialmenu`, `qbx_adminmenu`, `qbx_idcard`, `qbx_management` | Personagens, permissões, spawn, qualidade de vida, administração e empresas. |
 | OX | `ox_inventory`, `ox_target`, `ox_fuel`, `ox_doorlock` | Inventário, interações, combustível e portas. |
 | Voz | `pma-voice`, `mm_radio`, `mana_audio` | Voz de proximidade, rádio e áudio. |
 | Interface e aparência | `noir_hud`, `noir_chat`, `noir_pausemenu`, `illenium-appearance`, `scully_emotemenu`, `loadscreen` | HUD, chat, pause, aparência, emotes e carregamento. |

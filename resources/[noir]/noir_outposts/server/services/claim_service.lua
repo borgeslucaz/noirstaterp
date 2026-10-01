@@ -28,9 +28,9 @@ end
 
 local function requirements(actor)
     local online = Integration.onlinePlayerCount()
-    local police = Integration.onDutyPoliceCount()
+    local police, minPolice = Integration.policeRequirement()
     local cooldownUntil = Service.cooldownUntil(actor.organization and actor.organization.id or nil)
-    return online, police, cooldownUntil
+    return online, police, cooldownUntil, minPolice
 end
 
 Service.requirements = requirements
@@ -51,9 +51,9 @@ local function validate(actor, outpostId)
         actor.source, outpostId, config.claim.interactionDistance)
     if not atComputer then return false, placeError end
 
-    local online, police, cooldownUntil = requirements(actor)
+    local online, police, cooldownUntil, minPolice = requirements(actor)
     if online < config.claim.minOnlinePlayers then return false, 'not_enough_players' end
-    if police < config.claim.minPolice then return false, 'not_enough_police' end
+    if not minPolice or police < minPolice then return false, 'not_enough_police' end
     if cooldownUntil > os.time() then return false, 'organization_cooldown' end
 
     return true

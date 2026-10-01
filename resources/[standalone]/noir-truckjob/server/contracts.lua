@@ -457,7 +457,8 @@ function Contracts.ComputeReward(session, evaluation)
     local illegalBonus = illegalValid and (tonumber(Config.IllegalNPC.money) or 0) or 0
     local illegalXp = illegalValid and (tonumber(Config.IllegalNPC.xp_bonus) or 0) or 0
 
-    local total = math.max(0, basePay + marketBonus + qualityDelta - damagePenalty + illegalBonus)
+    -- O bônus da carga ilegal é sujo: fica fora do total, que é o que sai limpo.
+    local total = math.max(0, basePay + marketBonus + qualityDelta - damagePenalty)
     local xp = math.floor(session.baseXP * (1 + bonuses.xp) * evaluation.gradeXp) + illegalXp
 
     return {
@@ -550,7 +551,7 @@ function Contracts.Finish(src, sessionId, clientHealth)
             "UPDATE noir_truckjob_deliveries SET status = 'completed', grade = ?, score = ?, base_payment = ?, bonus_payment = ?, penalty_payment = ?, final_payment = ?, xp_awarded = ?, result_reason = 'completed', finished_at = NOW() WHERE session_id = ? AND status = 'in_progress'",
             {
                 evaluation.grade, evaluation.score, reward.basePay,
-                reward.marketBonus + math.max(0, reward.qualityDelta) + reward.illegalBonus,
+                reward.marketBonus + math.max(0, reward.qualityDelta),
                 reward.damagePenalty + math.max(0, -reward.qualityDelta),
                 reward.total, reward.xp, session.sessionId,
             }
@@ -608,6 +609,9 @@ function Contracts.Finish(src, sessionId, clientHealth)
     if not paid then
         Log('addMoney falhou para %s na sessão %s (valor %s) — registrado para reconciliação.', session.identifier, session.sessionId, reward.total)
         ExecuteSqlAsync("UPDATE noir_truckjob_deliveries SET result_reason = 'payment_failed' WHERE session_id = ?", { session.sessionId })
+    end
+    if reward.illegalBonus > 0 and not Open.AddDirtyMoney(src, reward.illegalBonus) then
+        Log('black_money da carga ilegal falhou para %s na sessão %s (valor %s).', session.identifier, session.sessionId, reward.illegalBonus)
     end
 
     -- Progressão

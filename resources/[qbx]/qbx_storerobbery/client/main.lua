@@ -45,12 +45,7 @@ local function checkInteractStatus(register)
         return false
     end
 
-    local leoCount = lib.callback.await('qbx_storerobbery:server:leoCount', false)
-    if leoCount >= sharedConfig.minimumCops then
-        return true
-    end
-
-    return false
+    return lib.callback.await('qbx_storerobbery:server:hasMinimumPolice', false) == true
 end
 
 local function alertPolice()
@@ -62,7 +57,7 @@ local function alertPolice()
     end
 
     if math.random() <= chance then
-        TriggerServerEvent('police:server:policeAlert')
+        TriggerServerEvent('noir_police:server:alert', 'Roubo a loja em andamento')
     end
 end
 
@@ -70,12 +65,14 @@ local function dropFingerprint()
     if qbx.isWearingGloves() then return end
     if config.fingerprintChance > math.random(0, 100) then
         local coords = GetEntityCoords(cache.ped)
-        TriggerServerEvent('evidence:server:CreateFingerDrop', coords)
+        TriggerServerEvent('noir_police:server:fingerprintDrop', coords)
     end
 end
 
 RegisterNetEvent('qbx_storerobbery:client:initRegisterAttempt', function(isAdvanced)
     isUsingAdvanced = isAdvanced
+    -- noir_police: a digital fica ao mexer no caixa, dê certo ou não o lockpick.
+    dropFingerprint()
     startLockpick(true)
 end)
 
@@ -141,7 +138,6 @@ end)
 
 RegisterNUICallback('fail', function(_, cb)
     startLockpick(false)
-    dropFingerprint()
     alertPolice()
     TriggerServerEvent('qbx_storerobbery:server:registerFailed', isUsingAdvanced)
     cb('ok')

@@ -13,7 +13,8 @@ import { Stats } from "./components/Stats"
 import { ActionModal, type BankAction } from "./components/ActionModal"
 import { Atm } from "./components/Atm"
 import { NotificationSystem, type Notification } from "./components/NotificationSystem"
-import type { RenewedAccount } from "./types"
+import { Invoices, FineBlockBanner } from "./components/Invoices"
+import { splitAccounts, type RenewedAccount, type RenewedInvoice } from "./types"
 
 /**
  * Interface do banco sobre o Renewed-Banking.
@@ -26,6 +27,7 @@ import type { RenewedAccount } from "./types"
  *           `notify {status}`
  *   chama   `closeInterface`
  *           `deposit` / `withdraw` / `transfer`    <- devolvem a lista de contas atualizada
+ *           `payInvoice {id}`                      <- idem (patch NOI: faturas e multas)
  *
  * Esse retorno é o que dispensa recarregar depois de cada operação: o servidor responde com o
  * estado novo e a tela só troca o que tem em mãos.
@@ -114,6 +116,27 @@ const Bank = () => {
 
     const transactions = useMemo(() => selected?.transactions ?? [], [selected])
 
+    /** Faturas moram na conta pessoal: é nela que o servidor põe `invoices` e `openInvoices`. */
+    const personal = useMemo(() => splitAccounts(accounts).personal[0] ?? null, [accounts])
+    const invoiceSummary = personal?.invoices
+    const openInvoices = useMemo<RenewedInvoice[]>(() => {
+        const raw: unknown = personal?.openInvoices
+        return Array.isArray(raw) ? raw : raw && typeof raw === "object" ? Object.values(raw as Record<string, RenewedInvoice>) : []
+    }, [personal])
+
+    const payInvoice = useCallback(async (id: string) => {
+        if (busy) return
+        setBusy(true)
+        const result = await fetchNui<RenewedAccount[] | false>("payInvoice", { id })
+        setBusy(false)
+        // Recusa (saldo, fatura já paga) vem notificada pelo servidor; aqui só não apaga o estado.
+        if (result === false || result == null) {
+            if (result == null) note(`${t("renewed.actionFailed")} (payInvoice)`, "error")
+            return
+        }
+        applyAccounts(result)
+    }, [busy, applyAccounts, note, t])
+
     const submit = useCallback(async (amount: number, comment: string, target?: string) => {
         if (!selected || busy) return
         setBusy(true)
@@ -156,6 +179,10 @@ const Bank = () => {
         return (
             <>
                 <Atm
+                    invoiceSummary={invoiceSummary}
+                    invoices={openInvoices}
+                    busy={busy}
+                    onPayInvoice={payInvoice}
                     accounts={accounts}
                     selectedId={selectedId}
                     onSelect={setSelectedId}
@@ -182,6 +209,7 @@ const Bank = () => {
                         activeTab={activeTab}
                         setActiveTab={setActiveTab}
                         onClose={close}
+                        invoiceCount={invoiceSummary?.openCount ?? 0}
                     />
 
                     <main className="flex-1 p-4 md:p-8 overflow-y-auto custom-scrollbar flex flex-col">
@@ -193,10 +221,15 @@ const Bank = () => {
                             <>
                                 {activeTab === "accounts" && (
                                     <div className="space-y-6">
+                                        <FineBlockBanner amount={invoiceSummary?.blockingTotal ?? 0} />
                                         <QuickActions onAction={(a) => setModal(a)} />
                                         <Accounts accounts={accounts} selectedId={selectedId}
                                                   onSelect={setSelectedId} />
                                     </div>
+                                )}
+                                {activeTab === "invoices" && (
+                                    <Invoices summary={invoiceSummary} invoices={openInvoices}
+                                              busy={busy} onPay={payInvoice} />
                                 )}
                                 {activeTab === "transactions" && <TransactionHistory transactions={transactions} />}
                                 {activeTab === "stats" && <Stats transactions={transactions}

@@ -95,6 +95,13 @@ Apps são registrados por caller. Identificadores não podem colidir entre resou
 
 No `sky_phone` o bridge usa a API de adapter (`AddCustomAppFromAdapter`, `UpdateCustomAppFromAdapter`, `RemoveCustomAppFromAdapter`, `SendCustomAppMessageFromAdapter`): o app fica em nome do resource que chamou, e por isso `ui` e `icon` precisam ser URLs `https://cfx-nui-<dono>/...`. O `bgrz_core` precisa estar em `Config.CustomApps.TrustedAdapters` do `sky_phone`. Da definição, vão para o telefone `identifier` (como `id`), `name`, `description`, `developer`, `ui`, `icon` e `defaultApp` (como `defaultInstalled`); `requires` é validado mas o `sky_phone` não tem gate por item.
 
+```lua
+-- server: SMS de sistema pela linha de serviço de uma empresa do sky_phone (ex.: 911 da LSPD)
+local ok, sentOrErr = exports.bgrz_core:SendPhoneServiceMessage('police', citizenId, 'texto')
+```
+
+`SendPhoneServiceMessage` grava a mensagem na conversa com a linha da empresa e avisa quem estiver com o telefone; com o personagem offline, a mensagem espera nos chips registrados no nome dele. Códigos: `invalid_company`, `invalid_recipient`, `invalid_message`, `no_sim` (personagem sem chip registrado), `provider_unavailable`.
+
 `SendPhoneNotification` vai pelo alias de compatibilidade `qs-smartphone:sendPhoneNotification` do `sky_phone`, que notifica por source sem exigir policy de app. `appId` agrupa a notificação no telefone (sem ele, ou fora do formato `^[a-z0-9][a-z0-9._-]+$`, vai como `noir`); sem `body`, o texto repete o título. O alias não devolve resultado: jogador sem telefone equipado não recebe, e o retorno continua `true`.
 
 ```lua
@@ -116,6 +123,17 @@ local count, err = exports.bgrz_core:CountOnDutyJob('police')
 
 Retorna a quantidade de jogadores em serviço no job informado ou `nil` com `invalid_job`, `provider_unavailable` ou `operation_failed`.
 
+```lua
+local sources, err = exports.bgrz_core:GetOnDutyPlayersByType('leo')  -- todos os jobs da categoria
+local ok, err = exports.bgrz_core:SetJobDuty(source, true)
+```
+
+`GetOnDutyPlayersByType` devolve os sources em serviço de uma categoria de job (`leo`, `ems`...)
+ou `nil` com `invalid_job_type`, `provider_unavailable` ou `operation_failed`. `SetJobDuty`
+devolve `false` com `invalid_player`, `invalid_state` ou `provider_unavailable`; a mudança sai
+como `bgrz_core:server:dutyUpdated`. `GetJob` (server e client) traz também `type`, a categoria
+do job: é ela que diz "é polícia", não o nome.
+
 ## Dinheiro (server)
 
 ```lua
@@ -123,6 +141,28 @@ local balance = exports.bgrz_core:GetMoney(source, 'bank')   -- 0 se o personage
 local ok = exports.bgrz_core:RemoveMoney(source, 'cash', amount, 'reason')
 local ok = exports.bgrz_core:AddMoney(source, 'cash', amount, 'reason')
 ```
+
+### Faturas e multas (server)
+
+Cobrança que fica pendente no banco (Renewed-Banking, `bank_invoices`) até o devedor pagar pela agência, caixa ou app Faturas do celular. O valor cai em `issuerAccount`, que precisa ser conta de organização do banco. Multa (`kind = 'fine'`) é bloqueante por padrão: com multa aberta, a conta pessoal não saca nem transfere.
+
+```lua
+local id, err = exports.bgrz_core:CreateInvoice({
+    recipientSource = target,          -- ou recipientCid
+    issuerAccount = 'police',          -- conta de organização
+    issuerLabel = 'LSPD',
+    issuerSource = source,             -- opcional, ou issuerCid
+    kind = 'fine',                     -- 'fine' | 'invoice'
+    title = 'Multa de trânsito',
+    description = 'Excesso de velocidade',
+    amount = 500,
+    dueDays = 7,
+})
+local ok = exports.bgrz_core:CancelInvoice(id, actorCitizenId)
+local total, count = exports.bgrz_core:GetBlockingDebt(citizenId)
+```
+
+Antes de `bgrz_core:bankingReady`, `CreateInvoice` devolve `provider_not_ready`.
 
 ## Médico (server)
 
@@ -145,6 +185,9 @@ AddEventHandler('bgrz_core:client:playerRespawned', function() end)
 o próprio loop de respawn dele executa no segundo seguinte, sem correr junto com o automático.
 `bgrz_core:client:playerRespawned` sai quando o respawn no hospital é aceito — o jogador ainda
 fica com `isDead` até levantar da cama.
+
+No servidor, `bgrz_core:server:playerRespawned` (source) sai no mesmo momento. É onde quem
+segura o jogador (algema, escolta) solta.
 
 ## Remover pelo metadata (server)
 

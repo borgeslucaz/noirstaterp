@@ -19,10 +19,10 @@ return {
     },
 
     rotation = {
-        -- TESTE: fixa a rotação nestes postos, ignorando o sorteio e a rotação já persistida
-        -- do ciclo. Todo posto fora desta lista é desativado. Esvazie antes de abrir para os
-        -- jogadores, senão a rotação nunca mais sai do lugar.
-        forced = { pier = 'drug' }, --TODO: NÃO SUBIR PRA PRODUÇÃO ASSIM
+        -- `forced = { pier = 'drug' }` fixa a rotação nestes postos, ignorando o sorteio e a
+        -- rotação já persistida do ciclo; todo posto fora da lista é desativado. Só para teste:
+        -- com ela ligada a rotação nunca mais sai do lugar.
+        forced = nil,
 
         activeDrugOutposts = 1,
         activeMoneyOutposts = 0,
@@ -178,10 +178,9 @@ return {
     claim = {
         durationMs = 45000,
         interactionDistance = 2.0,
-        -- TESTE: zerados para permitir tomada solo no servidor de desenvolvimento.
-        -- Restaurar para 8 e 2 antes de abrir para os jogadores.
-        minOnlinePlayers = 0, --TODO: NÃO SUBIR PRA PRODUÇÃO ASSIM
-        minPolice = 0, --TODO: NÃO SUBIR PRA PRODUÇÃO ASSIM
+        -- Para tomada solo no servidor de desenvolvimento, zerar este. O mínimo de policiais
+        -- é da tabela pública do noir_scoreboard (`outpost`).
+        minOnlinePlayers = 8,
         requiresOrganization = true,
         ownerDurationHours = 12,
         -- Cooldown da organização depois de assumir um outpost (evita monopólio imediato).

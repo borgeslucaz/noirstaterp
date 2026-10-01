@@ -81,21 +81,33 @@ RegisterNetEvent('qb-kidnapping:client:SetKidnapping', function(bool)
     isKidnapping = bool
 end)
 
+-- noir_police: pôr no porta-malas é do noir_police (valida no servidor quem está no ombro
+-- e manda o KidnapGetIn para o alvo). O caminho antigo mandava o handle local do carro para
+-- outro cliente e o evento de servidor aceitava qualquer alvo.
 RegisterNetEvent('qb-trunk:client:KidnapTrunk', function()
-    local closestPlayer = getClosestPlayer()
-    if not closestPlayer then return end
-
-    local closestVehicle = lib.getClosestVehicle(GetEntityCoords(cache.ped))
-    if not isKidnapping or not closestVehicle then return exports.qbx_core:Notify(locale("error.not_kidnapped"), 'error') end
-
-    TriggerEvent('police:client:KidnapPlayer')
-    TriggerServerEvent("police:server:CuffPlayer", GetPlayerServerId(closestPlayer), false)
-    Wait(50)
-    TriggerServerEvent("qb-trunk:server:KidnapTrunk", GetPlayerServerId(closestPlayer), closestVehicle)
+    TriggerEvent('noir_police:client:radial', 'putInTrunk')
 end)
 
-RegisterNetEvent('qb-trunk:client:KidnapGetIn', function(veh)
-    local closestVehicle = veh
+RegisterNetEvent('qb-trunk:client:KidnapGetIn', function(netId)
+    if GetInvokingResource() then return end
+    if not netId or not NetworkDoesNetworkIdExist(netId) then return end
+    local closestVehicle = NetToVeh(netId)
+    local kidnapped = true
+
+    -- Já dentro deste porta-malas: é a ordem de saída (noir_police "Tirar do porta-malas").
+    if inTrunk and isKidnapped then
+        local vehicle = GetEntityAttachedTo(cache.ped)
+        local vehCoords = GetOffsetFromEntityInWorldCoords(vehicle ~= 0 and vehicle or closestVehicle, 0, -5.0, 0)
+        DetachEntity(cache.ped, true, true)
+        ClearPedTasks(cache.ped)
+        inTrunk = false
+        isKidnapped = false
+        TriggerServerEvent('qb-trunk:server:setTrunkBusy', qbx.getVehiclePlate(closestVehicle), false)
+        SetEntityCoords(cache.ped, vehCoords.x, vehCoords.y, vehCoords.z, false, false, false, false)
+        SetEntityCollision(cache.ped, true, true)
+        TrunkCam(false)
+        return
+    end
     local vehClass = GetVehicleClass(closestVehicle)
     local plate = qbx.getVehiclePlate(closestVehicle)
     if config.trunkClasses[vehClass].allowed then
@@ -104,7 +116,8 @@ RegisterNetEvent('qb-trunk:client:KidnapGetIn', function(veh)
             if not inTrunk then
                 if not isBusy then
                     if not isKidnapped then
-                        if GetVehicleDoorAngleRatio(closestVehicle, 5) > 0 then
+                        -- noir_police: quem põe abre o porta-malas; o do carro alheio não sincroniza.
+                        if kidnapped or GetVehicleDoorAngleRatio(closestVehicle, 5) > 0 then
                             local offset = {
                                 x = config.trunkClasses[vehClass].x,
                                 y = config.trunkClasses[vehClass].y,
@@ -125,15 +138,16 @@ RegisterNetEvent('qb-trunk:client:KidnapGetIn', function(veh)
                     else
                         local vehicle = GetEntityAttachedTo(cache.ped)
                         plate = qbx.getVehiclePlate(vehicle)
-                        if GetVehicleDoorAngleRatio(vehicle, 5) > 0 then
+                        if kidnapped or GetVehicleDoorAngleRatio(vehicle, 5) > 0 then
                             local vehCoords = GetOffsetFromEntityInWorldCoords(vehicle, 0, -5.0, 0)
                             DetachEntity(cache.ped, true, true)
                             ClearPedTasks(cache.ped)
                             inTrunk = false
-                            TriggerServerEvent('qb-smallresources:trunk:server:setTrunkBusy', plate, nil)
+                            TriggerServerEvent('qb-trunk:server:setTrunkBusy', plate, false)
                             SetEntityCoords(cache.ped, vehCoords.x, vehCoords.y, vehCoords.z, false, false, false, false)
                             SetEntityCollision(cache.ped, true, true)
                             TrunkCam(false)
+                            isKidnapped = false
                         else
                             exports.qbx_core:Notify(locale("error.trunk_closed"), 'error', 2500)
                         end

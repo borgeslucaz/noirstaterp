@@ -13,8 +13,8 @@ return {
     -- Alert When Entering Prison --
     EnterPrisonAlert  = {
         enable = true,
-        header = 'Welcome to Prison, Criminal Scum!',
-        content = 'To reduce your time in prison, get a job from the guard in the cells. Get your ass to work and maybe you\'ll learn a thing or two.',
+        header = 'Bem-vindo à Bolingbroke',
+        content = 'O tempo corre só enquanto você está na cidade. Quando zerar, faça o checkout no balcão da recepção, na entrada da prisão, para pegar suas coisas de volta. Sair da área da prisão antes disso é fuga.',
     },
 
     -- Enter Prison Spawn Location & Emotes --
@@ -120,22 +120,25 @@ return {
         }
     },
 
+    -- PATCH NOIR: o banco de áudio próprio (awc) não carrega no Enhanced; o qbx.loadAudioBank
+    -- estourava por timeout no meio da prisão. Tenta sem travar e, sem banco, toca um som do jogo.
     PlayJailSound = function()
-        if GetResourceState('qbx_core') == 'started' then
-            lib.load('@qbx_core.modules.lib')
+        local bank = 'audiodirectory/xt_prison_sounds'
+        local loaded = false
+        local deadline = GetGameTimer() + 1000
+        repeat
+            loaded = RequestScriptAudioBank(bank, false)
+            if not loaded then Wait(50) end
+        until loaded or GetGameTimer() > deadline
 
-            qbx.loadAudioBank('audiodirectory/xt_prison_sounds')
-            qbx.playAudio({
-                audioName = 'cell_door',
-                audioRef = 'xt_prison'
-            })
-            ReleaseNamedScriptAudioBank('audiodirectory/xt_prison_sounds')
-        else
-            local soundId = GetSoundId()
-            RequestScriptAudioBank('audiodirectory/xt_prison_sounds', false)
+        local soundId = GetSoundId()
+        if loaded then
             PlaySoundFrontend(soundId, 'cell_door', 'xt_prison', true)
-            ReleaseNamedScriptAudioBank('audiodirectory/xt_prison_sounds')
+        else
+            PlaySoundFrontend(soundId, 'CLOSED', 'MP_PROPERTIES_ELEVATOR_DOORS', true)
         end
+        ReleaseSoundId(soundId)
+        if loaded then ReleaseNamedScriptAudioBank(bank) end
     end,
 
 

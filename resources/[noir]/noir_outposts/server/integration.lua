@@ -120,14 +120,19 @@ function Integration.onlinePlayerCount()
     return #GetPlayers()
 end
 
----@return integer
-function Integration.onDutyPoliceCount()
-    local total = 0
-    for index = 1, #config.police.jobs do
-        local count = callBridge('CountOnDutyJob', config.police.jobs[index])
-        if type(count) == 'number' then total = total + count end
+---Polícia em serviço e mínimo da tomada, pela tabela pública do noir_scoreboard. A
+---contagem é a mesma que o placar mostra, para "liberado" lá significar liberado aqui.
+---@return integer police 0 quando o placar não responde
+---@return integer? minimum nil quando o placar não responde: a tomada fica fechada
+function Integration.policeRequirement()
+    local called, result, _, minimum, police = pcall(function()
+        return exports.noir_scoreboard:CheckPolice('outpost')
+    end)
+    if not called then
+        Log.debug('scoreboard_unavailable', { code = tostring(result) })
+        return 0, nil
     end
-    return total
+    return math.type(police) == 'integer' and police or 0, math.type(minimum) == 'integer' and minimum or nil
 end
 
 -- Cache de organização por jogador online ----------------------------------------

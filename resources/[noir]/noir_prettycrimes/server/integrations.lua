@@ -97,11 +97,13 @@ function Integrations.firstItemOwned(source, items)
 end
 
 ---@param source number
----@param account 'cash'|'bank'
+---`black_money` não é conta: é o item do dinheiro sujo, e entra pelo inventário.
+---@param account 'cash'|'bank'|'black_money'
 ---@param amount integer
 ---@param reason string
 ---@return boolean
 function Integrations.addMoney(source, account, amount, reason)
+    if account == 'black_money' then return Integrations.addItem(source, 'black_money', amount) end
     if not coreReady() then return false end
     return exports[CORE]:AddMoney(source, account or 'cash', amount, reason) == true
 end

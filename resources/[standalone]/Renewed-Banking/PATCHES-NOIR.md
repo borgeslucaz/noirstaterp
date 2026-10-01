@@ -161,3 +161,43 @@ O acesso vai pelo `bgrz_core` e não pelo `noir_gangs` direto onde dá, porque �
 sabe qual resource é o provider de gangs — igual ao que já é feito com inventário e target.
 
 A ordem de start já favorece: `[bgrz]` é ensured antes de `[standalone]`.
+
+## 9. Faturas e multas (`server/invoices.lua`, arquivo novo)
+
+O banco não tinha cobrança pendente: multa do MDT e da polícia tirava do saldo na hora (e a
+do MDT nem caía em conta nenhuma). Agora cobrança é **fatura** em `bank_invoices`, e o banco é
+o único dono dela. O app Faturas do sky_phone virou uma janela para cá (ver
+`sky_phone/source/server/billing.lua`).
+
+- **Fatura** (`kind = 'invoice'`): pendência que o devedor paga quando quiser.
+- **Multa** (`kind = 'fine'`, bloqueante por padrão): enquanto houver multa em aberto, a conta
+  **pessoal** não saca nem transfere (`withdraw`/`transfer` em `server/main.lua` recusam com
+  `fines_block`; conta de organização não é afetada). O celular recusa transferência igual
+  (`fines_pending`). Multa não se contesta pelo app (`canDispute = false`).
+- O pagamento sai do saldo bancário do devedor e entra em `issuer_account`, que precisa ser
+  conta de organização conhecida pelo banco; os dois extratos recebem lançamento. A fatura é
+  travada em `processing` antes de mexer em dinheiro, então dois cliques não pagam duas vezes.
+
+Patches em arquivos existentes:
+
+| arquivo | o quê |
+|---|---|
+| `server/main.lua` | `getBankData` põe `invoices` (resumo) e `openInvoices` na conta pessoal; bloqueio em `withdraw`/`transfer`; `NoirBankInternal` expõe `handleTransaction`, `getBankData` e `account` para o `invoices.lua` |
+| `client/main.lua` | `payInvoice` entra em `bankActions` (NUI → `Renewed-Banking:server:payInvoice`) |
+| `fxmanifest.lua` | `server/invoices.lua` depois do `main.lua` |
+| `locales/*.json` | `invoice_*`, `fines_block` |
+| `web/` | aba **Faturas** no rail (com contador), aviso de multa na aba Contas, faixa de multas no caixa eletrônico com pagar em dois toques (`components/Invoices.tsx`) |
+
+Exports (server): `CreateInvoice`, `CancelInvoice`, `GetBlockingDebt`, `GetInvoiceSummary`,
+`ListInvoices`, `GetInvoice`, `MarkInvoiceRead`, `DisputeInvoice`, `PayInvoice`. Quem cobra usa
+o `bgrz_core` (`CreateInvoice`/`CancelInvoice`/`GetBlockingDebt`); o sky_phone chama direto.
+`silent = true` no `CreateInvoice` pula o aviso do banco quando quem cobra já avisa com texto
+próprio.
+
+Eventos locais (servidor): `Renewed-Banking:noir:invoicesChanged (src, cid)` a cada mudança e
+`Renewed-Banking:noir:invoiceCreated (src, {amount, issuer, kind})` na emissão; o sky_phone
+transforma em `sky_phone:billing:changed` e no push de fatura nova.
+
+Quem emite hoje: `noir_police` (multa de campo e radar, na conta do departamento) e `ps-mdt`
+(`server/noir_fines.lua`, multa do relatório e da sentença, na conta do departamento de quem
+multou; o multado não precisa estar online).

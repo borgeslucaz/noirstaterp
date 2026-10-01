@@ -263,7 +263,7 @@ end
 local function dropFingerprint()
     if qbx.isWearingGloves() then return end
     if math.random(100) <= config.fingerprintChance then
-        TriggerServerEvent('evidence:server:CreateFingerDrop', GetEntityCoords(cache.ped))
+        TriggerServerEvent('noir_police:server:fingerprintDrop', GetEntityCoords(cache.ped))
     end
 end
 

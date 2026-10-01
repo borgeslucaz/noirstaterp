@@ -12,7 +12,7 @@ assert(BGRZConfig.Providers.inventory == 'ox_inventory', 'inventory provider mis
 assert(BGRZConfig.Providers.target == 'ox_target', 'target provider missing')
 assert(BGRZConfig.Providers.phone == 'sky_phone', 'phone provider missing')
 assert(BGRZConfig.Providers.dispatch == nil, 'dispatch has no primary provider in this base')
-assert(BGRZConfig.Providers.dispatchFallback == 'qbx_police', 'dispatch fallback missing')
+assert(BGRZConfig.Providers.dispatchFallback == 'noir_police', 'dispatch fallback missing')
 assert(BGRZConfig.Limits.maxItemAmount == 100000, 'item amount limit missing')
 
 local manifest = read('fxmanifest.lua')

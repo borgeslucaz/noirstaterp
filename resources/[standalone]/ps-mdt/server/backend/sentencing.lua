@@ -80,23 +80,14 @@ ps.registerCallback(resourceName .. ':server:giveCitation', function(source, pay
     end
     fine = math.floor(fine)
 
-    local Player = ps.getPlayerByIdentifier(citizenId)
-    if not Player then
-        return { success = false, message = 'Player must be online to issue a fine' }
+    -- PATCH NOIR: vira multa pendente no banco (server/noir_fines.lua); não precisa estar online.
+    -- O multado é avisado pelo banco e pelo celular.
+    local issued, err = NoirIssueMdtFine(src, citizenId, fine, reportId)
+    if not issued then
+        return { success = false, message = err }
     end
 
-    local playerSrc = Player.source or (Player.PlayerData and Player.PlayerData.source)
-    if not playerSrc then
-        return { success = false, message = 'Could not resolve player source' }
-    end
-
-    local removed = ps.removeMoney(playerSrc, 'bank', fine, 'mdt-fine')
-    if not removed then
-        return { success = false, message = 'Could not deduct fine (insufficient funds)' }
-    end
-
-    ps.notify(playerSrc, '$' .. fine .. ' fine deducted from your bank account', 'error')
-    ps.notify(src, '$' .. fine .. ' fine issued successfully', 'success')
+    ps.notify(src, 'Multa de $' .. fine .. ' registrada no banco', 'success')
 
     if ps.auditLog then
         local officerName = ps.getPlayerName(src) or 'Unknown Officer'

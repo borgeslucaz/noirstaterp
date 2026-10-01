@@ -385,17 +385,7 @@ return {
         },
 
         -- Job Garages
-        police = {
-            label = 'Police',
-            vehicleType = VehicleType.CAR,
-            groups = 'police',
-            accessPoints = {
-                {
-                    coords = vec4(454.6, -1017.4, 28.4, 0),
-                    spawn = vec4(438.4, -1018.3, 27.7, 90.0),
-                }
-            },
-        },
+        -- A frota da polícia (viatura sem dono) é do noir_police; a garagem `police` saiu daqui.
 
         -- Gang Garages
         ballas = {

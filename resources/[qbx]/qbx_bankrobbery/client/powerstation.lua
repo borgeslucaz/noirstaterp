@@ -40,9 +40,9 @@ RegisterNetEvent('thermite:UseThermite', function()
     local pos = GetEntityCoords(cache.ped)
     if closestStation ~= 0 then
         if math.random(1, 100) < 85 or not qbx.isWearingGloves() then
-            TriggerServerEvent('evidence:server:CreateFingerDrop', pos)
+            TriggerServerEvent('noir_police:server:fingerprintDrop', pos)
         end
-        TriggerServerEvent('evidence:server:CreateFingerDrop', pos)
+        TriggerServerEvent('noir_police:server:fingerprintDrop', pos)
         local dist = #(pos - powerStationConfig[closestStation].coords)
         if dist < 1.5 then
             if CurrentCops >= config.minThermitePolice then
@@ -63,9 +63,9 @@ RegisterNetEvent('thermite:UseThermite', function()
         end
     elseif CurrentThermiteGate ~= 0 then
         if math.random(1, 100) < 85 or not qbx.isWearingGloves() then
-            TriggerServerEvent('evidence:server:CreateFingerDrop', pos)
+            TriggerServerEvent('noir_police:server:fingerprintDrop', pos)
         end
-        TriggerServerEvent('evidence:server:CreateFingerDrop', pos)
+        TriggerServerEvent('noir_police:server:fingerprintDrop', pos)
         if CurrentCops >= config.minThermitePolice then
             currentGate = CurrentThermiteGate
             lib.playAnim(cache.ped, 'weapon@w_sp_jerrycan', 'fire', 3.0, 3.9, -1, 49, 0, false, false, false)

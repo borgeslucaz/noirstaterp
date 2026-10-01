@@ -23,7 +23,7 @@ Config = {}
 Config.Commands = { 'sfdev', 'sfdevtools' }
 
 Config.Keybind = {
-    enabled     = true,
+    enabled     = false,                  -- Noir: F6 é o menu da polícia; abrir com /sfdev
     name        = 'sfdev_open',
     description = 'Open ShadowForge DevTools',
     defaultKey  = 'F6',
@@ -33,7 +33,7 @@ Config.Keybind = {
 -- Permissions
 -- ───────────────────────────────────────────────
 Config.Permissions = {
-    require   = false,                        -- false to allow everyone
+    require   = true,                         -- Noir: só admin (ACE abaixo em permissions.cfg)
     ace       = 'shadowforge.devtools',      -- base permission
     dangerous = 'shadowforge.devtools.dangerous', -- spawn/delete/modify world
 }

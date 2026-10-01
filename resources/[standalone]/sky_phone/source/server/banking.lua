@@ -129,6 +129,11 @@ Bridge.Callbacks.Register("sky_phone:banking:transfer", function(source, data)
     if not amount or not number then
         return { success = false, error = "invalid_request" }
     end
+    -- PATCH NOIR: multa em aberto no banco trava transferência, igual no Renewed-Banking.
+    if GetResourceState("Renewed-Banking") == "started"
+        and (exports["Renewed-Banking"]:GetBlockingDebt(identifier) or 0) > 0 then
+        return { success = false, error = "fines_pending" }
+    end
     local target = online_source_for_phone(number)
     if not target then
         return { success = false, error = "target_not_found" }

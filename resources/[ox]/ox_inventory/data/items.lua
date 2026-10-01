@@ -2849,7 +2849,7 @@ return {
     },
 
     ['filled_evidence_bag'] = {
-        label = 'Filled Evidence Bag',
+        label = 'Saco de evidência',
         rarity = 'common',
         weight = 200,
     },
@@ -2900,10 +2900,97 @@ return {
     },
 
     ['handcuffs'] = {
-        label = 'Handcuffs',
+        label = 'Algemas',
         rarity = 'uncommon',
         weight = 200,
+        client = { export = 'noir_police.useCuffs' },
     },
+
+    -- noir_police ------------------------------------------------------------------
+    ['zipties'] = {
+        label = 'Zip tie',
+        rarity = 'common',
+        weight = 20,
+        stack = true,
+        client = { export = 'noir_police.useZipties' },
+    },
+
+    ['handcuffkey'] = {
+        label = 'Chave de algema',
+        rarity = 'uncommon',
+        weight = 10,
+        stack = true,
+        client = { export = 'noir_police.useCuffKey' },
+    },
+
+    ['cutters'] = {
+        label = 'Alicate de corte',
+        rarity = 'common',
+        weight = 300,
+        stack = true,
+        client = { image = 'wirecutter.png', export = 'noir_police.useCutters' },
+    },
+
+    ['seized_box'] = {
+        label = 'Caixa de apreensão',
+        description = 'Leve até a sala de evidências da delegacia.',
+        rarity = 'uncommon',
+        weight = 2000,
+        stack = false,
+        close = false,
+        client = { image = 'evidence.png' },
+        buttons = {
+            {
+                label = 'Colocar etiqueta',
+                action = function(slot)
+                    if GetResourceState('noir_police') ~= 'started' then return end
+                    exports.noir_police:labelSeizedBox(slot)
+                end,
+            },
+        },
+    },
+
+    ['evidence_case'] = {
+        label = 'Bolsa de evidências',
+        description = 'Tudo o que você coleta cai aqui. Esvazie na sala de evidências.',
+        rarity = 'uncommon',
+        weight = 1500,
+        stack = false,
+        close = false,
+        client = { image = 'case_1.png' },
+    },
+
+    ['shield'] = {
+        label = 'Escudo balístico',
+        rarity = 'rare',
+        weight = 8000,
+        stack = false,
+        consume = 0,
+        client = { export = 'noir_police.useShield' },
+    },
+
+    ['spikestrip'] = {
+        label = 'Spike strip',
+        rarity = 'uncommon',
+        weight = 500,
+        stack = true,
+        client = { export = 'noir_police.useSpikestrip' },
+    },
+
+    ['casing'] = {
+        label = 'Cápsula',
+        rarity = 'common',
+        weight = 2,
+        stack = false,
+    },
+
+    ['projectile'] = {
+        label = 'Projétil',
+        rarity = 'common',
+        weight = 2,
+        stack = false,
+    },
+    -- fim noir_police --------------------------------------------------------------
 
 ["workbench"] = {
     label = "Basic Workbench",

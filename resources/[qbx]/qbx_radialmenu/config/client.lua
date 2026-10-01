@@ -1,6 +1,6 @@
 local bags = {[40] = true, [41] = true, [44] = true, [45] = true}
 
-return {
+local config = {
     enableExtraMenu = true,
     flipTime = 15000,
 
@@ -40,48 +40,57 @@ return {
                     id = 'interactions',
                     icon = 'exclamation-triangle',
                     label = 'Interação',
+                    -- noir_police: cada ação tem a própria regra no servidor (algema só
+                    -- polícia; zip tie para todos; escolta e carregar exigem alvo contido).
                     items = {
                         {
                             id = 'handcuff',
                             icon = 'user-lock',
-                            label = 'Algemar',
-                            event = 'police:client:CuffPlayer',
+                            label = 'Algemar / zip tie',
+                            event = 'noir_police:client:radial',
+                            args = 'cuff',
                         },
                         {
                             id = 'playerInVehicle',
                             icon = 'car-side',
                             label = 'Colocar no veículo',
-                            event = 'police:client:PutPlayerInVehicle',
+                            event = 'noir_police:client:radial',
+                            args = 'putInVehicle',
                         },
                         {
                             id = 'playerOutVehicle',
                             icon = 'car-side',
                             label = 'Tirar do veículo',
-                            event = 'police:client:SetPlayerOutVehicle',
+                            event = 'noir_police:client:radial',
+                            args = 'takeOutVehicle',
                         },
                         {
                             id = 'stealPlayer',
                             icon = 'mask',
                             label = 'Roubar',
-                            event = 'police:client:RobPlayer',
+                            event = 'noir_police:client:radial',
+                            args = 'rob',
                         },
                         {
                             id = 'kidnapPlayer',
                             icon = 'user-group',
-                            label = 'Sequestrar',
-                            event = 'police:client:KidnapPlayer',
+                            label = 'Carregar no ombro',
+                            event = 'noir_police:client:radial',
+                            args = 'carry',
                         },
                         {
                             id = 'escortPlayer',
                             icon = 'user-group',
                             label = 'Escoltar',
-                            event = 'police:client:EscortPlayer',
+                            event = 'noir_police:client:radial',
+                            args = 'escort',
                         },
                         {
-                            id = 'takeHostage',
-                            icon = 'child',
-                            label = 'Fazer refém',
-                            event = 'police:client:TakeHostage',
+                            id = 'searchPlayer',
+                            icon = 'magnifying-glass',
+                            label = 'Revistar',
+                            event = 'noir_police:client:radial',
+                            args = 'search',
                         },
                     },
                 },
@@ -223,24 +232,26 @@ return {
     },
 
     jobItems = {
+        -- noir_police: o mesmo menu para os três departamentos (o bloco abaixo é
+        -- repetido em bcso e sasp).
         police = {
             {
                 id = 'emergencyButton',
                 icon = 'bell',
                 label = 'Botão de emergência',
-                event = 'police:client:SendPoliceEmergencyAlert',
+                event = 'noir_police:client:officerDown',
+            },
+            {
+                id = 'policeMenu',
+                icon = 'list-check',
+                label = 'Menu da polícia',
+                event = 'noir_police:client:openMenu',
             },
             {
                 id = 'resetHouse',
                 icon = 'key',
                 label = 'Trocar fechadura da casa',
                 event = 'qb-houses:client:ResetHouse',
-            },
-            {
-                id = 'revokeDriversLicense',
-                icon = 'id-card',
-                label = 'Apreender CNH',
-                event = 'police:client:SeizeDriverLicense',
             },
             {
                 id = 'policeInteractions',
@@ -257,73 +268,22 @@ return {
                         id = 'escort',
                         icon = 'user-group',
                         label = 'Escoltar',
-                        event = 'police:client:EscortPlayer',
+                        event = 'noir_police:client:radial',
+                        args = 'escort',
                     },
                     {
                         id = 'search',
                         icon = 'magnifying-glass',
                         label = 'Revistar',
-                        event = 'police:client:SearchPlayer',
+                        event = 'noir_police:client:radial',
+                        args = 'search',
                     },
                     {
                         id = 'jail',
                         icon = 'user-lock',
                         label = 'Prender',
-                        event = 'police:client:JailPlayer',
-                    },
-                },
-            },
-            {
-                id = 'policeObjects',
-                icon = 'road',
-                label = 'Objetos policiais',
-                items = {
-                    {
-                        id = 'cone',
-                        icon = 'triangle-exclamation',
-                        label = 'Cone',
-                        event = 'police:client:spawnPObj',
-                        args = 'cone',
-                    },
-                    {
-                        id = 'gate',
-                        icon = 'torii-gate',
-                        label = 'Barreira',
-                        event = 'police:client:spawnPObj',
-                        args = 'barrier',
-                    },
-                    {
-                        id = 'speedSign',
-                        icon = 'sign-hanging',
-                        label = 'Placa de velocidade',
-                        event = 'police:client:spawnPObj',
-                        args = 'roadsign',
-                    },
-                    {
-                        id = 'tent',
-                        icon = 'campground',
-                        label = 'Tenda',
-                        event = 'police:client:spawnPObj',
-                        args = 'tent',
-                    },
-                    {
-                        id = 'lighting',
-                        icon = 'lightbulb',
-                        label = 'Iluminação',
-                        event = 'police:client:spawnPObj',
-                        args = 'light',
-                    },
-                    {
-                        id = 'spikeStrip',
-                        icon = 'caret-up',
-                        label = 'Tapete de pregos',
-                        event = 'police:client:SpawnSpikeStrip',
-                    },
-                    {
-                        id = 'deleteObject',
-                        icon = 'trash',
-                        label = 'Remover objeto',
-                        event = 'police:client:deleteObject',
+                        event = 'noir_police:client:radial',
+                        args = 'jail',
                     },
                 },
             },
@@ -357,7 +317,8 @@ return {
                 id = 'escort',
                 icon = 'user-group',
                 label = 'Escoltar',
-                event = 'police:client:EscortPlayer',
+                event = 'noir_police:client:radial',
+                args = 'escort',
             },
         },
         mechanic = {
@@ -783,3 +744,9 @@ return {
         }
     },
 }
+
+-- noir_police: BCSO e SASP usam o mesmo menu da polícia.
+config.jobItems.bcso = config.jobItems.police
+config.jobItems.sasp = config.jobItems.police
+
+return config

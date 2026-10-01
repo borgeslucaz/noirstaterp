@@ -124,7 +124,7 @@ return {
 
             },
             pickups = {
-                 { coords = vec3(124.564, -1128.328, -99.991), model = 'prop_cash_pile_02', name = 'Dinheiro', reward = 'money', rotation = 0, carry = false, amount = { min = 100, max = 800 } },
+                 { coords = vec3(124.564, -1128.328, -99.991), model = 'prop_cash_pile_02', name = 'Dinheiro', reward = 'black_money', rotation = 0, carry = false, amount = { min = 100, max = 800 } },
                  { coords = vec3(120.276, -1127.305, -100.04), model = 'prop_laptop_01a', name = 'Notebook', reward = 'laptop', rotation = 0, carry = false },
                  { coords = vec3(125.519, -1131.701, -99.299), model = 'p_watch_03_s', name = 'Rolex', reward = 'rolex', rotation = 0, carry = false },
                  { coords = vec3(122.908, -1131.708, -100.084), model = 'prop_boombox_01', name = 'Rádio', reward = 'boombox', rotation = vec3(0, 0, -137.583) },

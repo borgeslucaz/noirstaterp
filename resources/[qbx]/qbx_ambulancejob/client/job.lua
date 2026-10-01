@@ -238,7 +238,6 @@ end
 ---Toggles the on duty status of the player.
 local function toggleDuty()
     TriggerServerEvent('QBCore:ToggleDuty')
-    TriggerServerEvent('police:server:UpdateBlips')
 end
 
 ---Creates a zone that lets players store and retrieve job vehicles

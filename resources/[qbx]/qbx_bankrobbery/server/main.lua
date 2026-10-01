@@ -89,7 +89,7 @@ local function checkStationHits()
 
     -- table.type checks if it's empty as well, if it's empty it will return the type 'empty' instead of 'array'
 
-    if table.type(policeHits) == 'array' then TriggerClientEvent('police:client:SetCamera', -1, policeHits, false) end
+    if table.type(policeHits) == 'array' then pcall(function() exports.noir_police:SetCameraOnline(policeHits, false) end) end
     if table.type(bankHits) == 'array' then TriggerClientEvent('qbx_bankrobbery:client:BankSecurity', -1, bankHits, false) end
 end
 
@@ -129,8 +129,8 @@ local function changeBankState(bankId, state)
 end
 
 local function changeBlackoutState(state)
-    local eventName = state and 'police:client:DisableAllCameras' or 'police:client:EnableAllCameras'
-    TriggerClientEvent(eventName, -1)
+    -- noir_police: câmeras de segurança ficam sem sinal durante o apagão.
+    pcall(function() exports.noir_police:SetAllCamerasOnline(not state) end)
 end
 
 RegisterNetEvent('qbx_bankrobbery:server:setBankState', function(bankId)
@@ -385,6 +385,22 @@ end)
 -- Callbacks
 lib.callback.register('qbx_bankrobbery:server:isRobberyActive', function()
     return robberyBusy
+end)
+
+---Mínimos da tabela pública do noir_scoreboard. Sem resposta, 999: nada abre.
+---@param key string
+---@return integer
+local function minimumPolice(key)
+    local ok, minimum = pcall(function() return exports.noir_scoreboard:GetMinimumPolice(key) end)
+    return ok and math.type(minimum) == 'integer' and minimum or 999
+end
+
+lib.callback.register('qbx_bankrobbery:server:GetMinimumPolice', function()
+    return {
+        fleeca = minimumPolice('bankrobbery'),
+        paleto = minimumPolice('paleto'),
+        pacific = minimumPolice('pacific'),
+    }
 end)
 
 lib.callback.register('qbx_bankrobbery:server:GetConfig', function()

@@ -1,5 +1,9 @@
 ---Job names must be lower case (top level table key)
 ---@type table<string, Job>
+-- Noir: salário automático (a cada 30 min, config/server.lua) só para serviço público:
+-- police, bcso, sasp, ambulance e judge, que entram no jogo fora de serviço (defaultDuty =
+-- false) e só recebem com o ponto batido. Os outros jobs ficam com payment = 0: salário de
+-- empresa vai ser feito de outra forma.
 return {
     ['unemployed'] = {
         label = 'Civilian',
@@ -8,104 +12,104 @@ return {
         grades = {
             [0] = {
                 name = 'Freelancer',
-                payment = 10
+                payment = 0
             },
         },
     },
     ['police'] = {
         label = 'LSPD',
         type = 'leo',
-        defaultDuty = true,
+        defaultDuty = false,
         offDutyPay = false,
         grades = {
             [0] = {
                 name = 'Recruit',
-                payment = 50
+                payment = 800
             },
             [1] = {
                 name = 'Officer',
-                payment = 75
+                payment = 1050
             },
             [2] = {
                 name = 'Sergeant',
-                payment = 100
+                payment = 1400
             },
             [3] = {
                 name = 'Lieutenant',
-                payment = 125
+                payment = 1850
             },
             [4] = {
                 name = 'Chief',
                 isboss = true,
                 bankAuth = true,
-                payment = 150
+                payment = 2500
             },
         },
     },
     ['bcso'] = {
         label = 'BCSO',
         type = 'leo',
-        defaultDuty = true,
+        defaultDuty = false,
         offDutyPay = false,
         grades = {
             [0] = {
                 name = 'Recruit',
-                payment = 50
+                payment = 800
             },
             [1] = {
                 name = 'Officer',
-                payment = 75
+                payment = 1050
             },
             [2] = {
                 name = 'Sergeant',
-                payment = 100
+                payment = 1400
             },
             [3] = {
                 name = 'Lieutenant',
-                payment = 125
+                payment = 1850
             },
             [4] = {
                 name = 'Chief',
                 isboss = true,
                 bankAuth = true,
-                payment = 150
+                payment = 2500
             },
         },
     },
     ['sasp'] = {
         label = 'SASP',
         type = 'leo',
-        defaultDuty = true,
+        defaultDuty = false,
         offDutyPay = false,
         grades = {
             [0] = {
                 name = 'Recruit',
-                payment = 50
+                payment = 800
             },
             [1] = {
                 name = 'Officer',
-                payment = 75
+                payment = 1050
             },
             [2] = {
                 name = 'Sergeant',
-                payment = 100
+                payment = 1400
             },
             [3] = {
                 name = 'Lieutenant',
-                payment = 125
+                payment = 1850
             },
             [4] = {
                 name = 'Chief',
                 isboss = true,
                 bankAuth = true,
-                payment = 150
+                payment = 2500
             },
         },
     },
     ['ambulance'] = {
         label = 'EMS',
         type = 'ems',
-        defaultDuty = true,
+        defaultDuty = false,
         offDutyPay = false,
         grades = {
             [0] = {
@@ -140,25 +144,25 @@ return {
         grades = {
             [0] = {
                 name = 'Recruit',
-                payment = 50
+                payment = 0
             },
             [1] = {
                 name = 'House Sales',
-                payment = 75
+                payment = 0
             },
             [2] = {
                 name = 'Business Sales',
-                payment = 100
+                payment = 0
             },
             [3] = {
                 name = 'Broker',
-                payment = 125
+                payment = 0
             },
             [4] = {
                 name = 'Manager',
                 isboss = true,
                 bankAuth = true,
-                payment = 150
+                payment = 0
             },
         },
     },
@@ -169,25 +173,25 @@ return {
         grades = {
             [0] = {
                 name = 'Recruit',
-                payment = 50
+                payment = 0
             },
             [1] = {
                 name = 'Driver',
-                payment = 75
+                payment = 0
             },
             [2] = {
                 name = 'Event Driver',
-                payment = 100
+                payment = 0
             },
             [3] = {
                 name = 'Sales',
-                payment = 125
+                payment = 0
             },
             [4] = {
                 name = 'Manager',
                 isboss = true,
                 bankAuth = true,
-                payment = 150
+                payment = 0
             },
         },
     },
@@ -198,7 +202,7 @@ return {
         grades = {
             [0] = {
                 name = 'Driver',
-                payment = 50
+                payment = 0
             },
         },
     },
@@ -209,25 +213,25 @@ return {
         grades = {
             [0] = {
                 name = 'Recruit',
-                payment = 50
+                payment = 0
             },
             [1] = {
                 name = 'Showroom Sales',
-                payment = 75
+                payment = 0
             },
             [2] = {
                 name = 'Business Sales',
-                payment = 100
+                payment = 0
             },
             [3] = {
                 name = 'Finance',
-                payment = 125
+                payment = 0
             },
             [4] = {
                 name = 'Manager',
                 isboss = true,
                 bankAuth = true,
-                payment = 150
+                payment = 0
             },
         },
     },
@@ -239,31 +243,31 @@ return {
         grades = {
             [0] = {
                 name = 'Recruit',
-                payment = 50
+                payment = 0
             },
             [1] = {
                 name = 'Novice',
-                payment = 75
+                payment = 0
             },
             [2] = {
                 name = 'Experienced',
-                payment = 100
+                payment = 0
             },
             [3] = {
                 name = 'Advanced',
-                payment = 125
+                payment = 0
             },
             [4] = {
                 name = 'Manager',
                 isboss = true,
                 bankAuth = true,
-                payment = 150
+                payment = 0
             },
         },
     },
     ['judge'] = {
         label = 'Honorary',
-        defaultDuty = true,
+        defaultDuty = false,
         offDutyPay = false,
         grades = {
             [0] = {
@@ -279,7 +283,7 @@ return {
         grades = {
             [0] = {
                 name = 'Associate',
-                payment = 50
+                payment = 0
             },
         },
     },
@@ -290,7 +294,7 @@ return {
         grades = {
             [0] = {
                 name = 'Journalist',
-                payment = 50
+                payment = 0
             },
         },
     },
@@ -301,7 +305,7 @@ return {
         grades = {
             [0] = {
                 name = 'Driver',
-                payment = 50
+                payment = 0
             },
         },
     },
@@ -312,7 +316,7 @@ return {
         grades = {
             [0] = {
                 name = 'Driver',
-                payment = 50
+                payment = 0
             },
         },
     },
@@ -323,7 +327,7 @@ return {
         grades = {
             [0] = {
                 name = 'Collector',
-                payment = 50
+                payment = 0
             },
         },
     },
@@ -334,7 +338,7 @@ return {
         grades = {
             [0] = {
                 name = 'Picker',
-                payment = 50
+                payment = 0
             },
         },
     },
@@ -345,7 +349,7 @@ return {
         grades = {
             [0] = {
                 name = 'Sales',
-                payment = 50
+                payment = 0
             },
         },
     },

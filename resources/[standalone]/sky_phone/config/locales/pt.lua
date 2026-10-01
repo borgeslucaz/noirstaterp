@@ -3392,6 +3392,7 @@ Locales["pt"] = {
                     insufficient_funds = "Não há dinheiro suficiente nesta conta.",
                     target_not_found = "O destinatário não está online.",
                     self_transfer = "Você não pode enviar dinheiro para si mesmo.",
+                    fines_pending = "Você tem multas em aberto. Pague no app Faturas ou no banco para voltar a transferir.",
                     rate_limited = "Por favor, aguarde antes de realizar outra transação.",
                     reload_cooldown = "Muitas atualizações. Por favor, aguarde um momento antes de tentar novamente.",
                     transfer_failed = "A transferência não pôde ser concluída.",

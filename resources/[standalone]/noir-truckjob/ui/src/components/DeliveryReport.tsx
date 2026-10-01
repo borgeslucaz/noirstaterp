@@ -38,13 +38,13 @@ export function DeliveryReport({ result, language, interactive, onClose }: Props
           {result.damagePenalty > 0 && (
             <Line label={t('report_damage', 'Penalidade por danos')} value={signedMoney(-result.damagePenalty)} tone="minus" />
           )}
-          {result.illegalBonus > 0 && (
-            <Line label={t('report_illegal', 'Bônus de carga ilegal')} value={signedMoney(result.illegalBonus)} tone="plus" />
-          )}
           <div className="report__total">
             <span>{t('report_total', 'Total')}</span>
             <strong>{money(result.total)}</strong>
           </div>
+          {result.illegalBonus > 0 && (
+            <Line label={t('report_illegal', 'Carga ilegal (dinheiro sujo)')} value={signedMoney(result.illegalBonus)} tone="plus" />
+          )}
         </div>
 
         <div className="report__meta">

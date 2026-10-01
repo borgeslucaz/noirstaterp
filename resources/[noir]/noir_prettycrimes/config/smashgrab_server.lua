@@ -113,7 +113,8 @@ return {
     -- a chance de o sorteio sair vazio — é assim que se afina "quase sempre vem
     -- pouca coisa" sem inventar outro campo.
     --
-    -- `money = 'cash'|'bank'` entrega dinheiro; `item = '<nome>'` entrega item.
+    -- `money = 'cash'|'bank'|'black_money'` entrega dinheiro; `item = '<nome>'` entrega item.
+    -- Dinheiro de crime é sujo: `black_money`.
     -- Todos os itens abaixo existem no ox_inventory deste servidor. O sketch
     -- original pedia `cash` e `headphones`: nenhum dos dois existe aqui, então
     -- viraram `money` e eletrônicos reais.
@@ -122,7 +123,7 @@ return {
         cheap = {
             rolls = { min = 1, max = 2 },
             items = {
-                { money = 'cash', min = 5,  max = 35, chance = 30 },
+                { money = 'black_money', min = 5,  max = 35, chance = 30 },
                 { item = 'sandwich',   min = 1, max = 2, chance = 22 },
                 { item = 'beer',       min = 1, max = 2, chance = 15 },
                 { item = 'bandage',    min = 1, max = 2, chance = 13 },
@@ -134,7 +135,7 @@ return {
         common = {
             rolls = { min = 1, max = 2 },
             items = {
-                { money = 'cash', min = 20, max = 110, chance = 28 },
+                { money = 'black_money', min = 20, max = 110, chance = 28 },
                 { item = 'phone',      min = 1, max = 1, chance = 16 },
                 { item = 'bandage',    min = 1, max = 2, chance = 12 },
                 { item = 'screwdriver',min = 1, max = 1, chance = 10 },
@@ -148,7 +149,7 @@ return {
         variable = {
             rolls = { min = 1, max = 3 },
             items = {
-                { money = 'cash', min = 10, max = 90, chance = 24 },
+                { money = 'black_money', min = 10, max = 90, chance = 24 },
                 { item = 'screwdriver', min = 1, max = 1, chance = 14 },
                 { item = 'lockpick',    min = 1, max = 2, chance = 12 },
                 { item = 'bandage',     min = 1, max = 3, chance = 12 },
@@ -165,7 +166,7 @@ return {
                 { item = 'phone',       min = 1, max = 1, chance = 26 },
                 { item = 'tablet',      min = 1, max = 1, chance = 20 },
                 { item = 'laptop',      min = 1, max = 1, chance = 14 },
-                { money = 'cash', min = 30, max = 150, chance = 14 },
+                { money = 'black_money', min = 30, max = 150, chance = 14 },
                 { item = 'burner_phone',min = 1, max = 1, chance = 10 },
                 { item = 'cryptostick', min = 1, max = 1, chance = 4 },
                 -- soma 88
@@ -175,7 +176,7 @@ return {
         valuable = {
             rolls = { min = 1, max = 2 },
             items = {
-                { money = 'cash', min = 80, max = 320, chance = 26 },
+                { money = 'black_money', min = 80, max = 320, chance = 26 },
                 { item = 'rolex',        min = 1, max = 1, chance = 16 },
                 { item = 'goldchain',    min = 1, max = 1, chance = 14 },
                 { item = 'laptop',       min = 1, max = 1, chance = 12 },

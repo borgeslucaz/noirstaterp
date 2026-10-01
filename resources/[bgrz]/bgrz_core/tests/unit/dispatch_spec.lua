@@ -4,10 +4,10 @@ BGRZ = {}
 BGRZConfig = {
     Providers = {
         dispatch = 'sd-phone',
-        dispatchFallback = 'qbx_police',
+        dispatchFallback = 'noir_police',
     },
 }
-local states = { ['sd-phone'] = 'started', qbx_police = 'started', qbx_core = 'started' }
+local states = { ['sd-phone'] = 'started', noir_police = 'started', qbx_core = 'started' }
 local mdtCall
 local clientEvents = {}
 local phone = {}
@@ -59,7 +59,7 @@ phone.mdtCreateCall = function() return nil end
 clientEvents = {}
 ok, result = BGRZ.SendDispatch(request)
 T.equal(ok, true, 'fallback dispatch sent')
-T.equal(result.provider, 'qbx_police', 'fallback provider')
+T.equal(result.provider, 'noir_police', 'fallback provider')
 T.equal(result.recipients, 1, 'fallback recipients')
 T.equal(#clientEvents, 1, 'only matching on-duty police alerted')
 T.equal(clientEvents[1].name, 'police:client:policeAlert', 'police client event')
@@ -80,7 +80,7 @@ T.equal(ok, false, 'invalid jobs rejected')
 T.equal(result, 'invalid_jobs', 'invalid jobs code')
 
 states['sd-phone'] = 'stopped'
-states.qbx_police = 'stopped'
+states.noir_police = 'stopped'
 ok, result = BGRZ.SendDispatch(request)
 T.equal(ok, false, 'no dispatch provider rejected')
 T.equal(result, 'provider_unavailable', 'no dispatch provider code')

@@ -243,7 +243,7 @@ local options = {
         end
     end,
     function(weaponType) TriggerServerEvent('qbx_admin:server:giveAllWeapons', weaponType) end,
-    function() TriggerEvent('police:client:GetCuffed', cache.serverId, true) end,
+    function() TriggerServerEvent('noir_police:server:adminToggleCuff') end,
 }
 
 lib.registerMenu({

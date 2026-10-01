@@ -7,7 +7,7 @@ function DropFingerprint()
     if qbx.isWearingGloves() then return end
     if config.fingerprintChance > math.random(0, 100) then
         local coords = GetEntityCoords(cache.ped)
-        TriggerServerEvent('evidence:server:CreateFingerDrop', coords)
+        TriggerServerEvent('noir_police:server:fingerprintDrop', coords)
     end
 end
 
@@ -16,13 +16,30 @@ AddEventHandler('onResourceStop', function(resource)
     ResetBankDoors()
 end)
 
+---O `config.client` é o mesmo módulo em todos os arquivos (require com cache), então
+---mudar aqui vale para fleeca, paleto, pacific e usina.
+local function loadMinimumPolice()
+    local minimums = lib.callback.await('qbx_bankrobbery:server:GetMinimumPolice', false)
+    if type(minimums) ~= 'table' then return end
+    config.minFleecaPolice = minimums.fleeca
+    config.minPaletoPolice = minimums.paleto
+    config.minPacificPolice = minimums.pacific
+    config.minThermitePolice = minimums.pacific
+end
+
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     local config1, config2, config3 = lib.callback.await('qbx_bankrobbery:server:GetConfig', false)
     sharedConfig.powerStations = config1
     sharedConfig.bigBanks = config2
     sharedConfig.smallBanks = config3
     ResetBankDoors()
+    loadMinimumPolice()
     isLoggedIn = true
+end)
+
+-- Restart do resource com o jogador já dentro: o OnPlayerLoaded não volta a disparar.
+CreateThread(function()
+    if isLoggedIn then loadMinimumPolice() end
 end)
 
 RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
@@ -199,7 +216,7 @@ RegisterNetEvent('qbx_bankrobbery:client:robberyCall', function(type, coords)
     if not isLoggedIn or QBX.PlayerData.job.type ~= 'leo' or not QBX.PlayerData.job.onduty then return end
     if type == 'small' then
         PlaySound(-1, 'Lose_1st', 'GTAO_FM_Events_Soundset', false, 0, true)
-        TriggerServerEvent('police:server:policeAlert', locale('general.fleeca_robbery_alert'))
+        TriggerServerEvent('noir_police:server:alert', locale('general.fleeca_robbery_alert'))
     elseif type == 'paleto' then
         PlaySound(-1, 'Lose_1st', 'GTAO_FM_Events_Soundset', false, 0, true)
         Wait(100)
@@ -208,7 +225,7 @@ RegisterNetEvent('qbx_bankrobbery:client:robberyCall', function(type, coords)
         PlaySound(-1, 'Lose_1st', 'GTAO_FM_Events_Soundset', false, 0, true)
         Wait(100)
         PlaySoundFrontend( -1, 'Beep_Red', 'DLC_HEIST_HACKING_SNAKE_SOUNDS', true)
-        TriggerServerEvent('police:server:policeAlert', locale('general.paleto_robbery_alert'))
+        TriggerServerEvent('noir_police:server:alert', locale('general.paleto_robbery_alert'))
     elseif type == 'pacific' then
         PlaySound(-1, 'Lose_1st', 'GTAO_FM_Events_Soundset', false, 0, true)
         Wait(100)
@@ -217,7 +234,7 @@ RegisterNetEvent('qbx_bankrobbery:client:robberyCall', function(type, coords)
         PlaySound(-1, 'Lose_1st', 'GTAO_FM_Events_Soundset', false, 0, true)
         Wait(100)
         PlaySoundFrontend( -1, 'Beep_Red', 'DLC_HEIST_HACKING_SNAKE_SOUNDS', true)
-        TriggerServerEvent('police:server:policeAlert', locale('general.pacific_robbery_alert'))
+        TriggerServerEvent('noir_police:server:alert', locale('general.pacific_robbery_alert'))
     end
     local transG = 250
     local blip = AddBlipForCoord(coords.x, coords.y, coords.z)

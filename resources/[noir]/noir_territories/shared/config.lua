@@ -41,18 +41,16 @@ Config.DebugTerritories = false
 --
 -- Vale só para atividade (`grantInfluence`). `addInfluence` com número na mão é ferramenta de
 -- administração e não leva bônus: quem digita 40 quer 40.
--- TODO: Ajeitar os valores para produção.
 --
--- `drug_sale` está em 150 para teste: com o limiar em 510, quatro vendas viram um bairro — o
--- que permite exercitar tomada e trava em minutos em vez de uma hora. O valor de jogo é 10, que
--- é o que faz uma venda ser um empurrão e não um golpe.
+-- `drug_sale` é 10: uma venda é um empurrão, não um golpe. Para exercitar tomada e trava em
+-- minutos no servidor de desenvolvimento, 150 faz quatro vendas virarem um bairro.
 Config.Influence = {
     Total = 1000,
     RequiredPercent = 51,
     Underdog = 1.5,
     Rates = {
         graffiti = 75,
-        drug_sale = 150,
+        drug_sale = 10,
     },
 }
 
@@ -71,9 +69,8 @@ Config.Influence = {
 -- atividade ali dentro, de quem for, reinicia a contagem. Bairro sob disputa não está
 -- abandonado, mesmo que o dono nunca apareça — o que o esfriamento persegue é a rua parada.
 --
--- TODO: Ajeitar os valores para produção. Estes estão curtos para teste: uma hora de abandono
--- começa a esfriar e cada passo é de dez minutos. Em jogo, algo como 48h e um passo por dia é o
--- que faz o esfriamento ser uma estação e não um cronômetro.
+-- 48h de abandono e um passo por dia fazem o esfriamento ser uma estação e não um cronômetro.
+-- Para teste, uma hora e passos de dez minutos.
 -- `KeepOwnerAtThreshold` põe um piso no esfriamento do dono: ele desce até o limiar e para.
 -- Sem o piso, uma gang perderia o bairro por ter passado o fim de semana fora — e o desenho
 -- inteiro é sobre gangs tomarem rua uma da outra, não sobre relógio. Com o piso, o bairro
@@ -83,8 +80,8 @@ Config.Influence = {
 -- deixaria o pool preso em pedaços que ninguém defende.
 Config.Decay = {
     Enable = true,
-    AfterSeconds = 60 * 60,
-    EverySeconds = 10 * 60,
+    AfterSeconds = 48 * 60 * 60,
+    EverySeconds = 24 * 60 * 60,
     Percent = 5,
     KeepOwnerAtThreshold = true,
 }

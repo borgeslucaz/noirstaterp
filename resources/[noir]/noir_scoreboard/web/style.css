@@ -1,0 +1,146 @@
+/* DESIGN_v4: Saira Condensed (display) + Rajdhani (texto), só os pesos usados. */
+@font-face { font-family: "Saira Condensed"; src: url("./fonts/SairaCondensed-500.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Saira Condensed"; src: url("./fonts/SairaCondensed-700.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Rajdhani"; src: url("./fonts/Rajdhani-500.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Rajdhani"; src: url("./fonts/Rajdhani-600.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Rajdhani"; src: url("./fonts/Rajdhani-700.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+
+:root {
+  --font-display: "Saira Condensed", "Rajdhani", Arial, sans-serif;
+  --font-ui: "Rajdhani", Arial, sans-serif;
+  --noir-text-strong: #f2f2f2;
+  --noir-text: rgba(242, 242, 242, .86);
+  --noir-text-muted: rgba(242, 242, 242, .58);
+  --noir-success: #39df45;
+  --noir-warning: #d7a84b;
+  --noir-danger: #d51a1a;
+  --edge: 16px;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent !important;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+.board {
+  position: fixed;
+  top: 50%;
+  right: var(--edge);
+  width: 340px;
+  max-height: calc(100vh - 2 * var(--edge));
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, rgba(12, 14, 18, .94), rgba(12, 14, 18, .80));
+  color: var(--noir-text);
+  font-family: var(--font-ui);
+  opacity: 0;
+  transform: translate(16px, -50%);
+  transition: opacity 240ms ease, transform 240ms ease;
+  pointer-events: none;
+  user-select: none;
+}
+
+.board[hidden] { display: none; }
+.board.is-visible { opacity: 1; transform: translate(0, -50%); }
+
+.board__header {
+  padding: 18px 20px 14px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, .55), rgba(0, 0, 0, .25));
+}
+
+.board__title {
+  margin: 0;
+  font: 700 34px/1 var(--font-display);
+  letter-spacing: .01em;
+  text-transform: uppercase;
+  color: var(--noir-text-strong);
+}
+
+.board__subtitle {
+  margin: 6px 0 0;
+  font: 500 15px var(--font-ui);
+  color: var(--noir-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.board__crimes { display: flex; flex-direction: column; min-height: 0; padding-bottom: 14px; }
+.board__crimes[hidden] { display: none; }
+
+.board__section {
+  margin: 0;
+  padding: 14px 20px 8px;
+  font: 700 15px var(--font-display);
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: var(--noir-text-muted);
+}
+
+.crimes { list-style: none; margin: 0; padding: 0; overflow-y: auto; }
+
+.crime {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2px 12px;
+  min-height: 48px;
+  padding: 7px 20px;
+}
+
+.crime + .crime { border-top: 1px solid rgba(255, 255, 255, .05); }
+
+.crime__label {
+  font: 500 18px var(--font-display);
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  color: var(--noir-text-strong);
+}
+
+.crime__min {
+  justify-self: end;
+  padding: 1px 6px;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 2px;
+  font: 600 11.5px var(--font-ui);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--noir-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.crime__status {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 12.5px var(--font-ui);
+  color: var(--noir-text-muted);
+}
+
+.crime__status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.crime__status[data-status="open"]::before { background: var(--noir-success); }
+.crime__status[data-status="closed"]::before { background: var(--noir-danger); }
+.crime__status[data-status="busy"]::before { background: var(--noir-warning); }
+
+.board__note {
+  margin: 10px 20px 0;
+  font: 500 12.5px var(--font-ui);
+  color: var(--noir-text-muted);
+}
+
+.board__note:empty { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .board { transition: none; }
+}

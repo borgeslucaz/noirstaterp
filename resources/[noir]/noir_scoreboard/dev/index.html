@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>noir_scoreboard · preview</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000 url("./sinner.png") center / cover no-repeat; }
+    iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; }
+    .presets { position: fixed; left: 16px; bottom: 16px; display: flex; gap: 8px; z-index: 2; }
+    .presets a { padding: 6px 10px; background: rgba(0,0,0,.72); color: #fff; font: 600 13px Arial; text-decoration: none; border-radius: 2px; }
+  </style>
+</head>
+<body>
+  <!-- Fica fora do fxmanifest: só para ver a web/ real fora do jogo. -->
+  <iframe id="nui" src="../web/index.html" allowtransparency="true"></iframe>
+  <nav class="presets"><a href="?preset=gang">Gang</a><a href="?preset=semGang">Sem gang</a><a href="?preset=semPolicia">Sem polícia</a></nav>
+  <script>
+    const crimes = [
+      { key: 'storerobbery', label: 'Loja de conveniência', minimumPolice: 2, status: 'open' },
+      { key: 'houserobbery', label: 'Roubo de casa', minimumPolice: 2, status: 'open' },
+      { key: 'outpost', label: 'Tomada de outpost', minimumPolice: 2, status: 'busy' },
+      { key: 'jewellery', label: 'Joalheria', minimumPolice: 2, status: 'open' },
+      { key: 'truckrobbery', label: 'Carro-forte', minimumPolice: 3, status: 'closed' },
+      { key: 'bankrobbery', label: 'Banco Fleeca', minimumPolice: 3, status: 'closed' },
+      { key: 'paleto', label: 'Banco de Paleto', minimumPolice: 4, status: 'closed' },
+      { key: 'pacific', label: 'Pacific Standard', minimumPolice: 5, status: 'closed' },
+    ];
+    const presets = {
+      gang: { players: 37, maxPlayers: 64, crimes },
+      semGang: { players: 37, maxPlayers: 64 },
+      semPolicia: { players: 37, maxPlayers: 64, policeUnavailable: true },
+    };
+    const preset = new URLSearchParams(location.search).get('preset') || 'gang';
+    document.getElementById('nui').addEventListener('load', (event) => {
+      event.target.contentWindow.postMessage({ action: 'open', ...presets[preset] }, '*');
+    });
+  </script>
+</body>
+</html>

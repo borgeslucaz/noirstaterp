@@ -6,7 +6,7 @@ return {
     enableEmotePreview = GetConvar('scully_emotemenu:enableEmotePreview', 'true') == 'true',
     enableEmoteBinds = GetConvar('scully_emotemenu:enableEmoteBinds', 'true') == 'true',
     emoteCommands = json.decode(GetConvar('scully_emotemenu:emoteCommands', '["e", "emote", "eplay"]')),
-    emoteCancelKey = GetConvar('scully_emotemenu:emoteCancelKey', 'X'),
+    emoteCancelKey = GetConvar('scully_emotemenu:emoteCancelKey', 'BACK'), -- Noir: X é do mãos para cima (noir_police)
     walkCommands = json.decode(GetConvar('scully_emotemenu:walkCommands', '["w", "walk"]')),
     expressionCommands = json.decode(GetConvar('scully_emotemenu:expressionCommands', '["f", "face"]')),
     preventWalkStyleAbuse = GetConvar('scully_emotemenu:preventWalkStyleAbuse', 'true') == 'true',

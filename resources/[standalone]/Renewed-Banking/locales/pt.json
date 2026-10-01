@@ -90,5 +90,18 @@
     "trans_not_found": "Nenhuma transação encontrada",
     "export_data": "Exportar Dados de Transação",
     "account_search": "Pesquisa de Conta...",
-    "account_not_found": "Nenhuma conta encontrada"
+    "account_not_found": "Nenhuma conta encontrada",
+    "invoice_new": "Nova fatura de %s: $%s",
+    "invoice_new_fine": "Você recebeu uma multa de %s: $%s. Pague no banco ou no app Faturas.",
+    "invoice_paid": "Fatura paga: $%s",
+    "fines_block": "Você tem multas pendentes ($%s). Pague antes de sacar ou transferir.",
+    "invoice_insufficient_funds": "Saldo insuficiente para pagar a fatura",
+    "invoice_invoice_not_found": "Fatura não encontrada",
+    "invoice_invoice_already_paid": "Essa fatura já foi paga",
+    "invoice_invoice_not_payable": "Essa fatura não pode ser paga",
+    "invoice_payment_in_progress": "Pagamento em andamento",
+    "invoice_invalid_account": "Conta de destino inválida",
+    "invoice_not_ready": "Banco ainda carregando",
+    "invoice_invalid_player": "Jogador inválido",
+    "invoice_failed": "Não foi possível pagar"
 }

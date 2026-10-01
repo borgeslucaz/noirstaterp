@@ -3392,6 +3392,7 @@ Locales["en"] = {
                     insufficient_funds = "There is not enough money in this account.",
                     target_not_found = "The recipient is not online.",
                     self_transfer = "You cannot send money to yourself.",
+                    fines_pending = "You have unpaid fines. Pay them in Billing or at the bank to transfer again.",
                     rate_limited = "Please wait before making another transaction.",
                     reload_cooldown = "Too many refreshes. Please wait a moment before trying again.",
                     transfer_failed = "The transfer could not be completed.",

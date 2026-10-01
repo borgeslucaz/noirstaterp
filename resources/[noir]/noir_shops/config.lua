@@ -3,7 +3,7 @@ Config = {}
 Config.Locale = 'pt'
 Config.Theme = 'default'       -- 'default', 'green', 'yellow', 'silver', 'red'
 Config.TargetSystem = 'ox-target'
-Config.LogType = 'discord'     -- 'discord' or 'fivemanage'
+Config.LogType = 'ox'          -- 'ox' (lib.logger → ox:logger), 'discord' ou 'fivemanage'
 Config.DynamicPriceInterval = 30 -- Minutes between price updates (global default)
 
 Config.WebhookURL = ''
@@ -36,6 +36,8 @@ local Catalog = {
     },
     hardware = {
         { name = 'lockpick', label = 'Lockpick', price = 10, image = 'lockpick.png', maxQty = 10, category = 'Ferramentas' },
+        { name = 'zipties', label = 'Zip tie', price = 25, image = 'zipties.png', maxQty = 5, category = 'Ferramentas' },
+        { name = 'cutters', label = 'Alicate de corte', price = 60, image = 'wirecutter.png', maxQty = 1, category = 'Ferramentas' },
     },
     ammunation = {
         { name = 'ammo-9',        label = 'Munição 9mm', price = 5,    image = 'ammo-9.png',        maxQty = 250, category = 'Munição' },
@@ -69,6 +71,51 @@ local function Shop(kind, coords, heading)
     }
 end
 
+-- Arsenal da polícia (noir_police). Preço 0, sem porte de arma: quem controla é a
+-- restrição por job, o DutyRequired (só em serviço) e o maxHeld (limite de posse,
+-- porque com item de graça o maxQty por carrinho não segura quem repete o checkout).
+-- `serial` com até 3 letras: com mais, o ox_inventory usa o texto como serial inteiro.
+local function Armory(department, prefix)
+    local registered = { police = 'LSPD', bcso = 'BCSO', sasp = 'SASP' }
+    local function weapon(name, label, grade)
+        return { name = name, label = label, price = 0, image = name .. '.png', maxQty = 1, maxHeld = 1, grade = grade,
+            category = 'Armas', metadata = { registered = registered[department] or department, serial = prefix } }
+    end
+    return {
+        weapon('WEAPON_STUNGUN', 'Taser', 0),
+        weapon('WEAPON_NIGHTSTICK', 'Cassetete', 0),
+        weapon('WEAPON_FLASHLIGHT', 'Lanterna', 0),
+        weapon('WEAPON_COMBATPISTOL', 'Pistola', 0),
+        weapon('WEAPON_PUMPSHOTGUN', 'Escopeta', 2),
+        weapon('WEAPON_CARBINERIFLE', 'Carabina', 3),
+        { name = 'ammo-9', label = 'Munição 9mm', price = 0, image = 'ammo-9.png', maxQty = 120, maxHeld = 120, grade = 0, category = 'Munição' },
+        { name = 'ammo-shotgun', label = 'Munição calibre 12', price = 0, image = 'ammo-shotgun.png', maxQty = 30, maxHeld = 30, grade = 2, category = 'Munição' },
+        { name = 'ammo-rifle', label = 'Munição 5.56', price = 0, image = 'ammo-rifle.png', maxQty = 120, maxHeld = 120, grade = 3, category = 'Munição' },
+        { name = 'handcuffs', label = 'Algemas', price = 0, image = 'handcuffs.png', maxQty = 3, maxHeld = 3, grade = 0, category = 'Equipamento' },
+        { name = 'handcuffkey', label = 'Chave de algema', price = 0, image = 'handcuffkey.png', maxQty = 1, maxHeld = 1, grade = 0, category = 'Equipamento' },
+        { name = 'zipties', label = 'Zip tie', price = 0, image = 'zipties.png', maxQty = 5, maxHeld = 5, grade = 0, category = 'Equipamento' },
+        { name = 'cutters', label = 'Alicate de corte', price = 0, image = 'wirecutter.png', maxQty = 1, maxHeld = 1, grade = 0, category = 'Equipamento' },
+        { name = 'evidence_case', label = 'Bolsa de evidências', price = 0, image = 'case_1.png', maxQty = 1, maxHeld = 1, grade = 0, category = 'Equipamento' },
+        { name = 'seized_box', label = 'Caixa de apreensão', price = 0, image = 'evidence.png', maxQty = 2, maxHeld = 2, grade = 0, category = 'Equipamento' },
+        { name = 'spikestrip', label = 'Spike strip', price = 0, image = 'spikestrip.png', maxQty = 4, maxHeld = 4, grade = 1, category = 'Equipamento' },
+        { name = 'shield', label = 'Escudo balístico', price = 0, image = 'shield.png', maxQty = 1, maxHeld = 1, grade = 2, category = 'Equipamento' },
+    }
+end
+
+local function ArmoryShop(label, departments, coords, heading)
+    return {
+        name = label,
+        coords = coords,
+        PedModel = 's_m_y_cop_01',
+        PedHeading = heading,
+        PedScenario = 'WORLD_HUMAN_CLIPBOARD',
+        Blipname = nil,
+        items = Armory(departments[1], ({ police = 'POL', bcso = 'BCS', sasp = 'SAS' })[departments[1]]),
+        JobRestriction = departments,
+        DutyRequired = true,
+    }
+end
+
 -- Mesmas lojas que o ox_inventory tinha em data/shops.lua (General, Liquor, YouTool, Ammunation).
 Config.Shops = {
     ['247_davis']          = Shop('general', vector3(24.47, -1346.62, 28.5), 271.66),
@@ -99,6 +146,12 @@ Config.Shops = {
     ['ammu_tataviam']      = Shop('ammunation', vector3(2567.48, 292.59, 107.73), 349.68),
     ['ammu_chiliad']       = Shop('ammunation', vector3(-1118.59, 2700.05, 17.55), 221.89),
     ['ammu_lamesa']        = Shop('ammunation', vector3(841.92, -1035.32, 27.19), 1.56),
+
+    -- Arsenais (noir_police). Paleto: conferir a posição em jogo.
+    -- Um arsenal por departamento: é o que põe o registro e o prefixo do serial certos na arma.
+    ['armory_mrpd']        = ArmoryShop('Arsenal LSPD - Mission Row', { 'police' }, vector3(451.51, -979.44, 30.68), 90.0),
+    ['armory_mrpd_sasp']   = ArmoryShop('Arsenal SASP - Mission Row', { 'sasp' }, vector3(451.51, -981.2, 30.68), 90.0),
+    ['armory_paleto']      = ArmoryShop('Arsenal - Paleto Bay', { 'bcso' }, vector3(-447.14, 6015.84, 31.72), 225.0),
 }
 
 -- Raio (m) em que o NPC da loja existe no cliente; fora dele o ped é apagado.

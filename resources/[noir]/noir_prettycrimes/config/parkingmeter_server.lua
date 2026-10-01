@@ -133,8 +133,8 @@ return {
     -- menor que o risco de tomar um 10-35 no meio da calçada.
 
     reward = {
-        -- Dinheiro, sempre. Vai para `cash`, que é onde moeda faz sentido.
-        money = { account = 'cash', min = 25, max = 90 },
+        -- Dinheiro, sempre. Sujo, como todo dinheiro de crime.
+        money = { account = 'black_money', min = 25, max = 90 },
 
         -- Itens extras, cada um com sua rolagem independente (0..1).
         --

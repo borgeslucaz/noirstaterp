@@ -572,7 +572,7 @@ N.Integration = {
     sendPhoneNotification = function() return true end,
     sendDispatch = function(payload) dispatches[#dispatches + 1] = payload return true end,
     onlinePlayerCount = function() return 10 end,
-    onDutyPoliceCount = function() return 3 end,
+    policeRequirement = function() return 3, 2 end,
     hasOnlineMember = function() return ownerOnline end,
     onlineMembers = function() return { 1 } end,
     onlineMembersWithGrade = function() return { 1 } end,

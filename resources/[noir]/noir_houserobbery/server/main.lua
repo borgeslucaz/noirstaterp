@@ -916,9 +916,12 @@ local function startSkillcheck(source, houseId)
     if state.contractId ~= contract.id or state.status ~= 'reserved' then return false end
     if distanceTo(source, houseData.config.coords) > config.maxExteriorDistance then return false end
 
-    local police = exports.qbx_core:GetDutyCountType('leo')
-    if police < config.minimumPolice then
-        notify(source, ('São necessários %d policiais em serviço.'):format(config.minimumPolice), 'error')
+    -- Policiamento mínimo da tabela pública (noir_scoreboard). Sem resposta, não libera.
+    local called, hasPolice, _, minimum = pcall(function() return exports.noir_scoreboard:CheckPolice('houserobbery') end)
+    if not (called and hasPolice) then
+        notify(source, called and minimum
+            and ('São necessários %d policiais em serviço.'):format(minimum)
+            or 'Roubo indisponível agora.', 'error')
         return false
     end
     contract.status = 'breaching'

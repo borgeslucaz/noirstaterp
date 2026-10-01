@@ -12,7 +12,7 @@ function BGRZ.GetCitizenId(source)
 end
 
 ---@param source number
----@return table|nil job { name, label, grade, onDuty }
+---@return table|nil job { name, label, type, grade, onDuty }
 function BGRZ.GetJob(source)
     local player = exports.qbx_core:GetPlayer(source)
     if not player then return nil end
@@ -20,6 +20,9 @@ function BGRZ.GetJob(source)
     return {
         name = job.name,
         label = job.label,
+        -- Categoria do job no provider ('leo', 'ems'...). Vários jobs podem dividir a
+        -- mesma categoria: é ela que diz "é polícia", não o nome.
+        type = job.type,
         grade = job.grade and job.grade.level or 0,
         onDuty = job.onduty == true,
     }
@@ -155,6 +158,47 @@ function BGRZ.CountOnDutyJob(jobName)
     return math.floor(count)
 end
 
+---Põe o personagem em serviço ou tira dele. O provider reemite `QBCore:Server:SetDuty`, que o
+---bridge já traduz para `bgrz_core:server:dutyUpdated`.
+---@param source number
+---@param onDuty boolean
+---@return boolean ok
+---@return string? errorCode
+function BGRZ.SetJobDuty(source, onDuty)
+    if type(source) ~= 'number' or source <= 0 or source % 1 ~= 0 then return false, 'invalid_player' end
+    if type(onDuty) ~= 'boolean' then return false, 'invalid_state' end
+    if not BGRZ.Provider.isStarted('qbx_core') then return false, 'provider_unavailable' end
+    if not BGRZ.GetJob(source) then return false, 'invalid_player' end
+    local called = pcall(function()
+        exports.qbx_core:SetJobDuty(source, onDuty)
+    end)
+    if not called then return false, 'provider_unavailable' end
+    return true
+end
+
+---Jogadores em serviço numa categoria de job ('leo', 'ems'...), somando todos os jobs dela.
+---@param jobType string
+---@return integer[]? sources
+---@return string? errorCode
+function BGRZ.GetOnDutyPlayersByType(jobType)
+    if type(jobType) ~= 'string' or #jobType == 0 or #jobType > 32
+        or not jobType:match('^[%w_-]+$') then
+        return nil, 'invalid_job_type'
+    end
+    if not BGRZ.Provider.isStarted('qbx_core') then return nil, 'provider_unavailable' end
+    local called, _, players = pcall(function()
+        return exports.qbx_core:GetDutyCountType(jobType)
+    end)
+    if not called then return nil, 'provider_unavailable' end
+    if type(players) ~= 'table' then return nil, 'operation_failed' end
+    local sources = {}
+    for index = 1, #players do
+        local src = tonumber(players[index])
+        if src and src > 0 then sources[#sources + 1] = math.floor(src) end
+    end
+    return sources
+end
+
 function BGRZ.Notify(source, message, ntype, duration)
     exports.qbx_core:Notify(source, message, ntype or 'inform', duration)
 end
@@ -229,6 +273,8 @@ exports('GetJobReputation', BGRZ.GetJobReputation)
 exports('AddJobReputation', BGRZ.AddJobReputation)
 exports('Notify', BGRZ.Notify)
 exports('CountOnDutyJob', BGRZ.CountOnDutyJob)
+exports('SetJobDuty', BGRZ.SetJobDuty)
+exports('GetOnDutyPlayersByType', BGRZ.GetOnDutyPlayersByType)
 exports('SpawnVehicle', BGRZ.SpawnVehicle)
 
 -- Re-emite eventos server-side do Qbox com nomes próprios.

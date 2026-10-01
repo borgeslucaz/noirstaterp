@@ -16,9 +16,10 @@ RegisterNetEvent('qbx_truckrobbery:server:startMission', function()
 		return
 	end
 
-	local numCops = exports.qbx_core:GetDutyCountType('leo')
-	if numCops < config.numRequiredPolice then
-		exports.qbx_core:Notify(src, locale('error.active_police', config.numRequiredPolice), 'error')
+	-- Policiamento mínimo da tabela pública (noir_scoreboard). Sem resposta, não libera.
+	local called, hasPolice, _, minimum = pcall(function() return exports.noir_scoreboard:CheckPolice('truckrobbery') end)
+	if not (called and hasPolice) then
+		exports.qbx_core:Notify(src, locale('error.active_police', called and minimum or '?'), 'error')
 		return
 	end
 

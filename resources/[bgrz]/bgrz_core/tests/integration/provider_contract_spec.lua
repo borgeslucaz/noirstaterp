@@ -30,8 +30,8 @@ end
 local phoneConfig = read('../../[standalone]/sky_phone/config/config.lua')
 contains(phoneConfig, 'bgrz_core = true', 'sky_phone trusted adapter')
 
-local policeClient = read('../../[qbx]/qbx_police/client/main.lua')
-contains(policeClient, "RegisterNetEvent('police:client:policeAlert'", 'qbx_police fallback')
+local policeClient = read('../../[noir]/noir_police/client/modules/duty.lua')
+contains(policeClient, "RegisterNetEvent('police:client:policeAlert'", 'noir_police fallback')
 
 local qbxServer = read('../../[qbx]/qbx_core/server/functions.lua')
 contains(qbxServer, "exports('GetQBPlayers'", 'qbx_core player enumeration')
