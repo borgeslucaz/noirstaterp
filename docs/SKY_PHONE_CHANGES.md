@@ -131,6 +131,17 @@ Se um dia a Cfx corrigir o Enhanced, o shader passa a desalinhar imagens que já
 2. Varrer larguras de linha até achar a que deixa as linhas vizinhas coerentes.
 3. Remontar a imagem com essa largura pra confirmar.
 
+### 5.3 SMS do servidor: `source/server/messages.lua` (PATCH NOIR)
+
+Dois exports de servidor, sem caminho pelo cliente. Os dois gravam a mensagem na conversa e entregam a todos os chips **registrados** do personagem, mesmo offline. Ao atualizar o sky_phone, reaplicar à mão no fim de `messages.lua`.
+
+| Export | De onde sai | Uso |
+|---|---|---|
+| `SendServiceMessage(companyId, recipient, body)` | número da linha de serviço da empresa (ex.: 911) | polícia avisando que os pertences foram liberados |
+| `SendAnonymousMessage(citizenId, body)` | número aleatório de 10 dígitos que não é de chip nenhum, sem nome | contato do crime aparecendo para a gang; responder cai em `recipient_not_found` |
+
+O `bgrz_core` chama os dois por `SendPhoneServiceMessage` e `SendPhoneAnonymousMessage`.
+
 ---
 
 ## 6. Outros resources afetados

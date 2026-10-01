@@ -58,4 +58,30 @@ ok, err = BGRZ.SendPhoneNotification(18, payload)
 T.equal(ok, false, 'stopped phone rejected')
 T.equal(err, 'provider_unavailable', 'stopped phone code')
 
+-- SMS anônimo ---------------------------------------------------------------------------
+local skyPhone = {}
+local anonymous
+function skyPhone:SendAnonymousMessage(citizenId, body)
+    anonymous = { citizenId = citizenId, body = body }
+    if citizenId == 'NOSIM' then return 0, 'no_sim' end
+    return 2, '5551234567'
+end
+exports = T.exports({ sky_phone = skyPhone, ['qs-smartphone'] = alias })
+state = 'started'
+
+ok, err = BGRZ.SendPhoneAnonymousMessage('CID1', 'Ouvi falar de vocês.')
+T.equal(ok, true, 'anonymous sent')
+T.equal(err, 2, 'chips reached')
+T.equal(anonymous.citizenId, 'CID1', 'recipient forwarded')
+ok, err = BGRZ.SendPhoneAnonymousMessage('NOSIM', 'x')
+T.equal(ok, false, 'no registered sim')
+T.equal(err, 'no_sim', 'no sim code')
+ok, err = BGRZ.SendPhoneAnonymousMessage('', 'x')
+T.equal(err, 'invalid_recipient', 'empty recipient')
+ok, err = BGRZ.SendPhoneAnonymousMessage('CID1', '')
+T.equal(err, 'invalid_message', 'empty body')
+state = 'stopped'
+ok, err = BGRZ.SendPhoneAnonymousMessage('CID1', 'x')
+T.equal(err, 'provider_unavailable', 'phone down')
+
 print('phone_notifications_spec: ok')

@@ -162,8 +162,9 @@ Precisa escolher um, ou combinar os dois (ver próximos passos).
 | 0. Furos | feita | `3bcf61b4` (junto da polícia) |
 | 1. Polícia na economia | feita | `dff09a3f` |
 | 2. Heat | feito só o item 7; itens 8 e 9 cortados | `906069e2` |
-| 3. Reputação por marco | feita, com o desenho revisto abaixo | — |
-| 4 e 5 | não começadas | — |
+| 3. Reputação por marco | feita, com o desenho revisto abaixo | `c8f3d07a` |
+| 4. O que se conquista muda o jogo | item 14 feito; 15 a 17 aguardam desenho | este commit |
+| 5 | não começada | — |
 
 **Decisões tomadas no caminho, que mudam o texto original das fases:**
 - **Item 4:** a tabela pública de policiamento mínimo é o `noir_scoreboard` (fork do qbx_scoreboard), visível só para membro de gang. A venda de droga não tem mínimo; sem polícia em serviço ela paga metade, para todo tipo de droga.
@@ -221,7 +222,7 @@ A ordem segue a da pesquisa: medir e fechar furos → dar consequência → dar 
 13. Contar houserobbery, guncraft e prettycrimes na reputação pessoal `street`, e na da gang só quando for operação vista.
 
 ### Fase 4: o que se conquista muda o jogo
-14. **Listener de `unlockGranted`:** o contato liga no celular descartável (`noir_burnerphone`).
+14. **Listener de `unlockGranted`:** ~~o contato liga no celular descartável~~ — feito como SMS anônimo no celular normal (número aleatório, sem nome, sem resposta), só para o líder e o sub-líder da gang (`noir_gangs/server/contacts.lua`).
 15. **Missão de prova** por contato, concedendo `drug_meth` e `drug_coke`. A missão não dá reputação.
 16. **Origem de meth e coca.** Decisão pendente entre os dois planos. Recomendo combinar:
     - o **unlock da gang** libera a receita (quem sabe fazer);

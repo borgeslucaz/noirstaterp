@@ -84,3 +84,26 @@ function BGRZ.SendPhoneServiceMessage(companyId, citizenId, body)
 end
 
 exports('SendPhoneServiceMessage', BGRZ.SendPhoneServiceMessage)
+
+---SMS anônimo do servidor: sai de um número aleatório que não é de ninguém (sem nome, sem
+---empresa) e responder não chega a lugar nenhum. Como o de serviço, fica na conversa e chega
+---mesmo com o destinatário offline, nos chips registrados no nome do personagem.
+---@param citizenId string
+---@param body string
+---@return boolean ok
+---@return integer|string sentOrError chips que receberam, ou o código do erro
+function BGRZ.SendPhoneAnonymousMessage(citizenId, body)
+    if type(citizenId) ~= 'string' or citizenId == '' then return false, 'invalid_recipient' end
+    if type(body) ~= 'string' or body == '' or #body > 2000 then return false, 'invalid_message' end
+    if not BGRZ.Provider.isAvailable('phone') then return false, 'provider_unavailable' end
+    local resource = BGRZ.Provider.name('phone')
+    local called, sent, err = pcall(function()
+        return exports[resource]:SendAnonymousMessage(citizenId, body)
+    end)
+    if not called then return false, 'provider_unavailable' end
+    if not sent then return false, err or 'operation_failed' end
+    if sent == 0 then return false, err or 'no_sim' end
+    return true, sent
+end
+
+exports('SendPhoneAnonymousMessage', BGRZ.SendPhoneAnonymousMessage)

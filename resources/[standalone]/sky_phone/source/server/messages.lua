@@ -703,4 +703,58 @@ end
 
 exports("SendServiceMessage", send_service_message)
 
+-- PATCH NOIR: SMS anônimo do servidor (ex.: o contato do crime que aparece para a gang). Sai de
+-- um número aleatório que não é de chip nenhum, sem nome nem empresa; responder cai em
+-- "recipient_not_found". Como o da linha de serviço, fica salvo e chega offline nos chips
+-- registrados do personagem. Servidor apenas (export).
+---@param identifier string citizenid do destinatário
+---@param body string
+---@return integer? sent quantos chips receberam
+---@return string? error_code_or_number o número usado, quando enviou
+local function send_anonymous_message(identifier, body)
+    body = trim(body)
+    if not body or body == "" or #body > Config.Messages.BodyMaxLength then
+        return nil, "invalid_message"
+    end
+    if type(identifier) ~= "string" or identifier == "" then
+        return nil, "invalid_recipient"
+    end
+    local sims = Bridge.Database.Query([[
+        SELECT `id`, `phone_number` FROM `sky_phone_sims`
+        WHERE `owner_identifier` = ? AND `sim_type` = 'registered'
+    ]], { identifier })
+    if not sims or not sims[1] then
+        return 0, "no_sim"
+    end
+
+    local number
+    for _ = 1, 10 do
+        local digits = { Config.Sim.NumberPrefix }
+        for _ = 1, Config.Sim.NumberLength - #Config.Sim.NumberPrefix do digits[#digits + 1] = tostring(math.random(0, 9)) end
+        local candidate = SkyPhoneSimNumber.Normalize(table.concat(digits), Config.Sim.NumberLength, Config.Sim.NumberPrefix)
+        if candidate and not SkyPhoneCompanies.IsServiceNumber(candidate) then
+            local taken = Bridge.Database.Query("SELECT 1 AS `taken` FROM `sky_phone_sims` WHERE `phone_number` = ? LIMIT 1", { candidate })
+            if not taken[1] then number = candidate break end
+        end
+    end
+    if not number then
+        return nil, "no_number"
+    end
+
+    for _, sim in ipairs(sims) do
+        Bridge.Database.Query([[
+            INSERT INTO `sky_phone_sms_messages`
+                (`id`, `sender_sim_id`, `recipient_sim_id`, `sender_number`, `recipient_number`, `message_type`, `body`)
+            VALUES (?, NULL, ?, ?, ?, 'text', ?)
+        ]], { uuid(), sim.id, number, sim.phone_number, body })
+        notify_sim(sim.id, "sky_phone:messages:new", {
+            phoneNumber = number,
+            voice = false,
+        })
+    end
+    return #sims, number
+end
+
+exports("SendAnonymousMessage", send_anonymous_message)
+
 end)

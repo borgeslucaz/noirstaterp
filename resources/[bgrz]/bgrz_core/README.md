@@ -102,6 +102,13 @@ local ok, sentOrErr = exports.bgrz_core:SendPhoneServiceMessage('police', citize
 
 `SendPhoneServiceMessage` grava a mensagem na conversa com a linha da empresa e avisa quem estiver com o telefone; com o personagem offline, a mensagem espera nos chips registrados no nome dele. Códigos: `invalid_company`, `invalid_recipient`, `invalid_message`, `no_sim` (personagem sem chip registrado), `provider_unavailable`.
 
+```lua
+-- server: SMS anônimo (número aleatório que não é de ninguém, sem nome nem empresa)
+local ok, sentOrErr = exports.bgrz_core:SendPhoneAnonymousMessage(citizenId, 'texto')
+```
+
+`SendPhoneAnonymousMessage` funciona como o de serviço (fica na conversa, chega offline nos chips registrados), mas o remetente é um número aleatório de chip que não existe: responder cai em `recipient_not_found` no telefone. Códigos: `invalid_recipient`, `invalid_message`, `no_sim`, `provider_unavailable`.
+
 `SendPhoneNotification` vai pelo alias de compatibilidade `qs-smartphone:sendPhoneNotification` do `sky_phone`, que notifica por source sem exigir policy de app. `appId` agrupa a notificação no telefone (sem ele, ou fora do formato `^[a-z0-9][a-z0-9._-]+$`, vai como `noir`); sem `body`, o texto repete o título. O alias não devolve resultado: jogador sem telefone equipado não recebe, e o retorno continua `true`.
 
 ```lua
