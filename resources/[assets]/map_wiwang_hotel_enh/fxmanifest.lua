@@ -14,9 +14,9 @@ shared_scripts {
   '@ox_lib/init.lua',
 }
 
+-- O elevador (elevators.lua, teleporte com fade) saiu: quem faz agora é o noir_elevator.
 client_scripts {
   'ipl.lua',
-  'elevators.lua',
 }
 
 lua54 'yes'

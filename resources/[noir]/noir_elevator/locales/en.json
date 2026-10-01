@@ -1,0 +1,8 @@
+{
+    "call": "Call elevator",
+    "panel_title": "Elevator · %s",
+    "here": "You are here",
+    "go_to": "Go to %s",
+    "floor_up": "▲  %s",
+    "floor_down": "▼  %s"
+}
