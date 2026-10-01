@@ -696,6 +696,17 @@ local function finalizeRobbery(contract, reason, completed)
         debugLog(contract, nil, 'warning: bucket=%s permanece alocado por entity leak', contract.routingBucket)
     end
 
+    -- Anuncia o roubo concluído (o noir_illegal_core soma o heat de cada participante online).
+    if completed == true then
+        local participants = {}
+        for playerSource in pairs(contract.players) do
+            if GetPlayerName(playerSource) then participants[#participants + 1] = playerSource end
+        end
+        TriggerEvent('noir_houserobbery:server:robberyCompleted', {
+            id = contract.id, houseId = contract.houseId, tier = contract.tier, sources = participants,
+        })
+    end
+
     for playerSource in pairs(contract.players) do
         if GetPlayerName(playerSource) then
             TriggerClientEvent('noir_houserobbery:client:contractEnded', playerSource,

@@ -236,7 +236,8 @@ function Service.changeHeat(citizenId, value, mode, reason, transactionId, actor
             local row = NoirIllegal.Repositories.Heat.get(citizenId, query, true)
             local now = os.time()
             before = NoirIllegal.Services.Heat.calculate(
-                row and row.value, row and row.last_decay_epoch, now)
+                row and row.value, row and row.last_decay_epoch, now,
+                NoirIllegal.Services.Heat.isOnline(citizenId))
             after = mode == 'set' and value or before + value
             after = NoirIllegal.Validators.round(
                 NoirIllegal.Validators.clamp(after, 0, NoirIllegal.Config.Heat.max), 4)

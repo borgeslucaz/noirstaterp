@@ -38,6 +38,7 @@ server_scripts {
     'server/repositories/audit_repository.lua',
     'server/services/level_service.lua',
     'server/services/heat_service.lua',
+    'server/services/heat_sessions.lua',
     'server/services/idempotency_service.lua',
     'server/services/cooldown_service.lua',
     'server/services/eligibility_service.lua',
@@ -51,6 +52,7 @@ server_scripts {
     'server/adapters/outposts.lua',
     'server/adapters/territories.lua',
     'server/adapters/gathering.lua',
+    'server/adapters/crimes.lua',
     'server/commands.lua',
     'server/init.lua',
 }

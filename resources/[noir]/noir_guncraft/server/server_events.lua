@@ -300,6 +300,7 @@ RegisterNetEvent('crafting:pickupBench', function(benchId)
         for _, item in pairs(queueItems) do
             if exports.ox_inventory:AddItem(storage, item.item, item.quantity or 1) then
                 MySQL.execute.await(('DELETE FROM %s WHERE id = ?'):format(QUEUE), { item.id })
+                TriggerEvent('noir_guncraft:server:craftCollected', src, item.id, item.item)
                 moved = moved + 1
             end
         end
@@ -380,6 +381,7 @@ RegisterNetEvent('crafting:pickupItem', function(queueId)
     end
 
     if exports.ox_inventory:AddItem(storage, row.item, row.quantity or 1) then
+        TriggerEvent('noir_guncraft:server:craftCollected', src, row.id, row.item)
         TriggerClientEvent('noir_guncraft:showNotification', src, 'Item picked up and added to storage', 'success')
     else
         -- Storage cheia: recoloca a linha para o item não evaporar.

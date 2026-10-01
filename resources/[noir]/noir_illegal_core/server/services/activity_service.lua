@@ -223,7 +223,8 @@ function Service.record(source, activityKey, transactionId, options, caller)
             local now = os.time()
             local beforeHeat = tonumber(heatRow and heatRow.value) or 0
             local decayedHeat = NoirIllegal.Services.Heat.calculate(
-                beforeHeat, heatRow and heatRow.last_decay_epoch, now)
+                beforeHeat, heatRow and heatRow.last_decay_epoch, now,
+                NoirIllegal.Services.Heat.isOnline(request.citizenId))
             if math.abs(beforeHeat - decayedHeat) >= NoirIllegal.Config.Heat.persistEpsilon then
                 NoirIllegal.Repositories.Heat.set(request.citizenId, decayedHeat, now, query)
             end
@@ -311,8 +312,9 @@ function Service.record(source, activityKey, transactionId, options, caller)
                 end
             end
 
-            local requestedHeat = NoirIllegal.Validators.round(
-                (request.activity.heat or 0) * multiplier, 4)
+            -- O retorno decrescente corta reputação, não heat: quem repete o crime é visto
+            -- todas as vezes.
+            local requestedHeat = NoirIllegal.Validators.round(request.activity.heat or 0, 4)
             local afterHeat = NoirIllegal.Validators.round(
                 NoirIllegal.Validators.clamp(
                     decayedHeat + requestedHeat, 0, NoirIllegal.Config.Heat.max), 4)

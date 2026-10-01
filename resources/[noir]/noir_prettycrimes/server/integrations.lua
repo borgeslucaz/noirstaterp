@@ -150,24 +150,17 @@ function Integrations.vehicleClass(model)
     return class
 end
 
----Progressão criminal opcional. Desligada, é um no-op — e é assim que ela vem.
+---Anuncia o crime concluído. Quem decide o que ele vale (heat) é o adaptador do
+---noir_illegal_core, que escuta este evento; desligar o core não quebra nada aqui.
 ---@param source number
 ---@param activityKey string
 ---@param transactionId string
 ---@param metadata? table
 ---@return boolean
 function Integrations.recordActivity(source, activityKey, transactionId, metadata)
-    local progression = Config.progression
-    if not progression.enabled then return false end
-    if GetResourceState(progression.resource) ~= 'started' then
-        DebugPrint('progressão ligada mas', progression.resource, 'não está started')
-        return false
-    end
-
-    local ok, result = exports[progression.resource]:RecordActivity(
-        source, activityKey, transactionId, { metadata = metadata })
-    if not ok then DebugPrint('RecordActivity recusado:', json.encode(result or {})) end
-    return ok == true
+    if not Config.progression.enabled then return false end
+    TriggerEvent('noir_prettycrimes:server:crimeCompleted', source, activityKey, transactionId, metadata)
+    return true
 end
 
 ---Id estável para uma tentativa, usado como chave de transação da progressão.

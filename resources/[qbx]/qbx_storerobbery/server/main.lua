@@ -104,6 +104,7 @@ RegisterNetEvent('qbx_storerobbery:server:registerOpened', function(isDone)
 
     -- Dinheiro de crime é sujo: black_money, como os marked bills do cofre.
     player.Functions.AddItem('black_money', math.random(config.registerReward.min, config.registerReward.max))
+    TriggerEvent('qbx_storerobbery:server:registerRobbed', source, closestRegisterIndex)
 
     TriggerClientEvent('qbx_storerobbery:client:updatedRobbables', -1, sharedConfig.registers, sharedConfig.safes)
     if config.registerReward.chanceAtSticky > math.random(0, 100) then
@@ -161,6 +162,7 @@ RegisterNetEvent('qbx_storerobbery:server:safeCracked', function()
 
     -- markedbills não existe no ox_inventory; dinheiro sujo do servidor é black_money.
     player.Functions.AddItem('black_money', numMarkedBills * worthMarkedBills)
+    TriggerEvent('qbx_storerobbery:server:safeRobbed', source, closestSafeIndex)
 
     if config.safeReward.chanceAtSpecial > math.random(0, 100) then
         player.Functions.AddItem('rolex', math.random(config.safeReward.rolexAmount.min, config.safeReward.rolexAmount.max))

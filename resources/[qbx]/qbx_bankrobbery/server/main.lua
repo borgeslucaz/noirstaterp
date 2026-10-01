@@ -156,6 +156,7 @@ RegisterNetEvent('qbx_bankrobbery:server:setBankState', function(bankId)
     end
     TriggerClientEvent('qbx_bankrobbery:client:setBankState', -1, bankId)
     robberyBusy = true
+    TriggerEvent('qbx_bankrobbery:server:bankOpened', source, bankId)
 
     local bankName = type(bankId) == 'number' and 'bankrobbery' or bankId
     TriggerEvent('qb-scoreboard:server:SetActivityBusy', bankName, true)

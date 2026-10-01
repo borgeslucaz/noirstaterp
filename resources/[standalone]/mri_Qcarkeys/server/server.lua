@@ -373,6 +373,9 @@ RegisterNetEvent('mri_Qcarkeys:server:hotwireXp', function(netId)
     if GetPedInVehicleSeat(vehicle, -1) ~= GetPlayerPed(src) then return end
     if Entity(vehicle).state.hotwired ~= true or HasKeyForVehicle(src, vehicle) then return end
     GrantSkillXp(src, 'hotwire', Shared.skills.hotwireXp)
+    -- Anuncia o arrombamento (o noir_illegal_core soma heat). A placa entra no id para o mesmo
+    -- carro não contar duas vezes.
+    TriggerEvent('mri_Qcarkeys:server:vehicleBrokenInto', src, 'hotwire', netId, GetVehicleNumberPlateText(vehicle))
 end)
 
 ---Lockpick de porta bem-sucedido. O cliente manda antes de consumir o lockpick, entao o item ainda
@@ -386,7 +389,10 @@ RegisterNetEvent('mri_Qcarkeys:server:lockpickUnlock', function(netId, isAdvance
     if (exports.ox_inventory:Search(src, 'count', item) or 0) < 1 then return end
     local wasLocked = GetVehicleDoorLockStatus(vehicle) > 1
     SetVehicleDoorsLocked(vehicle, 1)
-    if wasLocked then GrantSkillXp(src, 'lockpick', Shared.skills.lockpickXp) end
+    if wasLocked then
+        GrantSkillXp(src, 'lockpick', Shared.skills.lockpickXp)
+        TriggerEvent('mri_Qcarkeys:server:vehicleBrokenInto', src, 'lockpick', netId, GetVehicleNumberPlateText(vehicle))
+    end
 end)
 
 RegisterNetEvent('mm_carkeys:server:setVehLockState', function(vehNetId, state)

@@ -106,6 +106,7 @@ end)
 lib.callback.register('qbx_truckrobbery:server:giveReward', function(source)
 	if Entity(truck).state.truckstate ~= TruckState.LOOTABLE then return end
 	Entity(truck).state:set('truckstate', TruckState.LOOTED, true)
+	TriggerEvent('qbx_truckrobbery:server:truckLooted', source)
     local cantCarryRewards = {}
     local cantCarryRewardsSize = 0
     for i = 1, #config.rewards do

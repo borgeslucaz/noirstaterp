@@ -15,6 +15,14 @@ function Repository.get(citizenId, query, forUpdate)
     ]]):format(suffix), { citizenId })
 end
 
+---Marca o instante a partir do qual o heat volta a decair, sem mexer no valor. É o login: o
+---tempo offline não conta.
+function Repository.touch(citizenId, decayAt, query)
+    NoirIllegal.Database.execute(query,
+        'UPDATE noir_illegal_player_heat SET last_decay_at = FROM_UNIXTIME(?) WHERE citizenid = ?',
+        { decayAt, citizenId })
+end
+
 function Repository.set(citizenId, value, decayAt, query)
     NoirIllegal.Database.execute(query, [[
         INSERT INTO noir_illegal_player_heat (citizenid, value, last_decay_at)

@@ -1020,17 +1020,13 @@ O que vale a pena quebrar de propósito:
 sabe. Ele não sabe tudo de propósito: teto, ferramenta e `positions` são do
 servidor, e aparecem no console dele.
 
-## Progressão criminal (opcional)
+## Progressão criminal
 
-`Config.progression.enabled = false` por padrão. Ligar exige, antes:
-
-1. registrar `noir_prettycrimes` em `noir_illegal_core/shared/permissions.lua`
-   (`publicRecorders`);
-2. declarar a activity `petty_smashgrab` nas activities de lá, com este resource na
-   lista de callers.
-
-Sem isso o core recusa a chamada, e a recusa é silenciosa para o jogador. Com
-`Config.debug` ligado, o motivo aparece no console.
+`Config.progression.enabled = true`. O crime concluído (com loot entregue) é anunciado
+pelo evento de servidor `noir_prettycrimes:server:crimeCompleted` (source, activity,
+transação, metadata). O adaptador do `noir_illegal_core` escuta e soma o heat do
+personagem (`petty_smashgrab`, `petty_parkingmeter`); quanto vale é decidido lá, não
+aqui. Sem o core de pé, o evento cai no vazio.
 
 ## Limitações conhecidas
 

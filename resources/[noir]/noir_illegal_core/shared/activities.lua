@@ -32,7 +32,9 @@ NoirIllegal.Activities = {
         idempotencyTtlSeconds = 2592000,
         personal = { drug = 2, street = 1 },
         organization = { drug = 0.5 },
-        heat = 0.35,
+        -- 1.3 por venda contra o decaimento de 9 por hora jogada: 6 vendas por hora ainda
+        -- esfriam, 7 empatam (9.1), 13 esquentam ~8 por hora (16.9 − 9) e 20, ~17.
+        heat = 1.3,
         diminishingReturns = {
             windowSeconds = 3600,
             softCap = 20,
@@ -127,5 +129,144 @@ NoirIllegal.Activities = {
         },
         requirements = { organization = true },
         metadata = { allow = { 'routeId', 'route' } },
+    },
+
+    -- Heat de crime
+    -- -------------
+    -- Atividades que só somam heat ao personagem: reputação desses crimes fica para a revisão de
+    -- marcos. O heat vai de 0 a 100 e decai 9 por hora jogada (Config.Heat), então o número
+    -- abaixo é quanto tempo online o crime "esquenta" quem fez: 9 ≈ uma hora. Sem retorno
+    -- decrescente: quem repete é visto todas as vezes.
+    -- Roubo de casa concluído (noir_houserobbery). Conta para cada participante.
+    house_robbery = {
+        enabled = true,
+        callers = { 'noir_illegal_core' },
+        cooldownSeconds = 0,
+        idempotencyTtlSeconds = 2592000,
+        personal = {},
+        heat = 8.0,
+        requirements = {},
+        metadata = { allow = { 'contractId', 'houseId', 'tier' } },
+    },
+    -- Vidro quebrado e mochila levada (noir_prettycrimes).
+    petty_smashgrab = {
+        enabled = true,
+        callers = { 'noir_illegal_core' },
+        cooldownSeconds = 0,
+        idempotencyTtlSeconds = 2592000,
+        personal = {},
+        heat = 2.0,
+        requirements = {},
+        metadata = { allow = { 'prop', 'rewards' } },
+    },
+    -- Parquímetro esvaziado (noir_prettycrimes).
+    petty_parkingmeter = {
+        enabled = true,
+        callers = { 'noir_illegal_core' },
+        cooldownSeconds = 0,
+        idempotencyTtlSeconds = 2592000,
+        personal = {},
+        heat = 1.0,
+        requirements = {},
+        metadata = { allow = { 'meter', 'rewards' } },
+    },
+    -- Caixa de loja roubado (qbx_storerobbery).
+    store_register = {
+        enabled = true,
+        callers = { 'noir_illegal_core' },
+        cooldownSeconds = 0,
+        idempotencyTtlSeconds = 2592000,
+        personal = {},
+        heat = 4.0,
+        requirements = {},
+        metadata = { allow = { 'register' } },
+    },
+    -- Cofre de loja aberto (qbx_storerobbery).
+    store_safe = {
+        enabled = true,
+        callers = { 'noir_illegal_core' },
+        cooldownSeconds = 0,
+        idempotencyTtlSeconds = 2592000,
+        personal = {},
+        heat = 6.0,
+        requirements = {},
+        metadata = { allow = { 'safe' } },
+    },
+    -- Vitrine da joalheria quebrada (qbx_jewelery). Um roubo inteiro são várias.
+    jewelery_vitrine = {
+        enabled = true,
+        callers = { 'noir_illegal_core' },
+        cooldownSeconds = 0,
+        idempotencyTtlSeconds = 2592000,
+        personal = {},
+        heat = 2.0,
+        requirements = {},
+        metadata = { allow = { 'vitrine' } },
+    },
+    -- Fleeca aberto (qbx_bankrobbery).
+    bank_fleeca = {
+        enabled = true,
+        callers = { 'noir_illegal_core' },
+        cooldownSeconds = 0,
+        idempotencyTtlSeconds = 2592000,
+        personal = {},
+        heat = 12.0,
+        requirements = {},
+        metadata = { allow = { 'bankId' } },
+    },
+    -- Banco de Paleto aberto (qbx_bankrobbery).
+    bank_paleto = {
+        enabled = true,
+        callers = { 'noir_illegal_core' },
+        cooldownSeconds = 0,
+        idempotencyTtlSeconds = 2592000,
+        personal = {},
+        heat = 16.0,
+        requirements = {},
+        metadata = { allow = { 'bankId' } },
+    },
+    -- Pacific Standard aberto (qbx_bankrobbery).
+    bank_pacific = {
+        enabled = true,
+        callers = { 'noir_illegal_core' },
+        cooldownSeconds = 0,
+        idempotencyTtlSeconds = 2592000,
+        personal = {},
+        heat = 20.0,
+        requirements = {},
+        metadata = { allow = { 'bankId' } },
+    },
+    -- Carro-forte saqueado (qbx_truckrobbery).
+    truck_robbery = {
+        enabled = true,
+        callers = { 'noir_illegal_core' },
+        cooldownSeconds = 0,
+        idempotencyTtlSeconds = 2592000,
+        personal = {},
+        heat = 12.0,
+        requirements = {},
+        metadata = { allow = {} },
+    },
+    -- Ligação direta ou lockpick de porta trancada (mri_Qcarkeys).
+    vehicle_break_in = {
+        enabled = true,
+        callers = { 'noir_illegal_core' },
+        cooldownSeconds = 0,
+        idempotencyTtlSeconds = 2592000,
+        personal = {},
+        heat = 2.0,
+        requirements = {},
+        metadata = { allow = { 'kind', 'plate' } },
+    },
+    -- Arma ou peça pronta retirada da bancada (noir_guncraft).
+    gun_craft = {
+        enabled = true,
+        callers = { 'noir_illegal_core' },
+        cooldownSeconds = 0,
+        idempotencyTtlSeconds = 2592000,
+        personal = {},
+        heat = 3.0,
+        requirements = {},
+        metadata = { allow = { 'queueId', 'item' } },
     },
 }

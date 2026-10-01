@@ -127,6 +127,7 @@ RegisterNetEvent('qbx_jewelery:server:endcabinet', function()
     end
 
     TriggerClientEvent('qbx_jewelery:client:syncconfig', -1, sharedConfig.vitrines)
+    TriggerEvent('qbx_jewelery:server:vitrineRobbed', source, closestVitrine)
     fireAlarm()
 end)
 

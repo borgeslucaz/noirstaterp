@@ -69,6 +69,26 @@ por entrega. Acima do teto, o pedido é recusado inteiro.
 O adaptador confere `GetInvokingResource()` antes de aceitar o evento: qualquer resource pode dar
 `TriggerEvent` com o mesmo nome.
 
+### Heat do personagem
+
+O heat vai de 0 a 100 e decai `Config.Heat.decayPerSecond` (9 por hora) **só enquanto o
+personagem está online**: no login o relógio recomeça (o tempo fora não conta) e no logout o que
+decaiu é gravado (`server/services/heat_sessions.lua`). O retorno decrescente corta reputação,
+nunca heat: quem repete o crime é visto todas as vezes. `GetHeat(source)` lê o valor atual.
+
+Crimes que só somam heat (sem reputação), pelo adaptador `server/adapters/crimes.lua`:
+
+| Fato | Evento | Atividade | Heat |
+|---|---|---|---|
+| roubo de casa concluído (cada participante) | `noir_houserobbery:server:robberyCompleted` | `house_robbery` | 8 |
+| smash & grab / parquímetro | `noir_prettycrimes:server:crimeCompleted` | `petty_smashgrab` / `petty_parkingmeter` | 2 / 1 |
+| caixa / cofre de loja | `qbx_storerobbery:server:registerRobbed` / `safeRobbed` | `store_register` / `store_safe` | 4 / 6 |
+| vitrine da joalheria | `qbx_jewelery:server:vitrineRobbed` | `jewelery_vitrine` | 2 |
+| banco aberto | `qbx_bankrobbery:server:bankOpened` | `bank_fleeca` / `bank_paleto` / `bank_pacific` | 12 / 16 / 20 |
+| carro-forte saqueado | `qbx_truckrobbery:server:truckLooted` | `truck_robbery` | 12 |
+| ligação direta / lockpick (mesmo carro 1×/dia) | `mri_Qcarkeys:server:vehicleBrokenInto` | `vehicle_break_in` | 2 |
+| arma pronta retirada da bancada | `noir_guncraft:server:craftCollected` | `gun_craft` | 3 |
+
 ### Atividade de gang
 
 `subject = 'organization'` marca atividade sem autor — o fato é da gang, não de um jogador

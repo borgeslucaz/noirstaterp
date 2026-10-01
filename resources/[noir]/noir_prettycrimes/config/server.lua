@@ -38,12 +38,10 @@ return {
 
     -- Progressão criminal opcional (noir_illegal_core).
     --
-    -- Desligado de propósito: ligar exige registrar `noir_prettycrimes` em
-    -- `noir_illegal_core/shared/permissions.lua` (publicRecorders) e declarar as
-    -- activities lá. Sem isso o core recusa a chamada, e a recusa é silenciosa
-    -- do ponto de vista do jogador. Veja o README antes de ligar.
+    -- Ligado: o crime concluído é anunciado pelo evento
+    -- `noir_prettycrimes:server:crimeCompleted`, e o adaptador do noir_illegal_core soma o
+    -- heat (activities `petty_smashgrab` e `petty_parkingmeter`).
     progression = {
-        enabled = false,
-        resource = 'noir_illegal_core',
+        enabled = true,
     },
 }
