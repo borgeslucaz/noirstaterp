@@ -44,6 +44,7 @@ server_scripts {
     'server/services/eligibility_service.lua',
     'server/services/unlock_service.lua',
     'server/services/profile_service.lua',
+    'server/services/organization_cap_service.lua',
     'server/services/activity_service.lua',
     'server/services/admin_service.lua',
     'server/api.lua',

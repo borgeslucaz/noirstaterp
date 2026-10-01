@@ -155,32 +155,66 @@ Precisa escolher um, ou combinar os dois (ver próximos passos).
    - `ballas / contact_coke` concedido à mão no banco, sem o pré-requisito;
    - rota `NOVA` de teste.
 
+## Andamento (01/10/2026)
+
+| Fase | Situação | Commit |
+|---|---|---|
+| 0. Furos | feita | `3bcf61b4` (junto da polícia) |
+| 1. Polícia na economia | feita | `dff09a3f` |
+| 2. Heat | feito só o item 7; itens 8 e 9 cortados | `906069e2` |
+| 3. Reputação por marco | feita, com o desenho revisto abaixo | — |
+| 4 e 5 | não começadas | — |
+
+**Decisões tomadas no caminho, que mudam o texto original das fases:**
+- **Item 4:** a tabela pública de policiamento mínimo é o `noir_scoreboard` (fork do qbx_scoreboard), visível só para membro de gang. A venda de droga não tem mínimo; sem polícia em serviço ela paga metade, para todo tipo de droga.
+- **Itens 8 e 9 cortados:** a gang não tem heat, e não há ficha por personagem.
+- **Reputação da gang é uma só** (`gang`), qualquer que seja o produto, e só sobe com o que só gang faz: bairro, outpost e as rotas do `noir_gathering`. Venda de rua e roubos dão só reputação pessoal. Outros tipos de grupo (armas: MC, cartel, máfia) vão subir a mesma reputação com atividades próprias, ainda não definidas.
+- **Contato da meth em 500** de reputação da gang (nível 2), coca em 1.500 (nível 4). Teto de 50 por dia: meth em no mínimo 10 dias, ~13–14 numa gang ativa típica.
+
 ## Próximos passos
 
 A ordem segue a da pesquisa: medir e fechar furos → dar consequência → dar sentido ao que se conquista → conteúdo novo.
 
-### Fase 0: furos (curto, sem design novo)
+### Fase 0: furos (curto, sem design novo) — feita
 1. Conferir emprego e serviço nos eventos `SeizeCash` e `RobPlayer` do `qbx_police`. O dinheiro apreendido vai para o cofre da polícia ou é destruído, não para o policial.
 2. Reverter os TODOs de teste de outposts e territórios. Limpar o unlock e a rota de teste no banco.
 3. **Crime paga sujo:** carga ilegal do caminhão, pawnshop (ou só itens legais), houserobbery, prettycrimes e caixa registradora passam a pagar `black_money`. Revisar o valor da carga ilegal (10 mil é de 18 a 30 vezes uma venda de saquinho).
 4. Mínimo de policiais em serviço por crime, em tabela pública: saquinho 0 (preço cai sem polícia), tijolo e outpost 2, roubos qbx 2 a 4.
 
-### Fase 1: a polícia existe na economia
+### Fase 1: a polícia existe na economia — feita
+> Salário de $275 (recruta) a $375 (chefe) a cada 30 min; bônus de 15% do valor de rua na destruição, teto $1.000/h; chamado no MDT (`mdtCreateCall` do ps-mdt) e aviso com blip; dispatch da venda de rua de 5% a 15%, decidido no servidor.
+
 5. **Salário de plantão da polícia** perto da âncora civil, e bônus por apreensão como fração do valor destruído, com teto por hora. A droga e o `black_money` apreendidos são destruídos (dreno).
 6. **Dispatch da venda de rua** ligado pelo `bgrz_core`, com chance baixa (5–15%) que sobe com repetição no mesmo ponto. Configurar um provider de dispatch que chegue ao MDT sem perder code e prioridade.
 
-### Fase 2: heat que pesa (personagem e gang)
+### Fase 2: heat que pesa (personagem e gang) — item 7 feito, 8 e 9 cortados
+> Heat decai 9 por hora jogada; venda de rua 1,3 (7 vendas/h empatam); roubos, arrombamento e bancada somam heat pelo adaptador `crimes.lua`. A tomada de bairro não soma heat (não tem autor). Nenhum sistema lê o heat ainda.
+
 7. **Heat de personagem que acumula:**
    - tirar o retorno decrescente do heat;
    - decair por **hora jogada**, não por relógio;
    - todo crime soma heat pelo adaptador do core: houserobbery, prettycrimes, roubos qbx, arrombamento, guncraft e tomada de bairro.
-8. **Heat de gang de 0 a 9 → procurado de 0 a 4** (Blades):
+8. ~~**Heat de gang de 0 a 9 → procurado de 0 a 4** (Blades)~~ — cortado: a gang não tem heat.
    - sobe com as ações vistas da gang (tomada, roubo de outpost, morte em operação +2);
    - o procurado **só baixa com prisão** de um membro, ligando `xt-prison` ao core;
    - procurado alto aumenta alerta, trava contato e dá sinal à polícia.
-9. **Ficha por personagem:** ler do MDT (`IsCidFelon`, acusações) ou ter uma ficha própria que decai por hora jogada. Ficha alta fecha outpost, contato e loja.
+9. ~~**Ficha por personagem**~~ — cortado. Texto original: ler do MDT (`IsCidFelon`, acusações) ou ter uma ficha própria que decai por hora jogada. Ficha alta fecha outpost, contato e loja.
 
-### Fase 3: reputação que premia marco, não volume
+### Fase 3: reputação que premia marco, não volume — feita
+> Como ficou (reputação da gang = categoria única `gang`, teto de 50 em 24h):
+>
+> | Fonte da gang | Valor |
+> |---|---|
+> | tomar bairro | +25, uma vez por bairro e gang por dia |
+> | segurar bairro | +8 por dia, só com atividade da gang no bairro em 24h |
+> | perder bairro | −15 (troca por admin não cobra) |
+> | tomar outpost | +30; nada se o posto foi da gang nos últimos 7 dias |
+> | venda passiva do outpost | +0,1, até 12 por dia |
+> | outpost roubado | −5 |
+> | rota de carga | até 20 por entrega, até 12 por dia; cooldown da rota persistido |
+>
+> Pessoal: venda de rua `drug` +2 e `street` +1 × grau (C 0,8 a S 1,5) × peso da droga (saquinho 1, meth 1,5, coca 2, tijolo 4); roubo de casa `street` +3; smash & grab +0,5; parquímetro +0,25. Venda de rua não dá reputação de gang. Guncraft não dá reputação (armas serão de outro tipo de grupo). Gang parada perde o bairro: o dono não tem mais piso no esfriamento.
+
 10. **Tomar bairro paga** um marco (+15 a +25 por bairro, gang e período). Os +5 por dia saem de quem não teve atividade no período. O controle de bairro decai para a gang parada.
 11. **Teto diário por organização** em `drug_sale` e `outpost_sale`. Considerar grau e droga no valor (a qualidade é o eixo).
 12. `outpost_claim` sem pagamento na retomada do mesmo posto. `gathering_delivery` com teto baixo (10–15) e cooldown persistido.
@@ -193,7 +227,7 @@ A ordem segue a da pesquisa: medir e fechar furos → dar consequência → dar 
     - o **unlock da gang** libera a receita (quem sabe fazer);
     - o **laboratório** fica num bairro e segue quem o controla (onde fazer).
     - Assim, território e reputação empurram o mesmo lado, e o laboratório vira alvo de disputa.
-17. **Cada nível de gang libera algo concreto** (contato, capacidade, tipo de droga, estoque), nunca multiplicador de preço. Dar uso a street, weapons, items, ammo e attachments ou tirar essas categorias.
+17. **Cada nível de gang libera algo concreto** (contato, capacidade, tipo de droga, estoque), nunca multiplicador de preço. As categorias weapons, items, ammo e attachments ficaram sem uso: a gang tem reputação única, e as pessoais hoje são só `drug` e `street`.
 
 ### Fase 5: fechar a cadeia e a economia
 18. **Black market** (sistema separado; o `noir_shops` é só dinheiro limpo): semente nível 3, saquinho vazio, mesa, prensa, insumos do guncraft, spray e lockpick avançado, em dinheiro sujo.
@@ -204,6 +238,7 @@ A ordem segue a da pesquisa: medir e fechar furos → dar consequência → dar 
 
 ### Decisões que precisam de você
 - A origem da coca: unlock da gang, controle do bairro ou os dois (recomendo os dois, item 16).
-- O pawnshop continua comprando joia roubada em dinheiro limpo? Recomendo pagar sujo, ou comprar só o que não é de roubo.
+- ~~O pawnshop continua comprando joia roubada em dinheiro limpo?~~ Decidido: o pawnshop paga limpo.
 - O guncraft ganha fonte de insumos (produto `weapons` da lostmc) ou sai do ar? Hoje concorre com a `BlackMarketArms`.
-- Heat de gang: tirar a trava "heat é só de pessoa" do core (necessário para o item 8).
+- ~~Heat de gang~~ Decidido: a gang não tem heat.
+- O que o heat do personagem muda no jogo (hoje nada lê).

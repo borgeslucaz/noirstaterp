@@ -11,6 +11,12 @@ T.natives()
 
 local now = 0
 GetGameTimer = function() return now end
+-- O intervalo entre saídas usa relógio e KVP; os dois andam com o `now` do teste.
+os.time = function() return math.floor(now / 1000) end
+local kvp = {}
+SetResourceKvpInt = function(key, value) kvp[key] = value end
+GetResourceKvpInt = function(key) return kvp[key] or 0 end
+DeleteResourceKvp = function(key) kvp[key] = nil end
 
 local peds = { [1] = 101, [2] = 102 }
 local coordsOf = { [101] = vector3(0, 0, 0), [102] = vector3(0, 0, 0) }

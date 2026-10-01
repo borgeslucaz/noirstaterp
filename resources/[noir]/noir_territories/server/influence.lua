@@ -196,6 +196,13 @@ local function grantInfluence(zone, gang, reason, sign)
         return false, 0
     end
 
+    -- A gang agiu neste bairro (pichou, vendeu): é isso que o noir_illegal_core confere antes de
+    -- pagar o bairro segurado. Marca mesmo quando o pool não deu ponto — dono com o bairro cheio
+    -- continua trabalhando nele.
+    if (tonumber(sign) or 1) > 0 and knownZone(zone) and type(gang) == 'string' and gang ~= '' and gang ~= 'none' then
+        SetResourceKvpInt(('activity:%s:%s'):format(zone, gang), os.time())
+    end
+
     -- O bônus de azarão entra aqui e não no `addInfluence`: ele é uma propriedade do fato que
     -- aconteceu no mundo, não da aritmética do pool. Quem chama `addInfluence` com um número na
     -- mão é administração, e administração recebe o número que digitou.
@@ -320,6 +327,13 @@ NoirInfluenceServer = {
 }
 
 exports('grantInfluence', grantInfluence)
+
+---Última vez que a gang agiu no bairro (venda, pichação), em segundos de relógio; 0 se nunca.
+---Fica no KVP do resource: sobrevive ao restart.
+exports('getGangActivity', function(zone, gang)
+    if type(zone) ~= 'string' or type(gang) ~= 'string' then return 0 end
+    return GetResourceKvpInt(('activity:%s:%s'):format(zone, gang)) or 0
+end)
 exports('grantOnceInfluence', grantOnce)
 exports('revokeOnceInfluence', revokeOnce)
 exports('addInfluence', addInfluence)

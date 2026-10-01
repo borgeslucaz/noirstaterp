@@ -1,20 +1,45 @@
 -- Territórios (noir_territories).
 --
--- Segurar bairro rende um pouco por dia; perder bairro custa. Bairro fixo (dono por config) não
--- entra em nenhum dos dois: ele não foi tomado e não pode ser perdido, e o noir_territories nem
--- o lista entre as placas.
+-- Tomar bairro é o marco; segurar rende um pouco por dia, só para a gang que agiu no bairro nas
+-- últimas 24h; perder custa. Bairro fixo (dono por config) não entra em nenhum: ele não foi
+-- tomado e não pode ser perdido, e o noir_territories nem o lista entre as placas.
 
 local Adapters = NoirIllegal.Adapters
 local V = NoirIllegal.Validators
 
-AddEventHandler('noir_territories:server:ownerChanged', function(zone, owner, previous)
-    if not Adapters.from('noir_territories') then return end
-    if not V.string(zone, 1, 64) or not V.string(previous, 1, 64) then return end
+---Dia do relógio do servidor (o mesmo período do bairro segurado).
+local function currentPeriod(now)
+    return math.floor((now or os.time()) / NoirIllegal.Config.Territories.heldPeriodSeconds)
+end
 
-    Adapters.recordOrganization(previous, 'territory_lost', V.randomUuid(), {
-        metadata = { zone = zone, newOwner = type(owner) == 'string' and owner or 'none' },
-    })
+-- Troca de dono. Troca feita por admin (`reason == 'admin'`) não paga nem cobra: não foi jogo.
+AddEventHandler('noir_territories:server:ownerChanged', function(zone, owner, previous, reason)
+    if not Adapters.from('noir_territories') then return end
+    if not V.string(zone, 1, 64) or reason == 'admin' then return end
+    local period = currentPeriod()
+
+    -- Tomada: o marco. Uma vez por bairro e gang por dia.
+    if V.string(owner, 1, 64) then
+        Adapters.recordOrganization(owner, 'territory_taken',
+            V.stableUuid(('territory_taken:%s:%s:%d'):format(zone, owner, period)), {
+                metadata = { zone = zone, previousOwner = V.string(previous, 1, 64) and previous or 'none' },
+            })
+    end
+
+    if V.string(previous, 1, 64) then
+        Adapters.recordOrganization(previous, 'territory_lost', V.randomUuid(), {
+            metadata = { zone = zone, newOwner = type(owner) == 'string' and owner or 'none' },
+        })
+    end
 end)
+
+---A gang agiu no bairro (venda, pichação) dentro da janela? Sem a resposta do noir_territories,
+---não paga: bairro segurado é renda de quem trabalha a rua.
+local function activeIn(zone, gang, now)
+    local ok, last = pcall(function() return exports.noir_territories:getGangActivity(zone, gang) end)
+    if not ok or type(last) ~= 'number' or last <= 0 then return false end
+    return (now or os.time()) - last <= NoirIllegal.Config.TerritoryActivitySeconds
+end
 
 local function ownedTerritories()
     if GetResourceState('noir_territories') ~= 'started' then return nil end
@@ -32,7 +57,7 @@ function Adapters.payHeldTerritories(now)
     local period = math.floor((now or os.time()) / NoirIllegal.Config.Territories.heldPeriodSeconds)
     local count = 0
     for zone, gang in pairs(owned) do
-        if V.string(zone, 1, 64) and V.string(gang, 1, 64) then
+        if V.string(zone, 1, 64) and V.string(gang, 1, 64) and activeIn(zone, gang, now) then
             Adapters.recordOrganization(gang, 'territory_held',
                 V.stableUuid(('territory_held:%s:%s:%d'):format(zone, gang, period)), {
                     metadata = { zone = zone, period = period },

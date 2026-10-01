@@ -361,10 +361,7 @@ end
 -- Runtime stubado ---------------------------------------------------------------------------
 -- O progresso da gang vem do noir_illegal_core, que só é consultado se estiver no ar.
 local coreProgress = {
-    { category = 'ammo', label = 'Munições', product = 'ammo', reputation = 0, level = 0 },
-    { category = 'drug', label = 'Drogas', product = 'drugs', reputation = 320, level = 2 },
-    { category = 'street', label = 'Rua', reputation = 12, level = 0 },
-    { category = 'weapons', label = 'Armas', product = 'weapons', reputation = 40, level = 0 },
+    { category = 'gang', label = 'Reputação', reputation = 520, level = 2, levelFloor = 500, nextLevelAt = 1000 },
 }
 local illegalCore = { GetOrganizationProgress = function(_, gangName)
     return true, gangName == 'ballas' and coreProgress or {}
@@ -572,11 +569,9 @@ T.falsy(state.progress, 'soldado não vê o progresso')
 T.falsy(state.products, 'soldado não vê os produtos')
 
 state = callbacks['noir_gangs:server:getState'](1)
-T.equal(#state.progress, 3, 'o chefe vê o progresso: produto, rua e o que já tem reputação')
-T.equal(state.progress[1].category, 'drug', 'o produto que a gang opera vem primeiro')
+T.equal(#state.progress, 1, 'o chefe vê a reputação da gang, uma só')
+T.equal(state.progress[1].category, 'gang', 'a reputação geral da gang')
 T.equal(state.progress[1].level, 2, 'com o nível lido do core')
-T.equal(state.progress[3].category, 'street', 'a rua vem por último')
-for _, row in ipairs(state.progress) do T.truthy(row.category ~= 'ammo', 'produto alheio e zerado fica de fora') end
 
 coreState = 'stopped'
 T.falsy(callbacks['noir_gangs:server:getState'](1).progress, 'sem o core no ar, o painel só não mostra progresso')

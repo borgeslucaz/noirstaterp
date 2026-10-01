@@ -9,7 +9,7 @@ NoirIllegal.Unlocks = {
         manualGrantOverridesRequirements = true,
     },
 
-    -- Contatos da gang. O nível em `drug` é da GANG, não de quem fez a venda que o empurrou: o
+    -- Contatos da gang. O nível é da reputação `gang` (uma só por gang, qualquer produto): o
     -- unlock é avaliado com a reputação e os unlocks da organização. Chegar no nível só abre a
     -- porta — o contato aparece; o que ele libera de fato (fornecedor, laboratório) vem depois
     -- da prova, e é outro unlock, concedido por quem conduz a prova.
@@ -24,14 +24,14 @@ NoirIllegal.Unlocks = {
         scope = 'organization',
         automatic = true,
         requirements = {
-            minLevel = { drug = 2 },
+            minLevel = { gang = 2 },
         },
     },
     contact_coke = {
         scope = 'organization',
         automatic = true,
         requirements = {
-            minLevel = { drug = 4 },
+            minLevel = { gang = 4 },
             unlocks = { 'contact_meth' },
         },
     },

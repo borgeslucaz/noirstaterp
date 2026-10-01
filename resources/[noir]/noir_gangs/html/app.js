@@ -496,8 +496,8 @@
         }
     }
 
-    /// O nível do cartão é o maior entre os produtos que a gang opera; a lista mostra cada
-    /// categoria com a barra até o próximo nível.
+    /// A gang tem uma reputação só (o core manda uma linha); o cartão mostra o nível dela e a
+    /// lista, a barra até o próximo nível.
     function renderProgress(progress) {
         const rows = Array.isArray(progress) ? progress : []
         show(m.statLevelCard, rows.length > 0)

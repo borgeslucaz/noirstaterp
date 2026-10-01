@@ -71,19 +71,16 @@ Config.Influence = {
 --
 -- 48h de abandono e um passo por dia fazem o esfriamento ser uma estação e não um cronômetro.
 -- Para teste, uma hora e passos de dez minutos.
--- `KeepOwnerAtThreshold` põe um piso no esfriamento do dono: ele desce até o limiar e para.
--- Sem o piso, uma gang perderia o bairro por ter passado o fim de semana fora — e o desenho
--- inteiro é sobre gangs tomarem rua uma da outra, não sobre relógio. Com o piso, o bairro
--- abandonado fica em 510 e volta a ser tomável por quem aparecer, que era o ponto.
---
--- O piso é só do dono. Rival parado não tem posse para proteger, e congelar a fatia dele
--- deixaria o pool preso em pedaços que ninguém defende.
+-- `KeepOwnerAtThreshold` poria um piso no esfriamento do dono (ele desceria até o limiar e
+-- pararia). Está desligado: gang parada perde o bairro. O esfriamento só começa depois de 48h
+-- sem nenhuma atividade no bairro, e cada passo diário tira 5%, então o dono parado leva dias
+-- para cair abaixo do limiar — uma semana fora custa a placa, um fim de semana não.
 Config.Decay = {
     Enable = true,
     AfterSeconds = 48 * 60 * 60,
     EverySeconds = 24 * 60 * 60,
     Percent = 5,
-    KeepOwnerAtThreshold = true,
+    KeepOwnerAtThreshold = false,
 }
 
 -- ---------------------------------------------------------------------------

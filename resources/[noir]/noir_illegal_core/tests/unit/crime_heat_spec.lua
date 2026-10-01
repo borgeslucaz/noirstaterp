@@ -30,7 +30,9 @@ for key, heat in pairs(expected) do
     local activity = assert(NoirIllegal.Activities[key], key .. ' missing')
     equal(activity.enabled, true, key .. ' enabled')
     equal(activity.heat, heat, key .. ' heat')
-    equal(next(activity.personal), nil, key .. ' gives no reputation')
+    local street = ({ house_robbery = 3, petty_smashgrab = 0.5, petty_parkingmeter = 0.25 })[key]
+    equal(activity.personal.street, street, key .. ' personal street')
+    equal(next(activity.organization or {}), nil, key .. ' gives no gang reputation')
     equal(activity.diminishingReturns, nil, key .. ' has no diminishing returns')
     equal(activity.callers[1], 'noir_illegal_core', key .. ' recorded by the core adapter')
 end

@@ -31,8 +31,19 @@ local Hauls = {}
 local runs = {}
 ---@type table<integer, integer> routeId -> source que está nela
 local routeOwner = {}
----@type table<integer, integer> routeId -> GetGameTimer a partir do qual reabre
-local routeReopensAt = {}
+-- Quando a rota reabre, em segundos de relógio. Fica no KVP do resource: um restart não zera o
+-- intervalo entre saídas (antes ele vivia em memória e o restart liberava todas as rotas).
+local function reopensAt(routeId)
+    return GetResourceKvpInt(('reopen:%d'):format(routeId)) or 0
+end
+
+local function setReopensAt(routeId, at)
+    if at then
+        SetResourceKvpInt(('reopen:%d'):format(routeId), at)
+    else
+        DeleteResourceKvp(('reopen:%d'):format(routeId))
+    end
+end
 
 local function fail(code)
     return { ok = false, error = code }
@@ -223,9 +234,9 @@ local function start(source, routeId)
     local coords = Security.pedCoords(source)
     if not near(coords, route.start, Config.distance.start) then return fail('too_far') end
     if routeOwner[routeId] then return fail('route_busy') end
-    local now = GetGameTimer()
-    if (routeReopensAt[routeId] or 0) > now then
-        return { ok = false, error = 'route_cooldown', minutes = math.ceil((routeReopensAt[routeId] - now) / 60000) }
+    local now = os.time()
+    if reopensAt(routeId) > now then
+        return { ok = false, error = 'route_cooldown', minutes = math.ceil((reopensAt(routeId) - now) / 60) }
     end
 
     if route.vehicleSpawn then
@@ -263,7 +274,7 @@ local function start(source, routeId)
         end
     end
 
-    routeReopensAt[routeId] = now + route.haul.cooldown * 60000
+    setReopensAt(routeId, now + route.haul.cooldown * 60)
     debugPrint(source, 'corrida aberta', route.name)
     return { ok = true, netId = run.netId, count = route.haul.count }
 end
@@ -392,7 +403,7 @@ function Hauls.register()
         for source, run in pairs(runs) do
             if run.routeId == routeId then endRun(source, 'route_changed') end
         end
-        routeReopensAt[routeId] = nil
+        setReopensAt(routeId, nil)
     end)
 
     -- Quem saiu leva a chave da carga no inventário salvo; ela é recolhida no próximo login.

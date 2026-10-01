@@ -20,6 +20,7 @@ local function withVariableReward(activity, reward)
         count = count + 1
         local cap = activity.variable.organization
         if count > 4 or not NoirIllegal.Validators.category(category)
+            or not NoirIllegal.Config.Categories[category].organization
             or not NoirIllegal.Validators.number(amount, 0, cap) then
             return nil
         end
@@ -50,6 +51,21 @@ local function prepareRequest(source, activityKey, transactionId, options, calle
     if activity.variable then
         activity = withVariableReward(activity, options.reward)
         if not activity then return nil, NoirIllegal.error('INVALID_ARGUMENT', { field = 'reward' }) end
+    end
+    -- `weight` multiplica a reputação pessoal (grau e peso da droga na venda de rua).
+    -- `withoutOrganization` tira a parte da gang (retomada do próprio outpost). Os dois vêm do
+    -- adaptador do core, o único caller.
+    if options.weight ~= nil or options.withoutOrganization then
+        if options.weight ~= nil and not NoirIllegal.Validators.number(options.weight, 0.1, 10) then
+            return nil, NoirIllegal.error('INVALID_ARGUMENT', { field = 'weight' })
+        end
+        activity = NoirIllegal.Validators.copy(activity)
+        if options.weight then
+            for category, delta in pairs(activity.personal or {}) do
+                activity.personal[category] = NoirIllegal.Validators.round(delta * options.weight, 4)
+            end
+        end
+        if options.withoutOrganization then activity.organization = {} end
     end
     local occurredAt = NoirIllegal.Validators.occurredAt(options.occurredAt)
     if not occurredAt then
@@ -302,7 +318,9 @@ function Service.record(source, activityKey, transactionId, options, caller)
             end
             if request.organization then
                 for category, baseDelta in pairs(request.activity.organization or {}) do
-                    local delta = NoirIllegal.Validators.round(baseDelta * multiplier, 4)
+                    local delta = NoirIllegal.Services.OrganizationCap.apply(request.organization.id,
+                        request.activityKey, request.activity,
+                        NoirIllegal.Validators.round(baseDelta * multiplier, 4), query)
                     appliedOrganization[category] = delta
                     afterOrganization[category] = NoirIllegal.Validators.round(
                         (beforeOrganization[category] or 0) + delta, 4)
@@ -525,8 +543,9 @@ function Service.recordOrganization(organizationId, activityKey, transactionId, 
             local applied = {}
             for category, baseDelta in pairs(request.activity.organization or {}) do
                 local current = before[category] or 0
-                after[category] = NoirIllegal.Validators.round(
-                    math.max(0, current + baseDelta * multiplier), 4)
+                local delta = NoirIllegal.Services.OrganizationCap.apply(subjectId, request.activityKey,
+                    request.activity, baseDelta * multiplier, query)
+                after[category] = NoirIllegal.Validators.round(math.max(0, current + delta), 4)
                 applied[category] = NoirIllegal.Validators.round(after[category] - current, 4)
                 NoirIllegal.Repositories.Reputation.set(
                     'organization', subjectId, category, after[category], query)
@@ -644,6 +663,8 @@ function Service.validateConfiguration()
         if activity.subject == 'organization' then validateOrganizationActivity(activityKey, activity) end
         for category, delta in pairs(activity.organization or {}) do
             assert(NoirIllegal.Validators.category(category), ('Unknown category %s'):format(category))
+            assert(NoirIllegal.Config.Categories[category].organization == true,
+                ('Activity %s gives organization reputation outside an organization category'):format(activityKey))
             assert(NoirIllegal.Validators.number(
                 delta, minimumDelta, NoirIllegal.Config.Limits.maxActivityDelta), 'Invalid organization delta')
         end
@@ -655,6 +676,8 @@ function Service.validateConfiguration()
         end
         assert(NoirIllegal.Validators.number(
             activity.cooldownSeconds or 0, 0), 'Invalid cooldown')
+        assert(activity.dailyCap == nil or NoirIllegal.Validators.number(activity.dailyCap, 0),
+            ('Activity %s has an invalid dailyCap'):format(activityKey))
         assert(NoirIllegal.Validators.number(
             activity.heat or 0, 0, NoirIllegal.Config.Heat.max), 'Invalid heat delta')
         local rule = activity.diminishingReturns

@@ -60,8 +60,9 @@ function NoirOwnershipServer.refresh(zone)
     broadcast(zone)
 
     -- Evento local: quem quiser reagir a uma troca de dono — aviso no celular, log, recompensa —
-    -- escuta aqui em vez de ficar perguntando de tempos em tempos de quem é o bairro.
-    TriggerEvent('noir_territories:server:ownerChanged', zone, desired, current)
+    -- escuta aqui em vez de ficar perguntando de tempos em tempos de quem é o bairro. O quarto
+    -- argumento diz se a troca foi de jogo ('influence') ou de admin ('admin').
+    TriggerEvent('noir_territories:server:ownerChanged', zone, desired, current, 'influence')
 
     print(('[noir_territories] %s: %s -> %s'):format(
         zone, current or 'sem dono', desired or 'sem dono'))
@@ -84,7 +85,7 @@ function NoirOwnershipServer.force(zone, owner, takenAt)
     broadcast(zone)
 
     if current ~= previous then
-        TriggerEvent('noir_territories:server:ownerChanged', zone, current, previous)
+        TriggerEvent('noir_territories:server:ownerChanged', zone, current, previous, 'admin')
     end
 
     return true

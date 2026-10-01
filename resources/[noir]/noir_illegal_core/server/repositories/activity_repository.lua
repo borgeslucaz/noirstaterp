@@ -32,6 +32,37 @@ function Repository.countAccepted(citizenId, organizationId, activityKey, window
     return tonumber(row and row.count) or 0
 end
 
+---Soma do ganho positivo em `gang` de uma organização na janela (uma activity, ou todas).
+---@return number
+function Repository.sumOrganizationGain(organizationId, activityKey, windowSeconds, query)
+    local filter = activityKey and ' AND activity_key = ?' or ''
+    local parameters = { organizationId }
+    if activityKey then parameters[#parameters + 1] = activityKey end
+    parameters[#parameters + 1] = windowSeconds
+    local row = NoirIllegal.Database.single(query, ([[
+        SELECT COALESCE(SUM(GREATEST(CAST(JSON_UNQUOTE(JSON_EXTRACT(applied_organization, '$.gang'))
+            AS DECIMAL(12,4)), 0)), 0) AS total
+        FROM noir_illegal_activity_ledger
+        WHERE status = 'accepted' AND organization_id = ?%s
+          AND occurred_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)
+    ]]):format(filter), parameters)
+    return tonumber(row and row.total) or 0
+end
+
+---Já houve registro aceito desta activity para a organização com este valor de metadata na
+---janela? É o que impede a gang de retomar o próprio outpost e ganhar de novo.
+---@return boolean
+function Repository.recentForOrganization(organizationId, activityKey, metadataKey, metadataValue, windowSeconds, query)
+    local row = NoirIllegal.Database.single(query, [[
+        SELECT 1 AS found FROM noir_illegal_activity_ledger
+        WHERE status = 'accepted' AND organization_id = ? AND activity_key = ?
+          AND JSON_UNQUOTE(JSON_EXTRACT(metadata, ?)) = ?
+          AND occurred_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)
+        LIMIT 1
+    ]], { organizationId, activityKey, '$.' .. metadataKey, tostring(metadataValue), windowSeconds })
+    return row ~= nil
+end
+
 function Repository.insert(data, query)
     NoirIllegal.Database.execute(query, [[
         INSERT INTO noir_illegal_activity_ledger (

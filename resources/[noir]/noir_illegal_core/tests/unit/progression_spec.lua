@@ -24,6 +24,7 @@ dofile('server/services/cooldown_service.lua')
 dofile('server/services/eligibility_service.lua')
 dofile('server/services/unlock_service.lua')
 dofile('server/services/idempotency_service.lua')
+dofile('server/services/organization_cap_service.lua')
 dofile('server/services/activity_service.lua')
 
 local function equal(actual, expected, label)
@@ -83,6 +84,17 @@ NoirIllegal.Repositories = {
             return db.ledger[transactionId]
         end,
         countAccepted = function() return 0 end,
+        -- Janela inteira = o teste todo: soma o que cada organização ganhou em `gang`.
+        sumOrganizationGain = function(organizationId, activityKey)
+            local total = 0
+            for _, row in pairs(db.ledger) do
+                if row.status == 'accepted' and row.organization_id == organizationId
+                    and (not activityKey or row.activity_key == activityKey) then
+                    total = total + math.max(0, row.gained or 0)
+                end
+            end
+            return total
+        end,
         insert = function(data)
             db.ledger[data.transactionId] = {
                 transaction_id = data.transactionId,
@@ -91,6 +103,8 @@ NoirIllegal.Repositories = {
                 citizenid = data.citizenId,
                 status = data.status,
                 result_payload = data.resultPayload,
+                organization_id = data.organizationId,
+                gained = data.appliedOrganization and data.appliedOrganization.gang or 0,
             }
         end,
     },
@@ -122,17 +136,34 @@ reset()
 local ok, outcome = Activity.recordOrganization(
     'ballas', 'territory_held', V.stableUuid('a'), { metadata = { zone = 'davis', period = 1 } }, CORE)
 equal(ok, true, 'territory_held accepted')
-equal(db.reputation['organization:ballas'].drug, 5, 'territory_held pays the gang')
-equal(outcome.applied.organization.drug, 5, 'applied delta reported')
+equal(db.reputation['organization:ballas'].gang, 8, 'territory_held pays the gang')
+equal(outcome.applied.organization.gang, 8, 'applied delta reported')
 
 ok = Activity.recordOrganization('ballas', 'territory_held', V.stableUuid('a'), {}, CORE)
 equal(ok, true, 'replay answers ok')
-equal(db.reputation['organization:ballas'].drug, 5, 'replay does not pay twice')
+equal(db.reputation['organization:ballas'].gang, 8, 'replay does not pay twice')
 
 ok, outcome = Activity.recordOrganization('ballas', 'territory_lost', V.stableUuid('b'), {}, CORE)
 equal(ok, true, 'territory_lost accepted')
-equal(db.reputation['organization:ballas'].drug, 0, 'loss is floored at zero')
-equal(outcome.applied.organization.drug, -5, 'applied delta is what was actually lost')
+equal(db.reputation['organization:ballas'].gang, 0, 'loss is floored at zero')
+equal(outcome.applied.organization.gang, -8, 'applied delta is what was actually lost')
+
+ok, outcome = Activity.recordOrganization('ballas', 'territory_taken', V.stableUuid('b2'), {}, CORE)
+equal(ok, true, 'territory_taken accepted')
+equal(outcome.applied.organization.gang, 25, 'taking a neighborhood is the milestone')
+
+-- Tetos: a venda do outpost para em 12 no dia, e a gang inteira em 50.
+reset()
+for i = 1, 200 do
+    Activity.recordOrganization('ballas', 'outpost_sale', V.stableUuid('sale' .. i), {}, CORE)
+end
+equal(db.reputation['organization:ballas'].gang, 12, 'outpost sale stops at its daily cap')
+for i = 1, 3 do
+    Activity.recordOrganization('ballas', 'territory_taken', V.stableUuid('take' .. i), {}, CORE)
+end
+equal(db.reputation['organization:ballas'].gang, 50, 'the whole gang stops at 50 a day')
+ok, outcome = Activity.recordOrganization('ballas', 'territory_lost', V.stableUuid('lost-capped'), {}, CORE)
+equal(outcome.applied.organization.gang, -15, 'losses are never capped')
 
 ok, outcome = Activity.recordOrganization('ballas', 'drug_sale', V.stableUuid('c'), {}, CORE)
 equal(ok, false, 'player activity refused on organization path')
@@ -148,9 +179,9 @@ equal(ok, false, 'gang none refused')
 -- Unlock de gang: chega no nível e o contato abre --------------------------------------
 
 reset()
-db.reputation['organization:ballas'] = { drug = 299 }
+db.reputation['organization:ballas'] = { gang = 495 }
 Activity.recordOrganization('ballas', 'territory_held', V.stableUuid('f'), {}, CORE)
-equal(db.unlocks['organization:ballas'].contact_meth, 'granted', 'level 2 grants contact_meth')
+equal(db.unlocks['organization:ballas'].contact_meth, 'granted', 'gang level 2 (500) grants contact_meth')
 equal(db.unlocks['organization:ballas'].contact_coke, nil, 'level 2 does not grant contact_coke')
 local unlockEvent
 for _, event in ipairs(events) do
@@ -179,14 +210,14 @@ end
 setmetatable(NoirIllegal.Unlocks, { __pairs = function(t) return cokeFirst(t) end })
 
 reset()
-db.reputation['organization:vagos'] = { drug = 1499 }
+db.reputation['organization:vagos'] = { gang = 1495 }
 Activity.recordOrganization('vagos', 'territory_held', V.stableUuid('g'), {}, CORE)
 equal(db.unlocks['organization:vagos'].contact_meth, 'granted', 'chained: meth')
 equal(db.unlocks['organization:vagos'].contact_coke, 'granted', 'chained: coke in the same pass')
 
 -- Revogado por admin não volta sozinho, e sem meth não há coca.
 reset()
-db.reputation['organization:families'] = { drug = 1499 }
+db.reputation['organization:families'] = { gang = 1495 }
 db.unlocks['organization:families'] = { contact_meth = 'revoked' }
 Activity.recordOrganization('families', 'territory_held', V.stableUuid('h'), {}, CORE)
 equal(db.unlocks['organization:families'].contact_meth, 'revoked', 'revoked stays revoked')
@@ -198,7 +229,7 @@ local granted = NoirIllegal.Services.Unlock.evaluateAutomatic({
         id = 'CID1', reputations = { drug = 5000 }, heat = 0,
         unlockRows = { { unlock_key = 'contact_meth', state = 'granted' } },
     },
-    organization = { id = 'lostmc', reputations = { drug = 1500 }, unlockRows = {} },
+    organization = { id = 'lostmc', reputations = { gang = 1500 }, unlockRows = {} },
 }, {}, { actorId = CORE })
 local grantedKeys = {}
 for _, entry in ipairs(granted) do grantedKeys[entry.scope .. ':' .. entry.key] = true end
@@ -220,17 +251,37 @@ NoirIllegal.Bridges = {
 
 reset()
 local cap = NoirIllegal.Activities.gathering_delivery.variable.organization
-ok, outcome = Activity.record(1, 'gathering_delivery', V.randomUuid(), { reward = { weapons = 40 } }, CORE)
+equal(cap, 20, 'route reward cap')
+ok, outcome = Activity.record(1, 'gathering_delivery', V.randomUuid(), { reward = { gang = 10 } }, CORE)
 assert(ok, 'gathering reward within cap is accepted: ' .. tostring(outcome and outcome.code))
-equal(db.reputation['organization:lostmc'].weapons, 40, 'the route decides the category and amount')
+equal(db.reputation['organization:lostmc'].gang, 10, 'the route decides the amount')
 
-ok, outcome = Activity.record(1, 'gathering_delivery', V.randomUuid(), { reward = { weapons = cap + 1 } }, CORE)
+ok, outcome = Activity.record(1, 'gathering_delivery', V.randomUuid(), { reward = { gang = cap + 1 } }, CORE)
 equal(ok, false, 'above the cap is refused')
 equal(outcome.code, 'INVALID_ARGUMENT', 'as an invalid argument, not trimmed')
-equal(db.reputation['organization:lostmc'].weapons, 40, 'and pays nothing')
+equal(db.reputation['organization:lostmc'].gang, 10, 'and pays nothing')
 
 ok = Activity.record(1, 'gathering_delivery', V.randomUuid(), { reward = { boosting = 10 } }, CORE)
 equal(ok, false, 'unknown category is refused')
+ok = Activity.record(1, 'gathering_delivery', V.randomUuid(), { reward = { drug = 10 } }, CORE)
+equal(ok, false, 'personal category is refused for the gang')
+
+ok = Activity.record(1, 'gathering_delivery', V.randomUuid(), { reward = { gang = 10 } }, CORE)
+equal(db.reputation['organization:lostmc'].gang, 12, 'routes stop at their daily cap')
+
+-- Venda de rua: só pessoal, com peso.
+ok, outcome = Activity.record(2, 'drug_sale', V.randomUuid(), { weight = 3 }, CORE)
+assert(ok, 'weighted sale accepted: ' .. tostring(outcome and outcome.code))
+equal(outcome.applied.personal.drug, 6, 'weight multiplies personal drug')
+equal(next(outcome.applied.organization), nil, 'street sale gives no gang reputation')
+ok, outcome = Activity.record(2, 'drug_sale', V.randomUuid(), { weight = 50 }, CORE)
+equal(ok, false, 'absurd weight refused')
+
+-- Retomada do próprio outpost: parte pessoal fica, a da gang sai.
+ok, outcome = Activity.record(3, 'outpost_claim', V.randomUuid(), { withoutOrganization = true }, CORE)
+assert(ok, 'retake accepted: ' .. tostring(outcome and outcome.code))
+equal(outcome.applied.personal.street, 2, 'claimer keeps personal street')
+equal(next(outcome.applied.organization), nil, 'gang gets nothing for retaking its own post')
 ok = Activity.record(1, 'gathering_delivery', V.randomUuid(), {}, CORE)
 equal(ok, false, 'no reward, no record')
 
@@ -263,23 +314,26 @@ local function withActivity(key, definition, label)
 end
 
 withActivity('bad_negative', {
-    enabled = true, callers = { CORE }, organization = { drug = -1 },
+    enabled = true, callers = { CORE }, organization = { gang = -1 },
 }, 'player activity cannot take reputation away')
+withActivity('bad_category', {
+    enabled = true, subject = 'organization', callers = { CORE }, organization = { drug = 1 },
+}, 'gang reputation only goes to the gang category')
 withActivity('bad_personal', {
     enabled = true, subject = 'organization', callers = { CORE },
-    personal = { drug = 1 }, organization = { drug = 1 },
+    personal = { drug = 1 }, organization = { gang = 1 },
 }, 'organization activity cannot move personal reputation')
 withActivity('bad_heat', {
-    enabled = true, subject = 'organization', callers = { CORE }, heat = 1, organization = { drug = 1 },
+    enabled = true, subject = 'organization', callers = { CORE }, heat = 1, organization = { gang = 1 },
 }, 'organization activity cannot assign heat')
 withActivity('bad_diminishing', {
-    enabled = true, subject = 'organization', callers = { CORE }, organization = { drug = 1 },
+    enabled = true, subject = 'organization', callers = { CORE }, organization = { gang = 1 },
     diminishingReturns = { windowSeconds = 60, softCap = 1, floorMultiplier = 0.5,
         curve = 'linear', key = 'player:activity' },
 }, 'organization activity diminishes per organization')
 
 withActivity('bad_variable', {
-    enabled = true, callers = { CORE }, organization = { drug = 1 }, variable = { organization = 10 },
+    enabled = true, callers = { CORE }, organization = { gang = 1 }, variable = { organization = 10 },
 }, 'variable activity cannot also fix the organization reward')
 withActivity('bad_variable_cap', {
     enabled = true, callers = { CORE }, variable = { organization = 0 },

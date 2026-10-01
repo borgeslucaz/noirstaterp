@@ -112,3 +112,8 @@ CREATE TABLE IF NOT EXISTS noir_illegal_audit_log (
 
 INSERT IGNORE INTO noir_illegal_schema_migrations (version)
 VALUES ('001_initial');
+
+-- Reputação da gang passa a ser uma só (`gang`). A `drug` que as gangs já tinham vira `gang` uma
+-- vez: o IGNORE não sobrescreve a `gang` que já existe nos starts seguintes.
+INSERT IGNORE INTO noir_illegal_organization_reputation (organization_id, category, value)
+SELECT organization_id, 'gang', value FROM noir_illegal_organization_reputation WHERE category = 'drug';

@@ -26,19 +26,27 @@ AddEventHandler('noir_outposts:server:saleCommitted', function(sale)
     })
 end)
 
--- Tomada: ato de força, rende de uma vez para a gang de quem tomou.
+-- Tomada: ato de força, rende de uma vez para a gang de quem tomou. Se o mesmo posto já foi
+-- dela na janela (Config.OutpostRetakeSeconds), a gang não ganha de novo; quem tomou continua
+-- com a parte pessoal.
 AddEventHandler('noir_outposts:server:claimCompleted', function(claim)
     if not Adapters.from('noir_outposts') then return end
     local id = operationId(claim)
     if not id or type(claim.source) ~= 'number' then return end
 
-    Adapters.record(claim.source, 'outpost_claim', id, {
-        organizationId = claim.organizationId,
-        metadata = {
-            outpostId = claim.outpostId,
-            previousOwnerId = claim.previousOwnerId,
-        },
-    })
+    CreateThread(function()
+        local retake = V.string(claim.organizationId, 1, 64) and V.string(claim.outpostId, 1, 64)
+            and NoirIllegal.Repositories.Activity.recentForOrganization(claim.organizationId,
+                'outpost_claim', 'outpostId', claim.outpostId, NoirIllegal.Config.OutpostRetakeSeconds)
+        Adapters.record(claim.source, 'outpost_claim', id, {
+            organizationId = claim.organizationId,
+            withoutOrganization = retake == true or nil,
+            metadata = {
+                outpostId = claim.outpostId,
+                previousOwnerId = claim.previousOwnerId,
+            },
+        })
+    end)
 end)
 
 -- Assalto: rende rua para quem assaltou e custa reputação à gang dona do posto. São dois fatos

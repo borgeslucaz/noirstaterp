@@ -194,8 +194,8 @@ end)
 ---gang por aqui), então a volta não pode ser `dependency`: a pergunta é feita na hora, e sem
 ---o core o painel só deixa de mostrar o progresso.
 ---
----Vão para a tela a rua e as categorias dos produtos que a gang opera — mais qualquer outra
----em que ela já tenha reputação, para trocar de produto não esconder o que foi conquistado.
+---A gang tem uma reputação só, qualquer que seja o produto: o core devolve essa linha e ela vai
+---para a tela como veio.
 ---@return table[]|nil
 local function gangProgress(gangName)
     if GetResourceState('noir_illegal_core') ~= 'started' then return nil end
@@ -203,26 +203,7 @@ local function gangProgress(gangName)
         return exports.noir_illegal_core:GetOrganizationProgress(gangName)
     end)
     if not called or not ok or type(progress) ~= 'table' then return nil end
-
-    local owned = {}
-    for _, product in ipairs(NoirGangs.productsOf(gangName)) do owned[product] = true end
-    local list = {}
-    for _, row in ipairs(progress) do
-        if row.category == 'street' or (row.product and owned[row.product]) or (row.reputation or 0) > 0 then
-            list[#list + 1] = row
-        end
-    end
-    -- O que a gang opera primeiro, depois o que ela já deixou de operar, e a rua, que é o
-    -- geral, por último.
-    local function order(row)
-        if row.category == 'street' then return 3 end
-        return (row.product and owned[row.product]) and 1 or 2
-    end
-    table.sort(list, function(a, b)
-        if order(a) ~= order(b) then return order(a) < order(b) end
-        return a.label < b.label
-    end)
-    return list
+    return progress
 end
 
 local function buildState(source)

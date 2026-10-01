@@ -3,22 +3,21 @@
 --
 -- Reputação da gang
 -- -----------------
--- O nível da gang é a reputação `drug` da organização. Ela sobe com o que a gang já faz no mapa
--- e desce quando apanha. Nenhum resource de gameplay escolhe esses números: eles avisam o fato
--- (venda, tomada, roubo, troca de dono de bairro) e os adaptadores em `server/adapters/`
--- registram aqui. É a mesma fronteira do `Config.Influence.Rates` do noir_territories.
+-- A gang tem UMA reputação (`gang`), qualquer que seja o produto, e ela só sobe com o que só gang
+-- faz: bairro e outpost (gangs de rua) e as rotas do noir_gathering. Crime que qualquer pessoa
+-- faz (venda de rua, roubo) rende reputação pessoal, nunca da gang. Nenhum resource de gameplay
+-- escolhe esses números: eles avisam o fato e os adaptadores em `server/adapters/` registram.
 --
--- A meta de ritmo é uma gang ativa (3–4 membros, algumas horas por dia) fazendo ~50 por dia:
--- o contato da meth (nível 2, 300) em torno de uma semana e o da coca (nível 4, 1500) em torno
--- de um mês. Os valores abaixo saem dessa conta de trás para frente e são ponto de partida —
--- calibrar pelo ledger (`noir_illegal_activity_ledger`) depois de uma semana de jogo real.
+-- Ritmo: teto de 50 por dia por gang (Config.Organization), contato da meth em 500 (nível 2).
+-- Uma gang ativa típica faz ~35–40 por dia:
 --
---   venda de rua        0.5 por venda, com retorno decrescente por jogador   ~30/dia
---   venda do outpost    0.1 por venda passiva, decrescente por gang          ~15–25/dia
---   bairro dominado     5 por bairro por dia                                 ~10/dia
---   tomar outpost       25 de uma vez
---   perder bairro      -15
+--   tomar bairro        +25, uma vez por bairro e gang por dia
+--   segurar bairro      +8 por bairro por dia, só com atividade da gang no bairro em 24h
+--   perder bairro       -15 (troca feita por admin não cobra)
+--   tomar outpost       +30, nada se o posto foi da mesma gang nos últimos 7 dias
+--   venda do outpost    +0.1 por venda passiva, até 12 por dia
 --   outpost roubado     -5
+--   rota de carga       até 20 por entrega, até 12 por dia
 --
 -- `subject = 'organization'` marca atividade sem autor: o fato é da gang e não de um jogador
 -- online (venda passiva, bairro segurado, perda). Ela só mexe na reputação da organização, pode
@@ -30,8 +29,9 @@ NoirIllegal.Activities = {
         callers = { 'noir_illegal_core' },
         cooldownSeconds = 0,
         idempotencyTtlSeconds = 2592000,
+        -- Reputação pessoal multiplicada pelo grau e pelo peso da droga (adaptador do
+        -- drugselling, `Config.SaleWeight`). Venda de rua não rende reputação de gang.
         personal = { drug = 2, street = 1 },
-        organization = { drug = 0.5 },
         -- 1.3 por venda contra o decaimento de 9 por hora jogada: 6 vendas por hora ainda
         -- esfriam, 7 empatam (9.1), 13 esquentam ~8 por hora (16.9 − 9) e 20, ~17.
         heat = 1.3,
@@ -51,7 +51,7 @@ NoirIllegal.Activities = {
         cooldownSeconds = 0,
         idempotencyTtlSeconds = 2592000,
         personal = { street = 2 },
-        organization = { street = 5, drug = 25 },
+        organization = { gang = 30 },
         heat = 2.0,
         requirements = { organization = true },
         metadata = { allow = { 'outpostId', 'previousOwnerId' } },
@@ -62,9 +62,10 @@ NoirIllegal.Activities = {
         callers = { 'noir_illegal_core' },
         idempotencyTtlSeconds = 2592000,
         -- Um posto com quatro corredores fecha perto de 190 vendas por hora. O retorno
-        -- decrescente corta isso para ~70 vendas cheias por hora, e o 0.1 transforma em ~7 de
-        -- reputação: rende, mas menos que gente vendendo na rua.
-        organization = { drug = 0.1 },
+        -- decrescente corta isso para ~70 vendas cheias por hora (~7 de reputação), e o teto
+        -- diário segura o posto em 12 por dia: rende, mas não carrega a gang sozinho.
+        organization = { gang = 0.1 },
+        dailyCap = 12,
         diminishingReturns = {
             windowSeconds = 3600,
             softCap = 30,
@@ -90,7 +91,7 @@ NoirIllegal.Activities = {
         subject = 'organization',
         callers = { 'noir_illegal_core' },
         idempotencyTtlSeconds = 2592000,
-        organization = { drug = -5 },
+        organization = { gang = -5 },
         metadata = { allow = { 'outpostId', 'dealerId' } },
     },
     territory_held = {
@@ -98,27 +99,39 @@ NoirIllegal.Activities = {
         subject = 'organization',
         callers = { 'noir_illegal_core' },
         idempotencyTtlSeconds = 2592000,
-        organization = { drug = 5 },
+        organization = { gang = 8 },
         metadata = { allow = { 'zone', 'period' } },
+    },
+    -- Bairro tomado: o marco. Uma vez por bairro e gang por dia (o id da transação sai de
+    -- bairro + gang + dia), para tomar, perder e retomar o mesmo bairro não render de novo.
+    territory_taken = {
+        enabled = true,
+        subject = 'organization',
+        callers = { 'noir_illegal_core' },
+        idempotencyTtlSeconds = 2592000,
+        organization = { gang = 25 },
+        metadata = { allow = { 'zone', 'previousOwner' } },
     },
     territory_lost = {
         enabled = true,
         subject = 'organization',
         callers = { 'noir_illegal_core' },
         idempotencyTtlSeconds = 2592000,
-        organization = { drug = -15 },
+        organization = { gang = -15 },
         metadata = { allow = { 'zone', 'newOwner' } },
     },
-    -- Rota de coleta concluída (noir_gathering). O quanto vale e em que categoria é da rota,
-    -- configurada pelo admin em jogo; aqui fica só o teto por entrega. O retorno decrescente
-    -- por jogador segura quem tenta repetir a rota mais curta sem parar.
+    -- Rota de coleta concluída (noir_gathering). O quanto vale é da rota, configurada pelo admin
+    -- em jogo, e vai sempre para `gang` (a categoria da rota é ignorada na reputação); aqui
+    -- fica o teto por entrega e o teto do dia da gang. O retorno decrescente por jogador segura
+    -- quem tenta repetir a rota mais curta sem parar.
     gathering_delivery = {
         enabled = true,
         callers = { 'noir_illegal_core' },
         cooldownSeconds = 0,
         idempotencyTtlSeconds = 2592000,
         personal = {},
-        variable = { organization = 100 },
+        variable = { organization = 20 },
+        dailyCap = 12,
         heat = 0,
         diminishingReturns = {
             windowSeconds = 3600,
@@ -133,8 +146,9 @@ NoirIllegal.Activities = {
 
     -- Heat de crime
     -- -------------
-    -- Atividades que só somam heat ao personagem: reputação desses crimes fica para a revisão de
-    -- marcos. O heat vai de 0 a 100 e decai 9 por hora jogada (Config.Heat), então o número
+    -- Crimes que qualquer pessoa faz: somam heat e, alguns, reputação pessoal de rua (roubo de
+    -- casa +3, smash & grab +0.5, parquímetro +0.25). Nunca reputação de gang. Arma da bancada
+    -- fica sem reputação: armas serão de outro tipo de grupo. O heat vai de 0 a 100 e decai 9 por hora jogada (Config.Heat), então o número
     -- abaixo é quanto tempo online o crime "esquenta" quem fez: 9 ≈ uma hora. Sem retorno
     -- decrescente: quem repete é visto todas as vezes.
     -- Roubo de casa concluído (noir_houserobbery). Conta para cada participante.
@@ -143,7 +157,7 @@ NoirIllegal.Activities = {
         callers = { 'noir_illegal_core' },
         cooldownSeconds = 0,
         idempotencyTtlSeconds = 2592000,
-        personal = {},
+        personal = { street = 3 },
         heat = 8.0,
         requirements = {},
         metadata = { allow = { 'contractId', 'houseId', 'tier' } },
@@ -154,7 +168,7 @@ NoirIllegal.Activities = {
         callers = { 'noir_illegal_core' },
         cooldownSeconds = 0,
         idempotencyTtlSeconds = 2592000,
-        personal = {},
+        personal = { street = 0.5 },
         heat = 2.0,
         requirements = {},
         metadata = { allow = { 'prop', 'rewards' } },
@@ -165,7 +179,7 @@ NoirIllegal.Activities = {
         callers = { 'noir_illegal_core' },
         cooldownSeconds = 0,
         idempotencyTtlSeconds = 2592000,
-        personal = {},
+        personal = { street = 0.25 },
         heat = 1.0,
         requirements = {},
         metadata = { allow = { 'meter', 'rewards' } },

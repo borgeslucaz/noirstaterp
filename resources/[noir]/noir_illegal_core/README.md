@@ -34,14 +34,23 @@ list. The transaction UUID must remain stable across retries.
 É aqui, e só aqui, que mora a reputação da gang. O `noir_gangs` não guarda número próprio: o
 painel dele lê `GetOrganizationProgress`.
 
-As categorias (`Config.Categories`) são `street` e uma por produto do `noir_gangs` — `drug`
-(produto `drugs`), `weapons`, `items`, `ammo`, `attachments`. O campo `product` de cada uma é o
-que liga as duas pontas; é por ele que o painel mostra o progresso do que a gang opera.
+A gang tem **uma reputação só**, a categoria `gang` (a única com `organization = true` em
+`Config.Categories`), qualquer que seja o produto do `noir_gangs`. As outras categorias (`street`,
+`drug`, `weapons`, `items`, `ammo`, `attachments`) são **pessoais**: a validação do start recusa
+activity que dê valor de gang fora de `gang`. `GetOrganizationProgress` devolve só a linha `gang`,
+e `GetOrganizationLevel(source, categoria)` responde o nível de `gang` qualquer que seja a
+categoria pedida.
 
-O contato das drogas usa a reputação `drug` da organização (faixas em `shared/levels.lua`). Cada faixa
-abre um contato — `contact_meth` no nível 2, `contact_coke` no nível 4 — por unlock automático de
-organização (`shared/unlocks.lua`). Unlock de gang é avaliado com a reputação e os unlocks da
-gang, nunca com os de quem fez a ação; revogado por admin não volta sozinho.
+A reputação da gang só sobe com o que só gang faz — bairro, outpost e as rotas do
+`noir_gathering`. Crime que qualquer pessoa faz (venda de rua, roubos) rende reputação pessoal.
+Tudo que a gang ganha passa por um teto de **50 em 24h** (`Config.Organization`), e algumas
+fontes têm o seu por baixo (`dailyCap`: venda do outpost 12, rota de carga 12). Perda nunca é
+cortada.
+
+Os contatos usam o nível de `gang` (`shared/levels.lua`): `contact_meth` no nível 2 (500) e
+`contact_coke` no nível 4 (1500), por unlock automático de organização (`shared/unlocks.lua`).
+Unlock de gang é avaliado com a reputação e os unlocks da gang, nunca com os de quem fez a ação;
+revogado por admin não volta sozinho.
 
 `HasUnlock(source, key)` responde pelo escopo do unlock: para `contact_coke`, a pergunta é se a
 gang de quem está ali tem o contato.
@@ -52,19 +61,21 @@ Nenhum resource de gameplay registra atividade direto. Cada um anuncia o fato po
 de servidor, e um adaptador em `server/adapters/` registra em nome do core — que é o único
 `publicRecorder`. Os valores ficam em `shared/activities.lua`, com a conta de ritmo no cabeçalho.
 
-| Fato | Evento | Atividade |
-|---|---|---|
-| venda de rua fechada | `noir_drugselling:server:saleCompleted` | `drug_sale` |
-| venda passiva do outpost | `noir_outposts:server:saleCommitted` | `outpost_sale` (gang) |
-| outpost tomado | `noir_outposts:server:claimCompleted` | `outpost_claim` |
-| outpost assaltado | `noir_outposts:server:robberyCompleted` | `outpost_robbery` + `outpost_robbed` (gang dona) |
-| bairro perdido | `noir_territories:server:ownerChanged` | `territory_lost` (gang anterior) |
-| bairro segurado | laço a cada `Config.Territories.checkSeconds` | `territory_held`, uma vez por bairro por dia |
-| rota de coleta concluída | `noir_gathering:server:routeCompleted` | `gathering_delivery` (prêmio variável) |
+| Fato | Evento | Atividade | Valor |
+|---|---|---|---|
+| venda de rua fechada | `noir_drugselling:server:saleCompleted` | `drug_sale` | pessoal `drug` +2, `street` +1, × grau × peso da droga (`Config.SaleWeight`) |
+| outpost tomado | `noir_outposts:server:claimCompleted` | `outpost_claim` | gang +30 (nada se o posto foi da gang em 7 dias); pessoal `street` +2 |
+| venda passiva do outpost | `noir_outposts:server:saleCommitted` | `outpost_sale` | gang +0,1, até 12 por dia |
+| outpost assaltado | `noir_outposts:server:robberyCompleted` | `outpost_robbery` + `outpost_robbed` | pessoal `street` +2; gang dona −5 |
+| bairro tomado | `noir_territories:server:ownerChanged` | `territory_taken` | gang +25, uma vez por bairro e gang por dia |
+| bairro perdido | `noir_territories:server:ownerChanged` | `territory_lost` | gang −15 (troca por admin não cobra) |
+| bairro segurado | laço a cada `Config.Territories.checkSeconds` | `territory_held` | gang +8 por dia, só com atividade da gang no bairro em 24h |
+| rota de coleta concluída | `noir_gathering:server:routeCompleted` | `gathering_delivery` | gang até 20 por entrega (valor da rota), até 12 por dia |
 
-`gathering_delivery` é a única atividade de **prêmio variável** (`variable`): a categoria e o
-valor vêm no pedido, porque são configurados por rota pelo admin, e a atividade só guarda o teto
-por entrega. Acima do teto, o pedido é recusado inteiro.
+`gathering_delivery` é a única atividade de **prêmio variável** (`variable`): o valor vem no
+pedido, porque é configurado por rota pelo admin, e vai sempre para `gang` (a categoria da rota é
+ignorada na reputação). A atividade guarda o teto por entrega; acima dele, o pedido é recusado
+inteiro.
 
 O adaptador confere `GetInvokingResource()` antes de aceitar o evento: qualquer resource pode dar
 `TriggerEvent` com o mesmo nome.

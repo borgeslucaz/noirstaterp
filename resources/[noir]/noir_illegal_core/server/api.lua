@@ -167,24 +167,28 @@ exports('GetOrganizationProgress', function(organizationId)
         local reputations = NoirIllegal.Services.Profile.organizationReputations(organizationId)
         local progress = {}
         for category, definition in pairs(NoirIllegal.Config.Categories) do
-            local reputation = reputations[category] or 0
-            local level = NoirIllegal.Services.Level.get(category, reputation)
-            local floor, nextAt = 0, nil
-            for _, row in ipairs(NoirIllegal.Levels[category]) do
-                if row.level == level then floor = row.minReputation end
-                if row.level == level + 1 then nextAt = row.minReputation end
+            if definition.organization then
+                local reputation = reputations[category] or 0
+                local level = NoirIllegal.Services.Level.get(category, reputation)
+                local floor, nextAt = 0, nil
+                for _, row in ipairs(NoirIllegal.Levels[category]) do
+                    if row.level == level then floor = row.minReputation end
+                    if row.level == level + 1 then nextAt = row.minReputation end
+                end
+                progress[#progress + 1] = {
+                    category = category, label = definition.label or category, product = definition.product,
+                    reputation = reputation, level = level, levelFloor = floor, nextLevelAt = nextAt,
+                }
             end
-            progress[#progress + 1] = {
-                category = category, label = definition.label or category, product = definition.product,
-                reputation = reputation, level = level, levelFloor = floor, nextLevelAt = nextAt,
-            }
         end
         table.sort(progress, function(a, b) return a.category < b.category end)
         return true, progress
     end)
 end)
 
----Nível da gang de quem está ali, numa categoria. Jogador sem gang responde nível 0.
+---Nível da gang de quem está ali. A gang tem uma reputação só (`gang`): a categoria é aceita
+---por compatibilidade com quem ainda pergunta por ela, mas a resposta é sempre o nível geral.
+---Jogador sem gang responde nível 0.
 exports('GetOrganizationLevel', function(source, category)
     return safe('GetOrganizationLevel', function()
         if not NoirIllegal.Validators.category(category) then
@@ -196,7 +200,7 @@ exports('GetOrganizationLevel', function(source, category)
         local organization = NoirIllegal.Bridges.Gangs.getOrganization(source)
         if not organization then return true, 0 end
         local reputations = NoirIllegal.Services.Profile.organizationReputations(organization.id)
-        return true, NoirIllegal.Services.Level.get(category, reputations[category] or 0)
+        return true, NoirIllegal.Services.Level.get('gang', reputations.gang or 0)
     end)
 end)
 
