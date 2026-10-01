@@ -100,9 +100,9 @@ local function boxMenu()
             { title = 'Size',   description = ('%sx %sy %sz'):format(R(box.size.x), R(box.size.y), R(box.size.z)), icon = 'maximize',
               onSelect = function()
                   local input = lib.inputDialog('Box size', {
-                      { type = 'number', label = 'X', default = box.size.x, min = 0.1, step = 0.1 },
-                      { type = 'number', label = 'Y', default = box.size.y, min = 0.1, step = 0.1 },
-                      { type = 'number', label = 'Z', default = box.size.z, min = 0.1, step = 0.1 },
+                      { type = 'number', label = 'X', default = box.size.x, min = 0.01, step = 0.05, precision = 2 },
+                      { type = 'number', label = 'Y', default = box.size.y, min = 0.01, step = 0.05, precision = 2 },
+                      { type = 'number', label = 'Z', default = box.size.z, min = 0.01, step = 0.05, precision = 2 },
                   })
                   if input then box.size = vec3(input[1] + 0.0, input[2] + 0.0, input[3] + 0.0) end
                   boxMenu()
@@ -202,7 +202,7 @@ local function sphereMenu()
             { title = 'Center', description = SFD.FormatVec3(sphere.coords), icon = 'crosshairs', readOnly = true },
             { title = 'Radius', description = ('%sm'):format(R(sphere.radius)), icon = 'circle-dot',
               onSelect = function()
-                  local input = lib.inputDialog('Radius', { { type = 'number', label = 'Radius (m)', default = sphere.radius, min = 0.1, step = 0.1 } })
+                  local input = lib.inputDialog('Radius', { { type = 'number', label = 'Radius (m)', default = sphere.radius, min = 0.01, step = 0.05, precision = 2 } })
                   if input then sphere.radius = (input[1] or 1.0) + 0.0 end
                   sphereMenu()
               end },

@@ -26,7 +26,9 @@ local function hasPermission(source, level)
     local perm = (level == 'dangerous')
         and Config.Permissions.dangerous
         or  Config.Permissions.ace
-    return IsPlayerAceAllowed(source, perm) == true
+    -- Noir: no Enhanced o native devolve 1/0 em vez de boolean; '== true' sempre falhava
+    local allowed = IsPlayerAceAllowed(source, perm)
+    return allowed == true or allowed == 1
 end
 
 lib.callback.register('sfd:permission', function(source, level)
