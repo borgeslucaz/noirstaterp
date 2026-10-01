@@ -16,6 +16,9 @@ function NoirIllegal.Migrations.run()
         error('Unable to load migrations/001_initial.sql.')
     end
 
+    -- Linha inteira de comentário não é statement; sem isso o comentário gruda no INSERT seguinte.
+    sql = sql:gsub('\n[ \t]*%-%-[^\n]*', '\n'):gsub('^[ \t]*%-%-[^\n]*', '')
+
     local executed = 0
     for rawStatement in sql:gmatch('([^;]+);') do
         local statement = trim(rawStatement)
