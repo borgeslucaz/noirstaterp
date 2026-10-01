@@ -1,0 +1,61 @@
+/* noir_minigames: furadeira. Três colunas verticais: profundidade, pressão e calor. */
+
+.mg-drill {
+    display: flex;
+    justify-content: center;
+    gap: 28px;
+    padding: 16px 20px 22px;
+}
+
+.mg-drill .dr-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 84px;
+}
+
+.mg-drill .dr-value {
+    font: 700 22px/1 var(--font-display);
+    color: var(--noir-text-strong);
+}
+
+.mg-drill .dr-tube {
+    position: relative;
+    width: 44px;
+    height: 160px;
+    background: var(--noir-field);
+    border: 1px solid var(--noir-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.mg-drill .dr-fill {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 0;
+    background: var(--noir-select);
+    transition: background-color 160ms var(--ease);
+}
+
+/* Marca do limite de pressão: acima dela a peça esquenta. */
+.mg-drill .dr-mark {
+    position: absolute;
+    left: -1px;
+    right: -1px;
+    height: 0;
+    border-top: 1px dashed var(--noir-warning);
+    z-index: 1;
+}
+
+.mg-drill .dr-pressure .dr-fill { background: var(--noir-accent); }
+.mg-drill .dr-pressure.over .dr-fill { background: var(--noir-warning); }
+.mg-drill .dr-pressure.over .dr-value { color: var(--noir-warning); }
+
+/* Calor: mais é pior, então a faixa vai de sucesso a perigo. */
+.mg-drill .dr-heat .dr-fill { background: var(--noir-success); }
+.mg-drill .dr-heat[data-band="warm"] .dr-fill { background: var(--noir-warning); }
+.mg-drill .dr-heat[data-band="hot"] .dr-fill { background: var(--noir-danger); }
+.mg-drill .dr-heat[data-band="hot"] .dr-value { color: var(--noir-danger-hover); }

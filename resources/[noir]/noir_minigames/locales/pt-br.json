@@ -1,0 +1,14 @@
+{
+    "menu_title": "Minigames",
+    "menu_provider_desc": "%d minigame(s)",
+    "menu_unavailable": "Resource %s parado",
+    "menu_difficulty_title": "%s: dificuldade",
+    "result_passed": "%s: passou (%.1f s)",
+    "result_failed": "%s: falhou (%.1f s)",
+    "result_looting": "%s: fechado, %d item(ns) pego(s) (%.1f s)",
+    "busy": "Já tem um minigame aberto.",
+    "unknown": "Minigame desconhecido: %s",
+    "unavailable": "%s não está ligado.",
+    "no_permission": "Você não tem permissão para isso.",
+    "command_help": "Abre o menu de teste dos minigames"
+}

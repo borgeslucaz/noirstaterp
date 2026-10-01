@@ -1,0 +1,61 @@
+/* noir_minigames: Tambor. Canais verticais finos; encaixe marcado por duas linhas,
+   corpo do pino em cinza que fica branco no pino da vez. */
+
+.mg-tumbler .tb-row {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+}
+
+.mg-tumbler .tb-pin {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.mg-tumbler .tb-channel {
+    position: relative;
+    width: 38px;
+    height: 170px;
+    background: var(--noir-field);
+    border: 1px solid var(--noir-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: border-color 140ms var(--ease);
+}
+
+.mg-tumbler .tb-notch {
+    position: absolute;
+    left: 0;
+    right: 0;
+    background: rgba(255, 255, 255, .05);
+    border-top: 1px solid var(--noir-border-strong);
+    border-bottom: 1px solid var(--noir-border-strong);
+}
+
+.mg-tumbler .tb-body {
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    bottom: 0;
+    height: 0;
+    background: var(--noir-accent);
+    border-top: 2px solid var(--noir-text-muted);
+}
+
+.mg-tumbler .tb-pin.now .tb-channel { border-color: var(--noir-border-strong); }
+.mg-tumbler .tb-pin.now .tb-body { background: var(--noir-select); border-top-color: var(--noir-select); }
+.mg-tumbler .tb-pin.now .tb-notch { border-color: var(--noir-select); }
+
+.mg-tumbler .tb-pin.set .tb-body { background: var(--noir-card-hover); border-top-color: var(--noir-success); }
+.mg-tumbler .tb-pin.set .tb-tag { color: var(--noir-success); }
+
+.mg-tumbler .tb-pin.miss .tb-channel { border-color: var(--noir-danger-hover); }
+
+.mg-tumbler .tb-tag { font-family: var(--font-display); font-weight: 700; }
+
+.mg-tumbler .tb-status {
+    margin-top: 12px;
+    text-align: center;
+}

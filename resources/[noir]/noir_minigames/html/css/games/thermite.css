@@ -1,0 +1,47 @@
+/* noir_minigames: carga de termita. */
+
+.mg-thermite .th-status {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    width: 280px;
+    margin: 0 auto 10px;
+}
+.mg-thermite .th-count {
+    font: 700 16px/1 var(--font-display);
+    color: var(--noir-text-strong);
+}
+
+.mg-thermite .th-grid {
+    display: grid;
+    gap: 6px;
+    width: 280px;
+    margin: 0 auto;
+}
+.mg-thermite .th-size-3 { gap: 8px; }
+.mg-thermite .th-size-5 { gap: 5px; }
+
+.mg-thermite .th-cell {
+    aspect-ratio: 1;
+    background: var(--noir-card);
+    border: 1px solid var(--noir-border);
+    border-radius: var(--radius);
+    cursor: default;
+    transition: background-color 140ms var(--ease), border-color 140ms var(--ease);
+}
+.mg-thermite .th-grid.armed .th-cell { cursor: pointer; }
+.mg-thermite .th-grid.armed .th-cell:hover {
+    background: var(--noir-card-hover);
+    border-color: var(--noir-border-strong);
+}
+
+.mg-thermite .th-cell.lit,
+.mg-thermite .th-grid.armed .th-cell.lit {
+    background: var(--noir-select);
+    border-color: var(--noir-select);
+}
+.mg-thermite .th-cell.miss,
+.mg-thermite .th-grid.armed .th-cell.miss {
+    background: var(--noir-danger-soft);
+    border-color: var(--noir-danger);
+}

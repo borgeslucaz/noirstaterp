@@ -1,0 +1,48 @@
+/* noir_minigames: Circuito. Nó apagado = card escuro; nó ativo = branco sólido.
+   O cursor marca a cruz que vai inverter com borda forte. */
+
+.mg-circuit .ci-info {
+    display: flex;
+    justify-content: space-between;
+    margin: 0 auto 10px;
+    max-width: 300px;
+}
+
+.mg-circuit .ci-board {
+    display: grid;
+    gap: 6px;
+    margin: 0 auto;
+    max-width: 100%;
+}
+
+.mg-circuit .ci-node {
+    position: relative;
+    aspect-ratio: 1;
+    background: var(--noir-card);
+    border: 1px solid var(--noir-border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background-color 140ms var(--ease), border-color 140ms var(--ease);
+}
+
+/* Contato central do nó. */
+.mg-circuit .ci-node::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    margin: -4px 0 0 -4px;
+    border: 1px solid var(--noir-border-strong);
+    border-radius: var(--radius);
+}
+
+.mg-circuit .ci-node.aim { border-color: var(--noir-border-strong); background: var(--noir-card-hover); }
+
+.mg-circuit .ci-node.on {
+    background: var(--noir-select);
+    border-color: var(--noir-select);
+}
+.mg-circuit .ci-node.on::after { border-color: var(--noir-on-light); background: var(--noir-on-light); }
+.mg-circuit .ci-node.on.aim { background: #d9d9d9; }

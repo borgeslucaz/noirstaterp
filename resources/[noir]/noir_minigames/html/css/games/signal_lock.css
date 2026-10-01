@@ -1,0 +1,90 @@
+/* noir_minigames: Trava de Sinal. Pista com escala, janela marcada por linhas finas,
+   marcador branco; trava em barra fina e fases em traços. */
+
+.mg-signal_lock .sl-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.mg-signal_lock .sl-pct {
+    font: 700 18px/1 var(--font-display);
+    color: var(--noir-text-strong);
+}
+
+.mg-signal_lock .sl-lane {
+    position: relative;
+    height: 64px;
+    background: var(--noir-field);
+    border: 1px solid var(--noir-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.mg-signal_lock .sl-tick {
+    position: absolute;
+    bottom: 0;
+    width: 1px;
+    height: 8px;
+    background: var(--noir-border);
+}
+
+.mg-signal_lock .sl-zone {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, .05);
+    border-left: 1px solid var(--noir-border-strong);
+    border-right: 1px solid var(--noir-border-strong);
+    transition: background-color 120ms var(--ease), border-color 120ms var(--ease);
+}
+
+.mg-signal_lock .sl-zone.hit {
+    background: rgba(255, 255, 255, .12);
+    border-color: var(--noir-select);
+}
+
+.mg-signal_lock .sl-marker {
+    position: absolute;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    margin-left: -1px;
+    background: var(--noir-text-muted);
+}
+
+.mg-signal_lock .sl-marker.in { background: var(--noir-select); }
+
+.mg-signal_lock .sl-meter {
+    height: 6px;
+    margin-top: 14px;
+    background: var(--noir-field);
+    border: 1px solid var(--noir-border-soft);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.mg-signal_lock .sl-meter > i {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--noir-select);
+}
+
+.mg-signal_lock .sl-steps {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.mg-signal_lock .sl-step {
+    flex: 1;
+    height: 3px;
+    background: var(--noir-border);
+    border-radius: var(--radius);
+    transition: background-color 160ms var(--ease);
+}
+
+.mg-signal_lock .sl-step.now { background: var(--noir-text-muted); }
+.mg-signal_lock .sl-step.done { background: var(--noir-success); }

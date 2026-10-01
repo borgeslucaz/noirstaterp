@@ -1,0 +1,78 @@
+/* noir_minigames: leitura de digital. */
+
+.mg-fingerprint .fp-layout {
+    display: flex;
+    gap: 16px;
+    align-items: stretch;
+}
+
+.mg-fingerprint .fp-file {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 124px;
+    flex: none;
+    padding: 12px;
+    background: var(--noir-field);
+    border: 1px solid var(--noir-border-strong);
+    border-radius: var(--radius);
+}
+.mg-fingerprint .fp-file .fp-print { width: 92px; color: var(--noir-text-strong); }
+
+.mg-fingerprint .fp-grid {
+    flex: 1;
+    display: grid;
+    gap: 6px;
+    align-content: center;
+}
+
+.mg-fingerprint .fp-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 6px 14px;
+    background: var(--noir-card);
+    border: 1px solid var(--noir-border);
+    border-radius: var(--radius);
+    color: var(--noir-text);
+    cursor: pointer;
+    transition: background-color 140ms var(--ease), border-color 140ms var(--ease), color 140ms var(--ease);
+}
+.mg-fingerprint .fp-card:hover {
+    background: var(--noir-select);
+    border-color: var(--noir-select);
+    color: var(--noir-on-light);
+}
+.mg-fingerprint .fp-card .fp-print { width: 100%; max-width: 54px; }
+
+.mg-fingerprint .fp-id {
+    position: absolute;
+    right: 4px;
+    bottom: 3px;
+    font: 500 10px/1 var(--font-display);
+    color: var(--noir-text-faint);
+}
+.mg-fingerprint .fp-card:hover .fp-id { color: var(--noir-on-light); }
+
+.mg-fingerprint .fp-print path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+}
+
+.mg-fingerprint .fp-card.right,
+.mg-fingerprint .fp-card.right:hover {
+    background: var(--noir-card);
+    border-color: var(--noir-success);
+    color: var(--noir-success);
+}
+.mg-fingerprint .fp-card.wrong,
+.mg-fingerprint .fp-card.wrong:hover {
+    background: var(--noir-card);
+    border-color: var(--noir-danger);
+    color: var(--noir-danger-hover);
+}

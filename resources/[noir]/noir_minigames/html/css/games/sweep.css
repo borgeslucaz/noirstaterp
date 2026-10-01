@@ -1,0 +1,71 @@
+/* noir_minigames: radar. Mostrador redondo com anéis, eixos, feixe girando e o contato. */
+
+.mg-sweep {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 20px 20px 18px;
+}
+
+.mg-sweep .sw-scope {
+    position: relative;
+    width: 172px;
+    height: 172px;
+    border-radius: 50%;
+    background: var(--noir-field);
+    border: 1px solid var(--noir-border-strong);
+    overflow: hidden;
+}
+
+.mg-sweep .sw-ring {
+    position: absolute;
+    border: 1px solid var(--noir-border);
+    border-radius: 50%;
+}
+.mg-sweep .sw-ring-outer { inset: 22px; }
+.mg-sweep .sw-ring-inner { inset: 52px; }
+
+.mg-sweep .sw-axis { position: absolute; background: var(--noir-border-soft); }
+.mg-sweep .sw-axis-h { left: 0; right: 0; top: 50%; height: 1px; }
+.mg-sweep .sw-axis-v { top: 0; bottom: 0; left: 50%; width: 1px; }
+
+/* Feixe: nasce no centro e aponta para cima; o JS só gira. */
+.mg-sweep .sw-beam {
+    position: absolute;
+    left: 50%;
+    bottom: 50%;
+    width: 2px;
+    height: 84px;
+    margin-left: -1px;
+    background: var(--noir-select);
+    transform-origin: 50% 100%;
+}
+
+.mg-sweep .sw-hub {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    margin: -3px 0 0 -3px;
+    background: var(--noir-select);
+    border-radius: 50%;
+}
+
+.mg-sweep .sw-blip {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 10px;
+    height: 10px;
+    margin: -5px 0 0 -5px;
+    border-radius: 50%;
+    background: var(--noir-warning);
+}
+.mg-sweep .sw-blip.sw-pop { animation: mg-fade 180ms var(--ease) both; }
+.mg-sweep .sw-blip.sw-miss { background: var(--noir-danger-hover); }
+
+.mg-sweep .sw-tally { display: flex; align-items: baseline; gap: 8px; }
+.mg-sweep .sw-tally b { font: 700 18px/1 var(--font-display); color: var(--noir-text-strong); }
+.mg-sweep .sw-goal { font: 600 14px/1 var(--font-ui); color: var(--noir-text-muted); }

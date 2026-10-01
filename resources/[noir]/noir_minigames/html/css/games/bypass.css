@@ -1,0 +1,56 @@
+/* noir_minigames: bypass. Trilha horizontal com janelas numeradas e um ponteiro. */
+
+.mg-bypass {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 26px 20px 20px;
+}
+
+.mg-bypass .bp-rail {
+    position: relative;
+    height: 48px;
+    background: var(--noir-field);
+    border: 1px solid var(--noir-border);
+    border-radius: var(--radius);
+}
+
+.mg-bypass .bp-window {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-left: 1px solid var(--noir-border-strong);
+    border-right: 1px solid var(--noir-border-strong);
+    background: var(--noir-card-hover);
+    transition: background-color 160ms var(--ease), border-color 160ms var(--ease);
+}
+
+.mg-bypass .bp-tag {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font: 700 12px/1 var(--font-display);
+    color: var(--noir-text-faint);
+}
+
+.mg-bypass .bp-window.armed { background: rgba(255, 255, 255, .14); border-color: var(--noir-select); }
+.mg-bypass .bp-window.armed .bp-tag { color: var(--noir-text-strong); }
+.mg-bypass .bp-window.cleared { background: var(--noir-success-soft); border-color: var(--noir-success); }
+.mg-bypass .bp-window.cleared .bp-tag { color: var(--noir-success); }
+.mg-bypass .bp-window.missed { background: var(--noir-danger-soft); border-color: var(--noir-danger); }
+
+.mg-bypass .bp-needle {
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    left: 0;
+    width: 2px;
+    margin-left: -1px;
+    background: var(--noir-select);
+    z-index: 1;
+}
+
+.mg-bypass .bp-status { display: flex; align-items: baseline; gap: 8px; }
+.mg-bypass .bp-status b { font: 700 18px/1 var(--font-display); color: var(--noir-text-strong); }
+.mg-bypass .bp-total { font: 600 14px/1 var(--font-ui); color: var(--noir-text-muted); }

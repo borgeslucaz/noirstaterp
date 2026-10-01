@@ -1,0 +1,81 @@
+/* noir_minigames: teclado de senha. Visor e histórico à esquerda, teclado à direita. */
+
+.mg-pinpad {
+    display: grid;
+    grid-template-columns: 1fr 156px;
+    gap: 18px;
+    align-items: start;
+}
+
+.mg-pinpad .pp-left {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+}
+
+.mg-pinpad .pp-display { display: flex; gap: 6px; }
+
+.mg-pinpad .pp-cell {
+    flex: 1 1 0;
+    max-width: 40px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    background: var(--noir-field);
+    border: 1px solid var(--noir-border);
+    border-radius: var(--radius);
+    font: 700 26px/1 var(--font-display);
+    color: var(--noir-text-strong);
+    transition: border-color 140ms var(--ease), background-color 140ms var(--ease);
+}
+.mg-pinpad .pp-cell.next { border-color: var(--noir-border-strong); }
+.mg-pinpad .pp-cell.filled { background: var(--noir-select); border-color: var(--noir-select); color: var(--noir-on-light); }
+
+.mg-pinpad .pp-tries { display: flex; align-items: baseline; gap: 8px; }
+.mg-pinpad .pp-tries b { font: 700 18px/1 var(--font-display); color: var(--noir-text-strong); }
+
+.mg-pinpad .pp-log {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 132px;
+    overflow-y: auto;
+}
+
+.mg-pinpad .pp-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 10px;
+    align-items: center;
+    padding: 6px 10px;
+    background: var(--noir-card);
+    border: 1px solid var(--noir-border-soft);
+    border-radius: var(--radius);
+    font: 600 14px/1 var(--font-ui);
+    animation: mg-fade 160ms var(--ease) both;
+}
+.mg-pinpad .pp-guess { font: 700 16px/1 var(--font-display); letter-spacing: .06em; color: var(--noir-text-strong); }
+.mg-pinpad .pp-exact { color: var(--noir-success); }
+.mg-pinpad .pp-near { color: var(--noir-warning); }
+
+.mg-pinpad .pp-pad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+}
+
+.mg-pinpad .pp-key {
+    height: 42px;
+    background: var(--noir-card);
+    border: 1px solid var(--noir-border);
+    border-radius: var(--radius);
+    font: 700 20px/1 var(--font-display);
+    color: var(--noir-text-strong);
+    cursor: pointer;
+    transition: background-color 120ms var(--ease), color 120ms var(--ease);
+}
+.mg-pinpad .pp-key.pp-aux { font: 600 12px/1 var(--font-ui); letter-spacing: .04em; text-transform: uppercase; color: var(--noir-text-muted); }
+.mg-pinpad .pp-key:hover { background: var(--noir-select); border-color: var(--noir-select); color: var(--noir-on-light); }
+.mg-pinpad .pp-key:active { background: var(--noir-card-hover); color: var(--noir-text-strong); }

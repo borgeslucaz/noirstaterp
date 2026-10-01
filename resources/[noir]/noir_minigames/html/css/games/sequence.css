@@ -1,0 +1,45 @@
+/* noir_minigames: Sequência. Casas escuras; a casa da vez acende em branco sólido.
+   Acerto marca a borda em verde, erro pinta a casa de vermelho. */
+
+.mg-sequence .sq-info {
+    display: flex;
+    justify-content: space-between;
+    width: 240px;
+    margin: 0 auto 10px;
+}
+
+.mg-sequence .sq-board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    width: 240px;
+    margin: 0 auto;
+}
+
+.mg-sequence .sq-tile {
+    aspect-ratio: 1;
+    background: var(--noir-card);
+    border: 1px solid var(--noir-border);
+    border-radius: var(--radius);
+    cursor: default;
+    transition: background-color 140ms var(--ease), border-color 140ms var(--ease);
+}
+
+.mg-sequence .sq-board.open .sq-tile { cursor: pointer; }
+.mg-sequence .sq-board.open .sq-tile:hover { background: var(--noir-card-hover); border-color: var(--noir-border-strong); }
+
+.mg-sequence .sq-tile.lit {
+    background: var(--noir-select);
+    border-color: var(--noir-select);
+}
+
+.mg-sequence .sq-board.open .sq-tile.ok {
+    background: var(--noir-success-soft);
+    border-color: var(--noir-success);
+}
+
+.mg-sequence .sq-tile.bad,
+.mg-sequence .sq-board.open .sq-tile.bad {
+    background: var(--noir-danger-soft);
+    border-color: var(--noir-danger-hover);
+}

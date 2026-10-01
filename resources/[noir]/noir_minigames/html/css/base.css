@@ -1,0 +1,217 @@
+/* noir_minigames: base visual (DESIGN_v4). Janela central com cabeçalho, relógio,
+   barra de estado e palco; teclas em pílula no canto inferior direito. Cada jogo tem o
+   seu arquivo em css/games/ e só estiliza o que fica dentro de .mg-stage. */
+
+@font-face { font-family: "Rajdhani"; src: url("../fonts/Rajdhani-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Rajdhani"; src: url("../fonts/Rajdhani-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Rajdhani"; src: url("../fonts/Rajdhani-600.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Rajdhani"; src: url("../fonts/Rajdhani-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Saira Condensed"; src: url("../fonts/SairaCondensed-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Saira Condensed"; src: url("../fonts/SairaCondensed-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+
+:root {
+    --font-display: "Saira Condensed", "Rajdhani", Arial, sans-serif;
+    --font-ui: "Rajdhani", Arial, sans-serif;
+
+    --noir-panel: #111113;
+    --noir-panel-raised: #171719;
+    --noir-card: #141416;
+    --noir-card-hover: #1b1b1e;
+    --noir-field: #101012;
+    --noir-overlay: rgba(0, 0, 0, 0.76);
+
+    --noir-text-strong: rgba(255, 255, 255, 0.96);
+    --noir-text: rgba(255, 255, 255, 0.76);
+    --noir-text-muted: rgba(255, 255, 255, 0.50);
+    --noir-text-faint: rgba(255, 255, 255, 0.30);
+    --noir-on-light: #111113;
+    --noir-select: #f2f2f2;
+
+    --noir-border-soft: rgba(255, 255, 255, 0.055);
+    --noir-border: rgba(255, 255, 255, 0.11);
+    --noir-border-strong: rgba(255, 255, 255, 0.22);
+    --noir-divider: rgba(255, 255, 255, 0.075);
+
+    --noir-accent: #737983;
+    --noir-success: #39df45;
+    --noir-success-soft: rgba(57, 223, 69, 0.16);
+    --noir-warning: #d7a84b;
+    --noir-warning-soft: rgba(215, 168, 75, 0.16);
+    --noir-danger: #d51a1a;
+    --noir-danger-hover: #ef2929;
+    --noir-danger-soft: rgba(213, 26, 26, 0.18);
+    --noir-info: #6e9fbd;
+
+    --radius: 2px;
+    --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.62);
+    --ease: cubic-bezier(.22, .61, .36, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: transparent !important;
+    font-family: var(--font-ui);
+    color: var(--noir-text);
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+}
+
+.hidden { display: none !important; }
+
+/* Overlay só com a janela aberta (DESIGN_v4 §2). */
+.mg-overlay {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: var(--noir-overlay);
+    animation: mg-fade 160ms var(--ease) both;
+}
+
+.mg-window {
+    width: min(460px, calc(100vw - 48px));
+    background: var(--noir-panel-raised);
+    border: 1px solid var(--noir-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-modal);
+    animation: mg-in 220ms var(--ease) both;
+}
+
+.mg-window.wide { width: min(560px, calc(100vw - 48px)); }
+
+.mg-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 20px 10px;
+    background: linear-gradient(180deg, rgba(0, 0, 0, .55), rgba(0, 0, 0, .25));
+}
+
+.mg-title {
+    font: 700 24px/1 var(--font-display);
+    letter-spacing: .01em;
+    text-transform: uppercase;
+    color: var(--noir-text-strong);
+}
+
+.mg-clock {
+    font: 600 16px/1 var(--font-ui);
+    font-variant-numeric: tabular-nums;
+    color: var(--noir-text-strong);
+}
+
+.mg-hint {
+    padding: 0 20px 12px;
+    font: 500 14px/1.35 var(--font-ui);
+    color: var(--noir-text);
+    background: linear-gradient(180deg, rgba(0, 0, 0, .25), rgba(0, 0, 0, 0));
+}
+
+/* Barra de estado de 4 px: cor pelo tempo que resta (DESIGN_v4 §3.1). */
+.mg-bar { height: 4px; background: rgba(255, 255, 255, .06); }
+.mg-bar > i {
+    display: block;
+    height: 100%;
+    width: 100%;
+    background: var(--noir-success);
+    transition: background-color 180ms var(--ease);
+}
+.mg-bar.warn > i { background: var(--noir-warning); }
+.mg-bar.danger > i { background: var(--noir-danger); }
+
+.mg-stage {
+    position: relative;
+    padding: 20px;
+    min-height: 120px;
+}
+
+/* Resultado: linha simples no rodapé, cor só no texto. */
+.mg-result {
+    padding: 12px 20px 16px;
+    border-top: 1px solid var(--noir-divider);
+    font: 700 18px/1 var(--font-display);
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    text-align: center;
+}
+.mg-result.pass { color: var(--noir-success); }
+.mg-result.fail { color: var(--noir-danger-hover); }
+
+/* Teclas visíveis (DESIGN_v4 §7). */
+.mg-keys {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.mg-key {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px 5px 6px;
+    border-radius: var(--radius);
+    background: rgba(0, 0, 0, .72);
+    font: 700 14px/1 var(--font-display);
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    color: #fff;
+}
+.mg-key kbd {
+    min-width: 22px;
+    padding: 1px 5px;
+    border-radius: var(--radius);
+    background: var(--noir-select);
+    font: 700 11px/1.4 var(--font-ui);
+    text-align: center;
+    color: var(--noir-on-light);
+}
+
+/* Peças comuns que os jogos podem usar. */
+.mg-label {
+    font: 600 12.5px/1.2 var(--font-ui);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--noir-text-muted);
+}
+.mg-num { font-variant-numeric: tabular-nums; }
+.mg-btn {
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid var(--noir-border);
+    border-radius: var(--radius);
+    background: var(--noir-card);
+    color: var(--noir-text-strong);
+    font: 700 15px/1 var(--font-display);
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background-color 140ms var(--ease), color 140ms var(--ease);
+}
+.mg-btn:hover { background: var(--noir-select); color: var(--noir-on-light); }
+
+@keyframes mg-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mg-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+}
+
+/* Preview no navegador (DESIGN_v4 §10): botões no canto inferior esquerdo. */
+.mg-preview {
+    position: fixed;
+    left: 16px;
+    bottom: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 640px;
+}
+.mg-preview .mg-btn { min-height: 32px; font-size: 13px; }
+.mg-preview select { height: 32px; background: var(--noir-field); color: var(--noir-text-strong); border: 1px solid var(--noir-border); border-radius: var(--radius); font: 600 13px var(--font-ui); padding: 0 8px; }
