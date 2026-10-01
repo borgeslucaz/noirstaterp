@@ -22,36 +22,36 @@ $(function () {
     // if the person uses the escape key, it will exit the resource
     document.onkeyup = function (data) {
         if (data.which == 27) {
-            $.post('http://elevatorcontrol/exit', JSON.stringify({}));
+            $.post(`https://${GetParentResourceName()}/exit`, JSON.stringify({}));
             return
         }
     };
     $("#close").click(function () {
-        $.post('http://elevatorcontrol/exit', JSON.stringify({}));
+        $.post(`https://${GetParentResourceName()}/exit`, JSON.stringify({}));
         return
     })
     $("#floor1").click(function () {
-        $.post('http://elevatorcontrol/floor1');
+        $.post(`https://${GetParentResourceName()}/floor1`);
         return
     })
     $("#floor2").click(function(){
-        $.post('http://elevatorcontrol/floor2');
+        $.post(`https://${GetParentResourceName()}/floor2`);
         return
     })
     $("#floor3").click(function(){
-        $.post('http://elevatorcontrol/floor3');
+        $.post(`https://${GetParentResourceName()}/floor3`);
         return
     })
     $("#floor4").click(function(){
-        $.post('http://elevatorcontrol/floor4');
+        $.post(`https://${GetParentResourceName()}/floor4`);
         return
     })
     $("#floor5").click(function(){
-        $.post('http://elevatorcontrol/floor5');
+        $.post(`https://${GetParentResourceName()}/floor5`);
         return
     })
     $("#floor6").click(function(){
-        $.post('http://elevatorcontrol/floor6');
+        $.post(`https://${GetParentResourceName()}/floor6`);
         return
     })
 })
