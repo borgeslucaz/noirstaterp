@@ -1,0 +1,62 @@
+/* noir_missions: HUD em missão. Sem foco e sem ponteiro; discreto, à direita. */
+
+#hud { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
+#hud * { pointer-events: none; }
+
+.hud-stack {
+    position: absolute;
+    top: 28vh;
+    right: 24px;
+    width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.hud-card {
+    padding: 12px 16px 14px;
+    border-radius: var(--radius);
+    background: var(--surface-active);
+    opacity: 0;
+    transform: translateX(16px);
+    transition: opacity 240ms var(--ease), transform 240ms var(--ease);
+}
+.hud-card.in { opacity: 1; transform: none; }
+
+.hud-title {
+    margin-bottom: 6px;
+    font: 700 14px/1.1 var(--font-display);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--noir-text-muted);
+}
+.hud-text { font: 600 16px/1.35 var(--font-ui); color: var(--noir-text-strong); overflow-wrap: anywhere; }
+
+/* Progresso neutro: não é métrica de "quanto mais, melhor" (§3.1). */
+.hud-progress { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.hud-bar { flex: 1 1 auto; height: 4px; background: rgba(255, 255, 255, .1); }
+.hud-bar > i { display: block; height: 100%; width: 0; background: var(--noir-select); transition: width 240ms var(--ease); }
+.hud-progress-value { font: 600 13px/1 var(--font-ui); color: var(--noir-text-strong); }
+
+.hud-timer { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--noir-divider); }
+.hud-timer-label { font: 600 12.5px/1 var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--noir-text-muted); }
+.hud-timer-value { font: 600 18px/1 var(--font-ui); color: var(--noir-text-strong); }
+.hud-timer.low .hud-timer-value { color: var(--noir-warning); }
+
+.hud-info-title {
+    margin-bottom: 8px;
+    font: 700 22px/1.05 var(--font-display);
+    letter-spacing: .01em;
+    text-transform: uppercase;
+    color: var(--noir-text-strong);
+}
+.hud-info-lines { display: flex; flex-direction: column; }
+.hud-info-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 14px;
+    padding: 6px 0;
+    border-top: 1px solid var(--noir-divider);
+}
+.hud-info-label { font: 500 13px/1.2 var(--font-ui); color: var(--noir-text-muted); }
+.hud-info-value { font: 600 15px/1.2 var(--font-ui); color: var(--noir-text-strong); text-align: right; overflow-wrap: anywhere; }

@@ -1,0 +1,3431 @@
+{
+  "actions": [
+    {
+      "fields": [
+        {
+          "key": "var",
+          "label": "Variável",
+          "required": true,
+          "type": "var"
+        },
+        {
+          "key": "value",
+          "label": "Valor",
+          "type": "text"
+        }
+      ],
+      "group": "Variáveis",
+      "label": "Definir variável",
+      "type": "set_var"
+    },
+    {
+      "fields": [
+        {
+          "key": "var",
+          "label": "Variável",
+          "required": true,
+          "type": "var"
+        },
+        {
+          "default": 1,
+          "key": "amount",
+          "label": "Quanto",
+          "type": "number"
+        }
+      ],
+      "group": "Variáveis",
+      "label": "Somar na variável",
+      "type": "add_var"
+    },
+    {
+      "fields": [
+        {
+          "key": "var",
+          "label": "Variável",
+          "required": true,
+          "type": "var"
+        },
+        {
+          "key": "values",
+          "label": "Valores",
+          "type": "strings"
+        }
+      ],
+      "group": "Variáveis",
+      "label": "Sortear variável",
+      "type": "random_var"
+    },
+    {
+      "fields": [
+        {
+          "key": "group",
+          "label": "Grupo",
+          "ref": "pedGroups",
+          "required": true,
+          "type": "ref"
+        }
+      ],
+      "group": "Entidades",
+      "label": "Criar grupo de NPC",
+      "type": "spawn_group"
+    },
+    {
+      "fields": [
+        {
+          "key": "group",
+          "label": "Grupo",
+          "ref": "pedGroups",
+          "required": true,
+          "type": "ref"
+        }
+      ],
+      "group": "Entidades",
+      "label": "Remover grupo de NPC",
+      "type": "despawn_group"
+    },
+    {
+      "fields": [
+        {
+          "key": "group",
+          "label": "Grupo",
+          "ref": "pedGroups",
+          "required": true,
+          "type": "ref"
+        },
+        {
+          "default": true,
+          "key": "hostile",
+          "label": "Hostil",
+          "type": "bool"
+        }
+      ],
+      "group": "Entidades",
+      "label": "Hostilidade do grupo",
+      "type": "set_hostile"
+    },
+    {
+      "fields": [
+        {
+          "key": "vehicle",
+          "label": "Veículo",
+          "ref": "vehicles",
+          "required": true,
+          "type": "ref"
+        }
+      ],
+      "group": "Entidades",
+      "label": "Criar veículo",
+      "type": "spawn_vehicle"
+    },
+    {
+      "fields": [
+        {
+          "key": "vehicle",
+          "label": "Veículo",
+          "ref": "vehicles",
+          "required": true,
+          "type": "ref"
+        }
+      ],
+      "group": "Entidades",
+      "label": "Remover veículo",
+      "type": "despawn_vehicle"
+    },
+    {
+      "fields": [
+        {
+          "key": "prop",
+          "label": "Objeto",
+          "ref": "props",
+          "required": true,
+          "type": "ref"
+        }
+      ],
+      "group": "Entidades",
+      "label": "Criar objeto",
+      "type": "spawn_prop"
+    },
+    {
+      "fields": [
+        {
+          "key": "prop",
+          "label": "Objeto",
+          "ref": "props",
+          "required": true,
+          "type": "ref"
+        }
+      ],
+      "group": "Entidades",
+      "label": "Remover objeto",
+      "type": "despawn_prop"
+    },
+    {
+      "fields": [
+        {
+          "key": "interaction",
+          "label": "Interação",
+          "ref": "interactions",
+          "required": true,
+          "type": "ref"
+        }
+      ],
+      "group": "Interação",
+      "label": "Mostrar interação",
+      "type": "reveal_interaction"
+    },
+    {
+      "fields": [
+        {
+          "key": "interaction",
+          "label": "Interação",
+          "ref": "interactions",
+          "required": true,
+          "type": "ref"
+        }
+      ],
+      "group": "Interação",
+      "label": "Esconder interação",
+      "type": "hide_interaction"
+    },
+    {
+      "fields": [
+        {
+          "key": "cargo",
+          "label": "Carga",
+          "ref": "cargo",
+          "required": true,
+          "type": "ref"
+        }
+      ],
+      "group": "Interação",
+      "label": "Mostrar carga",
+      "type": "reveal_cargo"
+    },
+    {
+      "fields": [
+        {
+          "key": "text",
+          "label": "Texto",
+          "maxLength": 300,
+          "required": true,
+          "type": "textarea"
+        }
+      ],
+      "group": "Comunicação",
+      "label": "Enviar SMS",
+      "type": "send_sms"
+    },
+    {
+      "fields": [
+        {
+          "key": "text",
+          "label": "Texto",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": "inform",
+          "key": "kind",
+          "label": "Tipo",
+          "options": [
+            {
+              "label": "Informação",
+              "value": "inform"
+            },
+            {
+              "label": "Sucesso",
+              "value": "success"
+            },
+            {
+              "label": "Alerta",
+              "value": "warning"
+            },
+            {
+              "label": "Erro",
+              "value": "error"
+            }
+          ],
+          "type": "select"
+        }
+      ],
+      "group": "Comunicação",
+      "label": "Aviso na tela",
+      "type": "notify"
+    },
+    {
+      "fields": [
+        {
+          "key": "title",
+          "label": "Título",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "fields": [
+            {
+              "key": "label",
+              "label": "Rótulo",
+              "type": "text"
+            },
+            {
+              "key": "value",
+              "label": "Valor",
+              "type": "text"
+            }
+          ],
+          "itemLabel": "label",
+          "key": "lines",
+          "label": "Linhas",
+          "max": 12,
+          "type": "list"
+        }
+      ],
+      "group": "Comunicação",
+      "label": "Mostrar informação",
+      "type": "show_info"
+    },
+    {
+      "fields": [
+        {
+          "key": "blip",
+          "label": "ID do blip",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": "fixed",
+          "key": "source",
+          "label": "Posição",
+          "options": [
+            {
+              "label": "Fixa",
+              "value": "fixed"
+            },
+            {
+              "label": "Variável",
+              "value": "var"
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "key": "coords",
+          "label": "Posição",
+          "showIf": {
+            "is": [
+              "fixed"
+            ],
+            "key": "source"
+          },
+          "type": "position"
+        },
+        {
+          "key": "var",
+          "label": "Variável",
+          "showIf": {
+            "is": [
+              "var"
+            ],
+            "key": "source"
+          },
+          "type": "var"
+        },
+        {
+          "default": "Local",
+          "key": "label",
+          "label": "Nome",
+          "type": "text"
+        },
+        {
+          "default": 1,
+          "key": "sprite",
+          "label": "Ícone",
+          "type": "number"
+        },
+        {
+          "default": 5,
+          "key": "color",
+          "label": "Cor",
+          "options": [
+            {
+              "label": "Vermelho",
+              "value": 1
+            },
+            {
+              "label": "Verde",
+              "value": 2
+            },
+            {
+              "label": "Azul",
+              "value": 3
+            },
+            {
+              "label": "Amarelo",
+              "value": 5
+            },
+            {
+              "label": "Laranja",
+              "value": 17
+            },
+            {
+              "label": "Roxo",
+              "value": 27
+            },
+            {
+              "label": "Branco",
+              "value": 0
+            },
+            {
+              "label": "Cinza escuro",
+              "value": 40
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "default": false,
+          "key": "route",
+          "label": "Rota no GPS",
+          "type": "bool"
+        }
+      ],
+      "group": "Mapa",
+      "label": "Criar blip",
+      "type": "create_blip"
+    },
+    {
+      "fields": [
+        {
+          "key": "blip",
+          "label": "ID do blip",
+          "required": true,
+          "type": "text"
+        }
+      ],
+      "group": "Mapa",
+      "label": "Remover blip",
+      "type": "remove_blip"
+    },
+    {
+      "fields": [
+        {
+          "key": "group",
+          "label": "Grupo de entrega",
+          "ref": "deliveryGroups",
+          "required": true,
+          "type": "ref"
+        },
+        {
+          "default": "delivery_location",
+          "key": "var",
+          "label": "Guardar em",
+          "type": "var"
+        }
+      ],
+      "group": "Mapa",
+      "label": "Sortear entrega",
+      "type": "pick_delivery"
+    },
+    {
+      "fields": [
+        {
+          "key": "reinforcement",
+          "label": "Reforço",
+          "ref": "reinforcements",
+          "required": true,
+          "type": "ref"
+        }
+      ],
+      "group": "Combate",
+      "label": "Mandar reforço",
+      "type": "send_reinforcement"
+    },
+    {
+      "fields": [
+        {
+          "key": "chase",
+          "label": "Perseguição",
+          "ref": "chases",
+          "required": true,
+          "type": "ref"
+        }
+      ],
+      "group": "Combate",
+      "label": "Começar perseguição",
+      "type": "start_chase"
+    },
+    {
+      "fields": [
+        {
+          "key": "chase",
+          "label": "Perseguição",
+          "ref": "chases",
+          "required": true,
+          "type": "ref"
+        }
+      ],
+      "group": "Combate",
+      "label": "Encerrar perseguição",
+      "type": "stop_chase"
+    },
+    {
+      "fields": [
+        {
+          "default": "10-90",
+          "key": "code",
+          "label": "Código",
+          "type": "text"
+        },
+        {
+          "default": "Atividade suspeita",
+          "key": "title",
+          "label": "Título",
+          "type": "text"
+        },
+        {
+          "key": "message",
+          "label": "Mensagem",
+          "type": "text"
+        },
+        {
+          "key": "coords",
+          "label": "Posição",
+          "required": true,
+          "type": "position"
+        }
+      ],
+      "group": "Combate",
+      "label": "Alerta para a polícia",
+      "type": "dispatch"
+    },
+    {
+      "fields": [
+        {
+          "key": "timer",
+          "label": "ID do timer",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": 30,
+          "key": "seconds",
+          "label": "Segundos",
+          "max": 3600,
+          "min": 1,
+          "type": "number"
+        },
+        {
+          "default": false,
+          "key": "show",
+          "label": "Mostrar contagem na tela",
+          "type": "bool"
+        }
+      ],
+      "group": "Fluxo",
+      "label": "Iniciar timer",
+      "type": "start_timer"
+    },
+    {
+      "fields": [
+        {
+          "key": "timer",
+          "label": "ID do timer",
+          "required": true,
+          "type": "text"
+        }
+      ],
+      "group": "Fluxo",
+      "label": "Cancelar timer",
+      "type": "cancel_timer"
+    },
+    {
+      "fields": [
+        {
+          "default": 5,
+          "key": "seconds",
+          "label": "Segundos (mínimo)",
+          "max": 600,
+          "min": 0,
+          "type": "number"
+        },
+        {
+          "default": 0,
+          "key": "secondsMax",
+          "label": "Segundos (máximo)",
+          "max": 600,
+          "min": 0,
+          "type": "number"
+        }
+      ],
+      "group": "Fluxo",
+      "label": "Esperar",
+      "type": "wait"
+    },
+    {
+      "fields": [
+        {
+          "key": "condition",
+          "label": "Condição",
+          "required": true,
+          "type": "condition"
+        },
+        {
+          "key": "then",
+          "label": "Então",
+          "type": "actions"
+        },
+        {
+          "key": "else",
+          "label": "Senão",
+          "type": "actions"
+        }
+      ],
+      "group": "Fluxo",
+      "label": "Se",
+      "type": "if"
+    },
+    {
+      "fields": [
+        {
+          "default": 50,
+          "key": "percent",
+          "label": "Chance (%)",
+          "max": 100,
+          "min": 0,
+          "type": "number"
+        },
+        {
+          "key": "then",
+          "label": "Se sair",
+          "type": "actions"
+        },
+        {
+          "key": "else",
+          "label": "Se não sair",
+          "type": "actions"
+        }
+      ],
+      "group": "Fluxo",
+      "label": "Chance",
+      "type": "chance"
+    },
+    {
+      "fields": [
+        {
+          "key": "step",
+          "label": "Passo",
+          "ref": "steps",
+          "required": true,
+          "type": "ref"
+        }
+      ],
+      "group": "Fluxo",
+      "label": "Ir para o passo",
+      "type": "goto_step"
+    },
+    {
+      "fields": [
+        {
+          "key": "item",
+          "label": "Item",
+          "required": true,
+          "type": "item"
+        },
+        {
+          "default": 1,
+          "key": "amount",
+          "label": "Quantidade",
+          "max": 100,
+          "min": 1,
+          "type": "number"
+        },
+        {
+          "default": "all",
+          "key": "to",
+          "label": "Para",
+          "options": [
+            {
+              "label": "Todos",
+              "value": "all"
+            },
+            {
+              "label": "Quem causou",
+              "value": "actor"
+            }
+          ],
+          "type": "select"
+        }
+      ],
+      "group": "Itens",
+      "label": "Dar item",
+      "type": "give_item"
+    },
+    {
+      "fields": [
+        {
+          "key": "item",
+          "label": "Item",
+          "required": true,
+          "type": "item"
+        },
+        {
+          "default": 1,
+          "key": "amount",
+          "label": "Quantidade",
+          "max": 100,
+          "min": 1,
+          "type": "number"
+        },
+        {
+          "default": "actor",
+          "key": "from",
+          "label": "De",
+          "options": [
+            {
+              "label": "Todos",
+              "value": "all"
+            },
+            {
+              "label": "Quem causou",
+              "value": "actor"
+            }
+          ],
+          "type": "select"
+        }
+      ],
+      "group": "Itens",
+      "label": "Tirar item",
+      "type": "take_item"
+    },
+    {
+      "fields": [
+        {
+          "default": "Beep_Red",
+          "key": "name",
+          "label": "Som",
+          "type": "text"
+        },
+        {
+          "default": "DLC_HEIST_HACKING_SNAKE_SOUNDS",
+          "key": "set",
+          "label": "Conjunto",
+          "type": "text"
+        }
+      ],
+      "group": "Comunicação",
+      "label": "Tocar som",
+      "type": "play_sound"
+    },
+    {
+      "fields": [],
+      "group": "Fluxo",
+      "label": "Concluir missão",
+      "type": "complete_mission"
+    },
+    {
+      "fields": [
+        {
+          "default": "A missão falhou.",
+          "key": "reason",
+          "label": "Motivo",
+          "type": "text"
+        }
+      ],
+      "group": "Fluxo",
+      "label": "Falhar missão",
+      "type": "fail_mission"
+    }
+  ],
+  "collections": [
+    {
+      "fields": [
+        {
+          "default": "boolean",
+          "key": "type",
+          "label": "Tipo",
+          "options": [
+            {
+              "label": "Sim/Não",
+              "value": "boolean"
+            },
+            {
+              "label": "Número",
+              "value": "number"
+            },
+            {
+              "label": "Texto",
+              "value": "string"
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "help": "true/false, número ou texto.",
+          "key": "default",
+          "label": "Valor inicial",
+          "type": "text"
+        },
+        {
+          "help": "Se tiver valores, um deles é sorteado no início de cada execução.",
+          "key": "random",
+          "label": "Sortear entre",
+          "type": "strings"
+        }
+      ],
+      "help": "Estado da execução. Use {{nome}} em textos e nas condições.",
+      "itemLabel": "id",
+      "key": "variables",
+      "label": "Variáveis",
+      "singular": "variável"
+    },
+    {
+      "fields": [
+        {
+          "key": "label",
+          "label": "Nome",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "key": "coords",
+          "label": "Centro",
+          "required": true,
+          "type": "position"
+        },
+        {
+          "default": 25,
+          "key": "radius",
+          "label": "Raio",
+          "max": 2000,
+          "min": 1,
+          "type": "number"
+        }
+      ],
+      "help": "Áreas usadas por gatilhos (entrar/sair) e pela hostilidade dos NPCs.",
+      "itemLabel": "label",
+      "key": "zones",
+      "label": "Zonas",
+      "singular": "zona"
+    },
+    {
+      "fields": [
+        {
+          "key": "label",
+          "label": "Nome",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": false,
+          "key": "spawnOnStart",
+          "label": "Aparece no início da missão",
+          "type": "bool"
+        },
+        {
+          "default": "guard",
+          "key": "behavior",
+          "label": "Comportamento",
+          "options": [
+            {
+              "label": "Passivo",
+              "value": "passive"
+            },
+            {
+              "label": "Guarda (avisa antes)",
+              "value": "guard"
+            },
+            {
+              "label": "Hostil de imediato",
+              "value": "hostile"
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "key": "hostileZone",
+          "label": "Fica hostil se entrarem na zona",
+          "optional": true,
+          "ref": "zones",
+          "type": "ref"
+        },
+        {
+          "default": true,
+          "key": "hostileOnAlarm",
+          "label": "Fica hostil com o alarme",
+          "type": "bool"
+        },
+        {
+          "default": "alarm_active",
+          "key": "alarmVar",
+          "label": "Variável do alarme",
+          "showIf": {
+            "is": [
+              true
+            ],
+            "key": "hostileOnAlarm"
+          },
+          "type": "var"
+        },
+        {
+          "default": true,
+          "key": "hostileOnShot",
+          "label": "Fica hostil com tiro por perto",
+          "type": "bool"
+        },
+        {
+          "default": 60,
+          "key": "shotRadius",
+          "label": "Raio do tiro",
+          "max": 300,
+          "min": 5,
+          "showIf": {
+            "is": [
+              true
+            ],
+            "key": "hostileOnShot"
+          },
+          "type": "number"
+        },
+        {
+          "default": true,
+          "key": "hostileOnDamage",
+          "label": "Fica hostil se um for ferido",
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "key": "alarmOnHostile",
+          "label": "Hostilidade liga o alarme",
+          "type": "bool"
+        },
+        {
+          "default": 12,
+          "key": "warnRadius",
+          "label": "Raio do aviso",
+          "max": 60,
+          "min": 0,
+          "showIf": {
+            "is": [
+              "guard"
+            ],
+            "key": "behavior"
+          },
+          "type": "number"
+        },
+        {
+          "key": "warnText",
+          "label": "Falas de aviso",
+          "showIf": {
+            "is": [
+              "guard"
+            ],
+            "key": "behavior"
+          },
+          "type": "strings"
+        },
+        {
+          "fields": [
+            {
+              "default": "g_m_y_mexgoon_01",
+              "key": "model",
+              "kind": "ped",
+              "label": "Modelo",
+              "required": true,
+              "type": "model"
+            },
+            {
+              "heading": true,
+              "key": "coords",
+              "label": "Posição",
+              "preview": {
+                "kind": "ped",
+                "modelKey": "model"
+              },
+              "required": true,
+              "type": "position"
+            },
+            {
+              "default": "WEAPON_PISTOL",
+              "key": "weapon",
+              "label": "Arma",
+              "type": "weapon"
+            },
+            {
+              "default": 0,
+              "key": "armor",
+              "label": "Colete",
+              "max": 100,
+              "min": 0,
+              "type": "number"
+            },
+            {
+              "default": 200,
+              "key": "health",
+              "label": "Vida",
+              "max": 1000,
+              "min": 100,
+              "type": "number"
+            },
+            {
+              "default": 35,
+              "key": "accuracy",
+              "label": "Precisão",
+              "max": 100,
+              "min": 0,
+              "type": "number"
+            },
+            {
+              "default": 1,
+              "key": "combatAbility",
+              "label": "Habilidade de combate",
+              "options": [
+                {
+                  "label": "Fraca",
+                  "value": 0
+                },
+                {
+                  "label": "Média",
+                  "value": 1
+                },
+                {
+                  "label": "Profissional",
+                  "value": 2
+                }
+              ],
+              "type": "select"
+            },
+            {
+              "default": 1,
+              "key": "combatRange",
+              "label": "Distância de combate",
+              "options": [
+                {
+                  "label": "Perto",
+                  "value": 0
+                },
+                {
+                  "label": "Média",
+                  "value": 1
+                },
+                {
+                  "label": "Longe",
+                  "value": 2
+                }
+              ],
+              "type": "select"
+            },
+            {
+              "default": "static",
+              "key": "movement",
+              "label": "Movimento",
+              "options": [
+                {
+                  "label": "Parado",
+                  "value": "static"
+                },
+                {
+                  "label": "Cenário (animação)",
+                  "value": "scenario"
+                },
+                {
+                  "label": "Patrulha na área",
+                  "value": "patrol"
+                }
+              ],
+              "type": "select"
+            },
+            {
+              "default": "WORLD_HUMAN_GUARD_STAND",
+              "help": "Nome do cenário do jogo, ex.: WORLD_HUMAN_GUARD_STAND, WORLD_HUMAN_SMOKING.",
+              "key": "scenario",
+              "label": "Cenário",
+              "showIf": {
+                "is": [
+                  "scenario"
+                ],
+                "key": "movement"
+              },
+              "type": "text"
+            },
+            {
+              "default": 10,
+              "key": "patrolRadius",
+              "label": "Raio da patrulha",
+              "max": 60,
+              "min": 2,
+              "showIf": {
+                "is": [
+                  "patrol"
+                ],
+                "key": "movement"
+              },
+              "type": "number"
+            }
+          ],
+          "itemLabel": "model",
+          "key": "peds",
+          "label": "NPCs",
+          "max": 24,
+          "min": 1,
+          "type": "list"
+        }
+      ],
+      "help": "Grupos de NPC com comportamento comum. A hostilidade é do grupo inteiro.",
+      "itemLabel": "label",
+      "key": "pedGroups",
+      "label": "NPCs",
+      "singular": "grupo de NPC"
+    },
+    {
+      "fields": [
+        {
+          "key": "label",
+          "label": "Nome",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": "speedo",
+          "key": "model",
+          "kind": "vehicle",
+          "label": "Modelo",
+          "required": true,
+          "type": "model"
+        },
+        {
+          "heading": true,
+          "key": "coords",
+          "label": "Posição",
+          "preview": {
+            "kind": "vehicle",
+            "modelKey": "model"
+          },
+          "required": true,
+          "type": "position"
+        },
+        {
+          "default": true,
+          "key": "spawnOnStart",
+          "label": "Aparece no início da missão",
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "key": "locked",
+          "label": "Trancado",
+          "type": "bool"
+        },
+        {
+          "default": true,
+          "key": "giveKeys",
+          "label": "Participantes recebem a chave",
+          "type": "bool"
+        },
+        {
+          "default": true,
+          "key": "required",
+          "label": "Destruído = missão falha",
+          "type": "bool"
+        },
+        {
+          "default": 4,
+          "key": "cargoCapacity",
+          "label": "Capacidade de carga",
+          "max": 50,
+          "min": 0,
+          "type": "number"
+        },
+        {
+          "help": "Vazio = aleatória.",
+          "key": "plate",
+          "label": "Placa",
+          "maxLength": 8,
+          "type": "text"
+        }
+      ],
+      "help": "Veículos de missão (a van da carga, um barco). Para veículo com NPC dirigindo, use Reforços.",
+      "itemLabel": "label",
+      "key": "vehicles",
+      "label": "Veículos",
+      "singular": "veículo"
+    },
+    {
+      "fields": [
+        {
+          "key": "label",
+          "label": "Nome",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "key": "model",
+          "kind": "object",
+          "label": "Modelo",
+          "required": true,
+          "type": "model"
+        },
+        {
+          "heading": true,
+          "key": "coords",
+          "label": "Posição",
+          "preview": {
+            "kind": "object",
+            "modelKey": "model"
+          },
+          "required": true,
+          "type": "position"
+        },
+        {
+          "default": true,
+          "key": "spawnOnStart",
+          "label": "Aparece no início da missão",
+          "type": "bool"
+        },
+        {
+          "default": true,
+          "key": "frozen",
+          "label": "Fixo no lugar",
+          "type": "bool"
+        }
+      ],
+      "help": "Cenário: caixas, mesas, computadores. Carga e interações têm os próprios objetos.",
+      "itemLabel": "label",
+      "key": "props",
+      "label": "Objetos",
+      "singular": "objeto"
+    },
+    {
+      "fields": [
+        {
+          "key": "label",
+          "label": "Nome",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": "prop_barrel_02a",
+          "key": "model",
+          "kind": "object",
+          "label": "Modelo",
+          "required": true,
+          "type": "model"
+        },
+        {
+          "default": "carry",
+          "key": "mode",
+          "label": "Modo",
+          "options": [
+            {
+              "label": "Carregar nas mãos",
+              "value": "carry"
+            },
+            {
+              "label": "Vai para o inventário",
+              "value": "inventory"
+            },
+            {
+              "label": "Só interação",
+              "value": "interact"
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "default": 4,
+          "key": "quantity",
+          "label": "Quantidade certa",
+          "max": 50,
+          "min": 1,
+          "type": "number"
+        },
+        {
+          "heading": true,
+          "help": "Mais posições que a quantidade = as que sobram são iscas.",
+          "key": "pieces",
+          "label": "Posições",
+          "max": 50,
+          "min": 1,
+          "preview": {
+            "kind": "object",
+            "modelKey": "model"
+          },
+          "type": "positions"
+        },
+        {
+          "default": true,
+          "key": "randomizeCorrect",
+          "label": "Sortear quais são as certas",
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "key": "revealed",
+          "label": "Visível desde o início",
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "key": "inspect",
+          "label": "Precisa inspecionar a etiqueta",
+          "type": "bool"
+        },
+        {
+          "default": "Lote {{cargo_batch}}",
+          "key": "correctLabel",
+          "label": "Etiqueta da certa",
+          "showIf": {
+            "is": [
+              true
+            ],
+            "key": "inspect"
+          },
+          "type": "text"
+        },
+        {
+          "help": "Variável com lista de sorteio. As iscas mostram um valor diferente do sorteado.",
+          "key": "decoyVar",
+          "label": "Iscas mostram outro valor de",
+          "showIf": {
+            "is": [
+              true
+            ],
+            "key": "inspect"
+          },
+          "type": "var"
+        },
+        {
+          "key": "item",
+          "label": "Item",
+          "showIf": {
+            "is": [
+              "inventory"
+            ],
+            "key": "mode"
+          },
+          "type": "item"
+        },
+        {
+          "default": 1,
+          "key": "amount",
+          "label": "Quantidade do item",
+          "max": 100,
+          "min": 1,
+          "showIf": {
+            "is": [
+              "inventory"
+            ],
+            "key": "mode"
+          },
+          "type": "number"
+        },
+        {
+          "default": "barrel",
+          "key": "carryPreset",
+          "label": "Jeito de carregar",
+          "options": [
+            {
+              "label": "Tambor",
+              "value": "barrel"
+            },
+            {
+              "label": "Caixa",
+              "value": "box"
+            },
+            {
+              "label": "Pacote",
+              "value": "package"
+            },
+            {
+              "label": "Personalizado",
+              "value": "custom"
+            }
+          ],
+          "showIf": {
+            "is": [
+              "carry"
+            ],
+            "key": "mode"
+          },
+          "type": "select"
+        },
+        {
+          "key": "carryDict",
+          "label": "Dicionário da animação",
+          "showIf": {
+            "is": [
+              "custom"
+            ],
+            "key": "carryPreset"
+          },
+          "type": "text"
+        },
+        {
+          "key": "carryAnim",
+          "label": "Animação",
+          "showIf": {
+            "is": [
+              "custom"
+            ],
+            "key": "carryPreset"
+          },
+          "type": "text"
+        },
+        {
+          "default": 28422,
+          "key": "carryBone",
+          "label": "Osso",
+          "showIf": {
+            "is": [
+              "custom"
+            ],
+            "key": "carryPreset"
+          },
+          "type": "number"
+        },
+        {
+          "default": "0.0,0.0,0.0",
+          "key": "carryOffset",
+          "label": "Deslocamento (x,y,z)",
+          "showIf": {
+            "is": [
+              "custom"
+            ],
+            "key": "carryPreset"
+          },
+          "type": "text"
+        },
+        {
+          "default": "0.0,0.0,0.0",
+          "key": "carryRotation",
+          "label": "Rotação (x,y,z)",
+          "showIf": {
+            "is": [
+              "custom"
+            ],
+            "key": "carryPreset"
+          },
+          "type": "text"
+        },
+        {
+          "default": false,
+          "key": "canSprint",
+          "label": "Pode correr carregando",
+          "showIf": {
+            "is": [
+              "carry"
+            ],
+            "key": "mode"
+          },
+          "type": "bool"
+        },
+        {
+          "default": true,
+          "key": "requireVehicle",
+          "label": "Precisa ir num veículo",
+          "showIf": {
+            "is": [
+              "carry"
+            ],
+            "key": "mode"
+          },
+          "type": "bool"
+        },
+        {
+          "default": "mission",
+          "key": "vehicleMode",
+          "label": "Veículos aceitos",
+          "options": [
+            {
+              "label": "Só o veículo da missão",
+              "value": "mission"
+            },
+            {
+              "label": "Qualquer veículo",
+              "value": "any"
+            },
+            {
+              "label": "Classes",
+              "value": "class"
+            },
+            {
+              "label": "Modelos",
+              "value": "models"
+            }
+          ],
+          "showIf": {
+            "is": [
+              true
+            ],
+            "key": "requireVehicle"
+          },
+          "type": "select"
+        },
+        {
+          "key": "vehicleId",
+          "label": "Veículo da missão",
+          "ref": "vehicles",
+          "showIf": {
+            "is": [
+              "mission"
+            ],
+            "key": "vehicleMode"
+          },
+          "type": "ref"
+        },
+        {
+          "help": "12 = vans, 20 = comerciais, 14 = barcos.",
+          "key": "vehicleClasses",
+          "label": "Classes (número)",
+          "showIf": {
+            "is": [
+              "class"
+            ],
+            "key": "vehicleMode"
+          },
+          "type": "strings"
+        },
+        {
+          "key": "vehicleModels",
+          "label": "Modelos",
+          "showIf": {
+            "is": [
+              "models"
+            ],
+            "key": "vehicleMode"
+          },
+          "type": "strings"
+        }
+      ],
+      "help": "Objetos que os jogadores pegam, carregam, põem no veículo e entregam.",
+      "itemLabel": "label",
+      "key": "cargo",
+      "label": "Carga",
+      "singular": "grupo de carga"
+    },
+    {
+      "fields": [
+        {
+          "default": "Hackear computador",
+          "key": "label",
+          "label": "Texto do alvo",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": "hack",
+          "key": "kind",
+          "label": "Tipo",
+          "options": [
+            {
+              "label": "Hack",
+              "value": "hack"
+            },
+            {
+              "label": "Revistar",
+              "value": "search"
+            },
+            {
+              "label": "Genérica",
+              "value": "generic"
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "heading": true,
+          "key": "coords",
+          "label": "Posição",
+          "preview": {
+            "kind": "object",
+            "modelKey": "model"
+          },
+          "required": true,
+          "type": "position"
+        },
+        {
+          "help": "Vazio = usa o que já existe no mapa nesta posição.",
+          "key": "model",
+          "kind": "object",
+          "label": "Objeto (opcional)",
+          "type": "model"
+        },
+        {
+          "default": 1.5,
+          "key": "distance",
+          "label": "Distância",
+          "max": 5,
+          "min": 0.5,
+          "step": 0.1,
+          "type": "number"
+        },
+        {
+          "default": true,
+          "key": "revealed",
+          "label": "Visível desde o início",
+          "type": "bool"
+        },
+        {
+          "key": "requiredItem",
+          "label": "Item necessário",
+          "type": "item"
+        },
+        {
+          "default": false,
+          "key": "consumeItem",
+          "label": "Consome o item",
+          "type": "bool"
+        },
+        {
+          "key": "minigame",
+          "label": "Minigame",
+          "type": "minigame"
+        },
+        {
+          "default": 2,
+          "key": "difficulty",
+          "label": "Dificuldade do minigame",
+          "options": [
+            {
+              "label": "Fácil",
+              "value": 1
+            },
+            {
+              "label": "Normal",
+              "value": 2
+            },
+            {
+              "label": "Difícil",
+              "value": 3
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "default": 5,
+          "key": "duration",
+          "label": "Duração (segundos)",
+          "max": 120,
+          "min": 0,
+          "type": "number"
+        },
+        {
+          "default": true,
+          "key": "once",
+          "label": "Só uma vez",
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "key": "retry",
+          "label": "Pode tentar de novo após falha",
+          "type": "bool"
+        },
+        {
+          "help": "Mostrado no sucesso. Vazio = não mostra.",
+          "key": "infoTitle",
+          "label": "Título da informação revelada",
+          "type": "text"
+        },
+        {
+          "fields": [
+            {
+              "key": "label",
+              "label": "Rótulo",
+              "type": "text"
+            },
+            {
+              "help": "Aceita {{variável}}.",
+              "key": "value",
+              "label": "Valor",
+              "type": "text"
+            }
+          ],
+          "itemLabel": "label",
+          "key": "infoLines",
+          "label": "Linhas da informação",
+          "max": 12,
+          "type": "list"
+        },
+        {
+          "key": "onSuccess",
+          "label": "No sucesso",
+          "type": "actions"
+        },
+        {
+          "key": "onFailure",
+          "label": "Na falha",
+          "type": "actions"
+        }
+      ],
+      "help": "Computador para hackear, gaveta para revistar, painel para desligar.",
+      "itemLabel": "label",
+      "key": "interactions",
+      "label": "Interações",
+      "singular": "interação"
+    },
+    {
+      "fields": [
+        {
+          "key": "label",
+          "label": "Nome",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": "granger",
+          "key": "model",
+          "kind": "vehicle",
+          "label": "Veículo",
+          "required": true,
+          "type": "model"
+        },
+        {
+          "heading": true,
+          "key": "spawn",
+          "label": "Onde nasce",
+          "preview": {
+            "kind": "vehicle",
+            "modelKey": "model"
+          },
+          "required": true,
+          "type": "position"
+        },
+        {
+          "key": "destination",
+          "label": "Destino",
+          "required": true,
+          "type": "position"
+        },
+        {
+          "help": "Pontos intermediários, em ordem.",
+          "key": "route",
+          "label": "Rota (opcional)",
+          "type": "positions"
+        },
+        {
+          "default": 15,
+          "key": "arrivalDistance",
+          "label": "Distância de chegada",
+          "max": 80,
+          "min": 3,
+          "type": "number"
+        },
+        {
+          "default": 25,
+          "key": "speed",
+          "label": "Velocidade (m/s)",
+          "max": 60,
+          "min": 5,
+          "type": "number"
+        },
+        {
+          "default": "rushed",
+          "key": "drivingStyle",
+          "label": "Direção",
+          "options": [
+            {
+              "label": "Normal",
+              "value": "normal"
+            },
+            {
+              "label": "Com pressa",
+              "value": "rushed"
+            },
+            {
+              "label": "Agressivo",
+              "value": "aggressive"
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "default": true,
+          "key": "exitOnArrival",
+          "label": "Descem ao chegar",
+          "type": "bool"
+        },
+        {
+          "default": true,
+          "key": "engage",
+          "label": "Atacam os jogadores",
+          "type": "bool"
+        },
+        {
+          "default": 150,
+          "help": "Passou disso, descem onde estiverem.",
+          "key": "maxTravelSeconds",
+          "label": "Tempo máximo de viagem",
+          "max": 600,
+          "min": 20,
+          "type": "number"
+        },
+        {
+          "fields": [
+            {
+              "default": "g_m_y_mexgoon_01",
+              "key": "model",
+              "kind": "ped",
+              "label": "Modelo",
+              "required": true,
+              "type": "model"
+            },
+            {
+              "default": "WEAPON_PISTOL",
+              "key": "weapon",
+              "label": "Arma",
+              "type": "weapon"
+            },
+            {
+              "default": 0,
+              "key": "armor",
+              "label": "Colete",
+              "max": 100,
+              "min": 0,
+              "type": "number"
+            },
+            {
+              "default": 200,
+              "key": "health",
+              "label": "Vida",
+              "max": 1000,
+              "min": 100,
+              "type": "number"
+            },
+            {
+              "default": 35,
+              "key": "accuracy",
+              "label": "Precisão",
+              "max": 100,
+              "min": 0,
+              "type": "number"
+            },
+            {
+              "default": 1,
+              "key": "combatAbility",
+              "label": "Habilidade de combate",
+              "options": [
+                {
+                  "label": "Fraca",
+                  "value": 0
+                },
+                {
+                  "label": "Média",
+                  "value": 1
+                },
+                {
+                  "label": "Profissional",
+                  "value": 2
+                }
+              ],
+              "type": "select"
+            },
+            {
+              "default": 1,
+              "key": "combatRange",
+              "label": "Distância de combate",
+              "options": [
+                {
+                  "label": "Perto",
+                  "value": 0
+                },
+                {
+                  "label": "Média",
+                  "value": 1
+                },
+                {
+                  "label": "Longe",
+                  "value": 2
+                }
+              ],
+              "type": "select"
+            }
+          ],
+          "help": "O primeiro dirige. Os outros ocupam os bancos em ordem.",
+          "itemLabel": "model",
+          "key": "crew",
+          "label": "Tripulação",
+          "max": 8,
+          "min": 1,
+          "type": "list"
+        }
+      ],
+      "help": "Veículo que nasce longe, dirige até o local, e a tripulação desce para lutar.",
+      "itemLabel": "label",
+      "key": "reinforcements",
+      "label": "Reforços",
+      "singular": "reforço"
+    },
+    {
+      "fields": [
+        {
+          "key": "label",
+          "label": "Nome",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "default": "granger",
+          "key": "model",
+          "kind": "vehicle",
+          "label": "Veículo",
+          "required": true,
+          "type": "model"
+        },
+        {
+          "default": 1,
+          "key": "countMin",
+          "label": "Veículos (mínimo)",
+          "max": 4,
+          "min": 1,
+          "type": "number"
+        },
+        {
+          "default": 2,
+          "key": "countMax",
+          "label": "Veículos (máximo)",
+          "max": 4,
+          "min": 1,
+          "type": "number"
+        },
+        {
+          "heading": true,
+          "help": "O sistema escolhe o melhor: longe, atrás e fora da vista dos jogadores.",
+          "key": "spawnPoints",
+          "label": "Pontos de nascimento",
+          "max": 24,
+          "type": "positions"
+        },
+        {
+          "default": true,
+          "help": "Sem ponto cadastrado que sirva, nasce numa via atrás do alvo, fora da tela.",
+          "key": "roadSpawn",
+          "label": "Procurar estrada atrás do alvo",
+          "type": "bool"
+        },
+        {
+          "default": 120,
+          "key": "minSpawnDistance",
+          "label": "Distância mínima",
+          "max": 600,
+          "min": 40,
+          "type": "number"
+        },
+        {
+          "default": 450,
+          "key": "maxSpawnDistance",
+          "label": "Distância máxima",
+          "max": 2000,
+          "min": 80,
+          "type": "number"
+        },
+        {
+          "default": 45,
+          "key": "maxSpeed",
+          "label": "Velocidade máxima (m/s)",
+          "max": 80,
+          "min": 10,
+          "type": "number"
+        },
+        {
+          "default": "aggressive",
+          "key": "drivingStyle",
+          "label": "Direção",
+          "options": [
+            {
+              "label": "Normal",
+              "value": "normal"
+            },
+            {
+              "label": "Com pressa",
+              "value": "rushed"
+            },
+            {
+              "label": "Agressivo",
+              "value": "aggressive"
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "default": true,
+          "key": "passengersShoot",
+          "label": "Passageiros atiram",
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "key": "driverShoots",
+          "label": "Motorista atira",
+          "type": "bool"
+        },
+        {
+          "default": true,
+          "key": "ram",
+          "label": "Bate no carro dos jogadores",
+          "type": "bool"
+        },
+        {
+          "default": 240,
+          "help": "0 = sem limite.",
+          "key": "durationSeconds",
+          "label": "Duração máxima (s)",
+          "max": 900,
+          "min": 0,
+          "type": "number"
+        },
+        {
+          "default": 400,
+          "key": "loseDistance",
+          "label": "Distância para despistar",
+          "max": 2000,
+          "min": 100,
+          "type": "number"
+        },
+        {
+          "fields": [
+            {
+              "default": "g_m_y_mexgoon_01",
+              "key": "model",
+              "kind": "ped",
+              "label": "Modelo",
+              "required": true,
+              "type": "model"
+            },
+            {
+              "default": "WEAPON_PISTOL",
+              "key": "weapon",
+              "label": "Arma",
+              "type": "weapon"
+            },
+            {
+              "default": 0,
+              "key": "armor",
+              "label": "Colete",
+              "max": 100,
+              "min": 0,
+              "type": "number"
+            },
+            {
+              "default": 200,
+              "key": "health",
+              "label": "Vida",
+              "max": 1000,
+              "min": 100,
+              "type": "number"
+            },
+            {
+              "default": 35,
+              "key": "accuracy",
+              "label": "Precisão",
+              "max": 100,
+              "min": 0,
+              "type": "number"
+            },
+            {
+              "default": 1,
+              "key": "combatAbility",
+              "label": "Habilidade de combate",
+              "options": [
+                {
+                  "label": "Fraca",
+                  "value": 0
+                },
+                {
+                  "label": "Média",
+                  "value": 1
+                },
+                {
+                  "label": "Profissional",
+                  "value": 2
+                }
+              ],
+              "type": "select"
+            },
+            {
+              "default": 1,
+              "key": "combatRange",
+              "label": "Distância de combate",
+              "options": [
+                {
+                  "label": "Perto",
+                  "value": 0
+                },
+                {
+                  "label": "Média",
+                  "value": 1
+                },
+                {
+                  "label": "Longe",
+                  "value": 2
+                }
+              ],
+              "type": "select"
+            }
+          ],
+          "itemLabel": "model",
+          "key": "crew",
+          "label": "Tripulação de cada veículo",
+          "max": 6,
+          "min": 1,
+          "type": "list"
+        },
+        {
+          "fields": [
+            {
+              "default": "bati",
+              "key": "model",
+              "kind": "vehicle",
+              "label": "Veículo",
+              "type": "model"
+            },
+            {
+              "default": 1,
+              "key": "countMin",
+              "label": "Veículos (mínimo)",
+              "max": 4,
+              "min": 1,
+              "type": "number"
+            },
+            {
+              "default": 2,
+              "key": "countMax",
+              "label": "Veículos (máximo)",
+              "max": 4,
+              "min": 1,
+              "type": "number"
+            },
+            {
+              "default": 20,
+              "key": "delaySeconds",
+              "label": "Espera depois da anterior (s)",
+              "max": 300,
+              "min": 0,
+              "type": "number"
+            }
+          ],
+          "help": "Começa quando a onda anterior acaba sem os jogadores despistarem.",
+          "itemLabel": "model",
+          "key": "waves",
+          "label": "Ondas seguintes",
+          "max": 4,
+          "type": "list"
+        }
+      ],
+      "help": "Veículos inimigos que nascem fora da vista e perseguem os jogadores.",
+      "itemLabel": "label",
+      "key": "chases",
+      "label": "Perseguições",
+      "singular": "perseguição"
+    },
+    {
+      "fields": [
+        {
+          "key": "label",
+          "label": "Nome",
+          "required": true,
+          "type": "text"
+        },
+        {
+          "fields": [
+            {
+              "key": "label",
+              "label": "Nome",
+              "required": true,
+              "type": "text"
+            },
+            {
+              "heading": true,
+              "key": "coords",
+              "label": "Posição",
+              "required": true,
+              "type": "position"
+            },
+            {
+              "default": 8,
+              "key": "radius",
+              "label": "Raio",
+              "max": 60,
+              "min": 2,
+              "type": "number"
+            }
+          ],
+          "itemLabel": "label",
+          "key": "points",
+          "label": "Locais",
+          "max": 24,
+          "min": 1,
+          "type": "list"
+        }
+      ],
+      "help": "Locais de entrega. A ação \"Sortear entrega\" escolhe um deles.",
+      "itemLabel": "label",
+      "key": "deliveryGroups",
+      "label": "Entregas",
+      "singular": "grupo de entrega"
+    }
+  ],
+  "computed": [
+    {
+      "collection": "cargo",
+      "label": "pegas",
+      "name": "cargo.{id}.picked"
+    },
+    {
+      "collection": "cargo",
+      "label": "no veículo",
+      "name": "cargo.{id}.loaded"
+    },
+    {
+      "collection": "cargo",
+      "label": "entregues",
+      "name": "cargo.{id}.delivered"
+    },
+    {
+      "collection": "cargo",
+      "label": "quantidade certa",
+      "name": "cargo.{id}.total"
+    },
+    {
+      "collection": "pedGroups",
+      "label": "vivos",
+      "name": "group.{id}.alive"
+    },
+    {
+      "collection": "pedGroups",
+      "label": "mortos",
+      "name": "group.{id}.dead"
+    },
+    {
+      "collection": "pedGroups",
+      "label": "hostil",
+      "name": "group.{id}.hostile"
+    },
+    {
+      "collection": "interactions",
+      "label": "feita",
+      "name": "interaction.{id}.done"
+    },
+    {
+      "label": "participantes",
+      "name": "participants"
+    },
+    {
+      "label": "segundos desde o início",
+      "name": "elapsed"
+    }
+  ],
+  "events": [
+    {
+      "label": "Missão começou",
+      "value": "mission_started"
+    },
+    {
+      "label": "Passo começou",
+      "match": {
+        "key": "step",
+        "ref": "steps"
+      },
+      "value": "step_started"
+    },
+    {
+      "label": "Passo concluído",
+      "match": {
+        "key": "step",
+        "ref": "steps"
+      },
+      "value": "step_completed"
+    },
+    {
+      "label": "Entraram na zona",
+      "match": {
+        "key": "zone",
+        "ref": "zones"
+      },
+      "value": "zone_enter"
+    },
+    {
+      "label": "Saíram da zona",
+      "match": {
+        "key": "zone",
+        "ref": "zones"
+      },
+      "value": "zone_exit"
+    },
+    {
+      "label": "Carga pega",
+      "match": {
+        "key": "cargo",
+        "ref": "cargo"
+      },
+      "value": "cargo_picked"
+    },
+    {
+      "label": "Carga no veículo",
+      "match": {
+        "key": "cargo",
+        "ref": "cargo"
+      },
+      "value": "cargo_loaded"
+    },
+    {
+      "label": "Carga entregue",
+      "match": {
+        "key": "cargo",
+        "ref": "cargo"
+      },
+      "value": "cargo_delivered"
+    },
+    {
+      "label": "Carga largada",
+      "match": {
+        "key": "cargo",
+        "ref": "cargo"
+      },
+      "value": "cargo_dropped"
+    },
+    {
+      "label": "Interação com sucesso",
+      "match": {
+        "key": "interaction",
+        "ref": "interactions"
+      },
+      "value": "interaction_success"
+    },
+    {
+      "label": "Interação falhou",
+      "match": {
+        "key": "interaction",
+        "ref": "interactions"
+      },
+      "value": "interaction_failed"
+    },
+    {
+      "label": "Grupo ficou hostil",
+      "match": {
+        "key": "group",
+        "ref": "pedGroups"
+      },
+      "value": "group_hostile"
+    },
+    {
+      "label": "Grupo neutralizado",
+      "match": {
+        "key": "group",
+        "ref": "pedGroups"
+      },
+      "value": "group_dead"
+    },
+    {
+      "label": "NPC do grupo morreu",
+      "match": {
+        "key": "group",
+        "ref": "pedGroups"
+      },
+      "value": "ped_killed"
+    },
+    {
+      "label": "Tiro na área da missão",
+      "value": "shot_fired"
+    },
+    {
+      "label": "Variável mudou",
+      "match": {
+        "key": "var",
+        "ref": "variables"
+      },
+      "value": "var_changed"
+    },
+    {
+      "label": "Timer acabou",
+      "match": {
+        "key": "timer"
+      },
+      "value": "timer"
+    },
+    {
+      "label": "Reforço chegou",
+      "match": {
+        "key": "reinforcement",
+        "ref": "reinforcements"
+      },
+      "value": "reinforcement_arrived"
+    },
+    {
+      "label": "Perseguição começou",
+      "match": {
+        "key": "chase",
+        "ref": "chases"
+      },
+      "value": "chase_started"
+    },
+    {
+      "label": "Perseguição acabou",
+      "match": {
+        "key": "chase",
+        "ref": "chases"
+      },
+      "value": "chase_ended"
+    },
+    {
+      "label": "Veículo destruído",
+      "match": {
+        "key": "vehicle",
+        "ref": "vehicles"
+      },
+      "value": "vehicle_destroyed"
+    },
+    {
+      "label": "Participante saiu",
+      "value": "participant_left"
+    }
+  ],
+  "general": [
+    {
+      "key": "name",
+      "label": "Nome",
+      "maxLength": 64,
+      "required": true,
+      "type": "text"
+    },
+    {
+      "key": "id",
+      "label": "ID interno",
+      "readonly": true,
+      "type": "text"
+    },
+    {
+      "key": "description",
+      "label": "Descrição",
+      "maxLength": 500,
+      "type": "textarea"
+    },
+    {
+      "default": "geral",
+      "help": "Ex.: meth, coke.",
+      "key": "category",
+      "label": "Categoria",
+      "maxLength": 24,
+      "type": "text"
+    },
+    {
+      "default": "medium",
+      "key": "difficulty",
+      "label": "Dificuldade",
+      "options": [
+        {
+          "label": "Fácil",
+          "value": "easy"
+        },
+        {
+          "label": "Média",
+          "value": "medium"
+        },
+        {
+          "label": "Difícil",
+          "value": "hard"
+        }
+      ],
+      "type": "select"
+    },
+    {
+      "default": 1,
+      "key": "minPlayers",
+      "label": "Mínimo de jogadores",
+      "max": 16,
+      "min": 1,
+      "type": "number"
+    },
+    {
+      "default": 4,
+      "key": "maxPlayers",
+      "label": "Máximo de jogadores",
+      "max": 16,
+      "min": 1,
+      "type": "number"
+    },
+    {
+      "default": 60,
+      "key": "cooldownMinutes",
+      "label": "Cooldown (minutos)",
+      "max": 10080,
+      "min": 0,
+      "type": "number"
+    },
+    {
+      "default": 60,
+      "help": "0 = sem limite.",
+      "key": "timeLimitMinutes",
+      "label": "Tempo limite (minutos)",
+      "max": 240,
+      "min": 0,
+      "type": "number"
+    },
+    {
+      "default": false,
+      "key": "gangRequired",
+      "label": "Exige gang",
+      "type": "bool"
+    },
+    {
+      "default": 0,
+      "key": "gangMinGrade",
+      "label": "Cargo mínimo na gang",
+      "max": 20,
+      "min": 0,
+      "showIf": {
+        "is": [
+          true
+        ],
+        "key": "gangRequired"
+      },
+      "type": "number"
+    },
+    {
+      "default": 60,
+      "help": "Membros da mesma gang até esta distância de quem aceitou entram na missão. 0 = só quem aceitou.",
+      "key": "participantRadius",
+      "label": "Raio para puxar membros",
+      "max": 500,
+      "min": 0,
+      "type": "number"
+    }
+  ],
+  "reward": [
+    {
+      "default": "item",
+      "key": "type",
+      "label": "Tipo",
+      "options": [
+        {
+          "label": "Item",
+          "value": "item"
+        },
+        {
+          "label": "Dinheiro",
+          "value": "money"
+        }
+      ],
+      "type": "select"
+    },
+    {
+      "key": "item",
+      "label": "Item",
+      "showIf": {
+        "is": [
+          "item"
+        ],
+        "key": "type"
+      },
+      "type": "item"
+    },
+    {
+      "default": "cash",
+      "key": "account",
+      "label": "Conta",
+      "options": [
+        {
+          "label": "Dinheiro vivo",
+          "value": "cash"
+        },
+        {
+          "label": "Banco",
+          "value": "bank"
+        }
+      ],
+      "showIf": {
+        "is": [
+          "money"
+        ],
+        "key": "type"
+      },
+      "type": "select"
+    },
+    {
+      "default": 1,
+      "key": "amount",
+      "label": "Quantidade",
+      "max": 1000000,
+      "min": 1,
+      "type": "number"
+    },
+    {
+      "default": "each",
+      "key": "split",
+      "label": "Distribuição",
+      "options": [
+        {
+          "label": "Cada participante recebe",
+          "value": "each"
+        },
+        {
+          "label": "Dividido entre todos",
+          "value": "split"
+        }
+      ],
+      "type": "select"
+    }
+  ],
+  "start": [
+    {
+      "default": "phone",
+      "key": "type",
+      "label": "Como começa",
+      "options": [
+        {
+          "label": "Ligação (oferta)",
+          "value": "phone"
+        },
+        {
+          "label": "NPC",
+          "value": "npc"
+        },
+        {
+          "label": "Entrar numa zona",
+          "value": "zone"
+        },
+        {
+          "label": "Comando de admin",
+          "value": "command"
+        },
+        {
+          "label": "Export / evento de outro resource",
+          "value": "export"
+        }
+      ],
+      "type": "select"
+    },
+    {
+      "default": "Desconhecido",
+      "key": "caller",
+      "label": "Quem liga",
+      "showIf": {
+        "is": [
+          "phone",
+          "npc",
+          "zone"
+        ],
+        "key": "type"
+      },
+      "type": "text"
+    },
+    {
+      "key": "text",
+      "label": "Texto da oferta",
+      "maxLength": 300,
+      "showIf": {
+        "is": [
+          "phone",
+          "npc",
+          "zone"
+        ],
+        "key": "type"
+      },
+      "type": "textarea"
+    },
+    {
+      "default": "g_m_m_chicold_01",
+      "key": "npcModel",
+      "kind": "ped",
+      "label": "Modelo do NPC",
+      "showIf": {
+        "is": [
+          "npc"
+        ],
+        "key": "type"
+      },
+      "type": "model"
+    },
+    {
+      "heading": true,
+      "key": "npcCoords",
+      "label": "Posição do NPC",
+      "preview": {
+        "kind": "ped",
+        "modelKey": "npcModel"
+      },
+      "showIf": {
+        "is": [
+          "npc"
+        ],
+        "key": "type"
+      },
+      "type": "position"
+    },
+    {
+      "default": "WORLD_HUMAN_SMOKING",
+      "key": "npcScenario",
+      "label": "Cenário do NPC",
+      "showIf": {
+        "is": [
+          "npc"
+        ],
+        "key": "type"
+      },
+      "type": "text"
+    },
+    {
+      "default": "Conversar",
+      "key": "npcLabel",
+      "label": "Texto do alvo",
+      "showIf": {
+        "is": [
+          "npc"
+        ],
+        "key": "type"
+      },
+      "type": "text"
+    },
+    {
+      "key": "zoneCoords",
+      "label": "Centro da zona",
+      "showIf": {
+        "is": [
+          "zone"
+        ],
+        "key": "type"
+      },
+      "type": "position"
+    },
+    {
+      "default": 10,
+      "key": "zoneRadius",
+      "label": "Raio da zona",
+      "max": 200,
+      "min": 2,
+      "showIf": {
+        "is": [
+          "zone"
+        ],
+        "key": "type"
+      },
+      "type": "number"
+    }
+  ],
+  "stepCommon": [
+    {
+      "key": "label",
+      "label": "Nome do passo",
+      "required": true,
+      "type": "text"
+    },
+    {
+      "help": "Aceita {{variável}}. Vazio = nome do passo.",
+      "key": "objective",
+      "label": "Objetivo na tela",
+      "type": "text"
+    },
+    {
+      "default": true,
+      "key": "enabled",
+      "label": "Ativo",
+      "type": "bool"
+    },
+    {
+      "help": "Falso quando o passo chega = ele é pulado.",
+      "key": "condition",
+      "label": "Só executa se",
+      "type": "condition"
+    },
+    {
+      "key": "onStart",
+      "label": "Ao começar",
+      "type": "actions"
+    },
+    {
+      "key": "onComplete",
+      "label": "Ao concluir",
+      "type": "actions"
+    }
+  ],
+  "steps": [
+    {
+      "description": "Conclui quando os participantes entram no raio.",
+      "fields": [
+        {
+          "key": "coords",
+          "label": "Local",
+          "required": true,
+          "type": "position"
+        },
+        {
+          "default": 100,
+          "key": "radius",
+          "label": "Raio",
+          "max": 1000,
+          "min": 2,
+          "type": "number"
+        },
+        {
+          "default": "any",
+          "key": "who",
+          "label": "Quem precisa chegar",
+          "options": [
+            {
+              "label": "Qualquer participante",
+              "value": "any"
+            },
+            {
+              "label": "Todos os participantes",
+              "value": "all"
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "default": true,
+          "key": "showGps",
+          "label": "Rota no GPS",
+          "type": "bool"
+        },
+        {
+          "default": true,
+          "key": "showBlip",
+          "label": "Blip no mapa",
+          "type": "bool"
+        },
+        {
+          "default": "Destino",
+          "key": "blipLabel",
+          "label": "Nome do blip",
+          "type": "text"
+        },
+        {
+          "default": 1,
+          "key": "blipSprite",
+          "label": "Ícone do blip",
+          "type": "number"
+        },
+        {
+          "default": 5,
+          "key": "blipColor",
+          "label": "Cor do blip",
+          "options": [
+            {
+              "label": "Vermelho",
+              "value": 1
+            },
+            {
+              "label": "Verde",
+              "value": 2
+            },
+            {
+              "label": "Azul",
+              "value": 3
+            },
+            {
+              "label": "Amarelo",
+              "value": 5
+            },
+            {
+              "label": "Laranja",
+              "value": 17
+            },
+            {
+              "label": "Roxo",
+              "value": 27
+            },
+            {
+              "label": "Branco",
+              "value": 0
+            },
+            {
+              "label": "Cinza escuro",
+              "value": 40
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "default": false,
+          "key": "blipArea",
+          "label": "Mostrar área do raio",
+          "type": "bool"
+        }
+      ],
+      "label": "Ir até local",
+      "type": "goto"
+    },
+    {
+      "description": "Conclui quando a interação acontece (hack, revistar).",
+      "fields": [
+        {
+          "key": "interaction",
+          "label": "Interação",
+          "ref": "interactions",
+          "required": true,
+          "type": "ref"
+        },
+        {
+          "default": "any",
+          "key": "complete",
+          "label": "Conclui com",
+          "options": [
+            {
+              "label": "Só sucesso",
+              "value": "success"
+            },
+            {
+              "label": "Sucesso ou falha",
+              "value": "any"
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "default": false,
+          "key": "showBlip",
+          "label": "Blip no local",
+          "type": "bool"
+        }
+      ],
+      "label": "Interação",
+      "type": "interact"
+    },
+    {
+      "description": "Conclui quando os grupos escolhidos não têm ninguém vivo.",
+      "fields": [
+        {
+          "key": "groups",
+          "label": "Grupos",
+          "ref": "pedGroups",
+          "required": true,
+          "type": "refs"
+        }
+      ],
+      "label": "Neutralizar NPCs",
+      "type": "eliminate"
+    },
+    {
+      "description": "Conclui quando a quantidade de carga chega no estado escolhido.",
+      "fields": [
+        {
+          "key": "cargo",
+          "label": "Carga",
+          "ref": "cargo",
+          "required": true,
+          "type": "ref"
+        },
+        {
+          "default": "loaded",
+          "key": "target",
+          "label": "Estado",
+          "options": [
+            {
+              "label": "Pegas",
+              "value": "picked"
+            },
+            {
+              "label": "No veículo",
+              "value": "loaded"
+            },
+            {
+              "label": "Entregues",
+              "value": "delivered"
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "default": 0,
+          "help": "0 = toda a quantidade certa.",
+          "key": "count",
+          "label": "Quantidade",
+          "max": 50,
+          "min": 0,
+          "type": "number"
+        },
+        {
+          "default": true,
+          "key": "reveal",
+          "label": "Revela a carga ao começar",
+          "type": "bool"
+        }
+      ],
+      "label": "Carga",
+      "type": "cargo"
+    },
+    {
+      "description": "Conclui quando os participantes (ou o veículo) saem do raio.",
+      "fields": [
+        {
+          "key": "coords",
+          "label": "Centro da área",
+          "required": true,
+          "type": "position"
+        },
+        {
+          "default": 300,
+          "key": "radius",
+          "label": "Raio",
+          "max": 3000,
+          "min": 10,
+          "type": "number"
+        },
+        {
+          "default": "vehicle",
+          "key": "who",
+          "label": "Quem precisa sair",
+          "options": [
+            {
+              "label": "Qualquer participante",
+              "value": "any"
+            },
+            {
+              "label": "Todos os participantes",
+              "value": "all"
+            },
+            {
+              "label": "O veículo com a carga",
+              "value": "vehicle"
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "key": "cargo",
+          "label": "Carga exigida",
+          "optional": true,
+          "ref": "cargo",
+          "type": "ref"
+        },
+        {
+          "default": 0,
+          "help": "0 = toda a quantidade certa.",
+          "key": "cargoCount",
+          "label": "Quantidade exigida no veículo",
+          "max": 50,
+          "min": 0,
+          "type": "number"
+        },
+        {
+          "default": true,
+          "key": "showArea",
+          "label": "Mostrar área no mapa",
+          "type": "bool"
+        }
+      ],
+      "label": "Sair da área",
+      "type": "leave_area"
+    },
+    {
+      "description": "Leva a carga (ou o item) até o local de entrega.",
+      "fields": [
+        {
+          "default": "var",
+          "key": "source",
+          "label": "Local",
+          "options": [
+            {
+              "label": "Sorteado (variável)",
+              "value": "var"
+            },
+            {
+              "label": "Fixo",
+              "value": "fixed"
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "default": "delivery_location",
+          "key": "var",
+          "label": "Variável do local",
+          "showIf": {
+            "is": [
+              "var"
+            ],
+            "key": "source"
+          },
+          "type": "var"
+        },
+        {
+          "key": "coords",
+          "label": "Local fixo",
+          "showIf": {
+            "is": [
+              "fixed"
+            ],
+            "key": "source"
+          },
+          "type": "position"
+        },
+        {
+          "default": 8,
+          "key": "radius",
+          "label": "Raio (local fixo)",
+          "max": 60,
+          "min": 2,
+          "showIf": {
+            "is": [
+              "fixed"
+            ],
+            "key": "source"
+          },
+          "type": "number"
+        },
+        {
+          "default": "vehicle",
+          "key": "mode",
+          "label": "Tipo de entrega",
+          "options": [
+            {
+              "label": "Veículo com a carga",
+              "value": "vehicle"
+            },
+            {
+              "label": "Item no inventário",
+              "value": "item"
+            },
+            {
+              "label": "Só chegar",
+              "value": "presence"
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "key": "cargo",
+          "label": "Carga",
+          "ref": "cargo",
+          "showIf": {
+            "is": [
+              "vehicle"
+            ],
+            "key": "mode"
+          },
+          "type": "ref"
+        },
+        {
+          "default": 0,
+          "help": "0 = toda a quantidade certa.",
+          "key": "required",
+          "label": "Quantidade",
+          "max": 100,
+          "min": 0,
+          "type": "number"
+        },
+        {
+          "key": "item",
+          "label": "Item",
+          "showIf": {
+            "is": [
+              "item"
+            ],
+            "key": "mode"
+          },
+          "type": "item"
+        },
+        {
+          "default": true,
+          "key": "consume",
+          "label": "Consome a carga/item",
+          "type": "bool"
+        },
+        {
+          "default": 3,
+          "key": "holdSeconds",
+          "label": "Segundos parado no local",
+          "max": 60,
+          "min": 0,
+          "type": "number"
+        },
+        {
+          "key": "npcModel",
+          "kind": "ped",
+          "label": "NPC que recebe (opcional)",
+          "type": "model"
+        },
+        {
+          "default": 3,
+          "key": "npcOffset",
+          "label": "NPC a quantos metros do centro",
+          "max": 20,
+          "min": 0,
+          "type": "number"
+        },
+        {
+          "key": "npcText",
+          "label": "Falas do NPC na chegada",
+          "type": "strings"
+        },
+        {
+          "default": "Entrega",
+          "key": "blipLabel",
+          "label": "Nome do blip",
+          "type": "text"
+        }
+      ],
+      "label": "Entregar",
+      "type": "deliver"
+    },
+    {
+      "description": "Conclui depois de um tempo.",
+      "fields": [
+        {
+          "default": 10,
+          "key": "seconds",
+          "label": "Segundos (mínimo)",
+          "max": 3600,
+          "min": 0,
+          "type": "number"
+        },
+        {
+          "default": 0,
+          "help": "Maior que o mínimo = sorteia no intervalo.",
+          "key": "secondsMax",
+          "label": "Segundos (máximo)",
+          "max": 3600,
+          "min": 0,
+          "type": "number"
+        }
+      ],
+      "label": "Esperar",
+      "type": "wait"
+    },
+    {
+      "description": "Conclui quando a condição fica verdadeira.",
+      "fields": [
+        {
+          "key": "until",
+          "label": "Até que",
+          "required": true,
+          "type": "condition"
+        }
+      ],
+      "label": "Esperar condição",
+      "type": "condition"
+    },
+    {
+      "description": "Executa \"Ao começar\" e conclui na hora. Bom para organizar ramificações.",
+      "fields": [],
+      "label": "Só ações",
+      "type": "actions"
+    }
+  ],
+  "trigger": [
+    {
+      "key": "label",
+      "label": "Nome",
+      "required": true,
+      "type": "text"
+    },
+    {
+      "default": "cargo_picked",
+      "key": "on",
+      "label": "Quando",
+      "options": [
+        {
+          "label": "Missão começou",
+          "value": "mission_started"
+        },
+        {
+          "label": "Passo começou",
+          "match": {
+            "key": "step",
+            "ref": "steps"
+          },
+          "value": "step_started"
+        },
+        {
+          "label": "Passo concluído",
+          "match": {
+            "key": "step",
+            "ref": "steps"
+          },
+          "value": "step_completed"
+        },
+        {
+          "label": "Entraram na zona",
+          "match": {
+            "key": "zone",
+            "ref": "zones"
+          },
+          "value": "zone_enter"
+        },
+        {
+          "label": "Saíram da zona",
+          "match": {
+            "key": "zone",
+            "ref": "zones"
+          },
+          "value": "zone_exit"
+        },
+        {
+          "label": "Carga pega",
+          "match": {
+            "key": "cargo",
+            "ref": "cargo"
+          },
+          "value": "cargo_picked"
+        },
+        {
+          "label": "Carga no veículo",
+          "match": {
+            "key": "cargo",
+            "ref": "cargo"
+          },
+          "value": "cargo_loaded"
+        },
+        {
+          "label": "Carga entregue",
+          "match": {
+            "key": "cargo",
+            "ref": "cargo"
+          },
+          "value": "cargo_delivered"
+        },
+        {
+          "label": "Carga largada",
+          "match": {
+            "key": "cargo",
+            "ref": "cargo"
+          },
+          "value": "cargo_dropped"
+        },
+        {
+          "label": "Interação com sucesso",
+          "match": {
+            "key": "interaction",
+            "ref": "interactions"
+          },
+          "value": "interaction_success"
+        },
+        {
+          "label": "Interação falhou",
+          "match": {
+            "key": "interaction",
+            "ref": "interactions"
+          },
+          "value": "interaction_failed"
+        },
+        {
+          "label": "Grupo ficou hostil",
+          "match": {
+            "key": "group",
+            "ref": "pedGroups"
+          },
+          "value": "group_hostile"
+        },
+        {
+          "label": "Grupo neutralizado",
+          "match": {
+            "key": "group",
+            "ref": "pedGroups"
+          },
+          "value": "group_dead"
+        },
+        {
+          "label": "NPC do grupo morreu",
+          "match": {
+            "key": "group",
+            "ref": "pedGroups"
+          },
+          "value": "ped_killed"
+        },
+        {
+          "label": "Tiro na área da missão",
+          "value": "shot_fired"
+        },
+        {
+          "label": "Variável mudou",
+          "match": {
+            "key": "var",
+            "ref": "variables"
+          },
+          "value": "var_changed"
+        },
+        {
+          "label": "Timer acabou",
+          "match": {
+            "key": "timer"
+          },
+          "value": "timer"
+        },
+        {
+          "label": "Reforço chegou",
+          "match": {
+            "key": "reinforcement",
+            "ref": "reinforcements"
+          },
+          "value": "reinforcement_arrived"
+        },
+        {
+          "label": "Perseguição começou",
+          "match": {
+            "key": "chase",
+            "ref": "chases"
+          },
+          "value": "chase_started"
+        },
+        {
+          "label": "Perseguição acabou",
+          "match": {
+            "key": "chase",
+            "ref": "chases"
+          },
+          "value": "chase_ended"
+        },
+        {
+          "label": "Veículo destruído",
+          "match": {
+            "key": "vehicle",
+            "ref": "vehicles"
+          },
+          "value": "vehicle_destroyed"
+        },
+        {
+          "label": "Participante saiu",
+          "value": "participant_left"
+        }
+      ],
+      "type": "select"
+    },
+    {
+      "eventKey": "on",
+      "help": "Vazio = qualquer um.",
+      "key": "match",
+      "label": "Filtro",
+      "type": "eventMatch"
+    },
+    {
+      "key": "condition",
+      "label": "Só se",
+      "type": "condition"
+    },
+    {
+      "default": 0,
+      "key": "delay",
+      "label": "Espera (s, mínimo)",
+      "max": 600,
+      "min": 0,
+      "type": "number"
+    },
+    {
+      "default": 0,
+      "key": "delayMax",
+      "label": "Espera (s, máximo)",
+      "max": 600,
+      "min": 0,
+      "type": "number"
+    },
+    {
+      "default": 100,
+      "key": "chance",
+      "label": "Chance (%)",
+      "max": 100,
+      "min": 0,
+      "type": "number"
+    },
+    {
+      "default": true,
+      "key": "once",
+      "label": "Só uma vez",
+      "type": "bool"
+    },
+    {
+      "key": "actions",
+      "label": "Ações",
+      "type": "actions"
+    }
+  ]
+}

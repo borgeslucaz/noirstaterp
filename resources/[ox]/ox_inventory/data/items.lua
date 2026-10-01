@@ -2006,6 +2006,14 @@ return {
         weight = 100,
     },
 
+    -- Recompensa da missão Elysian Chemical Shipment (noir_missions). Sem imagem própria ainda.
+    ['chemical_precursor'] = {
+        label = 'Precursor químico',
+        rarity = 'uncommon',
+        weight = 2500,
+        description = 'Tambor de químico industrial desviado do porto.',
+    },
+
     ['oxy'] = {
         label = 'Oxycodone',
         rarity = 'uncommon',

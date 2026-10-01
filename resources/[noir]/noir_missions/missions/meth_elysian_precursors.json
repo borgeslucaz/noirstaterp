@@ -1,0 +1,892 @@
+{
+  "draft": {
+    "cargo": [
+      {
+        "canSprint": false,
+        "carryPreset": "barrel",
+        "correctLabel": "Lote {{cargo_batch}} — {{shipment}}",
+        "decoyVar": "cargo_batch",
+        "id": "barrels",
+        "inspect": true,
+        "label": "Tambores químicos",
+        "mode": "carry",
+        "model": "prop_barrel_02a",
+        "pieces": [
+          {
+            "w": 0,
+            "x": 52,
+            "y": -2562,
+            "z": 6
+          },
+          {
+            "w": 0,
+            "x": 53,
+            "y": -2563.2,
+            "z": 6
+          },
+          {
+            "w": 0,
+            "x": 51.8,
+            "y": -2564.4,
+            "z": 6
+          },
+          {
+            "w": 0,
+            "x": 58,
+            "y": -2565,
+            "z": 6
+          },
+          {
+            "w": 0,
+            "x": 59.2,
+            "y": -2565.2,
+            "z": 6
+          },
+          {
+            "w": 0,
+            "x": 64,
+            "y": -2563,
+            "z": 6
+          },
+          {
+            "w": 0,
+            "x": 65.2,
+            "y": -2563.1,
+            "z": 6
+          },
+          {
+            "w": 0,
+            "x": 64.6,
+            "y": -2564.3,
+            "z": 6
+          }
+        ],
+        "quantity": 4,
+        "randomizeCorrect": true,
+        "requireVehicle": true,
+        "revealed": false,
+        "vehicleId": "van",
+        "vehicleMode": "mission"
+      }
+    ],
+    "category": "meth",
+    "chases": [
+      {
+        "countMax": 2,
+        "countMin": 1,
+        "crew": [
+          {
+            "accuracy": 40,
+            "armor": 50,
+            "combatAbility": 2,
+            "combatRange": 1,
+            "health": 200,
+            "model": "g_m_y_mexgoon_01",
+            "weapon": "WEAPON_PISTOL"
+          },
+          {
+            "accuracy": 40,
+            "armor": 50,
+            "combatAbility": 2,
+            "combatRange": 1,
+            "health": 200,
+            "model": "g_m_y_mexgoon_01",
+            "weapon": "WEAPON_MICROSMG"
+          },
+          {
+            "accuracy": 40,
+            "armor": 50,
+            "combatAbility": 2,
+            "combatRange": 1,
+            "health": 200,
+            "model": "g_m_y_mexgoon_01",
+            "weapon": "WEAPON_MICROSMG"
+          }
+        ],
+        "driverShoots": false,
+        "drivingStyle": "aggressive",
+        "durationSeconds": 240,
+        "id": "enemy_suv",
+        "label": "SUV inimiga",
+        "loseDistance": 450,
+        "maxSpawnDistance": 450,
+        "maxSpeed": 45,
+        "minSpawnDistance": 120,
+        "model": "granger",
+        "passengersShoot": true,
+        "ram": true,
+        "roadSpawn": true,
+        "spawnPoints": [
+          {
+            "w": 180,
+            "x": 220,
+            "y": -2240,
+            "z": 6
+          },
+          {
+            "w": 200,
+            "x": -180,
+            "y": -2290,
+            "z": 6
+          },
+          {
+            "w": 90,
+            "x": 420,
+            "y": -2580,
+            "z": 6
+          },
+          {
+            "w": 0,
+            "x": 160,
+            "y": -2880,
+            "z": 6
+          }
+        ],
+        "waves": [
+          {
+            "countMax": 2,
+            "countMin": 1,
+            "delaySeconds": 15,
+            "model": "bati"
+          }
+        ]
+      }
+    ],
+    "cooldownMinutes": 180,
+    "deliveryGroups": [
+      {
+        "id": "meth_dropoffs",
+        "label": "Pontos de entrega de meth",
+        "points": [
+          {
+            "coords": {
+              "w": 90,
+              "x": 912,
+              "y": -2280,
+              "z": 30.5
+            },
+            "label": "Cypress Flats",
+            "radius": 10
+          },
+          {
+            "coords": {
+              "w": 0,
+              "x": 836,
+              "y": -1110,
+              "z": 26.4
+            },
+            "label": "La Mesa",
+            "radius": 10
+          },
+          {
+            "coords": {
+              "w": 0,
+              "x": 588,
+              "y": 2744,
+              "z": 42
+            },
+            "label": "Harmony",
+            "radius": 10
+          },
+          {
+            "coords": {
+              "w": 0,
+              "x": 1694,
+              "y": 3604,
+              "z": 35.4
+            },
+            "label": "Sandy Shores",
+            "radius": 10
+          },
+          {
+            "coords": {
+              "w": 0,
+              "x": 1384,
+              "y": -2080,
+              "z": 52
+            },
+            "label": "El Burro Heights",
+            "radius": 10
+          }
+        ]
+      }
+    ],
+    "description": "Roubar tambores de precursor químico de um galpão em Elysian Island e entregar a um contato.",
+    "difficulty": "medium",
+    "gangMinGrade": 0,
+    "gangRequired": true,
+    "id": "meth_elysian_precursors",
+    "interactions": [
+      {
+        "consumeItem": false,
+        "coords": {
+          "w": 270,
+          "x": 70,
+          "y": -2558,
+          "z": 6.95
+        },
+        "difficulty": 2,
+        "distance": 1.5,
+        "duration": 6,
+        "id": "office_pc",
+        "infoLines": [
+          {
+            "label": "Carga",
+            "value": "{{shipment}}"
+          },
+          {
+            "label": "Lote",
+            "value": "{{cargo_batch}}"
+          },
+          {
+            "label": "Armazenado",
+            "value": "{{cargo_storage}}"
+          }
+        ],
+        "infoTitle": "MANIFESTO DE CARGA",
+        "kind": "hack",
+        "label": "Hackear computador",
+        "minigame": "noir:circuit",
+        "model": "prop_laptop_01a",
+        "onFailure": [
+          {
+            "type": "set_var",
+            "value": "true",
+            "var": "alarm_active"
+          },
+          {
+            "kind": "warning",
+            "text": "O alarme disparou. Deu pra ver o lote antes de travar: {{cargo_batch}}.",
+            "type": "notify"
+          },
+          {
+            "cargo": "barrels",
+            "type": "reveal_cargo"
+          }
+        ],
+        "onSuccess": [
+          {
+            "type": "set_var",
+            "value": "true",
+            "var": "hack_success"
+          },
+          {
+            "type": "set_var",
+            "value": "false",
+            "var": "alarm_active"
+          },
+          {
+            "cargo": "barrels",
+            "type": "reveal_cargo"
+          }
+        ],
+        "once": true,
+        "retry": false,
+        "revealed": true
+      }
+    ],
+    "maxPlayers": 6,
+    "minPlayers": 2,
+    "name": "Elysian Chemical Shipment",
+    "participantRadius": 60,
+    "pedGroups": [
+      {
+        "alarmOnHostile": true,
+        "alarmVar": "alarm_active",
+        "behavior": "guard",
+        "hostileOnAlarm": true,
+        "hostileOnDamage": true,
+        "hostileOnShot": true,
+        "hostileZone": "restricted",
+        "id": "ext_guards",
+        "label": "Seguranças externos",
+        "peds": [
+          {
+            "accuracy": 35,
+            "armor": 25,
+            "combatAbility": 1,
+            "combatRange": 1,
+            "coords": {
+              "w": 180,
+              "x": 46,
+              "y": -2548,
+              "z": 6
+            },
+            "health": 200,
+            "model": "s_m_m_security_01",
+            "movement": "scenario",
+            "scenario": "WORLD_HUMAN_GUARD_STAND",
+            "weapon": "WEAPON_PISTOL"
+          },
+          {
+            "accuracy": 35,
+            "armor": 25,
+            "combatAbility": 1,
+            "combatRange": 1,
+            "coords": {
+              "w": 180,
+              "x": 74,
+              "y": -2548,
+              "z": 6
+            },
+            "health": 200,
+            "model": "s_m_m_security_01",
+            "movement": "scenario",
+            "scenario": "WORLD_HUMAN_GUARD_STAND",
+            "weapon": "WEAPON_PISTOL"
+          },
+          {
+            "accuracy": 35,
+            "armor": 25,
+            "combatAbility": 1,
+            "combatRange": 1,
+            "coords": {
+              "w": 200,
+              "x": 60,
+              "y": -2542,
+              "z": 6
+            },
+            "health": 200,
+            "model": "s_m_m_security_01",
+            "movement": "patrol",
+            "patrolRadius": 12,
+            "scenario": "WORLD_HUMAN_GUARD_STAND",
+            "weapon": "WEAPON_SMG"
+          }
+        ],
+        "shotRadius": 80,
+        "spawnOnStart": false,
+        "warnRadius": 15,
+        "warnText": [
+          "Ei! Área restrita. Dá meia volta.",
+          "Aqui não é lugar de passeio. Vaza."
+        ]
+      },
+      {
+        "alarmOnHostile": true,
+        "alarmVar": "alarm_active",
+        "behavior": "guard",
+        "hostileOnAlarm": true,
+        "hostileOnDamage": true,
+        "hostileOnShot": true,
+        "hostileZone": "restricted",
+        "id": "warehouse_guards",
+        "label": "Seguranças do galpão",
+        "peds": [
+          {
+            "accuracy": 35,
+            "armor": 25,
+            "combatAbility": 1,
+            "combatRange": 1,
+            "coords": {
+              "w": 90,
+              "x": 54,
+              "y": -2568,
+              "z": 6
+            },
+            "health": 200,
+            "model": "g_m_y_mexgoon_01",
+            "movement": "scenario",
+            "scenario": "WORLD_HUMAN_GUARD_STAND",
+            "weapon": "WEAPON_SMG"
+          },
+          {
+            "accuracy": 35,
+            "armor": 25,
+            "combatAbility": 1,
+            "combatRange": 1,
+            "coords": {
+              "w": 270,
+              "x": 66,
+              "y": -2570,
+              "z": 6
+            },
+            "health": 200,
+            "model": "g_m_y_mexgoon_01",
+            "movement": "scenario",
+            "scenario": "WORLD_HUMAN_GUARD_STAND",
+            "weapon": "WEAPON_PUMPSHOTGUN"
+          },
+          {
+            "accuracy": 35,
+            "armor": 25,
+            "combatAbility": 1,
+            "combatRange": 1,
+            "coords": {
+              "w": 0,
+              "x": 60,
+              "y": -2574,
+              "z": 6
+            },
+            "health": 200,
+            "model": "g_m_y_mexgoon_01",
+            "movement": "scenario",
+            "scenario": "WORLD_HUMAN_SMOKING",
+            "weapon": "WEAPON_PISTOL"
+          }
+        ],
+        "shotRadius": 60,
+        "spawnOnStart": false,
+        "warnRadius": 8,
+        "warnText": [
+          "Quem deixou você entrar?"
+        ]
+      },
+      {
+        "alarmOnHostile": true,
+        "alarmVar": "alarm_active",
+        "behavior": "guard",
+        "hostileOnAlarm": true,
+        "hostileOnDamage": true,
+        "hostileOnShot": true,
+        "hostileZone": "restricted",
+        "id": "office_guard",
+        "label": "Segurança do escritório",
+        "peds": [
+          {
+            "accuracy": 35,
+            "armor": 25,
+            "combatAbility": 1,
+            "combatRange": 1,
+            "coords": {
+              "w": 135,
+              "x": 69,
+              "y": -2556,
+              "z": 6
+            },
+            "health": 200,
+            "model": "s_m_m_security_01",
+            "movement": "scenario",
+            "scenario": "WORLD_HUMAN_CLIPBOARD",
+            "weapon": "WEAPON_PISTOL"
+          }
+        ],
+        "shotRadius": 40,
+        "spawnOnStart": false,
+        "warnRadius": 5,
+        "warnText": [
+          "O escritório tá fechado."
+        ]
+      }
+    ],
+    "props": [],
+    "reinforcements": [
+      {
+        "arrivalDistance": 18,
+        "crew": [
+          {
+            "accuracy": 40,
+            "armor": 50,
+            "combatAbility": 2,
+            "combatRange": 1,
+            "health": 200,
+            "model": "g_m_y_mexgoon_01",
+            "weapon": "WEAPON_PISTOL"
+          },
+          {
+            "accuracy": 40,
+            "armor": 50,
+            "combatAbility": 2,
+            "combatRange": 1,
+            "health": 200,
+            "model": "g_m_y_mexgoon_01",
+            "weapon": "WEAPON_SMG"
+          },
+          {
+            "accuracy": 40,
+            "armor": 50,
+            "combatAbility": 2,
+            "combatRange": 1,
+            "health": 200,
+            "model": "g_m_y_mexgoon_01",
+            "weapon": "WEAPON_SMG"
+          },
+          {
+            "accuracy": 40,
+            "armor": 50,
+            "combatAbility": 2,
+            "combatRange": 1,
+            "health": 200,
+            "model": "g_m_y_mexgoon_01",
+            "weapon": "WEAPON_PUMPSHOTGUN"
+          }
+        ],
+        "destination": {
+          "w": 0,
+          "x": 40,
+          "y": -2540,
+          "z": 6
+        },
+        "drivingStyle": "rushed",
+        "engage": true,
+        "exitOnArrival": true,
+        "id": "suv",
+        "label": "SUV de reforço",
+        "maxTravelSeconds": 150,
+        "model": "granger",
+        "route": [],
+        "spawn": {
+          "w": 230,
+          "x": -260,
+          "y": -2470,
+          "z": 6
+        },
+        "speed": 28
+      }
+    ],
+    "rewards": [
+      {
+        "amount": 2,
+        "item": "chemical_precursor",
+        "split": "each",
+        "type": "item"
+      }
+    ],
+    "schema": 1,
+    "start": {
+      "caller": "Contato",
+      "text": "Tem um carregamento de químico parado num galpão em Elysian. Quatro tambores. Topa?",
+      "type": "phone"
+    },
+    "steps": [
+      {
+        "blipArea": false,
+        "blipColor": 5,
+        "blipLabel": "Galpão de Elysian",
+        "blipSprite": 473,
+        "coords": {
+          "w": 0,
+          "x": 60,
+          "y": -2560,
+          "z": 6
+        },
+        "enabled": true,
+        "id": "go_elysian",
+        "label": "Ir até Elysian Island",
+        "objective": "Vá até o galpão em Elysian Island.",
+        "onComplete": [
+          {
+            "group": "ext_guards",
+            "type": "spawn_group"
+          },
+          {
+            "group": "warehouse_guards",
+            "type": "spawn_group"
+          },
+          {
+            "group": "office_guard",
+            "type": "spawn_group"
+          }
+        ],
+        "onStart": [],
+        "radius": 100,
+        "showBlip": true,
+        "showGps": true,
+        "type": "goto",
+        "who": "any"
+      },
+      {
+        "complete": "any",
+        "enabled": true,
+        "id": "find_manifest",
+        "interaction": "office_pc",
+        "label": "Achar o manifesto",
+        "objective": "Encontre informações sobre o carregamento.",
+        "onComplete": [],
+        "onStart": [],
+        "showBlip": false,
+        "type": "interact"
+      },
+      {
+        "cargo": "barrels",
+        "count": 0,
+        "enabled": true,
+        "id": "load_barrels",
+        "label": "Carregar a van",
+        "objective": "Carregue os tambores químicos na van.",
+        "onComplete": [],
+        "onStart": [],
+        "reveal": true,
+        "target": "loaded",
+        "type": "cargo"
+      },
+      {
+        "cargo": "barrels",
+        "cargoCount": 0,
+        "coords": {
+          "w": 0,
+          "x": 60,
+          "y": -2560,
+          "z": 6
+        },
+        "enabled": true,
+        "id": "escape",
+        "label": "Sair de Elysian",
+        "objective": "Saia de Elysian Island com a carga.",
+        "onComplete": [
+          {
+            "text": "Bom trabalho. Tenho um lugar para vocês deixarem isso.",
+            "type": "send_sms"
+          },
+          {
+            "group": "meth_dropoffs",
+            "type": "pick_delivery",
+            "var": "delivery_location"
+          },
+          {
+            "else": [],
+            "percent": 60,
+            "then": [
+              {
+                "seconds": 20,
+                "secondsMax": 40,
+                "type": "wait"
+              },
+              {
+                "chase": "enemy_suv",
+                "type": "start_chase"
+              }
+            ],
+            "type": "chance"
+          }
+        ],
+        "onStart": [],
+        "radius": 350,
+        "showArea": true,
+        "type": "leave_area",
+        "who": "vehicle"
+      },
+      {
+        "blipLabel": "Entrega",
+        "cargo": "barrels",
+        "consume": true,
+        "enabled": true,
+        "holdSeconds": 3,
+        "id": "deliver",
+        "label": "Entregar a carga",
+        "mode": "vehicle",
+        "npcModel": "g_m_m_chicold_01",
+        "npcOffset": 4,
+        "npcText": [
+          "Coloca os tambores atrás. Rápido."
+        ],
+        "objective": "Entregue os tambores em {{delivery_location}}.",
+        "onComplete": [],
+        "onStart": [],
+        "required": 0,
+        "source": "var",
+        "type": "deliver",
+        "var": "delivery_location"
+      }
+    ],
+    "timeLimitMinutes": 60,
+    "triggers": [
+      {
+        "actions": [
+          {
+            "group": "ext_guards",
+            "type": "spawn_group"
+          },
+          {
+            "group": "warehouse_guards",
+            "type": "spawn_group"
+          },
+          {
+            "group": "office_guard",
+            "type": "spawn_group"
+          }
+        ],
+        "chance": 100,
+        "delay": 0,
+        "delayMax": 0,
+        "id": "arrive_area",
+        "label": "Chegada a Elysian cria os seguranças",
+        "match": "elysian",
+        "on": "zone_enter",
+        "once": true
+      },
+      {
+        "actions": [
+          {
+            "type": "set_var",
+            "value": "true",
+            "var": "reinforcement_called"
+          },
+          {
+            "seconds": 30,
+            "secondsMax": 0,
+            "type": "wait"
+          },
+          {
+            "reinforcement": "suv",
+            "type": "send_reinforcement"
+          }
+        ],
+        "chance": 100,
+        "condition": {
+          "mode": "all",
+          "rules": [
+            {
+              "op": "true",
+              "var": "alarm_active"
+            },
+            {
+              "op": "false",
+              "var": "reinforcement_called"
+            }
+          ]
+        },
+        "delay": 0,
+        "delayMax": 0,
+        "id": "alarm_first_barrel",
+        "label": "Primeiro tambor com alarme = reforço",
+        "match": "barrels",
+        "on": "cargo_picked",
+        "once": false
+      },
+      {
+        "actions": [
+          {
+            "type": "set_var",
+            "value": "true",
+            "var": "reinforcement_called"
+          },
+          {
+            "seconds": 30,
+            "secondsMax": 0,
+            "type": "wait"
+          },
+          {
+            "reinforcement": "suv",
+            "type": "send_reinforcement"
+          }
+        ],
+        "chance": 100,
+        "condition": {
+          "mode": "all",
+          "rules": [
+            {
+              "op": "true",
+              "var": "alarm_active"
+            },
+            {
+              "op": "gte",
+              "value": "1",
+              "var": "cargo.barrels.picked"
+            },
+            {
+              "op": "false",
+              "var": "reinforcement_called"
+            }
+          ]
+        },
+        "delay": 0,
+        "delayMax": 0,
+        "id": "alarm_after_pickup",
+        "label": "Alarme depois do primeiro tambor = reforço",
+        "match": "alarm_active",
+        "on": "var_changed",
+        "once": false
+      }
+    ],
+    "variables": [
+      {
+        "default": "false",
+        "id": "alarm_active",
+        "random": [],
+        "type": "boolean"
+      },
+      {
+        "default": "false",
+        "id": "hack_success",
+        "random": [],
+        "type": "boolean"
+      },
+      {
+        "default": "false",
+        "id": "reinforcement_called",
+        "random": [],
+        "type": "boolean"
+      },
+      {
+        "id": "shipment",
+        "random": [
+          "Composto de Limpeza Industrial",
+          "Solvente Industrial X-9",
+          "Desengraxante Pesado"
+        ],
+        "type": "string"
+      },
+      {
+        "id": "cargo_batch",
+        "random": [
+          "B-04",
+          "C-17",
+          "F-11",
+          "A-32"
+        ],
+        "type": "string"
+      },
+      {
+        "id": "cargo_storage",
+        "random": [
+          "Galpão B",
+          "Galpão C",
+          "Depósito 4"
+        ],
+        "type": "string"
+      },
+      {
+        "id": "delivery_location",
+        "random": [],
+        "type": "string"
+      }
+    ],
+    "vehicles": [
+      {
+        "cargoCapacity": 4,
+        "coords": {
+          "w": 90,
+          "x": 35,
+          "y": -2555,
+          "z": 6
+        },
+        "giveKeys": true,
+        "id": "van",
+        "label": "Van da carga",
+        "locked": false,
+        "model": "speedo",
+        "required": true,
+        "spawnOnStart": true
+      }
+    ],
+    "zones": [
+      {
+        "coords": {
+          "w": 0,
+          "x": 60,
+          "y": -2560,
+          "z": 6
+        },
+        "id": "elysian",
+        "label": "Elysian Island",
+        "radius": 220
+      },
+      {
+        "coords": {
+          "w": 0,
+          "x": 60,
+          "y": -2560,
+          "z": 6
+        },
+        "id": "restricted",
+        "label": "Galpão (área restrita)",
+        "radius": 22
+      }
+    ]
+  },
+  "id": "meth_elysian_precursors",
+  "status": "draft",
+  "updatedAt": 1790890937,
+  "updatedBy": "seed"
+}

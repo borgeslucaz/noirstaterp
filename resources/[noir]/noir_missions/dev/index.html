@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>noir_missions — preview</title>
+    <style>
+        /* Só o preview: fundo de "cena" para julgar transparência; a NUI roda num iframe 1:1. */
+        html, body { margin: 0; height: 100%; overflow: hidden; }
+        body {
+            background:
+                radial-gradient(120% 70% at 20% 85%, rgba(214, 120, 60, .35), transparent 60%),
+                radial-gradient(90% 60% at 75% 20%, rgba(70, 110, 160, .35), transparent 65%),
+                linear-gradient(180deg, #1d2633 0%, #3a3f4a 45%, #6b5a4e 75%, #2b2622 100%);
+        }
+        #nui { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; }
+        .preview {
+            position: fixed;
+            left: 16px;
+            bottom: 16px;
+            z-index: 5;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            max-width: 640px;
+        }
+        .preview button {
+            min-height: 32px;
+            padding: 0 12px;
+            border: 1px solid rgba(255, 255, 255, .11);
+            border-radius: 2px;
+            background: #171719;
+            color: rgba(255, 255, 255, .96);
+            font: 700 13px/1 "Saira Condensed", Arial, sans-serif;
+            letter-spacing: .03em;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+        .preview button:hover { background: #f2f2f2; color: #111113; }
+        @font-face { font-family: "Saira Condensed"; src: url("../web/mission-editor/fonts/SairaCondensed-700.woff2") format("woff2"); font-weight: 700; }
+    </style>
+</head>
+<body>
+<iframe id="nui" src="../web/mission-editor/index.html" title="NUI noir_missions" allowtransparency="true"></iframe>
+<div class="preview" aria-label="Controles do preview">
+    <button type="button" data-run="editor">Abrir editor</button>
+    <button type="button" data-run="mission">Abrir Elysian</button>
+    <button type="button" data-run="objective">Objetivo</button>
+    <button type="button" data-run="info">Informação</button>
+    <button type="button" data-run="offer">Oferta</button>
+    <button type="button" data-run="reset">Fechar tudo</button>
+</div>
+<script type="module" src="preview.js"></script>
+</body>
+</html>
