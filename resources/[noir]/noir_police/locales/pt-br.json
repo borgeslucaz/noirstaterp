@@ -349,5 +349,7 @@
     "evidence.blood_sample_label": "Amostra de sangue",
     "evidence.blood_sample_description": "DNA %s, tipo %s. Colhida por %s.",
     "editor.reception": "Recepção (retirada de pertences)",
-    "placement.object_help": "[Mira] posicionar  \n[Roda do mouse] girar (Shift: rápido)  \n[Enter] confirmar  \n[Backspace] cancelar"
+    "placement.object_help": "[Mira] posicionar  \n[Roda do mouse] girar (Shift: rápido)  \n[Enter] confirmar  \n[Backspace] cancelar",
+    "info.seizure_bonus": "Bônus da apreensão #%s: $%s no banco",
+    "info.seizure_bonus_owed": "Bônus de apreensões a receber: $%s no banco"
 }

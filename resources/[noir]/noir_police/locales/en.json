@@ -349,5 +349,7 @@
     "evidence.blood_sample_label": "Blood sample",
     "evidence.blood_sample_description": "DNA %s, type %s. Taken by %s.",
     "editor.reception": "Reception (belongings pickup)",
-    "placement.object_help": "[Aim] position  \n[Mouse wheel] rotate (Shift: faster)  \n[Enter] confirm  \n[Backspace] cancel"
+    "placement.object_help": "[Aim] position  \n[Mouse wheel] rotate (Shift: faster)  \n[Enter] confirm  \n[Backspace] cancel",
+    "info.seizure_bonus": "Seizure #%s bonus: $%s to your bank",
+    "info.seizure_bonus_owed": "Owed seizure bonuses: $%s to your bank"
 }

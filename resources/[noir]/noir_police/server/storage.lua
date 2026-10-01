@@ -4,7 +4,8 @@ local Storage = {}
 
 local ready = false
 
-local MIGRATIONS = { 'migrations/001_initial.sql', 'migrations/002_layout.sql', 'migrations/003_dna.sql' }
+local MIGRATIONS = { 'migrations/001_initial.sql', 'migrations/002_layout.sql', 'migrations/003_dna.sql',
+    'migrations/004_seizure_bonus.sql' }
 
 ---Roda as migrations em ordem. Só `CREATE TABLE IF NOT EXISTS` é aceito.
 function Storage.migrate()
@@ -103,7 +104,7 @@ end
 ---@return table? row
 function Storage.getDeposit(id)
     return MySQL.single.await([[
-        SELECT id, department, officer_cid, target_cid, contents, status FROM noir_police_deposits WHERE id = ?
+        SELECT id, department, officer_cid, target_cid, contents, unmatched, status FROM noir_police_deposits WHERE id = ?
     ]], { id })
 end
 
@@ -115,6 +116,47 @@ function Storage.resolveDeposit(id, status, resolvedBy)
         WHERE id = ? AND status = 'stored'
     ]], { status, resolvedBy, id })
     return type(affected) == 'number' and affected > 0
+end
+
+-- Bônus de apreensão -------------------------------------------------------------------
+
+---Quanto o policial já ganhou de bônus na última hora (pago ou a receber).
+---@return integer
+function Storage.bonusLastHour(officerCid)
+    return math.tointeger(tonumber(MySQL.scalar.await([[
+        SELECT COALESCE(SUM(amount), 0) FROM noir_police_seizure_bonus
+        WHERE officer_cid = ? AND created_at >= NOW() - INTERVAL 1 HOUR
+    ]], { officerCid })) or 0) or 0
+end
+
+---Registra o bônus do depósito. false quando o depósito já tinha bônus.
+---@return boolean
+function Storage.addBonus(depositId, officerCid, amount, baseValue)
+    local ok, id = pcall(MySQL.insert.await, [[
+        INSERT INTO noir_police_seizure_bonus (deposit_id, officer_cid, amount, base_value) VALUES (?, ?, ?, ?)
+    ]], { depositId, officerCid, amount, baseValue })
+    return ok and id ~= nil
+end
+
+---Marca um bônus como pago. true só para quem ganhou a corrida.
+---@return boolean
+function Storage.markBonusPaid(depositId)
+    local affected = MySQL.update.await([[
+        UPDATE noir_police_seizure_bonus SET paid = 1, paid_at = CURRENT_TIMESTAMP WHERE deposit_id = ? AND paid = 0
+    ]], { depositId })
+    return type(affected) == 'number' and affected > 0
+end
+
+---Volta um bônus para "a receber" (o crédito no banco falhou).
+function Storage.unmarkBonusPaid(depositId)
+    MySQL.update.await('UPDATE noir_police_seizure_bonus SET paid = 0, paid_at = NULL WHERE deposit_id = ?', { depositId })
+end
+
+---@return { deposit_id: integer, amount: integer }[]
+function Storage.owedBonuses(officerCid)
+    return MySQL.query.await([[
+        SELECT deposit_id, amount FROM noir_police_seizure_bonus WHERE officer_cid = ? AND paid = 0 ORDER BY deposit_id
+    ]], { officerCid }) or {}
 end
 
 ---Volta um depósito para 'stored' (compensação quando a entrega do item falha).

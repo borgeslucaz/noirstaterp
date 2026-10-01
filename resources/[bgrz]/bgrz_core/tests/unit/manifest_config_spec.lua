@@ -11,7 +11,7 @@ assert(BGRZConfig.Version == '0.5.0', 'config version must be 0.5.0')
 assert(BGRZConfig.Providers.inventory == 'ox_inventory', 'inventory provider missing')
 assert(BGRZConfig.Providers.target == 'ox_target', 'target provider missing')
 assert(BGRZConfig.Providers.phone == 'sky_phone', 'phone provider missing')
-assert(BGRZConfig.Providers.dispatch == nil, 'dispatch has no primary provider in this base')
+assert(BGRZConfig.Providers.dispatch == 'ps-mdt', 'dispatch goes to the ps-mdt')
 assert(BGRZConfig.Providers.dispatchFallback == 'noir_police', 'dispatch fallback missing')
 assert(BGRZConfig.Limits.maxItemAmount == 100000, 'item amount limit missing')
 

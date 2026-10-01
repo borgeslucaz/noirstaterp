@@ -358,6 +358,49 @@ lib.callback.register('noir_police:server:listDeposits', function(src)
     return { ok = true, deposits = list }
 end)
 
+-- Bônus de apreensão -------------------------------------------------------------------
+
+---Credita um bônus já registrado. Policial offline fica "a receber" até o próximo ponto.
+---@return boolean paid
+local function payBonus(officerSrc, depositId, amount)
+    if not Storage.markBonusPaid(depositId) then return false end
+    if not Integrations.addMoney(officerSrc, cfg.bonus.account, amount, 'noir_police:seizure_bonus') then
+        Storage.unmarkBonusPaid(depositId)
+        return false
+    end
+    return true
+end
+
+---Bônus do depósito destruído para quem depositou (não para quem destruiu).
+---@param row table depósito
+---@param contents { name: string, count: integer }[]
+local function grantBonus(row, contents)
+    local bonus = cfg.bonus
+    local unmatched = json.decode(row.unmatched or '{}') or {}
+    local amount, base = Utils.seizureBonus(contents, unmatched, bonus.values, bonus.rate,
+        Storage.bonusLastHour(row.officer_cid), bonus.hourlyCap)
+    if amount <= 0 then return end
+    if not Storage.addBonus(row.id, row.officer_cid, amount, base) then return end
+
+    local officerSrc = Integrations.getSourceByCitizenId(row.officer_cid)
+    if officerSrc and payBonus(officerSrc, row.id, amount) then
+        Integrations.notify(officerSrc, locale('info.seizure_bonus', row.id, amount), 'success')
+    end
+    Integrations.log(false, 'seizure_bonus', ('#%d: $%d para %s (valor de rua $%d)'):format(row.id, amount, row.officer_cid, base))
+end
+
+-- Quem estava offline na destruição recebe ao bater o ponto.
+AddEventHandler('bgrz_core:server:dutyUpdated', function(src, onDuty)
+    if not onDuty or not src then return end
+    local cid = Integrations.getCitizenId(src)
+    if not cid then return end
+    local total = 0
+    for _, owed in ipairs(Storage.owedBonuses(cid)) do
+        if payBonus(src, owed.deposit_id, owed.amount) then total = total + owed.amount end
+    end
+    if total > 0 then Integrations.notify(src, locale('info.seizure_bonus_owed', total), 'success') end
+end)
+
 local function removeBag(department, depositId)
     Integrations.removeItemsWithMetadata(stashId(department), Config.items.filledBag, { depositId = depositId })
 end
@@ -429,12 +472,15 @@ lib.callback.register('noir_police:server:resolveDeposit', function(src, deposit
         removeBag(job.name, depositId)
         Integrations.log(src, 'deposit_incorporate', ('#%d: $%d incorporado à conta %s por %s'):format(
             depositId, amount, department.account, Integrations.getName(src)))
+        -- O resto da caixa é destruído junto com a sacola: conta para o bônus.
+        grantBonus(row, contents)
         return { ok = true, amount = amount }
     end
 
     if not Storage.resolveDeposit(depositId, 'destroyed', officerCid) then return fail('invalid_deposit') end
     removeBag(job.name, depositId)
     Integrations.log(src, 'deposit_destroy', ('#%d destruído por %s'):format(depositId, Integrations.getName(src)))
+    grantBonus(row, contents)
     return { ok = true }
 end)
 

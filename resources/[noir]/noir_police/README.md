@@ -12,7 +12,7 @@ Nasceu de um fork do [ND_Police](https://github.com/ND-Framework/ND_Police) (com
 | Contenção | mãos para cima (X, segurar ajoelha), algema, zip tie, arrombar algema, escolta, carregar no ombro, viatura | `server/state.lua` é a verdade; state bag é espelho regravado se o cliente mexer |
 | Serviço | ponto de duty por delegacia, blips de colegas (polícia e EMS) | `GetCopCount`, `police:SetCopCount` (legado) |
 | Evidência | cápsula e projétil por tiro, sangue, digital, GSR, exame, DNA, leitor de digital | pontos no servidor, só policial em serviço recebe |
-| Apreensão | depósito da `seized_box`, pendências, gaveta, destino | hook `swapItems` registra pendência; tabela no banco |
+| Apreensão | depósito da `seized_box`, pendências, gaveta, destino; bônus de 15% do valor de rua na destruição para quem depositou, teto de $1.000/h (`seizure.bonus`) | hook `swapItems` registra pendência; tabela no banco; bônus de offline pago no próximo ponto |
 | Frota | garagem e heliponto por delegacia, armário de uniforme | uma viatura ativa por policial |
 | Campo | menu F6: status, área interditada, reunião, limpar evidência, 10-99; multa, licença, tornozeleira, prisão (xt-prison) | teto por departamento, log; multa (campo e radar) vira fatura bloqueante no Renewed-Banking via `bgrz_core:CreateInvoice` |
 | Equipamento | objetos do porta-malas, spike strip, escudo | objetos e spikes criados no servidor |

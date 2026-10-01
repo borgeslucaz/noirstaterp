@@ -5,7 +5,9 @@ BGRZConfig = {
         inventory = 'ox_inventory',
         target = 'ox_target',
         phone = 'sky_phone',
-        -- Sem MDT com chamado na base: o dispatch vai direto para o dispatchFallback.
+        -- MDT que recebe o chamado (export mdtCreateCall). O aviso com blip para quem está na rua
+        -- sai sempre pelo dispatchFallback, com ou sem MDT.
+        dispatch = 'ps-mdt',
         dispatchFallback = 'noir_police',
         banking = 'Renewed-Banking',
         gangs = 'noir_gangs',

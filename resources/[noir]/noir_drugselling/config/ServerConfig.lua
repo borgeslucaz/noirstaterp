@@ -14,3 +14,23 @@ ServerConfig.PolicePrice = {
     { minimumPolice = 1, multiplier = 1.0 },
     { minimumPolice = 3, multiplier = 1.2 },
 }
+-- Chamado da polícia na venda fechada, decidido no servidor (o cliente não escolhe se avisa).
+-- A chance começa em `baseChance` e sobe `stepPerSale` a cada venda recente no mesmo ponto
+-- (raio `radius`, últimos `windowSeconds`), até `maxChance`. Comprador cujo tipo tem
+-- `dispatchCall = false` (Config.PedTypes) nunca chama. O chamado vai pelo bgrz_core: MDT
+-- com código e prioridade, e aviso com blip para quem está na rua. A posição sai com um
+-- desvio de até `jitter` metros: o 190 sabe o quarteirão, não o vendedor.
+ServerConfig.StreetDispatch = {
+    baseChance = 5,
+    stepPerSale = 2.5,
+    maxChance = 15,
+    radius = 100.0,
+    windowSeconds = 30 * 60,
+    jitter = 25.0,
+    code = '10-66',
+    title = 'Venda de droga',
+    message = 'Movimento suspeito de venda de droga na rua',
+    priority = 3,
+    duration = 300,
+    jobs = { 'police', 'bcso', 'sasp' },
+}

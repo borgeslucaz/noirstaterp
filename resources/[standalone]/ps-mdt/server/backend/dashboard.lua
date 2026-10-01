@@ -318,6 +318,7 @@ local function pruneDismissed()
     end
     for id, call in pairs(ManualDispatches) do
         if call.time and (os.time() - math.floor(call.time / 1000)) > MANUAL_TTL then ManualDispatches[id] = nil end
+        if call.expiresAt and os.time() > call.expiresAt then ManualDispatches[id] = nil end
     end
 end
 
@@ -936,6 +937,50 @@ ps.registerCallback(resourceName .. ':server:createManualDispatch', function(sou
     TriggerClientEvent(resourceName .. ':client:dispatchNoteChanged', -1, id)
     return { success = true, id = id }
 end)
+
+-- ---------------------------------------------------------------------------
+-- Noir: chamado criado por outro resource no servidor (provider `dispatch` do
+-- bgrz_core). Sem resource de dispatch rodando, é por aqui que o chamado chega ao
+-- MDT com código e prioridade, como os chamados criados pelo próprio MDT.
+--   data = { code, type, priority (1 alta .. 4), location, coords, ttl (s), jobs? }
+-- Devolve o id do chamado, ou nil quando o pedido é inválido.
+-- ---------------------------------------------------------------------------
+local function mdtCreateCall(data)
+    if type(data) ~= 'table' then return nil end
+    local coords = data.coords
+    if type(coords) ~= 'table' and type(coords) ~= 'vector3' then return nil end
+    local x, y = tonumber(coords.x), tonumber(coords.y)
+    if not x or not y then return nil end
+    local code = type(data.code) == 'string' and data.code:sub(1, 12) or ''
+    local title = type(data.type) == 'string' and data.type:sub(1, 96) or ''
+    if code == '' and title == '' then return nil end
+
+    manualSeq = manualSeq + 1
+    local id = 'mdt-' .. os.time() .. '-' .. manualSeq
+    local ttl = math.tointeger(tonumber(data.ttl)) or MANUAL_TTL
+    local jobs = type(data.jobs) == 'table' and #data.jobs > 0 and data.jobs or nil
+
+    ManualDispatches[id] = {
+        id        = id,
+        code      = code ~= '' and code or title,
+        message   = title ~= '' and title or code,
+        -- O MDT tem 3 níveis (1 alta, 3 baixa); o 4 do bgrz_core cai no 3.
+        priority  = math.max(1, math.min(3, math.tointeger(tonumber(data.priority)) or 3)),
+        time      = os.time() * 1000,
+        expiresAt = os.time() + math.max(30, math.min(ttl, MANUAL_TTL)),
+        coords    = { x = x, y = y, z = tonumber(coords.z) or 0.0 },
+        street    = type(data.location) == 'string' and data.location:sub(1, 120) or nil,
+        units     = {},
+        jobs      = jobs,
+        manual    = true,
+    }
+
+    invalidateDispatchCache()
+    TriggerClientEvent(resourceName .. ':client:dispatchNoteChanged', -1, id)
+    return id
+end
+
+exports('mdtCreateCall', mdtCreateCall)
 
 -- ---------------------------------------------------------------------------
 -- Dispatcher: assign or detach OTHER units to/from a dispatch call.

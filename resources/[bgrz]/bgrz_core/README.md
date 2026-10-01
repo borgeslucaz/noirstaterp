@@ -249,7 +249,7 @@ local ok, resultOrError = exports.bgrz_core:SendDispatch({
 })
 ```
 
-Coordenadas explícitas e finitas são obrigatórias. Se `Providers.dispatch` apontar para um MDT com `mdtCreateCall`, o adapter tenta ele primeiro. Nesta base não há nenhum (o `ps-mdt` não cria chamado por export), então vai direto ao fallback: envia `police:client:policeAlert` diretamente apenas aos jobs configurados e em serviço. Em sucesso, o segundo retorno informa `provider`, e também `id` ou `recipients` conforme o caminho.
+Coordenadas explícitas e finitas são obrigatórias. O chamado vai para o MDT de `Providers.dispatch` (nesta base o `ps-mdt`, pelo export `mdtCreateCall`), com código, título, prioridade e duração, **e** o aviso com blip vai pelo fallback: `police:client:policeAlert` só para os jobs configurados e em serviço, com o texto `[código] título: mensagem`. Os dois caminhos são independentes; basta um funcionar. Em sucesso, o segundo retorno informa `provider` (o MDT, ou o fallback quando o MDT não respondeu), `id` do chamado no MDT quando houver e `recipients` do aviso.
 
 ## Testes
 

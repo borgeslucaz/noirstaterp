@@ -103,6 +103,38 @@ function Utils.matchPending(deposited, pending)
     return matched, available
 end
 
+---Bônus de uma apreensão destruída: fração do valor de rua do que foi tirado de outro
+---jogador (o que bateu com pendência), com teto por hora. O que o policial pôs na caixa
+---sem pendência (`unmatched`) não conta.
+---@param contents { name: string, count: integer }[]
+---@param unmatched table<string, integer>?
+---@param values table<string, number> valor de rua por unidade
+---@param rate number
+---@param earnedLastHour integer
+---@param hourlyCap integer
+---@return integer amount
+---@return integer baseValue
+function Utils.seizureBonus(contents, unmatched, values, rate, earnedLastHour, hourlyCap)
+    local seized = {}
+    for index = 1, #contents do
+        local entry = contents[index]
+        seized[entry.name] = (seized[entry.name] or 0) + (math.tointeger(entry.count) or 0)
+    end
+
+    local base = 0
+    for name, count in pairs(seized) do
+        local value = values[name]
+        if value then
+            local fromOthers = count - math.max(0, math.tointeger((unmatched or {})[name]) or 0)
+            if fromOthers > 0 then base = base + fromOthers * value end
+        end
+    end
+    base = math.floor(base)
+
+    local room = math.max(0, hourlyCap - earnedLastHour)
+    return math.min(math.floor(base * rate), room), base
+end
+
 ---Código de DNA: o mesmo personagem sempre gera o mesmo código, mas o código não volta
 ---para o citizenid sem a chave do servidor. Dois joaat com a chave em lados opostos
 ---dão 64 bits, o bastante para não colidir entre personagens.

@@ -232,6 +232,7 @@ Fr.RegisterServerCallback('op-drugselling:sellDrug', function(source, cb, drugNa
         Fr.ManageDirtyMoney(xPlayer, "add", finalPrice)
 
         NoirDrugTerritory.onSale(source)
+        NoirDrugDispatch.onSale(source, cfgPed)
 
         -- A venda fechada também é reputação da gang, mas quem decide quanto é o
         -- noir_illegal_core, que escuta este evento. Aqui só se diz o que aconteceu — a mesma

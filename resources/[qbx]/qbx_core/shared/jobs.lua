@@ -4,6 +4,9 @@
 -- police, bcso, sasp, ambulance e judge, que entram no jogo fora de serviço (defaultDuty =
 -- false) e só recebem com o ponto batido. Os outros jobs ficam com payment = 0: salário de
 -- empresa vai ser feito de outra forma.
+-- A polícia fica perto da âncora civil de ~$550/h: recruta $275 por 30 min, ~8% a mais por
+-- cargo, chefe $375. O resto da renda do policial é o bônus por apreensão destruída
+-- (noir_police).
 return {
     ['unemployed'] = {
         label = 'Civilian',
@@ -24,25 +27,25 @@ return {
         grades = {
             [0] = {
                 name = 'Recruit',
-                payment = 800
+                payment = 275
             },
             [1] = {
                 name = 'Officer',
-                payment = 1050
+                payment = 300
             },
             [2] = {
                 name = 'Sergeant',
-                payment = 1400
+                payment = 325
             },
             [3] = {
                 name = 'Lieutenant',
-                payment = 1850
+                payment = 350
             },
             [4] = {
                 name = 'Chief',
                 isboss = true,
                 bankAuth = true,
-                payment = 2500
+                payment = 375
             },
         },
     },
@@ -54,25 +57,25 @@ return {
         grades = {
             [0] = {
                 name = 'Recruit',
-                payment = 800
+                payment = 275
             },
             [1] = {
                 name = 'Officer',
-                payment = 1050
+                payment = 300
             },
             [2] = {
                 name = 'Sergeant',
-                payment = 1400
+                payment = 325
             },
             [3] = {
                 name = 'Lieutenant',
-                payment = 1850
+                payment = 350
             },
             [4] = {
                 name = 'Chief',
                 isboss = true,
                 bankAuth = true,
-                payment = 2500
+                payment = 375
             },
         },
     },
@@ -84,25 +87,25 @@ return {
         grades = {
             [0] = {
                 name = 'Recruit',
-                payment = 800
+                payment = 275
             },
             [1] = {
                 name = 'Officer',
-                payment = 1050
+                payment = 300
             },
             [2] = {
                 name = 'Sergeant',
-                payment = 1400
+                payment = 325
             },
             [3] = {
                 name = 'Lieutenant',
-                payment = 1850
+                payment = 350
             },
             [4] = {
                 name = 'Chief',
                 isboss = true,
                 bankAuth = true,
-                payment = 2500
+                payment = 375
             },
         },
     },

@@ -94,6 +94,7 @@ local function sendPrimary(request)
             coords = request.coords,
             ttl = request.duration,
             domain = 'leo',
+            jobs = request.jobs,
         })
     end)
     if not called or not callId then return nil end
@@ -118,6 +119,10 @@ local function sendPoliceFallback(request)
     if not called or type(players) ~= 'table' then return nil end
 
     local acceptedJobs = jobsMap(request.jobs)
+    -- O aviso na tela leva o código e o título; o MDT guarda a prioridade.
+    local text = request.message ~= request.title
+        and ('[%s] %s: %s'):format(request.code, request.title, request.message)
+        or ('[%s] %s'):format(request.code, request.title)
     local recipients = 0
     for playerKey, player in pairs(players) do
         local data = type(player) == 'table' and player.PlayerData or nil
@@ -130,7 +135,7 @@ local function sendPoliceFallback(request)
                 'police:client:policeAlert',
                 target,
                 request.coords,
-                request.message
+                text
             )
             if emitted then recipients = recipients + 1 end
         end
@@ -144,9 +149,15 @@ end
 function BGRZ.SendDispatch(request)
     local normalized, validationError = normalizeRequest(request)
     if not normalized then return false, validationError end
-    local result = sendPrimary(normalized) or sendPoliceFallback(normalized)
-    if not result then return false, 'provider_unavailable' end
-    return true, result
+    -- O MDT registra o chamado e o fallback avisa quem está na rua; um não substitui o outro.
+    local primary = sendPrimary(normalized)
+    local field = sendPoliceFallback(normalized)
+    if not primary and not field then return false, 'provider_unavailable' end
+    return true, {
+        provider = primary and primary.provider or field.provider,
+        id = primary and primary.id or nil,
+        recipients = field and field.recipients or 0,
+    }
 end
 
 exports('SendDispatch', BGRZ.SendDispatch)

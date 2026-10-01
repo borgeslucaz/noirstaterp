@@ -111,6 +111,34 @@ return {
         cleanMoneyItem = 'money',
         -- Nunca voltam ao dono na devolução: só podem ser destruídos.
         neverReturn = { black_money = true },
+        -- Bônus por apreensão destruída, pago ao policial que depositou a caixa: `rate` do
+        -- valor de rua do que ele tirou de outro jogador, até `hourlyCap` por hora. O salário
+        -- fica perto da âncora civil (qbx_core/shared/jobs.lua); é isto que faz a polícia
+        -- querer a cena. O bônus é sempre menor que o destruído, então o dreno continua.
+        bonus = {
+            rate = 0.15,
+            hourlyCap = 1000,
+            account = 'bank',
+            -- Valor de rua por unidade: o preço ideal do noir_drugselling (MainConfig) e o
+            -- próprio valor do dinheiro sujo. Droga nova na venda entra aqui também.
+            values = {
+                black_money = 1,
+                ['weed_og-kush_baggy'] = 43,
+                weed_ak47_baggy = 43,
+                weed_skunk_baggy = 60,
+                weed_amnesia_baggy = 60,
+                ['weed_purple-haze_baggy'] = 77,
+                ['weed_white-widow_baggy'] = 77,
+                ['weed_og-kush_brick'] = 555,
+                weed_ak47_brick = 555,
+                weed_skunk_brick = 780,
+                weed_amnesia_brick = 780,
+                ['weed_purple-haze_brick'] = 1005,
+                ['weed_white-widow_brick'] = 1005,
+                meth = 180,
+                cokebaggy = 580,
+            },
+        },
         -- Slots e peso máximo da seized_box (container).
         boxSlots = 20,
         boxMaxWeight = 150000,
