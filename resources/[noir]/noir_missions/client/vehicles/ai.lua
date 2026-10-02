@@ -72,6 +72,24 @@ function Vehicles.chase(ped, task, targetPed)
 end
 
 ---@param ped integer
+---@param task table { veh, target, speed, style, distance }
+function Vehicles.escort(ped, task)
+    local vehicle = vehicleOf(task.veh)
+    local target = vehicleOf(task.target)
+    if vehicle == 0 or target == 0 then return end
+    driverSetup(ped, task.style)
+    local kind = kindOf(GetEntityModel(vehicle))
+    local speed = (task.speed or 20) + 0.0
+    local distance = (task.distance or 12) + 0.0
+    if kind == 'heli' then
+        TaskHeliEscortHeli(ped, vehicle, target, 0.0, -distance, 5.0)
+        return
+    end
+    -- -1 = atrás do alvo. A distância mínima mantém a fila sem encostar.
+    TaskVehicleEscort(ped, vehicle, target, -1, speed, STYLES[task.style] or STYLES.normal, distance, 0, 20.0)
+end
+
+---@param ped integer
 ---@param task table { veh }
 function Vehicles.wander(ped, task)
     local vehicle = vehicleOf(task.veh)

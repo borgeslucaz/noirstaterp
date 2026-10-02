@@ -5,4 +5,4 @@ description 'SamuelDesigns Phone Prop'
 
 
 
-data_file 'DLC_ITYP_REQUEST' 'stream/sd_phone.ytyp'
+data_file 'DLC_ITYP_REQUEST' 'stream_enhanced/sd_phone.ytyp'

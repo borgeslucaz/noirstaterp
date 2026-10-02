@@ -55,7 +55,10 @@ function Cargo.count(inst, cargoId, what)
             elseif what == 'delivered' then
                 if piece.state == 'delivered' or (piece.state == 'collected' and piece.deliveredItem) then total = total + 1 end
             elseif piece.state == what then
-                total = total + 1
+                -- Ainda no veículo do comboio de onde saiu: não foi "carregada" por ninguém.
+                if not (what == 'loaded' and piece.inSource and not entry.def.sourceCounts) then
+                    total = total + 1
+                end
             end
         end
     end
@@ -72,7 +75,8 @@ function Cargo.loadedByVehicle(inst, cargoId)
     if not entry then return list end
     for index = 1, #entry.pieces do
         local piece = entry.pieces[index]
-        if piece.state == 'loaded' and piece.correct and piece.vehicle and DoesEntityExist(piece.vehicle.entity) then
+        if piece.state == 'loaded' and piece.correct and piece.vehicle and DoesEntityExist(piece.vehicle.entity)
+            and not (piece.inSource and not entry.def.sourceCounts) then
             local slot = byNet[piece.vehicle.netId]
             if not slot then
                 slot = { record = piece.vehicle, netId = piece.vehicle.netId, count = 0 }
@@ -109,7 +113,7 @@ end
 ---@param entry table
 ---@param piece table
 local function spawnPiece(inst, entry, piece)
-    if piece.record and World.exists(piece.record) then return end
+    if not piece.coords or (piece.record and World.exists(piece.record)) then return end
     piece.record = World.createObject(inst, ('cargo:%s:%d'):format(entry.def.id, piece.index),
         entry.def.model, piece.coords, true)
 end
@@ -139,7 +143,7 @@ function Cargo.dropCarried(inst, source, coords)
     coords = coords or Security.playerCoords(source)
     if coords then
         -- A origem do ped fica perto de um metro acima do chão.
-        piece.coords = { x = coords.x, y = coords.y, z = coords.z - 0.98, w = piece.coords.w or 0.0 }
+        piece.coords = { x = coords.x, y = coords.y, z = coords.z - 0.98, w = piece.coords and piece.coords.w or 0.0 }
     end
     piece.state = 'world'
     piece.carrier = nil
@@ -173,6 +177,25 @@ function Cargo.deliverFromVehicle(inst, cargoId, vehicleNetId, max, actor)
         Runtime.markDirty(inst)
     end
     return delivered
+end
+
+---Carga que nasce dentro de um veículo (comboio): as peças passam a estar nele.
+---@param inst table
+---@param cargoId string
+---@param vehicle table record do veículo
+function Cargo.loadIntoSource(inst, cargoId, vehicle)
+    local entry = group(inst, cargoId)
+    if not entry or not vehicle then return end
+    entry.sourceNetId = vehicle.netId
+    for index = 1, #entry.pieces do
+        local piece = entry.pieces[index]
+        if piece.state == 'pending' then
+            piece.state = 'loaded'
+            piece.vehicle = { entity = vehicle.entity, netId = vehicle.netId }
+            piece.inSource = true
+        end
+    end
+    Runtime.markDirty(inst)
 end
 
 ---Peças da carga que o jogo tem no mundo, para conferir distância pela posição real.
@@ -272,6 +295,15 @@ MissionComponents.register('cargo', {
         inst.carrying = {}
         for index = 1, #inst.def.cargo do
             local def = inst.def.cargo[index]
+            if def.startConvoy then
+                -- Nasce no comboio: peças sem posição, à espera do veículo (Cargo.loadIntoSource).
+                local pieces = {}
+                for pieceIndex = 1, def.quantity or 1 do
+                    pieces[pieceIndex] = { index = pieceIndex, correct = true, state = 'pending', everPicked = false, inspected = true }
+                end
+                inst.cargo[def.id] = { def = def, revealed = def.revealed == true, pieces = pieces, total = def.quantity or 1 }
+                goto continue
+            end
             local quantity = math.min(def.quantity or 1, #def.pieces)
 
             local order = {}
@@ -303,6 +335,7 @@ MissionComponents.register('cargo', {
                 }
             end
             inst.cargo[def.id] = { def = def, revealed = def.revealed == true, pieces = pieces, total = quantity }
+            ::continue::
         end
     end,
 
@@ -531,6 +564,7 @@ lib.callback.register('noir_missions:server:cargoLoad', function(source, instanc
     piece.state = 'loaded'
     piece.carrier = nil
     piece.vehicle = { entity = entity, netId = vehicleNetId }
+    piece.inSource = entry.sourceNetId ~= nil and entry.sourceNetId == vehicleNetId
     Runtime.emit(inst, 'cargo_loaded', { cargo = entry.def.id, actor = source })
     Runtime.markDirty(inst)
     return { ok = true }
@@ -555,8 +589,14 @@ lib.callback.register('noir_missions:server:cargoUnload', function(source, insta
                     piece.state = 'carried'
                     piece.carrier = source
                     piece.vehicle = nil
+                    piece.inSource = false
                     inst.carrying[source] = { cargo = cargoId, index = index }
                     setCarryState(source, Cargo.carryString(entry.def))
+                    -- Tirada do comboio pela primeira vez: é o "pegar" dessa carga.
+                    if not piece.everPicked then
+                        piece.everPicked = true
+                        Runtime.emit(inst, 'cargo_picked', { cargo = cargoId, actor = source })
+                    end
                     Runtime.markDirty(inst)
                     return { ok = true }
                 end

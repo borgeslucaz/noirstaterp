@@ -21,6 +21,7 @@ require 'server.components.cargo'
 require 'server.components.delivery'
 require 'server.components.reinforcement'
 require 'server.components.chase'
+require 'server.components.convoy'
 
 local Rewards = require 'server.rewards.rewards'
 local Offers = require 'server.offers'

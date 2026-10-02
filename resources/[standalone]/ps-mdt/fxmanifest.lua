@@ -35,7 +35,7 @@ files {
   'web/dist/**/*'
 }
 
-data_file 'DLC_ITYP_REQUEST' 'stream/ps-mdt.ytyp'
+data_file 'DLC_ITYP_REQUEST' 'stream_enhanced/ps-mdt.ytyp'
 
 -- Server convars (set in server.cfg):
 -- set ps_mdt_fivemanage_key_images "YOUR_FIVEMANAGE_IMAGES_API_KEY"

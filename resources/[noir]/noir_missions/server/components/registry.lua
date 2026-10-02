@@ -12,6 +12,7 @@
 ---        participantLeft = fn(inst, source, lastCoords),
 ---        cleanup = fn(inst),
 ---        debug = fn(inst, out),
+---        areas = fn(inst, list),     -- onde um tiro do jogador conta (grupos, comboio...)
 ---    })
 ---
 ---O runtime não conhece nenhum componente pelo nome: ele chama os ganchos registrados. É o
@@ -22,7 +23,7 @@ local MissionComponents = {
     names = {},
 }
 
-local HOOKS = { 'init', 'start', 'tick', 'event', 'view', 'resolve', 'participantLeft', 'cleanup', 'debug' }
+local HOOKS = { 'init', 'start', 'tick', 'event', 'view', 'resolve', 'participantLeft', 'cleanup', 'debug', 'areas' }
 local hooks = {}
 for index = 1, #HOOKS do hooks[HOOKS[index]] = {} end
 
@@ -61,6 +62,15 @@ function MissionComponents.each(hook, ...)
             lib.print.error(('[noir_missions] %s.%s: %s'):format(list[index].name, hook, err))
         end
     end
+end
+
+---Áreas em que tiro de participante conta, de todos os componentes.
+---@param inst table
+---@return table[] { x, y, z, r }
+function MissionComponents.areas(inst)
+    local list = {}
+    MissionComponents.each('areas', inst, list)
+    return list
 end
 
 ---@param inst table

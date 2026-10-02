@@ -130,6 +130,13 @@ local function build(def)
         end
         add('route', run.destination, 'Destino do reforço', run.arrivalDistance, previous)
     end
+    for _, convoy in ipairs(def.convoys or {}) do
+        local previous
+        for index, point in ipairs(convoy.route or {}) do
+            add('route', point, ('Comboio %s #%d'):format(convoy.label or convoy.id, index), nil, previous)
+            previous = point
+        end
+    end
     for _, chase in ipairs(def.chases or {}) do
         for index, point in ipairs(chase.spawnPoints or {}) do add('chase', point, ('Perseguição %s #%d'):format(chase.label or chase.id, index)) end
     end

@@ -488,6 +488,48 @@
     {
       "fields": [
         {
+          "key": "convoy",
+          "label": "Comboio",
+          "ref": "convoys",
+          "required": true,
+          "type": "ref"
+        }
+      ],
+      "group": "Combate",
+      "label": "Criar comboio",
+      "type": "spawn_convoy"
+    },
+    {
+      "fields": [
+        {
+          "key": "convoy",
+          "label": "Comboio",
+          "ref": "convoys",
+          "required": true,
+          "type": "ref"
+        }
+      ],
+      "group": "Combate",
+      "label": "Comboio entra em defesa",
+      "type": "convoy_attack"
+    },
+    {
+      "fields": [
+        {
+          "key": "convoy",
+          "label": "Comboio",
+          "ref": "convoys",
+          "required": true,
+          "type": "ref"
+        }
+      ],
+      "group": "Combate",
+      "label": "Remover comboio",
+      "type": "despawn_convoy"
+    },
+    {
+      "fields": [
+        {
           "default": "10-90",
           "key": "code",
           "label": "Código",
@@ -1256,12 +1298,34 @@
           "type": "number"
         },
         {
+          "help": "A carga nasce dentro de um veículo do comboio; os jogadores tiram de lá. Sem comboio, usa as posições abaixo.",
+          "key": "startConvoy",
+          "label": "Começa dentro do comboio",
+          "optional": true,
+          "ref": "convoys",
+          "type": "ref"
+        },
+        {
+          "default": 2,
+          "key": "startConvoyVehicle",
+          "label": "Veículo do comboio (posição na fila)",
+          "max": 8,
+          "min": 1,
+          "type": "number"
+        },
+        {
+          "default": false,
+          "help": "Desligado: a carga só conta como \"no veículo\" depois de tirada do comboio.",
+          "key": "sourceCounts",
+          "label": "Levar o próprio veículo do comboio vale",
+          "type": "bool"
+        },
+        {
           "heading": true,
           "help": "Mais posições que a quantidade = as que sobram são iscas.",
           "key": "pieces",
           "label": "Posições",
           "max": 50,
-          "min": 1,
           "preview": {
             "kind": "object",
             "modelKey": "model"
@@ -2164,6 +2228,243 @@
           "type": "text"
         },
         {
+          "default": false,
+          "key": "spawnOnStart",
+          "label": "Aparece no início da missão",
+          "type": "bool"
+        },
+        {
+          "heading": true,
+          "help": "O comboio nasce no primeiro ponto, virado para o segundo, e segue em ordem.",
+          "key": "route",
+          "label": "Rota",
+          "max": 32,
+          "min": 2,
+          "type": "positions"
+        },
+        {
+          "default": "stop",
+          "key": "endBehavior",
+          "label": "No fim da rota",
+          "options": [
+            {
+              "label": "Para",
+              "value": "stop"
+            },
+            {
+              "label": "Repete a rota",
+              "value": "loop"
+            },
+            {
+              "label": "Some",
+              "value": "despawn"
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "default": 16,
+          "key": "speed",
+          "label": "Velocidade (m/s)",
+          "max": 40,
+          "min": 5,
+          "type": "number"
+        },
+        {
+          "default": "normal",
+          "key": "drivingStyle",
+          "label": "Direção",
+          "options": [
+            {
+              "label": "Normal",
+              "value": "normal"
+            },
+            {
+              "label": "Com pressa",
+              "value": "rushed"
+            },
+            {
+              "label": "Agressivo",
+              "value": "aggressive"
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "default": 12,
+          "key": "formationDistance",
+          "label": "Distância entre veículos (m)",
+          "max": 40,
+          "min": 6,
+          "type": "number"
+        },
+        {
+          "default": "stop_and_fight",
+          "key": "onAttack",
+          "label": "Quando atacado",
+          "options": [
+            {
+              "label": "Todos param e defendem a carga",
+              "value": "stop_and_fight"
+            },
+            {
+              "label": "A carga foge, as escoltas lutam",
+              "value": "truck_flees"
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "default": 50,
+          "key": "attackRadius",
+          "label": "Tiro conta como ataque até (m)",
+          "max": 200,
+          "min": 10,
+          "type": "number"
+        },
+        {
+          "fields": [
+            {
+              "default": "escort",
+              "key": "role",
+              "label": "Papel",
+              "options": [
+                {
+                  "label": "Escolta da frente",
+                  "value": "lead"
+                },
+                {
+                  "label": "Carga",
+                  "value": "cargo"
+                },
+                {
+                  "label": "Escolta",
+                  "value": "escort"
+                }
+              ],
+              "type": "select"
+            },
+            {
+              "default": "granger",
+              "key": "model",
+              "kind": "vehicle",
+              "label": "Veículo",
+              "required": true,
+              "type": "model"
+            },
+            {
+              "fields": [
+                {
+                  "default": "g_m_y_mexgoon_01",
+                  "key": "model",
+                  "kind": "ped",
+                  "label": "Modelo",
+                  "required": true,
+                  "type": "model"
+                },
+                {
+                  "default": "WEAPON_PISTOL",
+                  "key": "weapon",
+                  "label": "Arma",
+                  "type": "weapon"
+                },
+                {
+                  "default": 0,
+                  "key": "armor",
+                  "label": "Colete",
+                  "max": 100,
+                  "min": 0,
+                  "type": "number"
+                },
+                {
+                  "default": 200,
+                  "key": "health",
+                  "label": "Vida",
+                  "max": 1000,
+                  "min": 100,
+                  "type": "number"
+                },
+                {
+                  "default": 35,
+                  "key": "accuracy",
+                  "label": "Precisão",
+                  "max": 100,
+                  "min": 0,
+                  "type": "number"
+                },
+                {
+                  "default": 1,
+                  "key": "combatAbility",
+                  "label": "Habilidade de combate",
+                  "options": [
+                    {
+                      "label": "Fraca",
+                      "value": 0
+                    },
+                    {
+                      "label": "Média",
+                      "value": 1
+                    },
+                    {
+                      "label": "Profissional",
+                      "value": 2
+                    }
+                  ],
+                  "type": "select"
+                },
+                {
+                  "default": 1,
+                  "key": "combatRange",
+                  "label": "Distância de combate",
+                  "options": [
+                    {
+                      "label": "Perto",
+                      "value": 0
+                    },
+                    {
+                      "label": "Média",
+                      "value": 1
+                    },
+                    {
+                      "label": "Longe",
+                      "value": 2
+                    }
+                  ],
+                  "type": "select"
+                }
+              ],
+              "help": "O primeiro dirige. Os outros ocupam os bancos em ordem.",
+              "itemLabel": "model",
+              "key": "crew",
+              "label": "Tripulação",
+              "max": 6,
+              "min": 1,
+              "type": "list"
+            }
+          ],
+          "itemLabel": "model",
+          "key": "vehicles",
+          "label": "Veículos (em ordem de fila)",
+          "max": 8,
+          "min": 1,
+          "type": "list"
+        }
+      ],
+      "help": "Veículos em fila numa rota: o primeiro conduz, os outros seguem o da frente. Atacados, defendem a carga. Um veículo só com fim \"repetir\" é uma patrulha.",
+      "itemLabel": "label",
+      "key": "convoys",
+      "label": "Comboios",
+      "singular": "comboio"
+    },
+    {
+      "fields": [
+        {
+          "key": "label",
+          "label": "Nome",
+          "required": true,
+          "type": "text"
+        },
+        {
           "fields": [
             {
               "key": "label",
@@ -2256,6 +2557,21 @@
       "collection": "interactions",
       "label": "feita",
       "name": "interaction.{id}.done"
+    },
+    {
+      "collection": "convoys",
+      "label": "tripulação viva",
+      "name": "convoy.{id}.alive"
+    },
+    {
+      "collection": "convoys",
+      "label": "atacado",
+      "name": "convoy.{id}.attacked"
+    },
+    {
+      "collection": "convoys",
+      "label": "chegou ao fim",
+      "name": "convoy.{id}.arrived"
     },
     {
       "label": "participantes",
@@ -2425,6 +2741,30 @@
         "ref": "vehicles"
       },
       "value": "vehicle_destroyed"
+    },
+    {
+      "label": "Comboio atacado",
+      "match": {
+        "key": "convoy",
+        "ref": "convoys"
+      },
+      "value": "convoy_attacked"
+    },
+    {
+      "label": "Comboio chegou ao fim da rota",
+      "match": {
+        "key": "convoy",
+        "ref": "convoys"
+      },
+      "value": "convoy_arrived"
+    },
+    {
+      "label": "Comboio neutralizado",
+      "match": {
+        "key": "convoy",
+        "ref": "convoys"
+      },
+      "value": "convoy_destroyed"
     },
     {
       "label": "Participante saiu",
@@ -3526,6 +3866,30 @@
             "ref": "vehicles"
           },
           "value": "vehicle_destroyed"
+        },
+        {
+          "label": "Comboio atacado",
+          "match": {
+            "key": "convoy",
+            "ref": "convoys"
+          },
+          "value": "convoy_attacked"
+        },
+        {
+          "label": "Comboio chegou ao fim da rota",
+          "match": {
+            "key": "convoy",
+            "ref": "convoys"
+          },
+          "value": "convoy_arrived"
+        },
+        {
+          "label": "Comboio neutralizado",
+          "match": {
+            "key": "convoy",
+            "ref": "convoys"
+          },
+          "value": "convoy_destroyed"
         },
         {
           "label": "Participante saiu",

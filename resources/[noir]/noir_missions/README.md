@@ -85,8 +85,19 @@ de passo ou ação: a entrada no esquema (`shared/types/schema.lua`) e o handler
 editor desenha o formulário sozinho a partir do esquema. O boot do servidor acusa passo ou ação
 do esquema sem handler.
 
-Passos: `goto`, `interact`, `eliminate`, `cargo`, `leave_area`, `deliver`, `wait`, `condition`,
-`actions`. Ações: variáveis, NPC (criar, remover, hostilidade), veículos e objetos, interação e
+Passos: `vehicle_enter`, `goto`, `interact`, `eliminate`, `cargo`, `leave_area`, `deliver`, `wait`,
+`condition`, `actions`.
+
+### Comboio
+
+Coleção "Comboios": rota em pontos, fila de veículos (líder, carga, escolta) com tripulação. O
+primeiro vivo conduz pela rota; cada um dos outros segue o da frente (`TaskVehicleEscort`).
+Tiro perto, tripulante ferido ou morto, ou veículo batido = ataque: todos param e descem para
+defender, ou a carga foge pelo fim da rota enquanto as escoltas lutam. Carga pode nascer dentro
+de um veículo do comboio (`startConvoy`); os jogadores tiram ("Tirar carga") e levam para outro
+veículo — ainda no comboio, não conta como "no veículo", salvo `sourceCounts`. Para montar a
+missão: eventos `convoy_attacked`, `convoy_arrived`, `convoy_destroyed`; valores
+`convoy.<id>.alive`, `.attacked`, `.arrived`. Um veículo só com fim "repetir" é patrulha. Ações: variáveis, NPC (criar, remover, hostilidade), veículos e objetos, interação e
 carga, SMS, aviso, informação, blip, sorteio de entrega, reforço, perseguição, dispatch, timer,
 esperar, se/chance (ramificação), ir para passo, dar/tirar item, som, concluir, falhar.
 
@@ -152,8 +163,7 @@ esquema exportado (`lua5.4 dev/export_schema.lua > dev/schema.json`).
 
 ## Fases seguintes
 
-Já existe e foi exercitado só em teste: rotas de reforço, ondas de perseguição, barcos e
-aeronaves no contrato de direção. Falta para a Fase 3: comboio (veículos em formação com escolta
-reagindo), rota de patrulha de veículo, editor de rota avançado, pouso/decolagem de avião, e as
-missões Convoy, Boat e Airstrip. Também ficaram de fora nesta versão: carga visível dentro do
+Comboio e patrulha de veículo existem e foram exercitados em teste automatizado; falta jogo.
+Falta para a Fase 3: editor de rota avançado, pouso/decolagem de avião, e as missões Convoy,
+Boat e Airstrip montadas no editor. Também ficaram de fora nesta versão: carga visível dentro do
 veículo, início por item usável e portas (`ox_doorlock`).

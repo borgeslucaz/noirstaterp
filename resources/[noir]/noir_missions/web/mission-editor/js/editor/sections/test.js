@@ -16,6 +16,7 @@ const TOOLS = [
     { tool: 'spawn_prop', label: 'CRIAR OBJETO', ref: 'props', done: 'Objeto criado.' },
     { tool: 'reinforcement', label: 'MANDAR REFORÇO', ref: 'reinforcements', done: 'Reforço a caminho.' },
     { tool: 'chase', label: 'TESTAR PERSEGUIÇÃO', ref: 'chases', done: 'Perseguição iniciada.' },
+    { tool: 'convoy', label: 'CRIAR COMBOIO', ref: 'convoys', done: 'Comboio saiu.' },
     { tool: 'delivery', label: 'TESTAR ENTREGA', ref: 'deliveryGroups', done: 'Entrega sorteada.' },
 ];
 

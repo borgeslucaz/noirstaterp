@@ -262,8 +262,13 @@ Schema.collections = {
                 { value = 'interact', label = 'Só interação' },
             }, { default = 'carry' }),
             F.number('quantity', 'Quantidade certa', { min = 1, max = 50, default = 4 }),
+            F.ref('startConvoy', 'Começa dentro do comboio', 'convoys', { optional = true,
+                help = 'A carga nasce dentro de um veículo do comboio; os jogadores tiram de lá. Sem comboio, usa as posições abaixo.' }),
+            F.number('startConvoyVehicle', 'Veículo do comboio (posição na fila)', { min = 1, max = 8, default = 2 }),
+            F.bool('sourceCounts', 'Levar o próprio veículo do comboio vale', { default = false,
+                help = 'Desligado: a carga só conta como "no veículo" depois de tirada do comboio.' }),
             F.positions('pieces', 'Posições', {
-                heading = true, preview = { kind = 'object', modelKey = 'model' }, min = 1, max = 50,
+                heading = true, preview = { kind = 'object', modelKey = 'model' }, max = 50,
                 help = 'Mais posições que a quantidade = as que sobram são iscas.',
             }),
             F.bool('randomizeCorrect', 'Sortear quais são as certas', { default = true }),
@@ -380,6 +385,38 @@ Schema.collections = {
                 F.number('countMax', 'Veículos (máximo)', { min = 1, max = 4, default = 2 }),
                 F.number('delaySeconds', 'Espera depois da anterior (s)', { min = 0, max = 300, default = 20 }),
             }, { itemLabel = 'model', max = 4, help = 'Começa quando a onda anterior acaba sem os jogadores despistarem.' }),
+        },
+    },
+    {
+        key = 'convoys', label = 'Comboios', singular = 'comboio', itemLabel = 'label',
+        help = 'Veículos em fila numa rota: o primeiro conduz, os outros seguem o da frente. '
+            .. 'Atacados, defendem a carga. Um veículo só com fim "repetir" é uma patrulha.',
+        fields = {
+            F.text('label', 'Nome', { required = true }),
+            F.bool('spawnOnStart', 'Aparece no início da missão', { default = false }),
+            F.positions('route', 'Rota', { heading = true, min = 2, max = 32,
+                help = 'O comboio nasce no primeiro ponto, virado para o segundo, e segue em ordem.' }),
+            F.select('endBehavior', 'No fim da rota', {
+                { value = 'stop', label = 'Para' }, { value = 'loop', label = 'Repete a rota' },
+                { value = 'despawn', label = 'Some' },
+            }, { default = 'stop' }),
+            F.number('speed', 'Velocidade (m/s)', { min = 5, max = 40, default = 16 }),
+            F.select('drivingStyle', 'Direção', DRIVING, { default = 'normal' }),
+            F.number('formationDistance', 'Distância entre veículos (m)', { min = 6, max = 40, default = 12 }),
+            F.select('onAttack', 'Quando atacado', {
+                { value = 'stop_and_fight', label = 'Todos param e defendem a carga' },
+                { value = 'truck_flees', label = 'A carga foge, as escoltas lutam' },
+            }, { default = 'stop_and_fight' }),
+            F.number('attackRadius', 'Tiro conta como ataque até (m)', { min = 10, max = 200, default = 50 }),
+            F.list('vehicles', 'Veículos (em ordem de fila)', {
+                F.select('role', 'Papel', {
+                    { value = 'lead', label = 'Escolta da frente' }, { value = 'cargo', label = 'Carga' },
+                    { value = 'escort', label = 'Escolta' },
+                }, { default = 'escort' }),
+                F.model('model', 'Veículo', 'vehicle', { default = 'granger', required = true }),
+                F.list('crew', 'Tripulação', pedFields(false), { itemLabel = 'model', min = 1, max = 6,
+                    help = 'O primeiro dirige. Os outros ocupam os bancos em ordem.' }),
+            }, { itemLabel = 'model', min = 1, max = 8 }),
         },
     },
     {
@@ -629,6 +666,15 @@ Schema.actions = {
     { type = 'stop_chase', label = 'Encerrar perseguição', group = 'Combate', fields = {
         F.ref('chase', 'Perseguição', 'chases', { required = true }),
     } },
+    { type = 'spawn_convoy', label = 'Criar comboio', group = 'Combate', fields = {
+        F.ref('convoy', 'Comboio', 'convoys', { required = true }),
+    } },
+    { type = 'convoy_attack', label = 'Comboio entra em defesa', group = 'Combate', fields = {
+        F.ref('convoy', 'Comboio', 'convoys', { required = true }),
+    } },
+    { type = 'despawn_convoy', label = 'Remover comboio', group = 'Combate', fields = {
+        F.ref('convoy', 'Comboio', 'convoys', { required = true }),
+    } },
     { type = 'dispatch', label = 'Alerta para a polícia', group = 'Combate', fields = {
         F.text('code', 'Código', { default = '10-90' }), F.text('title', 'Título', { default = 'Atividade suspeita' }),
         F.text('message', 'Mensagem'), F.position('coords', 'Posição', { required = true }),
@@ -701,6 +747,9 @@ Schema.events = {
     { value = 'chase_started', label = 'Perseguição começou', match = { key = 'chase', ref = 'chases' } },
     { value = 'chase_ended', label = 'Perseguição acabou', match = { key = 'chase', ref = 'chases' } },
     { value = 'vehicle_destroyed', label = 'Veículo destruído', match = { key = 'vehicle', ref = 'vehicles' } },
+    { value = 'convoy_attacked', label = 'Comboio atacado', match = { key = 'convoy', ref = 'convoys' } },
+    { value = 'convoy_arrived', label = 'Comboio chegou ao fim da rota', match = { key = 'convoy', ref = 'convoys' } },
+    { value = 'convoy_destroyed', label = 'Comboio neutralizado', match = { key = 'convoy', ref = 'convoys' } },
     { value = 'participant_left', label = 'Participante saiu' },
 }
 
@@ -743,6 +792,9 @@ Schema.computed = {
     { name = 'group.{id}.dead', collection = 'pedGroups', label = 'mortos' },
     { name = 'group.{id}.hostile', collection = 'pedGroups', label = 'hostil' },
     { name = 'interaction.{id}.done', collection = 'interactions', label = 'feita' },
+    { name = 'convoy.{id}.alive', collection = 'convoys', label = 'tripulação viva' },
+    { name = 'convoy.{id}.attacked', collection = 'convoys', label = 'atacado' },
+    { name = 'convoy.{id}.arrived', collection = 'convoys', label = 'chegou ao fim' },
     { name = 'participants', label = 'participantes' },
     { name = 'elapsed', label = 'segundos desde o início' },
 }

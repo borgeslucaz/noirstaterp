@@ -49,7 +49,7 @@ jobs:
           cp -r client       "${STAGE_DIR}/"
           cp -r server       "${STAGE_DIR}/"
           cp -r sql          "${STAGE_DIR}/"
-          cp -r stream       "${STAGE_DIR}/"
+          cp -r stream_enhanced "${STAGE_DIR}/"
           cp    config.lua   "${STAGE_DIR}/"
           cp    fxmanifest.lua "${STAGE_DIR}/"
           cp    LICENSE      "${STAGE_DIR}/"

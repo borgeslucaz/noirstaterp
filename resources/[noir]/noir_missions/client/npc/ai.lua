@@ -154,6 +154,13 @@ tasks.chase = function(ped, desc)
     Vehicles.chase(ped, desc.t, Ai.playerPed(desc.t.target))
 end
 
+---Comboio: segue o veículo da frente em formação. Sem ele no escopo ainda, espera; a manutenção
+---reaplica quando aparecer.
+tasks.escort = function(ped, desc)
+    SetPedRelationshipGroupHash(ped, GUARD)
+    Vehicles.escort(ped, desc.t)
+end
+
 tasks.wander = function(ped, desc)
     SetBlockingOfNonTemporaryEvents(ped, false)
     SetPedRelationshipGroupHash(ped, GUARD)
@@ -185,7 +192,7 @@ local HOSTILE_TASKS = { combat = true, chase = true, driveby = true }
 
 ---Tarefas de quem está dentro do veículo. O ped nasce ao lado (world.lua) e quem é dono dele
 ---o põe no banco.
-local SEATED_TASKS = { ride = true, drive_to = true, chase = true, driveby = true }
+local SEATED_TASKS = { ride = true, drive_to = true, chase = true, driveby = true, escort = true }
 
 ---@param ped integer
 ---@param desc table
@@ -259,7 +266,7 @@ function Ai.maintain(ped, desc, state)
     end
     if name == 'combat' and not IsPedInCombat(ped, 0) then
         tasks.combat(ped, desc)
-    elseif name == 'drive_to' or name == 'chase' then
+    elseif name == 'drive_to' or name == 'chase' or name == 'escort' then
         if Vehicles.isStuck(ped, desc.t, state) then Ai.apply(ped, desc) end
     end
 end

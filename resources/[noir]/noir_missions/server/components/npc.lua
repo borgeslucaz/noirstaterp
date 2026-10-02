@@ -340,8 +340,12 @@ MissionComponents.register('npc', {
         return false
     end,
 
+    areas = function(inst, list)
+        for _, area in ipairs(Npc.areas(inst)) do list[#list + 1] = area end
+    end,
+
     view = function(inst, view)
-        view.areas = Npc.areas(inst)
+        view.areas = MissionComponents.areas(inst)
     end,
 
     debug = function(inst, out)
@@ -404,7 +408,7 @@ RegisterNetEvent('noir_missions:server:shot', function()
     local coords = Security.playerCoords(src)
     if not coords then return end
     local near = false
-    for _, area in ipairs(Npc.areas(inst)) do
+    for _, area in ipairs(MissionComponents.areas(inst)) do
         if #(coords - vector3(area.x, area.y, area.z)) <= area.r then
             near = true
             break

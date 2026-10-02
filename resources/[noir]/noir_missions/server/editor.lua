@@ -14,6 +14,7 @@ local Npc = require 'server.components.npc'
 local Vehicles = require 'server.components.vehicles'
 local Reinforcement = require 'server.components.reinforcement'
 local Chase = require 'server.components.chase'
+local Convoy = require 'server.components.convoy'
 
 local Editor = {}
 
@@ -212,6 +213,8 @@ register('editorTestTool', function(source, id, tool, ref)
         return { ok = true }
     elseif tool == 'reinforcement' then
         return { ok = Reinforcement.send(inst, ref) ~= nil }
+    elseif tool == 'convoy' then
+        return { ok = Convoy.spawn(inst, ref) ~= nil }
     elseif tool == 'chase' then
         local chase = Utils.findById(inst.def.chases, ref)
         if not chase then return { ok = false, code = 'not_found' } end

@@ -490,8 +490,14 @@ function Definition.normalize(raw)
     for index = 1, #def.cargo do
         local cargo = def.cargo[index]
         local path = joinPath('cargo', index)
-        if #(cargo.pieces or {}) < (cargo.quantity or 1) then
+        if not cargo.startConvoy and #(cargo.pieces or {}) < (cargo.quantity or 1) then
             addError(ctx, path .. '.pieces', 'menos posições que a quantidade certa')
+        end
+        if cargo.startConvoy then
+            local convoy = Utils.findById(def.convoys, cargo.startConvoy)
+            if convoy and (cargo.startConvoyVehicle or 1) > #(convoy.vehicles or {}) then
+                addError(ctx, path .. '.startConvoyVehicle', 'o comboio não tem veículo nessa posição')
+            end
         end
         if cargo.mode == 'inventory' and not cargo.item then
             addError(ctx, path .. '.item', 'modo inventário precisa de item')
