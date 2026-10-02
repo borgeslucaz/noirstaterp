@@ -18,7 +18,8 @@ end
 ---@param data table
 ---@return string
 local function signature(data)
-    local coords = data.coords or {}
+    -- Blip de entidade: a posição de reserva muda a cada retrato e não pode recriar o blip.
+    local coords = data.netId and {} or data.coords or {}
     return ('%s|%s|%s|%s|%s|%s|%s|%s|%s|%s'):format(data.netId or '', coords.x or '', coords.y or '',
         data.sprite or '', data.color or '', data.label or '', tostring(data.route), data.radius or '',
         tostring(data.areaOnly), tostring(data.id))
@@ -54,6 +55,11 @@ local function create(data)
             end
         end
         entry.pending = data
+        -- Fora do escopo: blip na última posição conhecida (com rota) até a entidade aparecer.
+        if data.coords then
+            entry.blip = AddBlipForCoord(data.coords.x, data.coords.y, data.coords.z)
+            style(entry.blip, data)
+        end
         return entry
     end
     if data.radius then
@@ -75,13 +81,13 @@ local function ensurePendingLoop()
         while true do
             local waiting = false
             for id, entry in pairs(active) do
-                if entry.pending then
+                if entry.pending and NetworkDoesNetworkIdExist(entry.pending.netId) then
+                    remove(entry)
                     local fresh = create(entry.pending)
-                    if fresh.pending then
-                        waiting = true
-                    else
-                        active[id] = fresh
-                    end
+                    if fresh.pending then waiting = true end
+                    active[id] = fresh
+                elseif entry.pending then
+                    waiting = true
                 end
             end
             if not waiting then break end

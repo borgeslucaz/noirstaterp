@@ -101,8 +101,11 @@ function Test.server()
     function TriggerEvent(name, ...)
         for _, fn in ipairs(S.handlers[name] or {}) do fn(...) end
     end
+    S.clientHandlers = {}
     function TriggerClientEvent(name, target, ...)
         S.sent[#S.sent + 1] = { name = name, target = target, args = { ... } }
+        -- Cliente falso que responde na hora (pedidos de vaga, tipo de veículo).
+        if S.clientHandlers[name] then S.clientHandlers[name](target, ...) end
     end
     function exports(name, fn) S.exports[name] = fn end
 
@@ -120,7 +123,7 @@ function Test.server()
     end
     function SaveResourceFile(_, path, content)
         S.files[path] = content
-        return true
+        return 1 -- como no Enhanced: número, não booleano
     end
 
     -- Entidades ---------------------------------------------------------------------------
@@ -222,6 +225,11 @@ function Test.server()
     end
     function S.moveTo(source, x, y, z)
         local ped = S.entities[S.players[source].ped]
+        if ped.vehicle and S.entities[ped.vehicle] then
+            for seat, occupant in pairs(S.entities[ped.vehicle].seats) do
+                if occupant == ped.id then S.entities[ped.vehicle].seats[seat] = nil end
+            end
+        end
         ped.vehicle = nil
         ped.coords = vector3(x, y, z or ped.coords.z)
     end
@@ -232,6 +240,18 @@ function Test.server()
     end
     function S.moveEntity(id, x, y, z)
         S.entities[id].coords = vector3(x, y, z or S.entities[id].coords.z)
+    end
+    function IsPedAPlayer(ped)
+        for _, player in pairs(S.players) do
+            if player.ped == ped then return true end
+        end
+        return false
+    end
+    function TaskWarpPedIntoVehicle(ped, vehicle, seat)
+        if S.entities[ped] and S.entities[vehicle] then
+            S.entities[ped].vehicle = vehicle
+            S.entities[vehicle].seats[seat] = ped
+        end
     end
     function GetPlayerPed(source) return S.players[source] and S.players[source].ped or 0 end
     function GetPlayerName(source) return S.players[source] and S.players[source].name or nil end

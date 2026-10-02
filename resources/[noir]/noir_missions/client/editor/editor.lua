@@ -81,7 +81,9 @@ end)
 
 RegisterNUICallback('editorSave', function(data, cb)
     if not open then return cb({ ok = false, code = 'not_allowed' }) end
-    cb(server('editorSave', data.definition))
+    local result = server('editorSave', data.definition)
+    cb(result)
+    if result.ok and type(data.definition) == 'table' then Debug.refresh(data.definition.id) end
 end)
 
 RegisterNUICallback('editorDuplicate', function(data, cb)

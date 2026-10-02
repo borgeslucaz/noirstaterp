@@ -36,6 +36,27 @@ function Integrations.isLoggedIn()
     return ok and logged == true
 end
 
+-- Mãos ocupadas --------------------------------------------------------------------------
+
+---Guarda a arma pelo inventário (bridge), para o inventário não ficar achando que ela está na mão.
+function Integrations.holsterWeapon()
+    if not started(CORE) then return end
+    pcall(function() exports[CORE]:HolsterWeapon(true) end)
+end
+
+---@param busy boolean
+function Integrations.setInventoryBusy(busy)
+    if not started(CORE) then return end
+    pcall(function() exports[CORE]:SetInventoryBusy(busy) end)
+end
+
+---@return boolean
+function Integrations.isInventoryBusy()
+    if not started(CORE) then return false end
+    local ok, busy = pcall(function() return exports[CORE]:IsInventoryBusy() end)
+    return ok and busy == true
+end
+
 -- Target --------------------------------------------------------------------------------
 
 ---@param netId integer

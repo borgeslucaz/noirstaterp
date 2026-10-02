@@ -1,0 +1,7 @@
+/* Noir State: dentro de veículo o celular vai para a esquerda do velocímetro do noir_hud
+   (.pnl-car: 27vh de largura a 4.5vh da borda direita) e sobe um pouco. */
+.phone-stage { transition: padding 250ms ease; }
+html.noir-in-vehicle .phone-stage {
+    padding-right: calc(27vh + 4.5vh + 2.5vh) !important;
+    padding-bottom: calc(var(--phone-edge-gap, 24px) + 3vh) !important;
+}

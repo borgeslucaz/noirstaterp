@@ -1,0 +1,128 @@
+{
+    "status": "draft",
+    "updatedBy": "borgin (U5TRFR4S)",
+    "draft": {
+        "triggers": [
+            {
+                "delay": 2,
+                "on": "cargo_picked",
+                "chance": 100,
+                "actions": [],
+                "once": true,
+                "delayMax": 0,
+                "id": "trigger_1",
+                "label": "Xdxx"
+            }
+        ],
+        "pedGroups": [
+            {
+                "alarmVar": "alarm_active",
+                "alarmOnHostile": false,
+                "warnText": [],
+                "id": "g_m_y_mexgoon_01",
+                "label": "Jorge Bush",
+                "spawnOnStart": false,
+                "hostileOnShot": true,
+                "hostileOnAlarm": true,
+                "hostileOnDamage": true,
+                "warnRadius": 12,
+                "shotRadius": 60,
+                "peds": [
+                    {
+                        "weapon": "WEAPON_PISTOL",
+                        "accuracy": 35,
+                        "coords": {
+                            "y": -2777.367,
+                            "x": -316.977,
+                            "w": 314.077,
+                            "z": 5.0
+                        },
+                        "armor": 0,
+                        "combatRange": 1,
+                        "model": "g_m_y_mexgoon_01",
+                        "movement": "static",
+                        "combatAbility": 1,
+                        "patrolRadius": 10,
+                        "scenario": "WORLD_HUMAN_GUARD_STAND",
+                        "health": 200
+                    }
+                ],
+                "behavior": "guard"
+            }
+        ],
+        "maxPlayers": 4,
+        "zones": [],
+        "schema": 1,
+        "start": {
+            "type": "phone",
+            "caller": "Desconhecido"
+        },
+        "category": "geral",
+        "rewards": [],
+        "vehicles": [
+            {
+                "cargoCapacity": 4,
+                "locked": false,
+                "coords": {
+                    "y": -2727.09,
+                    "x": -341.922,
+                    "w": 89.077,
+                    "z": 5.773
+                },
+                "required": true,
+                "giveKeys": true,
+                "model": "speedo",
+                "id": "speedo",
+                "spawnOnStart": true,
+                "label": "Speedo"
+            }
+        ],
+        "cargo": [],
+        "steps": [
+            {
+                "label": "Ir até local",
+                "showBlip": true,
+                "id": "step_1",
+                "enabled": true,
+                "blipArea": false,
+                "coords": {
+                    "y": -2778.996,
+                    "x": -317.499,
+                    "z": 4.207
+                },
+                "blipLabel": "Destino",
+                "radius": 5,
+                "blipSprite": 1,
+                "blipColor": 5,
+                "showGps": true,
+                "type": "goto",
+                "onComplete": [],
+                "onStart": [],
+                "who": "any"
+            }
+        ],
+        "deliveryGroups": [],
+        "chases": [],
+        "name": "Teste",
+        "minPlayers": 1,
+        "id": "teste_fase1",
+        "timeLimitMinutes": 60,
+        "reinforcements": [],
+        "interactions": [],
+        "props": [],
+        "difficulty": "medium",
+        "gangRequired": false,
+        "variables": [
+            {
+                "type": "boolean",
+                "random": [],
+                "id": "alarm_active",
+                "default": "false"
+            }
+        ],
+        "cooldownMinutes": 60,
+        "participantRadius": 60
+    },
+    "id": "teste_fase1",
+    "updatedAt": 1790893774
+}

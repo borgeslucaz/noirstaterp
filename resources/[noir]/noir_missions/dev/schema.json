@@ -209,6 +209,15 @@
           "maxLength": 300,
           "required": true,
           "type": "textarea"
+        },
+        {
+          "default": 0,
+          "help": "Só a mensagem espera; as ações seguintes continuam na hora.",
+          "key": "delaySeconds",
+          "label": "Enviar depois de (s)",
+          "max": 600,
+          "min": 0,
+          "type": "number"
         }
       ],
       "group": "Comunicação",
@@ -246,6 +255,14 @@
             }
           ],
           "type": "select"
+        },
+        {
+          "default": 0,
+          "key": "delaySeconds",
+          "label": "Mostrar depois de (s)",
+          "max": 600,
+          "min": 0,
+          "type": "number"
         }
       ],
       "group": "Comunicação",
@@ -1888,19 +1905,40 @@
           "type": "number"
         },
         {
+          "default": "both",
+          "help": "Aleatório: numa via atrás de quem dirige, fora da vista de todos, nunca em calçada, telhado ou água. Com os dois, tenta os pontos primeiro e usa a estrada quando nenhum serve.",
+          "key": "spawnMode",
+          "label": "Onde nascem",
+          "options": [
+            {
+              "label": "Só aleatório na estrada",
+              "value": "road"
+            },
+            {
+              "label": "Só pontos cadastrados",
+              "value": "points"
+            },
+            {
+              "label": "Pontos cadastrados + aleatório",
+              "value": "both"
+            }
+          ],
+          "type": "select"
+        },
+        {
           "heading": true,
           "help": "O sistema escolhe o melhor: longe, atrás e fora da vista dos jogadores.",
           "key": "spawnPoints",
           "label": "Pontos de nascimento",
           "max": 24,
+          "showIf": {
+            "is": [
+              "points",
+              "both"
+            ],
+            "key": "spawnMode"
+          },
           "type": "positions"
-        },
-        {
-          "default": true,
-          "help": "Sem ponto cadastrado que sirva, nasce numa via atrás do alvo, fora da tela.",
-          "key": "roadSpawn",
-          "label": "Procurar estrada atrás do alvo",
-          "type": "bool"
         },
         {
           "default": 120,
@@ -2147,6 +2185,20 @@
               "max": 60,
               "min": 2,
               "type": "number"
+            },
+            {
+              "heading": true,
+              "help": "Onde a van tem que parar. Vazio = qualquer lugar dentro do raio.",
+              "key": "parkCoords",
+              "label": "Vaga do veículo",
+              "type": "position"
+            },
+            {
+              "heading": true,
+              "help": "Vazio = alguns metros à frente do local.",
+              "key": "npcCoords",
+              "label": "Onde o NPC espera",
+              "type": "position"
             }
           ],
           "itemLabel": "label",
@@ -2739,6 +2791,42 @@
   ],
   "steps": [
     {
+      "description": "Conclui quando um participante entra no veículo da missão. Blip e rota até ele.",
+      "fields": [
+        {
+          "key": "vehicle",
+          "label": "Veículo",
+          "ref": "vehicles",
+          "required": true,
+          "type": "ref"
+        },
+        {
+          "default": "driver",
+          "key": "who",
+          "label": "Quem precisa entrar",
+          "options": [
+            {
+              "label": "Alguém no volante",
+              "value": "driver"
+            },
+            {
+              "label": "Alguém em qualquer banco",
+              "value": "any"
+            }
+          ],
+          "type": "select"
+        },
+        {
+          "default": true,
+          "key": "showGps",
+          "label": "Rota no GPS até o veículo",
+          "type": "bool"
+        }
+      ],
+      "label": "Pegar veículo",
+      "type": "vehicle_enter"
+    },
+    {
       "description": "Conclui quando os participantes entram no raio.",
       "fields": [
         {
@@ -3064,6 +3152,30 @@
           "type": "number"
         },
         {
+          "heading": true,
+          "key": "parkCoords",
+          "label": "Vaga do veículo (local fixo)",
+          "showIf": {
+            "is": [
+              "fixed"
+            ],
+            "key": "source"
+          },
+          "type": "position"
+        },
+        {
+          "heading": true,
+          "key": "npcCoords",
+          "label": "Onde o NPC espera (local fixo)",
+          "showIf": {
+            "is": [
+              "fixed"
+            ],
+            "key": "source"
+          },
+          "type": "position"
+        },
+        {
           "default": "vehicle",
           "key": "mode",
           "label": "Tipo de entrega",
@@ -3094,6 +3206,48 @@
             "key": "mode"
           },
           "type": "ref"
+        },
+        {
+          "default": 4,
+          "key": "parkRadius",
+          "label": "Tolerância da vaga (m)",
+          "max": 15,
+          "min": 1,
+          "showIf": {
+            "is": [
+              "vehicle"
+            ],
+            "key": "mode"
+          },
+          "step": 0.5,
+          "type": "number"
+        },
+        {
+          "default": true,
+          "help": "Com a van parada e vazia, o NPC entra, sai dirigindo e some longe da vista. Só veículo da missão.",
+          "key": "handoff",
+          "label": "NPC leva o veículo embora",
+          "showIf": {
+            "is": [
+              "vehicle"
+            ],
+            "key": "mode"
+          },
+          "type": "bool"
+        },
+        {
+          "default": 45,
+          "key": "driveAwaySeconds",
+          "label": "Some depois de (s)",
+          "max": 300,
+          "min": 10,
+          "showIf": {
+            "is": [
+              true
+            ],
+            "key": "handoff"
+          },
+          "type": "number"
         },
         {
           "default": 0,

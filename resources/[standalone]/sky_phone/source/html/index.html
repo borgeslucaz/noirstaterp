@@ -7,6 +7,16 @@
     <script type="module" crossorigin src="./assets/sky-main-BG-vTFpi.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/sky-displayFrame-DKiW4Jek.js">
     <link rel="stylesheet" crossorigin href="./assets/sky-main-BdRcKqPT.css">
+    <!-- Noir State: celular fora do velocímetro dentro de veículo (source/client/noir_layout.lua). -->
+    <link rel="stylesheet" href="./noir-layout.css">
+    <script>
+      window.addEventListener("message", function (event) {
+        var data = event.data;
+        if (data && data.type === "noir:layout") {
+          document.documentElement.classList.toggle("noir-in-vehicle", data.inVehicle === true);
+        }
+      });
+    </script>
   </head>
   <body>
     <div id="app"></div>

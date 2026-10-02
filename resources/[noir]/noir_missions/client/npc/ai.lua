@@ -6,6 +6,10 @@ local Ai = {}
 
 local HOSTILE, GUARD
 
+-- Tarefas de script, para saber se a mira do aviso ainda está de pé (7 = não está rodando).
+local AIM_TASK = joaat('SCRIPT_TASK_AIM_GUN_AT_ENTITY')
+local TURN_TASK = joaat('SCRIPT_TASK_TURN_PED_TO_FACE_ENTITY')
+
 ---Grupos de relação são locais de cada cliente; criados uma vez na entrada.
 function Ai.setupRelationships()
     local _, hostile = AddRelationshipGroup('NOIR_MISSION_HOSTILE')
@@ -69,10 +73,11 @@ local tasks = {}
 tasks.idle = function(ped, desc)
     local cfg = desc.cfg
     ClearPedTasks(ped)
+    -- Bloqueado também na patrulha: sem isso, mirar no guarda dispara a reação de combate do
+    -- jogo e ele atira antes de o servidor decidir hostilidade (teste 4.6).
     SetBlockingOfNonTemporaryEvents(ped, true)
     local anchor = cfg.anchor
     if cfg.movement == 'patrol' and anchor then
-        SetBlockingOfNonTemporaryEvents(ped, false)
         TaskWanderInArea(ped, anchor.x, anchor.y, anchor.z, (cfg.patrolRadius or 10) + 0.0, 2.0, 6.0)
     elseif cfg.movement == 'scenario' and cfg.scenario and cfg.scenario ~= '' then
         TaskStartScenarioInPlace(ped, cfg.scenario, 0, true)
@@ -85,12 +90,17 @@ end
 tasks.warn = function(ped, desc)
     local target = Ai.playerPed(desc.t.target)
     if target == 0 then return tasks.idle(ped, desc) end
-    ClearPedTasks(ped)
+    -- Sai do cenário na hora (ClearPedTasks espera a animação de saída) e põe a arma na mão:
+    -- no cenário ela fica guardada, e `IsPedArmed` dava falso — o guarda só virava (teste 4.5).
+    ClearPedTasksImmediately(ped)
     SetBlockingOfNonTemporaryEvents(ped, true)
-    if IsPedArmed(ped, 4) then
-        TaskAimGunAtEntity(ped, target, 6000, false)
+    local weapon = desc.cfg and desc.cfg.weapon and joaat(desc.cfg.weapon)
+    if weapon and HasPedGotWeapon(ped, weapon, false) then
+        SetCurrentPedWeapon(ped, weapon, true)
+        -- -1 = até nova ordem: quem manda abaixar é o servidor, quando todos saem do raio.
+        TaskAimGunAtEntity(ped, target, -1, false)
     else
-        TaskTurnPedToFaceEntity(ped, target, 6000)
+        TaskTurnPedToFaceEntity(ped, target, -1)
     end
 end
 
@@ -150,10 +160,51 @@ tasks.wander = function(ped, desc)
     Vehicles.wander(ped, desc.t)
 end
 
+---Entrega: o NPC entra no veículo, passa para o volante se entrou pelo lado errado e sai
+---dirigindo pela cidade. Quem apaga os dois depois é o servidor (World.release).
+tasks.drive_off = function(ped, desc)
+    local vehicle = NetworkDoesNetworkIdExist(desc.t.veh) and NetToVeh(desc.t.veh) or 0
+    if vehicle == 0 then return end
+    SetBlockingOfNonTemporaryEvents(ped, true)
+    SetPedFleeAttributes(ped, 0, false)
+    SetPedRelationshipGroupHash(ped, GUARD)
+    if GetPedInVehicleSeat(vehicle, -1) == ped then
+        Vehicles.wander(ped, { veh = desc.t.veh })
+    elseif GetVehiclePedIsIn(ped, false) == vehicle then
+        TaskShuffleToNextVehicleSeat(ped, vehicle)
+    else
+        ClearPedTasks(ped)
+        TaskEnterVehicle(ped, vehicle, 20000, -1, 1.0, 1, 0)
+    end
+end
+
 tasks.none = function() end
 
 ---Tarefa hostil? Decide o grupo de relação antes de aplicar.
 local HOSTILE_TASKS = { combat = true, chase = true, driveby = true }
+
+---Tarefas de quem está dentro do veículo. O ped nasce ao lado (world.lua) e quem é dono dele
+---o põe no banco.
+local SEATED_TASKS = { ride = true, drive_to = true, chase = true, driveby = true }
+
+---@param ped integer
+---@param desc table
+---@return boolean seated
+local function ensureSeat(ped, desc)
+    if not desc.seat or not desc.t or not SEATED_TASKS[desc.t.n] or not desc.t.veh then return true end
+    if not NetworkDoesNetworkIdExist(desc.t.veh) then return false end
+    local vehicle = NetToVeh(desc.t.veh)
+    if vehicle == 0 then return false end
+    if IsPedInVehicle(ped, vehicle, false) then return true end
+    -- Só banco que existe e está livre. Banco inexistente (terceiro NPC numa moto) derrubava
+    -- o jogo: ponteiro vazio dentro do GTA, crash de 2026-10-02.
+    local passengers = GetVehicleMaxNumberOfPassengers(vehicle)
+    if desc.seat < -1 or desc.seat >= passengers or not IsVehicleSeatFree(vehicle, desc.seat) then
+        return false
+    end
+    SetPedIntoVehicle(ped, vehicle, desc.seat)
+    return IsPedInVehicle(ped, vehicle, false)
+end
 
 ---@param ped integer
 ---@param desc table
@@ -162,6 +213,7 @@ function Ai.apply(ped, desc)
     local crew = type(desc.g) == 'string' and (desc.g:sub(1, 6) == 'reinf:' or desc.g:sub(1, 6) == 'chase:')
     local hostile = HOSTILE_TASKS[name] or (name == 'exit' and desc.t.engage) or (crew and name ~= 'wander')
     Ai.configure(ped, desc.cfg or {}, hostile == true)
+    ensureSeat(ped, desc)
     local fn = tasks[name]
     if fn then fn(ped, desc) end
 end
@@ -176,7 +228,35 @@ function Ai.maintain(ped, desc, state)
     local name = desc.t and desc.t.n
     local now = GetGameTimer()
     if (state.nextCheck or 0) > now then return end
-    state.nextCheck = now + 5000
+    state.nextCheck = now + (name == 'warn' and 1000 or 5000)
+    if name == 'warn' then
+        -- A mira pode cair (empurrão, troca de dono, evento): volta a apontar.
+        if GetScriptTaskStatus(ped, AIM_TASK) == 7 and GetScriptTaskStatus(ped, TURN_TASK) == 7 then
+            tasks.warn(ped, desc)
+        end
+        return
+    end
+    -- Veículo ainda fora do escopo quando a tarefa chegou: senta e reaplica quando aparecer.
+    if SEATED_TASKS[name] and desc.seat and not IsPedInAnyVehicle(ped, false) then
+        if ensureSeat(ped, desc) then Ai.apply(ped, desc) end
+        return
+    end
+    if name == 'drive_off' then
+        -- Entrou, trocou de banco ou ficou parado: reavalia. Motor ligado por quem controla a
+        -- van; sem isso o NPC fica sentado nela.
+        local vehicle = NetworkDoesNetworkIdExist(desc.t.veh) and NetToVeh(desc.t.veh) or 0
+        if vehicle ~= 0 and GetPedInVehicleSeat(vehicle, -1) == ped and GetEntitySpeed(vehicle) < 1.0 then
+            NetworkRequestControlOfEntity(vehicle)
+            SetVehicleUndriveable(vehicle, false)
+            SetVehicleEngineOn(vehicle, true, true, false)
+        end
+        -- 160 = entrando no veículo: não interrompe quem ainda está abrindo a porta.
+        if vehicle ~= 0 and not GetIsTaskActive(ped, 160)
+            and (GetPedInVehicleSeat(vehicle, -1) ~= ped or GetEntitySpeed(vehicle) < 1.0) then
+            tasks.drive_off(ped, desc)
+        end
+        return
+    end
     if name == 'combat' and not IsPedInCombat(ped, 0) then
         tasks.combat(ped, desc)
     elseif name == 'drive_to' or name == 'chase' then

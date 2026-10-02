@@ -7,6 +7,7 @@ local Integrations = require 'client.integrations'
 local Debug = {}
 
 local drawables = {}
+local mapBlips = {}
 local instanceInfo = nil
 local drawing = false
 local instanceOverlay = false
@@ -17,12 +18,90 @@ local COLORS = {
     chase = { 239, 41, 41 }, delivery = { 57, 223, 69 },
 }
 
+---Contorno do círculo: pontos em volta do centro. A altura do chão de cada ponto é lida
+---quando o ponto chega perto (longe, o terreno ainda não carregou).
+---@param center vector3
+---@param radius number
+---@return table[]
+local function ring(center, radius)
+    local count = math.max(24, math.min(120, math.floor(radius / 3)))
+    local points = {}
+    for index = 0, count - 1 do
+        local angle = (index / count) * math.pi * 2
+        points[#points + 1] = { x = center.x + math.cos(angle) * radius, y = center.y + math.sin(angle) * radius }
+    end
+    return points
+end
+
 local function add(kind, coords, label, radius, to)
     if not coords then return end
+    local center = vector3(coords.x, coords.y, coords.z)
     drawables[#drawables + 1] = {
-        kind = kind, coords = vector3(coords.x, coords.y, coords.z), label = label, radius = radius,
+        kind = kind, coords = center, label = label, radius = radius,
         to = to and vector3(to.x, to.y, to.z) or nil,
+        ring = radius and radius > 0 and ring(center, radius) or nil,
     }
+end
+
+---@param point table
+---@param fallback number
+---@return number
+local function groundZ(point, fallback)
+    if point.z then return point.z end
+    -- Sonda logo acima do centro, não do céu: dentro de um galpão, vinda de cima ela acha o
+    -- telhado e o contorno ficava lá em cima, invisível de dentro.
+    local found, z = GetGroundZFor_3dCoord(point.x, point.y, fallback + 4.0, false)
+    if found and math.abs(z - fallback) < 15.0 then point.z = z end
+    return point.z or fallback
+end
+
+local WALL_HEIGHT = 3.0
+local RING_DRAW_DISTANCE = 400.0
+
+---Parede translúcida de 3 m no contorno inteiro, com borda forte em cima e embaixo: mostra
+---até onde a área vai, de dentro e de fora, em qualquer tamanho.
+local function drawRing(item, origin, color)
+    local points = item.ring
+    local count = #points
+    local limit = RING_DRAW_DISTANCE * RING_DRAW_DISTANCE
+    local r, g, b = color[1], color[2], color[3]
+    for index = 1, count do
+        local a, c = points[index], points[index % count + 1]
+        local dx, dy = a.x - origin.x, a.y - origin.y
+        if dx * dx + dy * dy < limit then
+            local az, cz = groundZ(a, item.coords.z), groundZ(c, item.coords.z)
+            local at, ct = az + WALL_HEIGHT, cz + WALL_HEIGHT
+            -- Os dois sentidos: polígono só aparece de um lado.
+            DrawPoly(a.x, a.y, az, c.x, c.y, cz, c.x, c.y, ct, r, g, b, 45)
+            DrawPoly(a.x, a.y, az, c.x, c.y, ct, a.x, a.y, at, r, g, b, 45)
+            DrawPoly(c.x, c.y, ct, c.x, c.y, cz, a.x, a.y, az, r, g, b, 45)
+            DrawPoly(a.x, a.y, at, c.x, c.y, ct, a.x, a.y, az, r, g, b, 45)
+            DrawLine(a.x, a.y, az + 0.05, c.x, c.y, cz + 0.05, r, g, b, 255)
+            DrawLine(a.x, a.y, at, c.x, c.y, ct, r, g, b, 255)
+        end
+    end
+end
+
+local function clearMapBlips()
+    for index = 1, #mapBlips do
+        if DoesBlipExist(mapBlips[index]) then RemoveBlip(mapBlips[index]) end
+    end
+    mapBlips = {}
+end
+
+---Toda área com raio também no mapa, para ver o tamanho de longe.
+local BLIP_COLORS = { zone = 3, step = 0, delivery = 2, route = 5 }
+local function buildMapBlips()
+    clearMapBlips()
+    for index = 1, #drawables do
+        local item = drawables[index]
+        if item.radius and item.radius > 0 then
+            local blip = AddBlipForRadius(item.coords.x, item.coords.y, item.coords.z, item.radius + 0.0)
+            SetBlipColour(blip, BLIP_COLORS[item.kind] or 0)
+            SetBlipAlpha(blip, 90)
+            mapBlips[#mapBlips + 1] = blip
+        end
+    end
 end
 
 ---@param def table
@@ -102,12 +181,11 @@ local function ensureLoop()
             for index = 1, #drawables do
                 local item = drawables[index]
                 local distance = #(item.coords - origin)
+                if item.ring and distance < item.radius + RING_DRAW_DISTANCE then
+                    drawRing(item, origin, COLORS[item.kind])
+                end
                 if distance < 250.0 then
                     local color = COLORS[item.kind]
-                    if item.radius and item.radius <= 120 then
-                        DrawMarker(1, item.coords.x, item.coords.y, item.coords.z - 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                            item.radius * 2.0, item.radius * 2.0, 1.5, color[1], color[2], color[3], 50, false, false, 2, false, nil, nil, false)
-                    end
                     DrawMarker(28, item.coords.x, item.coords.y, item.coords.z, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                         0.25, 0.25, 0.25, color[1], color[2], color[3], 200, false, false, 2, false, nil, nil, false)
                     if item.to then
@@ -125,13 +203,25 @@ end
 
 ---@param enabled boolean
 ---@param missionId string?
+local debugMission = nil
+
 function Debug.setMission(enabled, missionId)
+    debugMission = enabled and missionId or nil
     drawables = {}
+    clearMapBlips()
     if not enabled or not missionId then return end
     local result = lib.callback.await('noir_missions:server:editorDraft', false, missionId)
     if not result or not result.ok then return end
     build(result.definition)
+    buildMapBlips()
     ensureLoop()
+end
+
+---Depois de salvar, redesenha a missão que está sendo mostrada (zona movida aparece no
+---lugar novo sem desligar e ligar a opção).
+---@param missionId string
+function Debug.refresh(missionId)
+    if debugMission and debugMission == missionId then Debug.setMission(true, missionId) end
 end
 
 function Debug.toggleInstance()
@@ -154,6 +244,7 @@ end)
 
 function Debug.clear()
     drawables = {}
+    clearMapBlips()
     instanceOverlay = false
     instanceInfo = nil
 end

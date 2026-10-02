@@ -120,6 +120,10 @@ function World.createPed(inst, key, cfg, coords, task)
     return register(inst, ped, 'ped', key, { cfg = pedConfig(cfg, coords), t = task or { n = 'idle' } })
 end
 
+---Ped que vai num banco de veículo. Não usa `CreatePedInsideVehicle`: é native RPC, executado
+---pelo dono de rede do veículo, e um veículo recém-criado ainda não tem dono — o ped nunca
+---nascia (reforço da Elysian, 2026-10-01). Nasce ao lado, e o dono de rede do ped o põe no
+---banco quando aplica a tarefa (client/npc/ai.lua), como faz com o resto da configuração.
 ---@param inst table
 ---@param key string
 ---@param cfg table
@@ -129,9 +133,10 @@ end
 ---@return table? record
 function World.createPedInVehicle(inst, key, cfg, vehicle, seat, task)
     if not vehicle or not DoesEntityExist(vehicle.entity) then return nil end
-    local ped = CreatePedInsideVehicle(vehicle.entity, 4, joaat(cfg.model), seat, true, true)
+    local origin = GetEntityCoords(vehicle.entity)
+    local ped = CreatePed(4, joaat(cfg.model), origin.x, origin.y, origin.z + 1.0, GetEntityHeading(vehicle.entity), true, true)
     if not waitExists(ped) then
-        lib.print.error(('[noir_missions] ped %s não entrou no banco %d (%s)'):format(cfg.model, seat, key))
+        lib.print.error(('[noir_missions] ped %s do banco %d não nasceu (%s)'):format(cfg.model, seat, key))
         return nil
     end
     local record = register(inst, ped, 'ped', key, {
@@ -214,6 +219,33 @@ function World.delete(record)
     end
 end
 
+---Tira a entidade da instância e apaga depois de `seconds`, sem nunca apagar veículo com
+---jogador dentro (tenta de novo a cada 5 s por até um minuto). Serve para o que sai de cena
+---dirigindo: o fim da missão não pode fazer a van sumir na frente de ninguém.
+---@param record table?
+---@param seconds number
+function World.release(record, seconds)
+    if not record then return end
+    record.instanceId = nil
+    local desc = registry[record.netId]
+    if desc then desc.i = nil end
+    local attempts = 0
+    local function try()
+        if not DoesEntityExist(record.entity) then return World.delete(record) end
+        local busy = false
+        if record.kind == 'vehicle' then
+            for seat = -1, 6 do
+                local ped = GetPedInVehicleSeat(record.entity, seat)
+                if ped ~= 0 and IsPedAPlayer(ped) then busy = true break end
+            end
+        end
+        attempts = attempts + 1
+        if busy and attempts < 12 then return SetTimeout(5000, try) end
+        World.delete(record)
+    end
+    SetTimeout(math.floor(seconds * 1000), try)
+end
+
 ---@param record table?
 ---@return boolean
 function World.exists(record)
@@ -256,14 +288,23 @@ function World.pedState(record)
     return 'unknown', nil
 end
 
----Veículo destruído: sumiu, ou o dono confirma motor/carroceria no fim.
+---Veículo destruído: sumiu, ou o dono confirma motor/carroceria no fim DEPOIS de já ter
+---confirmado o veículo inteiro. Logo que nasce, antes de o primeiro dono mandar o estado, a
+---vida lida no servidor pode vir zerada — e uma onda de perseguição acabava "derrotada" um
+---segundo depois de nascer (2026-10-02).
 ---@param record table
 ---@return boolean
 function World.vehicleDestroyed(record)
     if not World.exists(record) then return true end
     if not hasOwner(record.entity) then return false end
     local engine = GetVehicleEngineHealth(record.entity)
-    return engine <= -3999.0 or GetEntityHealth(record.entity) <= 0
+    local health = GetEntityHealth(record.entity)
+    local wrecked = engine <= -3999.0 or health <= 0
+    if not wrecked then
+        record.seenIntact = true
+        return false
+    end
+    return record.seenIntact == true
 end
 
 ---@param inst table
@@ -309,43 +350,71 @@ end)
 -- servidor não sabe pelo modelo. Pergunta a um cliente uma vez por modelo e guarda.
 
 local vehicleTypes = {}
+local vehicleSeats = {}
 local typeRequests = {}
 local VALID_TYPES = {
     automobile = true, bike = true, boat = true, heli = true, plane = true,
     submarine = true, trailer = true, train = true,
 }
 
-RegisterNetEvent('noir_missions:server:vehicleType', function(requestId, vehicleType)
+RegisterNetEvent('noir_missions:server:vehicleType', function(requestId, vehicleType, seats)
     local request = typeRequests[requestId]
     if not request or request.source ~= source then return end
     if VALID_TYPES[vehicleType] then request.result = vehicleType end
+    if type(seats) == 'number' and seats >= 1 and seats <= 16 and seats % 1 == 0 then request.seats = seats end
     request.done = true
 end)
+
+---Pergunta ao cliente o tipo do modelo e quantos bancos ele tem (motorista incluído).
+---Uma vez por modelo; o resultado fica guardado.
+---@param model string
+---@param askSource integer?
+local function learn(model, askSource)
+    if vehicleTypes[model] or not askSource or not GetPlayerName(askSource) then return end
+    local requestId = ('%s:%d'):format(model, GetGameTimer())
+    local request = { source = askSource }
+    typeRequests[requestId] = request
+    TriggerClientEvent('noir_missions:client:vehicleType', askSource, requestId, model)
+    for _ = 1, 30 do
+        if request.done then break end
+        Wait(100)
+    end
+    typeRequests[requestId] = nil
+    if request.result then
+        vehicleTypes[model] = request.result
+        vehicleSeats[model] = request.seats
+    end
+end
 
 ---@param model string
 ---@param askSource integer?
 ---@return string
 function World.vehicleType(model, askSource)
+    learn(model, askSource)
     if vehicleTypes[model] then return vehicleTypes[model] end
-    local result
-    if askSource and GetPlayerName(askSource) then
-        local requestId = ('%s:%d'):format(model, GetGameTimer())
-        local request = { source = askSource }
-        typeRequests[requestId] = request
-        TriggerClientEvent('noir_missions:client:vehicleType', askSource, requestId, model)
-        for _ = 1, 30 do
-            if request.done then break end
-            Wait(100)
-        end
-        typeRequests[requestId] = nil
-        result = request.result
-    end
-    if result then
-        vehicleTypes[model] = result
-        return result
-    end
     lib.print.warn(('[noir_missions] tipo do veículo %s desconhecido; usando automobile'):format(model))
     return 'automobile'
+end
+
+---Bancos do modelo, motorista incluído; nil quando ninguém soube dizer.
+---@param model string
+---@param askSource integer?
+---@return integer?
+function World.vehicleSeats(model, askSource)
+    learn(model, askSource)
+    return vehicleSeats[model]
+end
+
+---O banco existe no modelo? -1 é o motorista, 0.. passageiros. Sem a contagem, deixa passar e
+---quem senta (o dono do ped) confere de novo.
+---@param model string
+---@param seat integer
+---@param askSource integer?
+---@return boolean
+function World.seatExists(model, seat, askSource)
+    local seats = World.vehicleSeats(model, askSource)
+    if not seats then return true end
+    return seat + 2 <= seats
 end
 
 ---Placa de veículo de missão: 8 caracteres, sem colidir com o formato de placa de jogador.

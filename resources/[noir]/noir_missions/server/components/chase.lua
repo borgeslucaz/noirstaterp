@@ -59,24 +59,43 @@ function Chase.start(inst, def, waveIndex, attempt)
     if not wave then return end
 
     local targetSource, targetEntity = pickTarget(inst)
-    if not targetSource then return end
-    local targetCoords = GetEntityCoords(targetEntity)
-    local players = {}
-    for _, position in pairs(inst.positions) do players[#players + 1] = position end
-    local index = SpawnPoints.choose(def.spawnPoints, {
-        target = targetCoords,
-        forward = SpawnPoints.forward(GetEntityVelocity(targetEntity), GetEntityHeading(targetEntity)),
-        players = players,
-        minDistance = def.minSpawnDistance or 120,
-        maxDistance = def.maxSpawnDistance or 450,
-    })
-
-    local point = index and def.spawnPoints[index] or nil
-    if not point and def.roadSpawn ~= false then
-        point = Chase.requestRoadSpawn(targetSource, targetCoords, def)
+    if not targetSource then
+        Runtime.trace(inst, ('perseguição %s: sem alvo'):format(def.id))
+        return
     end
+    local targetCoords = GetEntityCoords(targetEntity)
+    local count = Utils.randomBetween(wave.countMin or 1, math.max(wave.countMin or 1, wave.countMax or 1), Runtime.io.random)
+    local mode = def.spawnMode or 'both'
 
-    if not point then
+    -- Vagas: uma por carro. Ponto cadastrado dá uma (os outros em fila atrás dele); a estrada
+    -- dá uma por carro, em nós da mesma via.
+    local slots, origin = nil, nil
+    if mode ~= 'road' and #(def.spawnPoints or {}) > 0 then
+        local players = {}
+        for _, position in pairs(inst.positions) do players[#players + 1] = position end
+        local index = SpawnPoints.choose(def.spawnPoints, {
+            target = targetCoords,
+            forward = SpawnPoints.forward(GetEntityVelocity(targetEntity), GetEntityHeading(targetEntity)),
+            players = players,
+            minDistance = def.minSpawnDistance or 120,
+            maxDistance = def.maxSpawnDistance or 450,
+        })
+        if index then
+            slots = { def.spawnPoints[index] }
+            origin = ('ponto cadastrado #%d'):format(index)
+        end
+    end
+    if not slots and mode ~= 'points' then
+        local points = Chase.requestRoadSpawn(inst, targetSource, targetCoords, def, count)
+        if #points > 0 then
+            slots = points
+            origin = ('estrada atrás do alvo (%d vagas)'):format(#points)
+        end
+    end
+    Runtime.trace(inst, ('perseguição %s onda %d tentativa %d: %s'):format(def.id, waveIndex, attempt + 1,
+        origin or 'nenhum ponto serviu'))
+
+    if not slots then
         if attempt < Config.chase.retryLimit then
             Runtime.schedule(inst, Config.chase.retrySeconds * 1000, function()
                 Chase.start(inst, def, waveIndex, attempt + 1)
@@ -88,8 +107,8 @@ function Chase.start(inst, def, waveIndex, attempt)
         return
     end
 
+    local point = slots[1]
     local heading = math.rad(point.w or 0.0)
-    local count = Utils.randomBetween(wave.countMin or 1, math.max(wave.countMin or 1, wave.countMax or 1), Runtime.io.random)
     inst.chaseCount = (inst.chaseCount or 0) + 1
     local key = ('chase:%s:%d'):format(def.id, inst.chaseCount)
     local run = {
@@ -99,16 +118,22 @@ function Chase.start(inst, def, waveIndex, attempt)
     local vehicleType = World.vehicleType(wave.model, inst.leader)
 
     for number = 1, count do
-        local back = (number - 1) * SPACING
-        local coords = {
-            x = point.x + math.sin(heading) * back, y = point.y - math.cos(heading) * back,
-            z = point.z, w = point.w or 0.0,
-        }
+        -- Vaga própria quando a estrada deu; senão em fila atrás da primeira.
+        local coords = slots[number]
+        if not coords then
+            local back = (number - 1) * SPACING
+            coords = {
+                x = point.x + math.sin(heading) * back, y = point.y - math.cos(heading) * back,
+                z = point.z, w = point.w or 0.0,
+            }
+        end
         local vehicle = World.createVehicle(inst, key, wave.model, vehicleType, coords, { plate = World.randomPlate(), npc = true })
         if vehicle then
             run.vehicles[#run.vehicles + 1] = vehicle
             for crewIndex = 1, #def.crew do
                 local seat = crewIndex - 2
+                -- Moto tem dois bancos: o terceiro da tripulação não nasce nela.
+                if not World.seatExists(wave.model, seat, inst.leader) then break end
                 local task
                 if seat == -1 then
                     task = {
@@ -144,34 +169,55 @@ end
 local roadRequests = {}
 local roadCounter = 0
 
-RegisterNetEvent('noir_missions:server:chaseSpawn', function(requestId, point)
+RegisterNetEvent('noir_missions:server:chaseSpawn', function(requestId, points)
     local request = roadRequests[requestId]
     if not request or request.source ~= source then return end
     request.done = true
-    if type(point) == 'table' and Utils.isPosition(point) then request.point = point end
+    if type(points) == 'table' then request.points = points end
 end)
 
+---Pede vagas na estrada ao cliente de quem está sendo perseguido. Cada vaga que voltar é
+---conferida aqui: coordenada finita, na faixa de distância do alvo e longe de TODO participante
+---(pela posição do servidor). O resto é descartado.
+---@param inst table
 ---@param targetSource integer
 ---@param targetCoords vector3
 ---@param def table
----@return table? point
-function Chase.requestRoadSpawn(targetSource, targetCoords, def)
+---@param count integer
+---@return table[] points
+function Chase.requestRoadSpawn(inst, targetSource, targetCoords, def, count)
     roadCounter = roadCounter + 1
     local requestId = roadCounter
     local request = { source = targetSource }
     roadRequests[requestId] = request
     local minDistance, maxDistance = def.minSpawnDistance or 120, def.maxSpawnDistance or 450
-    TriggerClientEvent('noir_missions:client:chaseSpawn', targetSource, requestId, minDistance, maxDistance)
+    TriggerClientEvent('noir_missions:client:chaseSpawn', targetSource, requestId, minDistance, maxDistance, count)
     for _ = 1, 30 do
         if request.done then break end
         Wait(100)
     end
     roadRequests[requestId] = nil
-    local point = request.point
-    if not point then return nil end
-    local distance = Utils.distance2d(point, targetCoords)
-    if distance < minDistance * 0.8 or distance > maxDistance * 1.2 then return nil end
-    return { x = point.x, y = point.y, z = point.z, w = point.w or 0.0 }
+
+    local accepted = {}
+    for index = 1, math.min(#(request.points or {}), count) do
+        local point = request.points[index]
+        local ok = type(point) == 'table' and Utils.isPosition(point)
+        if ok then
+            local distance = Utils.distance2d(point, targetCoords)
+            ok = distance >= minDistance * 0.8 and distance <= maxDistance * 1.2
+        end
+        if ok then
+            for _, position in pairs(inst.positions) do
+                if Utils.distance2d(point, position) < minDistance * 0.8 then
+                    ok = false
+                    break
+                end
+            end
+        end
+        if not ok then break end
+        accepted[#accepted + 1] = { x = point.x, y = point.y, z = point.z, w = point.w or 0.0 }
+    end
+    return accepted
 end
 
 ---@param run table
@@ -231,7 +277,11 @@ local function tickRun(inst, run)
         end
     end
 
-    if not anyCrew or not anyVehicle then return finishRun(inst, run, 'defeated', true) end
+    if not anyCrew or not anyVehicle then
+        Runtime.trace(inst, ('perseguição %s onda %d: %s'):format(run.id, run.wave,
+            not anyCrew and 'tripulação toda morta' or 'veículos destruídos'))
+        return finishRun(inst, run, 'defeated', true)
+    end
 
     local now = Runtime.io.now()
     if closest > (run.def.loseDistance or 400) then

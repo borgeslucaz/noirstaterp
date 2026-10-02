@@ -6,6 +6,7 @@ local Nui = require 'client.runtime.nui'
 local Hud = require 'client.runtime.hud'
 local Blips = require 'client.runtime.blips'
 local Shots = require 'client.runtime.shots'
+local Markers = require 'client.runtime.markers'
 local Starters = require 'client.runtime.starters'
 local Targets = require 'client.interactions.targets'
 local Carry = require 'client.cargo.carry'
@@ -21,7 +22,10 @@ State.onChange(function(view)
     Hud.objective(view)
     Blips.sync(view and view.blips or nil)
     Targets.sync(view)
-    if view then Shots.start() end
+    if view then
+        Shots.start()
+        Markers.start()
+    end
 end)
 
 local ENDED = {

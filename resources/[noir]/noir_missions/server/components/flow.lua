@@ -36,14 +36,28 @@ end
 
 local Flow = {}
 
+---Roda agora, ou depois de `delaySeconds` sem segurar a lista de ações. Missão que acabou na
+---espera não manda nada (Runtime.schedule confere).
+---@param inst table
+---@param action table
+---@param fn function
+local function later(inst, action, fn)
+    local delay = tonumber(action.delaySeconds) or 0
+    if delay <= 0 then return fn() end
+    Runtime.schedule(inst, delay * 1000, fn)
+end
+
 ---Informação revelada (manifesto) para todos os participantes.
 ---@param inst table
 ---@param title string
 ---@param lines table[]
 function Flow.showInfo(inst, title, lines)
-    Runtime.broadcast(inst, 'noir_missions:client:info', {
-        title = Runtime.render(inst, title), lines = renderLines(inst, lines),
-    })
+    local info = { title = Runtime.render(inst, title), lines = renderLines(inst, lines) }
+    -- Fica fixa no checklist da HUD até o fim da missão; o aviso avulso é para quem está com
+    -- o checklist recolhido.
+    inst.infos[#inst.infos + 1] = info
+    Runtime.broadcast(inst, 'noir_missions:client:info', info)
+    Runtime.markDirty(inst)
 end
 
 MissionComponents.register('flow', {
@@ -69,8 +83,10 @@ MissionComponents.register('flow', {
         chance = function(inst, action, ctx)
             local percent = action.percent or 50
             if percent >= 100 or (percent > 0 and Runtime.io.random(1, 100) <= percent) then
+                Runtime.trace(inst, ('chance de %d%%: saiu'):format(percent))
                 Runtime.runActions(inst, action['then'], ctx)
             else
+                Runtime.trace(inst, ('chance de %d%%: não saiu'):format(percent))
                 Runtime.runActions(inst, action['else'], ctx)
             end
         end,
@@ -103,17 +119,22 @@ MissionComponents.register('flow', {
 
         send_sms = function(inst, action, ctx)
             if ctx.silent then return end
-            local text = Runtime.render(inst, action.text)
-            for _, source in ipairs(Runtime.participantList(inst)) do
-                Integrations.sendSms(source, text)
-            end
+            later(inst, action, function()
+                -- Texto montado na hora do envio: variável que mudou na espera já sai certa.
+                local text = Runtime.render(inst, action.text)
+                for _, source in ipairs(Runtime.participantList(inst)) do
+                    Integrations.sendSms(source, text)
+                end
+            end)
         end,
         notify = function(inst, action, ctx)
             if ctx.silent then return end
-            local text = Runtime.render(inst, action.text)
-            for _, source in ipairs(Runtime.participantList(inst)) do
-                Integrations.notify(source, text, action.kind)
-            end
+            later(inst, action, function()
+                local text = Runtime.render(inst, action.text)
+                for _, source in ipairs(Runtime.participantList(inst)) do
+                    Integrations.notify(source, text, action.kind)
+                end
+            end)
         end,
         show_info = function(inst, action, ctx)
             if ctx.silent then return end

@@ -21,3 +21,38 @@ function BGRZ.DisplayItemMetadata(key, label)
 end
 
 exports('DisplayItemMetadata', BGRZ.DisplayItemMetadata)
+
+---Guarda a arma que está na mão, pelo inventário: trocar direto pelo native deixa o provider
+---achando que a arma continua equipada.
+---@param noAnim? boolean sem a animação de guardar
+---@return boolean ok
+---@return string? errorCode
+function BGRZ.HolsterWeapon(noAnim)
+    if not BGRZ.Provider.isAvailable('inventory') then return false, 'provider_unavailable' end
+    local provider = BGRZ.Provider.name('inventory')
+    TriggerEvent(('%s:disarm'):format(provider), noAnim == true)
+    return true
+end
+
+exports('HolsterWeapon', BGRZ.HolsterWeapon)
+
+---Trava o inventário do jogador (abrir, usar item, hotbar), para quem está com as mãos
+---ocupadas numa atividade. Quem trava destrava; o bridge não guarda dono da trava.
+---@param busy boolean
+---@return boolean ok
+---@return string? errorCode
+function BGRZ.SetInventoryBusy(busy)
+    if type(busy) ~= 'boolean' then return false, 'invalid_state' end
+    if not BGRZ.Provider.isAvailable('inventory') then return false, 'provider_unavailable' end
+    LocalPlayer.state:set('invBusy', busy, false)
+    return true
+end
+
+exports('SetInventoryBusy', BGRZ.SetInventoryBusy)
+
+---@return boolean
+function BGRZ.IsInventoryBusy()
+    return LocalPlayer.state.invBusy == true
+end
+
+exports('IsInventoryBusy', BGRZ.IsInventoryBusy)

@@ -125,7 +125,9 @@ end
 RegisterNetEvent('noir_missions:client:vehicleType', function(requestId, modelName)
     if source ~= 65535 then return end
     if type(modelName) ~= 'string' then return end
-    TriggerServerEvent('noir_missions:server:vehicleType', requestId, Vehicles.serverType(modelName))
+    local model = joaat(modelName)
+    local seats = IsModelInCdimage(model) and GetVehicleModelNumberOfSeats(model) or nil
+    TriggerServerEvent('noir_missions:server:vehicleType', requestId, Vehicles.serverType(modelName), seats)
 end)
 
 return Vehicles

@@ -1,0 +1,103 @@
+diff --git a/sky_phone/fxmanifest.lua b/sky_phone/fxmanifest.lua
+index a6502058..7603adc1 100644
+--- a/sky_phone/fxmanifest.lua
++++ b/sky_phone/fxmanifest.lua
+@@ -58,6 +58,7 @@ client_scripts {
+     'source/client/citywarn.lua',
+     'source/client/weather.lua',
+     'source/client/garage.lua',
++    'source/client/noir_layout.lua',
+     'source/client/skyride.lua',
+     'source/client/housing.lua',
+     'source/client/crewlink.lua',
+@@ -184,6 +185,7 @@ server_scripts {
+ 
+ files {
+     'source/html/index.html',
++    'source/html/noir-layout.css',
+     'source/html/display.html',
+     'source/html/assets/**',
+     'source/html/img/**',
+diff --git a/sky_phone/source/client/noir_layout.lua b/sky_phone/source/client/noir_layout.lua
+new file mode 100644
+index 00000000..7a4ce1ef
+--- /dev/null
++++ b/sky_phone/source/client/noir_layout.lua
+@@ -0,0 +1,29 @@
++-- Noir State: o celular por cima de tudo e fora do velocímetro.
++--
++-- * Z-index da página do celular acima das outras NUIs: a notificação aparecia por baixo da
++--   HUD do carro (noir_hud), que é outro resource.
++-- * Dentro de veículo, o celular sai do canto inferior direito, onde fica o velocímetro do
++--   noir_hud, e vai para o lado dele. A página recebe `noir:layout` e troca uma classe; o CSS
++--   está em source/html/noir-layout.css.
++
++pcall(SetNuiZindex, 1000)
++
++local inVehicle = nil
++
++local function send(state)
++    if state == inVehicle then return end
++    inVehicle = state
++    SendNUIMessage({ type = "noir:layout", inVehicle = state })
++end
++
++CreateThread(function()
++    while true do
++        send(GetVehiclePedIsIn(PlayerPedId(), false) ~= 0)
++        Wait(500)
++    end
++end)
++
++-- Página recarregada (restart): manda o estado de novo no próximo ciclo.
++AddEventHandler("onClientResourceStart", function(resource)
++    if resource == GetCurrentResourceName() then inVehicle = nil end
++end)
+diff --git a/sky_phone/source/client/notifications.lua b/sky_phone/source/client/notifications.lua
+index 3f60f2bd..c25ed02b 100644
+--- a/sky_phone/source/client/notifications.lua
++++ b/sky_phone/source/client/notifications.lua
+@@ -293,6 +293,9 @@ end)
+ RegisterNetEvent("sky_phone:messages:new", function(data)
+     local locale = app_locales.messages
+     data.title = locale.name
++    -- SMS anônimo (bgrz_core:SendPhoneAnonymousMessage) não tem remetente: sem isto o texto
++    -- saía "Nova mensagem de nil". (Noir State)
++    if data.sender == nil or data.sender == "" then data.sender = "Anônimo" end
+     data.text = locale.newMessage:gsub("{sender}", tostring(data.sender))
+     SendNUIMessage({ type = "messages:new", data = data })
+ end)
+diff --git a/sky_phone/source/html/index.html b/sky_phone/source/html/index.html
+index d5d574d5..f750934e 100644
+--- a/sky_phone/source/html/index.html
++++ b/sky_phone/source/html/index.html
+@@ -7,6 +7,16 @@
+     <script type="module" crossorigin src="./assets/sky-main-BG-vTFpi.js"></script>
+     <link rel="modulepreload" crossorigin href="./assets/sky-displayFrame-DKiW4Jek.js">
+     <link rel="stylesheet" crossorigin href="./assets/sky-main-BdRcKqPT.css">
++    <!-- Noir State: celular fora do velocímetro dentro de veículo (source/client/noir_layout.lua). -->
++    <link rel="stylesheet" href="./noir-layout.css">
++    <script>
++      window.addEventListener("message", function (event) {
++        var data = event.data;
++        if (data && data.type === "noir:layout") {
++          document.documentElement.classList.toggle("noir-in-vehicle", data.inVehicle === true);
++        }
++      });
++    </script>
+   </head>
+   <body>
+     <div id="app"></div>
+diff --git a/sky_phone/source/html/noir-layout.css b/sky_phone/source/html/noir-layout.css
+new file mode 100644
+index 00000000..86619863
+--- /dev/null
++++ b/sky_phone/source/html/noir-layout.css
+@@ -0,0 +1,7 @@
++/* Noir State: dentro de veículo o celular vai para a esquerda do velocímetro do noir_hud
++   (.pnl-car: 27vh de largura a 4.5vh da borda direita) e sobe um pouco. */
++.phone-stage { transition: padding 250ms ease; }
++html.noir-in-vehicle .phone-stage {
++    padding-right: calc(27vh + 4.5vh + 2.5vh) !important;
++    padding-bottom: calc(var(--phone-edge-gap, 24px) + 3vh) !important;
++}

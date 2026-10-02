@@ -58,6 +58,7 @@ client_scripts {
     'source/client/citywarn.lua',
     'source/client/weather.lua',
     'source/client/garage.lua',
+    'source/client/noir_layout.lua',
     'source/client/skyride.lua',
     'source/client/housing.lua',
     'source/client/crewlink.lua',
@@ -184,6 +185,7 @@ server_scripts {
 
 files {
     'source/html/index.html',
+    'source/html/noir-layout.css',
     'source/html/display.html',
     'source/html/assets/**',
     'source/html/img/**',

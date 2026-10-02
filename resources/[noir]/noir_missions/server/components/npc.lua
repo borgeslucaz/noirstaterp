@@ -12,8 +12,8 @@ local Config = require 'config.server'
 
 local Npc = {}
 
-local WARN_COOLDOWN_MS = 15000
-local WARN_DURATION_MS = 6000
+local WARN_COOLDOWN_MS = 15000 -- entre uma fala e outra para o mesmo jogador
+local WARN_RELEASE_MS = 3000   -- todos fora do raio por este tempo: o guarda abaixa a arma
 
 ---@param inst table
 ---@param key string
@@ -61,6 +61,7 @@ function Npc.setHostile(inst, key, hostile, reason)
     local group = inst.groups[key]
     if not group or group.hostile == hostile then return end
     group.hostile = hostile
+    group.warning = nil
     for index = 1, #group.peds do
         local record = group.peds[index]
         if not record.dead then
@@ -133,43 +134,63 @@ function Npc.aliveCount(inst, key)
     return (counts(group))
 end
 
----Aviso de guarda: o ped mais perto encara quem chegou, fala, e volta ao posto se nada
----acontecer. Quem decide hostilidade continua sendo zona/tiro/dano/alarme.
+---Aviso de guarda. Com alguém dentro do raio, o grupo inteiro aponta a arma — cada guarda
+---para o intruso mais perto dele — e continua apontando enquanto houver alguém lá; sai todo
+---mundo, abaixam depois de um instante. Só o guarda mais perto fala, com intervalo por
+---jogador. Quem decide hostilidade continua sendo zona, tiro, dano e alarme.
 ---@param inst table
 ---@param group table
----@param source integer
----@param position vector3
-local function warn(inst, group, source, position)
+---@param intruders table<integer, vector3> participantes dentro do raio de algum guarda
+local function tickWarning(inst, group, intruders)
     local now = Runtime.io.now()
-    if (group.warnedAt[source] or 0) > now then return end
-    group.warnedAt[source] = now + WARN_COOLDOWN_MS
 
-    local nearest, nearestDistance
+    if next(intruders) == nil then
+        if group.warning and now - group.warning.lastSeen > WARN_RELEASE_MS then
+            for record in pairs(group.warning.targets) do
+                if not record.dead then World.setTask(record, { n = 'idle' }) end
+            end
+            group.warning = nil
+        end
+        return
+    end
+
+    local warning = group.warning or { targets = {} }
+    group.warning = warning
+    warning.lastSeen = now
+
+    local speaker, speakerDistance, speakerTarget, speakerPosition
     for index = 1, #group.peds do
         local record = group.peds[index]
         local coords = not record.dead and World.coords(record)
         if coords then
-            local distance = #(coords - position)
-            if not nearestDistance or distance < nearestDistance then nearest, nearestDistance = record, distance end
-        end
-    end
-    if not nearest then return end
-
-    World.setTask(nearest, { n = 'warn', target = source })
-    local texts = group.def.warnText
-    if type(texts) == 'table' and #texts > 0 then
-        for participant, coords in pairs(inst.positions) do
-            if #(coords - position) <= 40.0 then
-                Runtime.io.send(participant, 'noir_missions:client:pedSay', nearest.netId, texts, 'alert')
+            local target, targetDistance, targetPosition
+            for source, position in pairs(intruders) do
+                local distance = #(coords - position)
+                if not targetDistance or distance < targetDistance then
+                    target, targetDistance, targetPosition = source, distance, position
+                end
+            end
+            if warning.targets[record] ~= target then
+                warning.targets[record] = target
+                World.setTask(record, { n = 'warn', target = target })
+            end
+            if not speakerDistance or targetDistance < speakerDistance then
+                speaker, speakerDistance, speakerTarget, speakerPosition = record, targetDistance, target, targetPosition
             end
         end
     end
-    Runtime.schedule(inst, WARN_DURATION_MS, function()
-        if not group.hostile and not nearest.dead then
-            local task = World.getTask(nearest)
-            if task and task.n == 'warn' then World.setTask(nearest, { n = 'idle' }) end
+
+    if speaker and (group.warnedAt[speakerTarget] or 0) <= now then
+        group.warnedAt[speakerTarget] = now + WARN_COOLDOWN_MS
+        local texts = group.def.warnText
+        if type(texts) == 'table' and #texts > 0 then
+            for participant, coords in pairs(inst.positions) do
+                if #(coords - speakerPosition) <= 40.0 then
+                    Runtime.io.send(participant, 'noir_missions:client:pedSay', speaker.netId, texts, 'alert')
+                end
+            end
         end
-    end)
+    end
 end
 
 ---@param inst table
@@ -227,15 +248,17 @@ local function tickGroup(inst, group)
     end
 
     if def.behavior == 'guard' and (def.warnRadius or 0) > 0 then
+        local intruders = {}
         for source, position in pairs(inst.positions) do
             for index = 1, #group.peds do
                 local record = group.peds[index]
                 if not record.dead and record.anchor and #(record.anchor - position) <= def.warnRadius then
-                    warn(inst, group, source, position)
+                    intruders[source] = position
                     break
                 end
             end
         end
+        tickWarning(inst, group, intruders)
     end
 end
 

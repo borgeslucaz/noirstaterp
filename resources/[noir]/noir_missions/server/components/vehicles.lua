@@ -59,6 +59,16 @@ function Vehicles.despawn(inst, vehicleId)
     Runtime.markDirty(inst)
 end
 
+---Esquece o veículo sem apagar (ele saiu de cena com outro dono, ex.: entrega).
+---@param inst table
+---@param vehicleId string
+function Vehicles.forget(inst, vehicleId)
+    if inst.vehicles[vehicleId] then
+        inst.vehicles[vehicleId] = nil
+        Runtime.markDirty(inst)
+    end
+end
+
 ---@param inst table
 ---@param netId integer
 ---@return table? vehicle
@@ -133,6 +143,42 @@ MissionComponents.register('vehicles', {
                 id, vehicle.record and vehicle.record.netId or '-', tostring(vehicle.destroyed))
         end
     end,
+
+    steps = {
+        vehicle_enter = {
+            start = function(inst, step)
+                -- Veículo que ainda não nasceu (sem "aparece no início"): nasce agora.
+                Vehicles.spawn(inst, step.vehicle)
+            end,
+            tick = function(inst, step)
+                local vehicle = inst.vehicles[step.vehicle]
+                if not vehicle or vehicle.destroyed or not World.exists(vehicle.record) then return end
+                local entity = vehicle.record.entity
+                for source in pairs(inst.participants) do
+                    local ped = GetPlayerPed(source)
+                    if ped ~= 0 then
+                        local inside = step.who == 'any' and GetVehiclePedIsIn(ped, false) == entity
+                            or GetPedInVehicleSeat(entity, -1) == ped
+                        if inside then
+                            Runtime.completeStep(inst, step, { actor = source })
+                            return
+                        end
+                    end
+                end
+            end,
+            view = function(inst, step, _, view)
+                local vehicle = inst.vehicles[step.vehicle]
+                if not vehicle or not vehicle.record then return end
+                -- Blip na entidade (some com ela) e, de longe, na posição onde ela nasceu, com rota.
+                local coords = World.coords(vehicle.record)
+                view.blips[#view.blips + 1] = {
+                    id = 'step:' .. step.id, netId = vehicle.record.netId, sprite = 67, color = 3,
+                    label = vehicle.def.label, route = step.showGps ~= false,
+                    coords = coords and { x = coords.x, y = coords.y, z = coords.z } or vehicle.def.coords,
+                }
+            end,
+        },
+    },
 
     actions = {
         spawn_vehicle = function(inst, action) Vehicles.spawn(inst, action.vehicle) end,

@@ -2,6 +2,10 @@
 return {
     adminAce = 'noir.missions',
 
+    -- Registra no console cada decisão da missão (gatilho, chance, passo, reforço,
+    -- perseguição). Ligado enquanto o servidor está em teste; desligar em produção.
+    logEvents = true,
+
     storage = {
         -- 'json': um arquivo por missão em missions/. A interface de server/persistence
         -- não muda se trocar por banco.

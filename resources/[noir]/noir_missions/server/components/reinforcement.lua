@@ -52,6 +52,9 @@ function Reinforcement.send(inst, reinforcementId)
 
     for index = 1, #def.crew do
         local seat = index - 2 -- o primeiro dirige (-1), os outros 0, 1, 2...
+        -- Banco que o modelo não tem: ninguém nasce para ele (sentar num banco inexistente
+        -- derruba o cliente de quem é dono do ped).
+        if not World.seatExists(def.model, seat, inst.leader) then break end
         local task = seat == -1 and driveTask(def, vehicle.netId, points[1], #points == 1)
             or { n = 'ride', veh = vehicle.netId }
         local record = World.createPedInVehicle(inst, key, def.crew[index], vehicle, seat, task)
@@ -66,6 +69,7 @@ function Reinforcement.send(inst, reinforcementId)
     if crewGroup then crewGroup.hostile = def.engage ~= false end
 
     inst.reinforcements[#inst.reinforcements + 1] = run
+    Runtime.trace(inst, ('reforço %s saiu com %d de %d na tripulação'):format(def.id, #run.crew, #def.crew))
     Runtime.markDirty(inst)
     return run
 end
@@ -74,6 +78,7 @@ end
 ---@param run table
 local function arrive(inst, run)
     run.arrived = true
+    Runtime.trace(inst, ('reforço %s chegou (ponto %d de %d)'):format(run.id, run.waypoint, #run.points))
     for index = 1, #run.crew do
         local record = run.crew[index]
         if run.def.exitOnArrival ~= false then

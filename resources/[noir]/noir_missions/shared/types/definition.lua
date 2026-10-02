@@ -397,6 +397,16 @@ function Definition.normalize(raw)
     if def.start.type == 'npc' and not def.start.npcCoords then addError(ctx, 'start.npcCoords', 'obrigatório para início por NPC') end
     if def.start.type == 'zone' and not def.start.zoneCoords then addError(ctx, 'start.zoneCoords', 'obrigatório para início por zona') end
 
+    -- Perseguição salva antes dos três modos: "estrada quando não há ponto" virou "os dois".
+    if type(raw.chases) == 'table' then
+        for index = 1, #raw.chases do
+            local chase = raw.chases[index]
+            if type(chase) == 'table' and chase.spawnMode == nil and chase.roadSpawn ~= nil then
+                chase.spawnMode = chase.roadSpawn == false and 'points' or 'both'
+            end
+        end
+    end
+
     for index = 1, #Schema.collections do
         local collection = Schema.collections[index]
         local source = type(raw[collection.key]) == 'table' and raw[collection.key] or {}
@@ -490,9 +500,21 @@ function Definition.normalize(raw)
             addError(ctx, path .. '.vehicleId', 'escolha o veículo da missão')
         end
     end
+    -- Mínimo maior que o máximo: o editor deixa digitar, a missão não pode sortear errado.
     for index = 1, #def.chases do
         local chase = def.chases[index]
-        if (chase.countMin or 1) > (chase.countMax or 1) then chase.countMax = chase.countMin end
+        local path = joinPath('chases', index)
+        if (chase.countMin or 1) > (chase.countMax or 1) then
+            addError(ctx, path .. '.countMax', 'máximo menor que o mínimo')
+            chase.countMax = chase.countMin
+        end
+        for waveIndex = 1, #(chase.waves or {}) do
+            local wave = chase.waves[waveIndex]
+            if (wave.countMin or 1) > (wave.countMax or 1) then
+                addError(ctx, ('%s.waves[%d].countMax'):format(path, waveIndex), 'máximo menor que o mínimo')
+                wave.countMax = wave.countMin
+            end
+        end
     end
 
     return def, ctx.errors

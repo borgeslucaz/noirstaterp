@@ -60,3 +60,34 @@
 }
 .hud-info-label { font: 500 13px/1.2 var(--font-ui); color: var(--noir-text-muted); }
 .hud-info-value { font: 600 15px/1.2 var(--font-ui); color: var(--noir-text-strong); text-align: right; overflow-wrap: anywhere; }
+
+/* Checklist aberto: informação fixa, passos cumpridos e objetivo atual. */
+.hud-fixed-infos { display: flex; flex-direction: column; gap: 8px; margin: 2px 0 10px; }
+.hud-fixed-info { padding: 8px 10px 4px; background: rgba(255, 255, 255, .04); border-radius: var(--radius); }
+.hud-fixed-title {
+    margin-bottom: 4px;
+    font: 700 15px/1.1 var(--font-display);
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    color: var(--noir-text-strong);
+}
+.hud-fixed-info .hud-info-line { padding: 4px 0; }
+.hud-fixed-info .hud-info-value { font-size: 14px; }
+
+.hud-done { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.hud-done-item { display: flex; align-items: flex-start; gap: 8px; }
+.hud-done-icon { flex: none; width: 14px; height: 14px; margin-top: 2px; color: var(--noir-success); }
+.hud-done-icon svg { display: block; width: 100%; height: 100%; }
+.hud-done-text { font: 500 14px/1.3 var(--font-ui); color: var(--noir-text-muted); overflow-wrap: anywhere; }
+
+.hud-objective.expanded .hud-done:not([hidden]) + .hud-current { padding-top: 8px; border-top: 1px solid var(--noir-divider); }
+
+.hud-key { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+.hud-key kbd {
+    padding: 1px 5px;
+    border-radius: var(--radius);
+    background: var(--noir-select);
+    color: var(--noir-on-light);
+    font: 700 11px/1.4 var(--font-ui);
+}
+.hud-key span { font: 700 12px/1 var(--font-display); letter-spacing: .04em; text-transform: uppercase; color: var(--noir-text-muted); }

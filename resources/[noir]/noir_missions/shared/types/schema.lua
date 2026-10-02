@@ -355,10 +355,15 @@ Schema.collections = {
             F.model('model', 'Veículo', 'vehicle', { default = 'granger', required = true }),
             F.number('countMin', 'Veículos (mínimo)', { min = 1, max = 4, default = 1 }),
             F.number('countMax', 'Veículos (máximo)', { min = 1, max = 4, default = 2 }),
-            F.positions('spawnPoints', 'Pontos de nascimento', { heading = true, max = 24,
+            F.select('spawnMode', 'Onde nascem', {
+                { value = 'road', label = 'Só aleatório na estrada' },
+                { value = 'points', label = 'Só pontos cadastrados' },
+                { value = 'both', label = 'Pontos cadastrados + aleatório' },
+            }, { default = 'both',
+                help = 'Aleatório: numa via atrás de quem dirige, fora da vista de todos, nunca em calçada, telhado ou água. '
+                    .. 'Com os dois, tenta os pontos primeiro e usa a estrada quando nenhum serve.' }),
+            F.positions('spawnPoints', 'Pontos de nascimento', { heading = true, max = 24, showIf = showIf('spawnMode', 'points', 'both'),
                 help = 'O sistema escolhe o melhor: longe, atrás e fora da vista dos jogadores.' }),
-            F.bool('roadSpawn', 'Procurar estrada atrás do alvo', { default = true,
-                help = 'Sem ponto cadastrado que sirva, nasce numa via atrás do alvo, fora da tela.' }),
             F.number('minSpawnDistance', 'Distância mínima', { min = 40, max = 600, default = 120 }),
             F.number('maxSpawnDistance', 'Distância máxima', { min = 80, max = 2000, default = 450 }),
             F.number('maxSpeed', 'Velocidade máxima (m/s)', { min = 10, max = 80, default = 45 }),
@@ -386,6 +391,10 @@ Schema.collections = {
                 F.text('label', 'Nome', { required = true }),
                 F.position('coords', 'Posição', { heading = true, required = true }),
                 F.number('radius', 'Raio', { min = 2, max = 60, default = 8 }),
+                F.position('parkCoords', 'Vaga do veículo', { heading = true,
+                    help = 'Onde a van tem que parar. Vazio = qualquer lugar dentro do raio.' }),
+                F.position('npcCoords', 'Onde o NPC espera', { heading = true,
+                    help = 'Vazio = alguns metros à frente do local.' }),
             }, { itemLabel = 'label', min = 1, max = 24 }),
         },
     },
@@ -409,6 +418,18 @@ Schema.stepCommon = {
 }
 
 Schema.steps = {
+    {
+        type = 'vehicle_enter', label = 'Pegar veículo',
+        description = 'Conclui quando um participante entra no veículo da missão. Blip e rota até ele.',
+        fields = {
+            F.ref('vehicle', 'Veículo', 'vehicles', { required = true }),
+            F.select('who', 'Quem precisa entrar', {
+                { value = 'driver', label = 'Alguém no volante' },
+                { value = 'any', label = 'Alguém em qualquer banco' },
+            }, { default = 'driver' }),
+            F.bool('showGps', 'Rota no GPS até o veículo', { default = true }),
+        },
+    },
     {
         type = 'goto', label = 'Ir até local',
         description = 'Conclui quando os participantes entram no raio.',
@@ -480,12 +501,18 @@ Schema.steps = {
             F.var('var', 'Variável do local', { default = 'delivery_location', showIf = showIf('source', 'var') }),
             F.position('coords', 'Local fixo', { showIf = showIf('source', 'fixed') }),
             F.number('radius', 'Raio (local fixo)', { min = 2, max = 60, default = 8, showIf = showIf('source', 'fixed') }),
+            F.position('parkCoords', 'Vaga do veículo (local fixo)', { heading = true, showIf = showIf('source', 'fixed') }),
+            F.position('npcCoords', 'Onde o NPC espera (local fixo)', { heading = true, showIf = showIf('source', 'fixed') }),
             F.select('mode', 'Tipo de entrega', {
                 { value = 'vehicle', label = 'Veículo com a carga' },
                 { value = 'item', label = 'Item no inventário' },
                 { value = 'presence', label = 'Só chegar' },
             }, { default = 'vehicle' }),
             F.ref('cargo', 'Carga', 'cargo', { showIf = showIf('mode', 'vehicle') }),
+            F.number('parkRadius', 'Tolerância da vaga (m)', { min = 1, max = 15, default = 4, step = 0.5, showIf = showIf('mode', 'vehicle') }),
+            F.bool('handoff', 'NPC leva o veículo embora', { default = true, showIf = showIf('mode', 'vehicle'),
+                help = 'Com a van parada e vazia, o NPC entra, sai dirigindo e some longe da vista. Só veículo da missão.' }),
+            F.number('driveAwaySeconds', 'Some depois de (s)', { min = 10, max = 300, default = 45, showIf = showIf('handoff', true) }),
             F.number('required', 'Quantidade', { min = 0, max = 100, default = 0, help = '0 = toda a quantidade certa.' }),
             F.item('item', 'Item', { showIf = showIf('mode', 'item') }),
             F.bool('consume', 'Consome a carga/item', { default = true }),
@@ -565,9 +592,12 @@ Schema.actions = {
     } },
     { type = 'send_sms', label = 'Enviar SMS', group = 'Comunicação', fields = {
         F.textarea('text', 'Texto', { required = true, maxLength = 300 }),
+        F.number('delaySeconds', 'Enviar depois de (s)', { min = 0, max = 600, default = 0,
+            help = 'Só a mensagem espera; as ações seguintes continuam na hora.' }),
     } },
     { type = 'notify', label = 'Aviso na tela', group = 'Comunicação', fields = {
         F.text('text', 'Texto', { required = true }), F.select('kind', 'Tipo', NOTIFY, { default = 'inform' }),
+        F.number('delaySeconds', 'Mostrar depois de (s)', { min = 0, max = 600, default = 0 }),
     } },
     { type = 'show_info', label = 'Mostrar informação', group = 'Comunicação', fields = {
         F.text('title', 'Título', { required = true }),

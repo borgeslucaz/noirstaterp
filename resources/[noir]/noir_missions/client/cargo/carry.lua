@@ -17,6 +17,7 @@ local Targets = require 'client.interactions.targets'
 local Carry = {}
 
 local STATE_KEY = 'noir_missions:carry'
+local UNARMED = joaat('WEAPON_UNARMED')
 
 ---@type table<integer, string> serverId -> texto do state bag
 local carriers = {}
@@ -127,9 +128,18 @@ local function ownLoop()
         local data = parse(LocalPlayer.state[STATE_KEY])
         local dictOk = data and DoesAnimDictExist(data.dict) and lib.requestAnimDict(data.dict, 5000)
         Integrations.showKeys({ { key = dropKeyLabel(), label = 'Largar' } }, 'baixo')
-        local nextAnim = 0
+        -- Mãos ocupadas: arma guardada e inventário travado (sem hotbar para sacar de novo).
+        -- Se outro sistema já tinha travado, não é este laço que destrava.
+        local lockedHere = not Integrations.isInventoryBusy()
+        if lockedHere then Integrations.setInventoryBusy(true) end
+        Integrations.holsterWeapon()
+        local nextAnim, nextHolster = 0, 0
         while LocalPlayer.state[STATE_KEY] do
             local ped = cache.ped
+            if GetGameTimer() >= nextHolster and GetSelectedPedWeapon(ped) ~= UNARMED then
+                Integrations.holsterWeapon()
+                nextHolster = GetGameTimer() + 1000
+            end
             if dictOk and GetGameTimer() >= nextAnim then
                 if not IsEntityPlayingAnim(ped, data.dict, data.anim, 3) then
                     TaskPlayAnim(ped, data.dict, data.anim, 8.0, 8.0, -1, 49, 0.0, false, false, false)
@@ -151,6 +161,7 @@ local function ownLoop()
             Wait(0)
         end
         Integrations.hideKeys()
+        if lockedHere then Integrations.setInventoryBusy(false) end
         if data and dictOk then
             StopAnimTask(cache.ped, data.dict, data.anim, 2.0)
             RemoveAnimDict(data.dict)

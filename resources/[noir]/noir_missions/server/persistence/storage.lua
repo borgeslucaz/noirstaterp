@@ -25,10 +25,18 @@ local function readJson(file)
     return decoded
 end
 
+---No Enhanced o native devolve 1/0, não booleano (como o IsPlayerAceAllowed): comparar com
+---`== true` dava falha numa gravação que tinha dado certo.
+---@return boolean
+local function saveFile(file, content)
+    local result = SaveResourceFile(RESOURCE, file, content, -1)
+    return result == true or result == 1
+end
+
 local function writeJson(file, value)
     local ok, encoded = pcall(json.encode, value, { indent = true })
     if not ok then return false end
-    return SaveResourceFile(RESOURCE, file, encoded, -1) == true
+    return saveFile(file, encoded)
 end
 
 ---@return string[]
@@ -78,7 +86,7 @@ function Storage.remove(id)
     for i = 1, #ids do
         if ids[i] ~= id then kept[#kept + 1] = ids[i] end
     end
-    SaveResourceFile(RESOURCE, path(id), '', -1)
+    saveFile(path(id), '')
     return writeIndex(kept)
 end
 

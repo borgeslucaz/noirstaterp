@@ -1,6 +1,7 @@
 return {
     keys = {
         drop = 'G',
+        hud = 'J', -- alterna checklist completo / só objetivo
     },
 
     hud = {

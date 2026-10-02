@@ -71,6 +71,24 @@ local function log(inst, level, message)
     Runtime.io.log(level, ('#%s %s: %s'):format(inst.id, inst.missionId, message))
 end
 
+Runtime.logEvents = false
+
+---Trilha de decisões da execução, para descobrir por que algo não aconteceu.
+---@param inst table
+---@param message string
+function Runtime.trace(inst, message)
+    if Runtime.logEvents then log(inst, 'info', message) end
+end
+
+local function describe(payload)
+    local parts = {}
+    for key, value in pairs(payload) do
+        if type(value) ~= 'table' then parts[#parts + 1] = ('%s=%s'):format(key, tostring(value)) end
+    end
+    table.sort(parts)
+    return table.concat(parts, ' ')
+end
+
 -- Tempo ------------------------------------------------------------------------------------
 
 ---Agenda `fn` para daqui a `ms`, só se a instância ainda for a mesma execução ativa. O token
@@ -223,6 +241,7 @@ function Runtime.emit(inst, name, payload)
         return
     end
 
+    Runtime.trace(inst, ('evento %s %s'):format(name, describe(payload)))
     local ctx = { actor = payload.actor, event = name }
     local triggers = inst.def.triggers
     for index = 1, #triggers do
@@ -234,6 +253,7 @@ function Runtime.emit(inst, name, payload)
                 inst.fired[trigger.id] = (inst.fired[trigger.id] or 0) + 1
                 local delay = Utils.randomBetween(trigger.delay or 0,
                     math.max(trigger.delay or 0, trigger.delayMax or 0), Runtime.io.random)
+                Runtime.trace(inst, ('gatilho %s disparou (espera %ds)'):format(trigger.id, delay))
                 if delay > 0 then
                     Runtime.schedule(inst, delay * 1000, function()
                         Runtime.runActions(inst, trigger.actions, ctx)
@@ -241,9 +261,10 @@ function Runtime.emit(inst, name, payload)
                 else
                     Runtime.runActions(inst, trigger.actions, ctx)
                 end
-            elseif trigger.once then
+            else
+                Runtime.trace(inst, ('gatilho %s: chance de %d%% não saiu'):format(trigger.id, roll))
                 -- Chance que não saiu conta como disparo: "60% de perseguição" é decidido uma vez.
-                inst.fired[trigger.id] = 0
+                if trigger.once then inst.fired[trigger.id] = 0 end
             end
         end
         if inst.status ~= 'ACTIVE' then break end
@@ -330,6 +351,7 @@ activateFrom = function(inst, index)
                 Runtime.runActions(inst, step.onStart, { step = step.id })
                 -- Uma ação de "Ao começar" pode ter terminado a missão ou pulado de passo.
                 if inst.status ~= 'ACTIVE' or inst.step ~= step then return end
+                Runtime.trace(inst, ('passo %s (%s) começou'):format(step.id, step.type))
                 Runtime.emit(inst, 'step_started', { step = step.id })
                 if inst.status ~= 'ACTIVE' or inst.step ~= step then return end
                 if handler.start then
@@ -352,6 +374,16 @@ end
 ---@param ctx? table
 function Runtime.completeStep(inst, step, ctx)
     if inst.status ~= 'ACTIVE' or inst.step ~= step then return end
+    -- Checklist da HUD: o texto do objetivo como estava ao cumprir (com a contagem final).
+    -- Passo só de ações não tem objetivo para o jogador e não entra.
+    if step.type ~= 'actions' then
+        local objective = Runtime.objective(inst)
+        local text = objective.text or step.label
+        if objective.progress and objective.progress.max then
+            text = ('%s (%d/%d)'):format(text, objective.progress.max, objective.progress.max)
+        end
+        inst.completed[#inst.completed + 1] = { id = step.id, text = text }
+    end
     stopStep(inst, step)
     inst.step = nil
     inst.completing = true
@@ -405,6 +437,8 @@ function Runtime.create(def, opts)
         fired = {},
         timers = {},
         blips = {},
+        completed = {},
+        infos = {},
         stepIndex = 0,
         step = nil,
         stepState = {},
@@ -504,7 +538,10 @@ function Runtime.objective(inst)
     if not step then return { visible = false } end
     local handler = MissionComponents.step(step.type)
     local text = Runtime.render(inst, (step.objective and step.objective ~= '') and step.objective or step.label)
-    local objective = { visible = true, title = inst.def.name, text = text }
+    local objective = {
+        visible = true, title = inst.def.name, text = text,
+        completed = inst.completed, infos = inst.infos,
+    }
     if handler and handler.objective then
         local ok, extra = pcall(handler.objective, inst, step, inst.stepState)
         if ok and type(extra) == 'table' then

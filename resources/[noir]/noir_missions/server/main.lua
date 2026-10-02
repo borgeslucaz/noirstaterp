@@ -52,6 +52,7 @@ Runtime.io.onFinish = function(inst)
     Rewards.grant(inst)
 end
 
+Runtime.logEvents = Config.logEvents == true
 Repository.loadAll()
 Monitor.run()
 

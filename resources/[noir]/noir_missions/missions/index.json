@@ -1,3 +1,6 @@
 {
-  "missions": ["meth_elysian_precursors"]
+    "missions": [
+        "meth_elysian_precursors",
+        "teste_fase1"
+    ]
 }

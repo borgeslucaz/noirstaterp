@@ -37,15 +37,32 @@ const scenarios = {
         await sleep(50);
         await dev.openMission('meth_elysian_precursors');
     },
-    async objective() {
+    async objective(expanded = true) {
         await mock();
         send('hud:objective', {
             visible: true,
             title: 'Elysian Chemical Shipment',
             text: 'Carregue os tambores químicos na van.',
             progress: { current: 3, max: 4 },
-            timer: { label: 'Tempo restante', seconds: 754 },
+            timer: null,
+            expanded,
+            toggleKey: 'J',
+            completed: [
+                { text: 'Vá até o galpão em Elysian Island.' },
+                { text: 'Encontre informações sobre o carregamento.' },
+            ],
+            infos: [{
+                title: 'Manifesto de carga',
+                lines: [
+                    { label: 'Carga', value: 'Solvente Industrial X-9' },
+                    { label: 'Lote', value: 'C-17' },
+                    { label: 'Armazenado', value: 'Galpão C' },
+                ],
+            }],
         });
+    },
+    async compact() {
+        await scenarios.objective(false);
     },
     async info() {
         await mock();
@@ -83,7 +100,8 @@ for (const button of document.querySelectorAll('[data-run]')) {
 const presets = {
     editor: ['mission'],
     list: ['editor'],
-    hud: ['objective', 'info'],
+    hud: ['objective'],
+    compact: ['compact', 'info'],
     offer: ['offer'],
     info: ['objective', 'info'],
 };

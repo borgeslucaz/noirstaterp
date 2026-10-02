@@ -8,6 +8,11 @@ local Hud = {}
 
 local currentOffer = nil ---@type string?
 
+-- Checklist completo (passos cumpridos + informação revelada) ou só o objetivo atual.
+-- Preferência de cada jogador, guardada no próprio jogo.
+local KVP_EXPANDED = 'noir_missions:hudExpanded'
+local expanded = GetResourceKvpInt(KVP_EXPANDED) ~= 2 -- 0 = nunca escolheu: começa aberto
+
 ---@param view table?
 function Hud.objective(view)
     if not view or not view.objective then
@@ -21,12 +26,27 @@ function Hud.objective(view)
         text = objective.text,
         progress = objective.progress,
         timer = objective.timer,
+        completed = objective.completed or {},
+        infos = objective.infos or {},
+        expanded = expanded,
+        toggleKey = ClientConfig.keys.hud,
     })
 end
 
+---Informação revelada (manifesto). Com o checklist aberto ela já aparece fixa nele; recolhido,
+---sai um cartão avulso que some sozinho.
 ---@param payload { title: string, lines: table[] }
 function Hud.info(payload)
+    if expanded then return end
     Nui.send('hud:info', { title = payload.title, lines = payload.lines, seconds = ClientConfig.hud.infoSeconds })
+end
+
+function Hud.toggle()
+    if not State.view then return end
+    expanded = not expanded
+    SetResourceKvpInt(KVP_EXPANDED, expanded and 1 or 2)
+    if expanded then Nui.send('hud:infoClose') end
+    Hud.objective(State.view)
 end
 
 ---@param payload table
@@ -83,6 +103,10 @@ end)
 Nui.onReady(function()
     Hud.objective(State.view)
 end)
+
+RegisterCommand('+noirMissionsHud', function() Hud.toggle() end, false)
+RegisterCommand('-noirMissionsHud', function() end, false)
+RegisterKeyMapping('+noirMissionsHud', 'Noir: mostrar/esconder passos da missão', 'keyboard', ClientConfig.keys.hud)
 
 Hud.CODES = CODES
 return Hud

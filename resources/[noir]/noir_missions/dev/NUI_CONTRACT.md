@@ -23,7 +23,7 @@ desconhecida.
 | `editor:instances` | `{ instances }` |
 | `editor:placement` | `{ active: boolean }` — enquanto `true`, o editor some inteiro (o jogador está posicionando no mundo); `false` volta como estava |
 | `editor:placementResult` | `{ requestId, ok, position?: {x,y,z,w} }` |
-| `hud:objective` | `{ visible, title, text, progress: {current,max} \| null, timer: {label, seconds} \| null }` |
+| `hud:objective` | `{ visible, title, text, progress: {current,max} \| null, timer: {label, seconds} \| null, completed: [{text}], infos: [{title, lines}], expanded, toggleKey }` — `expanded` mostra informação fixa + passos cumpridos; recolhido, só o objetivo |
 | `hud:info` | `{ title, lines: [{label, value}], seconds }` |
 | `hud:infoClose` | `{}` |
 | `hud:offer` | `{ offerId, caller, title, text, seconds }` |

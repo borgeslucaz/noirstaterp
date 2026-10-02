@@ -293,6 +293,9 @@ end)
 RegisterNetEvent("sky_phone:messages:new", function(data)
     local locale = app_locales.messages
     data.title = locale.name
+    -- SMS anônimo (bgrz_core:SendPhoneAnonymousMessage) não tem remetente: sem isto o texto
+    -- saía "Nova mensagem de nil". (Noir State)
+    if data.sender == nil or data.sender == "" then data.sender = "Anônimo" end
     data.text = locale.newMessage:gsub("{sender}", tostring(data.sender))
     SendNUIMessage({ type = "messages:new", data = data })
 end)

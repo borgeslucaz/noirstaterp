@@ -59,6 +59,20 @@ local minutes, err = exports.bgrz_core:GetItemDegrade(item)                -- va
 
 Para quem cria o item gravar a própria validade (`metadata = { durability = instante, degrade = minutes }`) — o `noir_weed` arredonda para a hora cheia, e itens do mesmo lote empilham. Item sem validade devolve `nil` sem erro. Erros: `invalid_item`, `unknown_item`, `provider_unavailable`.
 
+## Mãos ocupadas (client)
+
+```lua
+local ok, err = exports.bgrz_core:HolsterWeapon(noAnim)      -- guarda a arma da mão pelo inventário
+local ok, err = exports.bgrz_core:SetInventoryBusy(true)     -- trava abrir, usar item e hotbar
+local busy = exports.bgrz_core:IsInventoryBusy()
+```
+
+Para atividade em que o jogador carrega algo nas mãos. `HolsterWeapon` passa pelo provider
+(`ox_inventory:disarm`): trocar a arma direto pelo native deixa o inventário achando que ela
+continua equipada. A trava é o `invBusy` do provider, o mesmo que o qbx_medical usa; quem trava
+destrava, e deve deixar como estava se já encontrou travado. Erros: `invalid_state`,
+`provider_unavailable`.
+
 ## Target (client)
 
 ```lua

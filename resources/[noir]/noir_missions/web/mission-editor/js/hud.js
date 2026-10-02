@@ -1,5 +1,7 @@
-// HUD da missão: objetivo discreto e cartão de informação revelada. Sem foco e sem ponteiro:
-// nunca captura entrada. O timer conta localmente a partir dos segundos recebidos.
+// HUD da missão. Dois modos, alternados pela tecla do Lua (J por padrão):
+//   aberto    — informação revelada fixa no topo, passos cumpridos e o objetivo atual;
+//   recolhido — só o objetivo atual (a informação nova sai num cartão avulso que some).
+// Sem foco e sem ponteiro: nunca captura entrada. O timer conta localmente.
 import { el, pad2 } from './dom.js';
 import { fetchNui } from './nui.js';
 
@@ -19,14 +21,18 @@ function mount() {
     const timerLabel = el('span', 'hud-timer-label');
     const timerValue = el('span', 'hud-timer-value num');
     const timer = el('div', 'hud-timer', timerLabel, timerValue);
-    const objective = el('div', { class: 'hud-card hud-objective', hidden: true }, objTitle, objText, progress, timer);
+    const infos = el('div', 'hud-fixed-infos');
+    const done = el('ol', 'hud-done');
+    const keyHint = el('div', 'hud-key');
+    const objective = el('div', { class: 'hud-card hud-objective', hidden: true },
+        objTitle, infos, done, el('div', 'hud-current', objText, progress, timer), keyHint);
 
     const infoTitle = el('div', 'hud-info-title');
     const infoLines = el('div', 'hud-info-lines');
     const info = el('div', { class: 'hud-card hud-info', hidden: true }, infoTitle, infoLines);
 
     root.append(el('div', 'hud-stack', objective, info));
-    refs = { objective, objTitle, objText, progress, progressFill, progressValue, timer, timerLabel, timerValue, info, infoTitle, infoLines };
+    refs = { objective, objTitle, objText, progress, progressFill, progressValue, timer, timerLabel, timerValue, info, infoTitle, infoLines, infos, done, keyHint };
     return refs;
 }
 
@@ -42,6 +48,23 @@ function show(node, visible) {
         node.classList.remove('in');
         hideTimers.set(node, setTimeout(() => { if (!node.classList.contains('in')) node.hidden = true; }, 260));
     }
+}
+
+const CHECK = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M2.5 8.5l3.5 3.5 7.5-8"/></svg>';
+
+function infoBlock(info, cls) {
+    return el('div', cls,
+        el('div', { class: 'hud-fixed-title', text: info?.title ?? '' }),
+        ...(Array.isArray(info?.lines) ? info.lines : []).map((line) => el('div', 'hud-info-line',
+            el('span', { class: 'hud-info-label', text: line?.label ?? '' }),
+            el('span', { class: 'hud-info-value', text: line?.value ?? '' }))));
+}
+
+function doneItem(item) {
+    const icon = el('span', 'hud-done-icon');
+    // SVG fixo, não vem de dado: o texto do passo vai por textContent.
+    icon.innerHTML = CHECK;
+    return el('li', 'hud-done-item', icon, el('span', { class: 'hud-done-text', text: item?.text ?? '' }));
 }
 
 function tick() {
@@ -63,6 +86,24 @@ export function setObjective(data) {
     r.objTitle.textContent = data.title || '';
     r.objTitle.hidden = !data.title;
     r.objText.textContent = data.text || '';
+
+    const completed = Array.isArray(data.completed) ? data.completed : [];
+    const infos = Array.isArray(data.infos) ? data.infos : [];
+    const expanded = data.expanded !== false;
+    r.infos.replaceChildren(...(expanded ? infos.map((info) => infoBlock(info, 'hud-fixed-info')) : []));
+    r.infos.hidden = !expanded || infos.length === 0;
+    r.done.replaceChildren(...(expanded ? completed.map(doneItem) : []));
+    r.done.hidden = !expanded || completed.length === 0;
+    r.objective.classList.toggle('expanded', expanded);
+
+    // Pílula da tecla só quando há o que mostrar ou esconder.
+    const hasExtra = completed.length > 0 || infos.length > 0;
+    r.keyHint.hidden = !hasExtra;
+    if (hasExtra) {
+        r.keyHint.replaceChildren(
+            el('kbd', { text: data.toggleKey || 'J' }),
+            el('span', { text: expanded ? 'Esconder passos' : `Mostrar passos (${completed.length})` }));
+    }
 
     const progress = data.progress;
     if (progress && Number(progress.max) > 0) {
